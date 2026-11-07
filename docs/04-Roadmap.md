@@ -28,6 +28,11 @@ perfeita; câmera lenta no último golpe.
 arenas de tamanhos variados, Guardiões a cada 5 salas, escala de dificuldade, Ascensão
 automática, Bênçãos repetíveis, IA que lê o jogador (5 leituras) e as anuncia.
 
+**M1.4 — arsenal, sangue e equipamento (feito):** 6 armas com combos, golpes de troca e
+finalizações próprias; Troca Perfeita; sangue e manchas persistentes (com opção); itens com
+10 raridades, 4 espaços, 6 elementos e atributos aleatórios; tela de Arsenal e de
+Equipamento; painel de técnicas removido da tela de jogo.
+
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; pixel art livre escolhida + shader de paleta; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.

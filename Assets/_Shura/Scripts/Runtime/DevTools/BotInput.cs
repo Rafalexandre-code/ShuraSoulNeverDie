@@ -17,6 +17,7 @@ namespace Shura
         object lastAnsweredKey;
         int lastAnsweredSerial = -1;
         int attackCooldown;
+        int answers;
 
         public Vector2 Move { get; private set; }
         public bool ParryHeld { get; private set; }
@@ -116,7 +117,8 @@ namespace Shura
 
             if (a.Parryable)
             {
-                Buffer.Press(BufferedAction.Parry, 3);
+                // Every other parryable swing is answered with a Troca Perfeita to exercise it.
+                Buffer.Press(++answers % 2 == 0 ? BufferedAction.Swap : BufferedAction.Parry, 3);
             }
             else
             {

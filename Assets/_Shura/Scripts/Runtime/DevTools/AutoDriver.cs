@@ -29,6 +29,7 @@ namespace Shura
         bool pauseTourDone;
         bool settingsShotDone;
         bool altarShotDone;
+        bool equipmentShotDone;
         bool finished;
         Game.Mode lastMode;
 
@@ -63,10 +64,28 @@ namespace Shura
                     if (ShotThenAct("title", wait)) game.GoToMainMenu();
                     break;
                 case Game.Mode.MainMenu:
-                    if (ShotThenAct("menu", wait)) game.StartRun();
+                    if (ShotThenAct("menu", wait))
+                    {
+                        if (shots) game.OpenArsenal();
+                        else game.StartRun();
+                    }
+                    break;
+                case Game.Mode.Arsenal:
+                    if (ShotThenAct("arsenal", wait)) game.StartRun();
                     break;
                 case Game.Mode.Reward:
-                    if (ShotThenAct("reward", wait)) game.ChooseReward(PickReward());
+                    if (ShotThenAct("reward", wait))
+                    {
+                        if (shots && !equipmentShotDone) game.OpenEquipment();
+                        else game.ChooseReward(PickReward());
+                    }
+                    break;
+                case Game.Mode.Equipment:
+                    if (ShotThenAct("equipment", wait))
+                    {
+                        equipmentShotDone = true;
+                        game.CloseEquipment();
+                    }
                     break;
                 case Game.Mode.Playing:
                     UpdatePlaying();
@@ -178,6 +197,17 @@ namespace Shura
                 sb.Append(" ascensao=").Append(run.Ascension);
                 sb.Append(" guardioes=").Append(run.ElitesKilled);
                 sb.Append(" sequenciaMax=").Append(run.BestStreak);
+                sb.Append(" trocasPerfeitas=").Append(run.SwapParries);
+                sb.Append(" armas=").Append(run.Weapons[0].id).Append('+').Append(run.Weapons[1].id);
+                int equipped = 0;
+                Rarity best = Rarity.Common;
+                foreach (Item item in run.Equipped)
+                {
+                    if (item == null) continue;
+                    equipped++;
+                    if (item.rarity > best) best = item.rarity;
+                }
+                sb.Append(" itens=").Append(equipped).Append(" equipados/").Append(run.Bag.Count).Append(" mochila, melhor=").Append(Rarities.Name(best));
                 sb.Append(" leitura=[");
                 List<ReadingId> reading = game.World.Adaptation.Active();
                 for (int i = 0; i < reading.Count; i++) sb.Append(i > 0 ? ", " : string.Empty).Append(Strings.ReadingName(reading[i]));

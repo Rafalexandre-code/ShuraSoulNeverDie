@@ -37,6 +37,26 @@ namespace Shura
         ShadowStep,
         /// <summary>Every 5 perfect actions in a row. Magnitude = streak length.</summary>
         StreakMilestone,
+        /// <summary>Troca Perfeita: swap-parry. Colour = incoming weapon.</summary>
+        SwapParry,
+        /// <summary>The special attack after a Troca Perfeita starts its active frames.</summary>
+        SwapStrike,
+        /// <summary>An ordinary weapon change.</summary>
+        WeaponSwap,
+        /// <summary>Thrust/jab streak. Magnitude = length.</summary>
+        ThrustTrail,
+        SlamImpact,
+        /// <summary>A finisher begins. Magnitude = FinisherStyle.</summary>
+        FinisherStart,
+        /// <summary>A blow inside a finisher. Magnitude = intensity.</summary>
+        FinisherHit,
+        Crit,
+        /// <summary>Burn/bleed damage tick. Magnitude = damage.</summary>
+        DotTick,
+        /// <summary>Lightning arc. Magnitude = length.</summary>
+        Lightning,
+        /// <summary>An item hits the floor. Magnitude = rarity tier.</summary>
+        ItemDrop,
     }
 
     public enum HintId
@@ -50,6 +70,7 @@ namespace Shura
         Shadow,
         Finisher,
         Mastery,
+        SwapParry,
     }
 
     /// <summary>
@@ -62,6 +83,11 @@ namespace Shura
         void Popup(string text, Vector2 worldPosition, Color color);
         void Toast(string text, Color color);
         void Hint(HintId hint);
+        /// <summary>Blood spray (sparks when blood is disabled). Amount ≈ droplets.</summary>
+        void Blood(Vector2 position, Vector2 direction, float amount, Color color);
+        /// <summary>The body's fate at the end of a finisher.</summary>
+        void Gore(FinisherStyle style, Vector2 position, Vector2 direction, Sprite body, Color bodyColor, Color blood, float radius);
+        void ItemCollected(Item item, bool equipped, Vector2 position);
     }
 
     /// <summary>Used by tests and headless runs where nothing needs to be shown.</summary>
@@ -71,5 +97,8 @@ namespace Shura
         public void Popup(string text, Vector2 worldPosition, Color color) { }
         public void Toast(string text, Color color) { }
         public void Hint(HintId hint) { }
+        public void Blood(Vector2 position, Vector2 direction, float amount, Color color) { }
+        public void Gore(FinisherStyle style, Vector2 position, Vector2 direction, Sprite body, Color bodyColor, Color blood, float radius) { }
+        public void ItemCollected(Item item, bool equipped, Vector2 position) { }
     }
 }

@@ -22,6 +22,10 @@ namespace Shura
             Reward,
             GameOver,
             Altar,
+            /// <summary>Weapon loadout before a run.</summary>
+            Arsenal,
+            /// <summary>Character, weapon wheel and worn items (from the reward screen or pause).</summary>
+            Equipment,
         }
 
         const int RoomClearDelayFrames = 75;
@@ -36,6 +40,7 @@ namespace Shura
         int deathTimer = -1;
         Mode settingsReturnMode = Mode.MainMenu;
         Mode altarReturnMode = Mode.MainMenu;
+        Mode equipmentReturnMode = Mode.Reward;
         string metaPath;
         float emberTimer;
         float tempo = 1f;
@@ -122,6 +127,12 @@ namespace Shura
                 case Mode.Paused:
                     if (Controls.PausePressed) Resume();
                     break;
+                case Mode.Reward:
+                    if (Controls.EquipmentPressed && !Launch.Automated) OpenEquipment();
+                    break;
+                case Mode.Equipment:
+                    if (Controls.EquipmentPressed) CloseEquipment();
+                    break;
             }
 
             autoDriver?.Update();
@@ -194,6 +205,10 @@ namespace Shura
             if (Run != null && !Run.Banked) BankRun();
             ulong seed = Launch.Seed ?? (ulong)DateTime.UtcNow.Ticks;
             Run = new RunState(seed, Config.flow, Meta);
+            string weaponA = Launch.Automated && Launch.WeaponA != null ? Launch.WeaponA : Settings.weaponA;
+            string weaponB = Launch.Automated && Launch.WeaponB != null ? Launch.WeaponB : Settings.weaponB;
+            Run.Weapons[0] = WeaponDefs.Get(weaponA);
+            Run.Weapons[1] = WeaponDefs.Get(weaponB);
             if (Run.Modifiers.startFlowPoints > 0f) Run.Flow.Add(Run.Modifiers.startFlowPoints);
             roomClearTimer = -1;
             deathTimer = -1;
@@ -208,8 +223,50 @@ namespace Shura
             tempo = Config.feel.baseTempo;
             slowMoTimer = 0f;
             Vfx.Clear();
+            Vfx.ClearDecals();
+            Vfx.StainBounds = World.Bounds;
             SetMode(Mode.Playing);
             UI.FadeFromBlack();
+        }
+
+        public void OpenArsenal()
+        {
+            SetMode(Mode.Arsenal);
+        }
+
+        /// <summary>Saves the chosen pair and starts the run.</summary>
+        public void ConfirmArsenal(string weaponA, string weaponB)
+        {
+            Settings.weaponA = weaponA;
+            Settings.weaponB = weaponB;
+            if (!Launch.Automated) Settings.Save();
+            StartRun();
+        }
+
+        public void OpenEquipment()
+        {
+            if (Run == null) return;
+            equipmentReturnMode = CurrentMode;
+            SetMode(Mode.Equipment);
+        }
+
+        public void CloseEquipment()
+        {
+            SetMode(equipmentReturnMode);
+        }
+
+        public void EquipItem(Item item)
+        {
+            Run.Equip(item);
+            World.Player.ApplyStats(false);
+            Audio.Play(Sfx.Unsheathe, 0.5f, 1.3f, 0f);
+        }
+
+        public void UnequipItem(ItemSlot slot)
+        {
+            Run.Unequip(slot);
+            World.Player.ApplyStats(false);
+            Audio.Play(Sfx.UiMove, 0.6f, 0.8f, 0f);
         }
 
         public void Pause()
@@ -339,6 +396,7 @@ namespace Shura
         {
             AudioListener.volume = Settings.master;
             if (World != null) World.ShowTimingIndicator = Settings.timingIndicator;
+            if (Vfx != null) Vfx.BloodEnabled = Settings.blood;
             if (!Application.isEditor && !Launch.Automated)
             {
                 Screen.fullScreenMode = Settings.fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed;
@@ -368,6 +426,8 @@ namespace Shura
             Run.RoomIndex++;
             RoomDef room = Run.GetRoom(Run.RoomIndex);
             World.StartRoom(room, false);
+            Vfx.ClearDecals();
+            Vfx.StainBounds = World.Bounds;
             SetMode(Mode.Playing);
             UI.FadeFromBlack();
             AnnounceRoom(room);
@@ -437,9 +497,9 @@ namespace Shura
 
         void UpdateMusic()
         {
-            bool inRun = CurrentMode == Mode.Playing || CurrentMode == Mode.Paused || CurrentMode == Mode.Reward;
+            bool inRun = CurrentMode == Mode.Playing || CurrentMode == Mode.Paused || CurrentMode == Mode.Reward || CurrentMode == Mode.Equipment;
             bool menu = CurrentMode == Mode.Title || CurrentMode == Mode.MainMenu ||
-                        CurrentMode == Mode.Settings || CurrentMode == Mode.Credits || CurrentMode == Mode.Altar;
+                        CurrentMode == Mode.Settings || CurrentMode == Mode.Credits || CurrentMode == Mode.Altar || CurrentMode == Mode.Arsenal;
             int flow = Run != null ? Run.Flow.Level : 0;
             bool combat = inRun && World.ActiveEnemyCount > 0;
 

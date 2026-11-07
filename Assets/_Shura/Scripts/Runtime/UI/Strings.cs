@@ -31,6 +31,33 @@ namespace Shura
         public const string Fullscreen = "Tela cheia";
         public const string ResetControls = "Restaurar controles padrão";
         public const string TimingIndicator = "Indicador de tempo";
+        public const string Blood = "Sangue";
+
+        public const string Arsenal = "Arsenal";
+        public const string ArsenalTitle = "ARSENAL";
+        public const string ArsenalSubtitle = "Escolha duas armas. Trocar (Q / Y) no instante do anel é uma TROCA PERFEITA.";
+        public const string ArsenalStart = "Começar";
+        public const string ArsenalNeedTwo = "Escolha duas armas";
+        public const string WeaponSwapStrike = "Golpe de troca: {0}";
+        public const string WeaponFinisher = "Finalização: {0}";
+        public const string WeaponCombo = "Combo de {0} golpes";
+
+        public const string Equipment = "Equipamento";
+        public const string EquipmentTitle = "EQUIPAMENTO";
+        public const string EquipmentSlots = "EQUIPADO";
+        public const string EquipmentBag = "MOCHILA";
+        public const string EquipmentEmpty = "— vazio —";
+        public const string EquipmentControls = "Cima / Baixo escolher  ·  Enter / A equipar ou guardar  ·  Esc / B voltar";
+        public const string EquipmentOpen = "Tab / Select: Equipamento";
+        public const string EquipmentBagCount = "Mochila: {0}/{1}";
+        public const string EquipmentStats = "ATRIBUTOS";
+        public const string EquipmentPickHint = "Escolha um item para ver os detalhes. Itens caem dos inimigos (Guardiões sempre deixam um) e duram até o fim da run.";
+        public const string EquipmentWheel = "RODA DE ARMAS";
+        public const string Rarity = "Raridade: {0}";
+        public const string ElementLine = "{0}  ·  Elemento: {1}";
+        public const string ToastItemEquipped = "Equipado: {0} ({1})";
+        public const string ToastItemBag = "Na mochila: {0} ({1})";
+        public const string HudWeapons = "{0}   <>   {1}";
 
         public const string Altar = "Altar das Almas";
         public const string AltarTitle = "ALTAR DAS ALMAS";
@@ -60,6 +87,9 @@ namespace Shura
         public const string ToastAscension = "ASCENSÃO {0}  ·  +4 vida  ·  +3% dano";
         public const string ToastLearned = "Os inimigos aprenderam: {0}";
         public const string PopupGuardian = "GUARDIÃO";
+        public const string PopupSwapParry = "TROCA PERFEITA";
+        public const string PopupCrit = "CRÍTICO";
+        public const string StatSwaps = "Trocas perfeitas";
         public const string Technique = "TÉCNICA";
         public const string Relic = "RELÍQUIA";
         public const string Gain = "GANHO";
@@ -167,6 +197,10 @@ namespace Shura
                     return "Flechas também se aparam: quando o anel da FLECHA fechar, um parry perfeito a devolve para o arqueiro.";
                 case HintId.Shadow:
                     return "A SOMBRA sumiu e reapareceu às suas COSTAS! Vire-se para ela e apare quando o anel fechar.";
+                case HintId.SwapParry:
+                    return gamepad
+                        ? "TROCA PERFEITA: em vez de LB, aperte Y (trocar arma) quando o anel fechar. Apara E solta o golpe especial da outra arma — mas sem bloqueio se errar."
+                        : "TROCA PERFEITA: em vez de aparar, aperte Q (trocar arma) quando o anel fechar. Apara E solta o golpe especial da outra arma — mas sem bloqueio se errar.";
                 case HintId.Finisher:
                     return "Postura quebrada! Ataque perto do inimigo para FINALIZAR.";
                 case HintId.Mastery:

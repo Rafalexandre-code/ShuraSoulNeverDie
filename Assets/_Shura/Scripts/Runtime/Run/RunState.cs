@@ -19,6 +19,20 @@ namespace Shura
         /// <summary>Automatic growth: one level per room cleared.</summary>
         public int Ascension;
         public int ElitesKilled;
+        public int SwapParries;
+
+        /// <summary>The two weapons carried this run; ActiveWeapon indexes the one in hand.</summary>
+        public readonly WeaponDef[] Weapons = new WeaponDef[2];
+        public int ActiveWeapon;
+        public WeaponDef CurrentWeapon => Weapons[ActiveWeapon] ?? WeaponDefs.Katana;
+        public WeaponDef OtherWeapon => Weapons[1 - ActiveWeapon] ?? WeaponDefs.Katana;
+
+        public const int BagCapacity = 12;
+        /// <summary>Worn items, one per slot (null = empty).</summary>
+        public readonly Item[] Equipped = new Item[4];
+        public readonly List<Item> Bag = new List<Item>();
+        /// <summary>Everything with combat hooks: rewards plus worn items.</summary>
+        public readonly List<RewardDef> Effects = new List<RewardDef>();
 
         public PlayerModifiers Modifiers { get; private set; } = new PlayerModifiers();
         /// <summary>Perfect actions in a row without taking damage.</summary>
@@ -49,6 +63,41 @@ namespace Shura
         {
             while (rooms.Count <= depth) rooms.Add(RoomGenerator.Generate(Seed, rooms.Count));
             return rooms[depth];
+        }
+
+        /// <summary>Picks up a dropped item: worn at once if its slot is free, otherwise kept in the bag.</summary>
+        /// <returns>true if it was equipped directly.</returns>
+        public bool AddItem(Item item)
+        {
+            int slot = (int)item.slot;
+            if (Equipped[slot] == null)
+            {
+                Equipped[slot] = item;
+                RecomputeModifiers();
+                return true;
+            }
+            Bag.Add(item);
+            while (Bag.Count > BagCapacity) Bag.RemoveAt(0);
+            return false;
+        }
+
+        /// <summary>Wears a bag item; whatever was in its slot goes back into the bag.</summary>
+        public void Equip(Item item)
+        {
+            if (!Bag.Remove(item)) return;
+            int slot = (int)item.slot;
+            if (Equipped[slot] != null) Bag.Add(Equipped[slot]);
+            Equipped[slot] = item;
+            RecomputeModifiers();
+        }
+
+        public void Unequip(ItemSlot slot)
+        {
+            Item item = Equipped[(int)slot];
+            if (item == null || Bag.Count >= BagCapacity) return;
+            Equipped[(int)slot] = null;
+            Bag.Add(item);
+            RecomputeModifiers();
         }
 
         public void Ascend()
@@ -103,10 +152,16 @@ namespace Shura
         {
             var m = new PlayerModifiers();
             Meta?.ApplyTo(m);
+            Effects.Clear();
+            Effects.AddRange(Owned);
+            foreach (Item item in Equipped)
+            {
+                if (item != null) Effects.Add(item);
+            }
             m.maxHealthBonus += DifficultyRules.AscensionHealth * Ascension;
             m.maxPostureBonus += DifficultyRules.AscensionPosture * Ascension;
             m.damageMult *= 1f + DifficultyRules.AscensionDamage * Ascension;
-            for (int i = 0; i < Owned.Count; i++) Owned[i].Apply(m);
+            for (int i = 0; i < Effects.Count; i++) Effects[i].Apply(m);
             Modifiers = m;
         }
 

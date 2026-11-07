@@ -5,6 +5,8 @@ namespace Shura
         Attack = 0,
         Parry = 1,
         Dodge = 2,
+        /// <summary>Weapon swap — doubles as the Troca Perfeita (swap-parry).</summary>
+        Swap = 3,
     }
 
     /// <summary>
@@ -14,7 +16,7 @@ namespace Shura
     /// </summary>
     public sealed class InputBuffer
     {
-        readonly int[] remaining = new int[3];
+        readonly int[] remaining = new int[4];
 
         public void Press(BufferedAction action, int frames)
         {

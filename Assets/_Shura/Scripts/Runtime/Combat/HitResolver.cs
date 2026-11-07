@@ -7,9 +7,19 @@ namespace Shura
         Hit,
         Blocked,
         PerfectParry,
+        /// <summary>Troca Perfeita: swapping weapons inside the window parries and triggers a Swap Strike.</summary>
+        SwapParry,
         PerfectDodge,
         CounterThrust,
         Ignored,
+    }
+
+    /// <summary>What a player strike did to an enemy.</summary>
+    public enum StrikeResult
+    {
+        None,
+        Deflected,
+        Hit,
     }
 
     /// <summary>A swing or projectile reaching the player.</summary>
@@ -32,6 +42,8 @@ namespace Shura
         public bool hurtInvulnerable;
         public bool parryWindow;
         public bool guarding;
+        /// <summary>Inside a weapon swap's parry window. Unlike guarding, a swap has no block fallback.</summary>
+        public bool swapWindow;
         public Vector2 facing;
         public Vector2 toAttacker;
         public float parryArcDegrees;
@@ -58,6 +70,7 @@ namespace Shura
             // Parry is directional: a swing from outside the guarded arc (e.g. from behind) lands.
             if (attack.Parryable && CombatMath.WithinArc(d.facing, d.toAttacker, d.parryArcDegrees))
             {
+                if (d.swapWindow) return HitOutcome.SwapParry;
                 if (d.parryWindow) return HitOutcome.PerfectParry;
                 if (d.guarding) return HitOutcome.Blocked;
             }

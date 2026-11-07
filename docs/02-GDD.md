@@ -49,6 +49,45 @@ Pilares: ver `01-Conceito.md`.
 - **Cancelamentos:** recuperação de ataque pode ser cancelada em esquiva ou parry 4 f após
   o fim dos frames ativos. Buffer de entrada: 8 f (ataque/esquiva), 3 f (parry).
 
+## 2b. Armas e Troca Perfeita
+Você leva **duas armas** (escolhidas no **Arsenal** antes da run) e troca com **Q / Y**.
+- **Troca Perfeita:** trocar dentro da janela de parry (quando o anel fecha) **apara** o golpe
+  (+30% de postura no atacante, +50% de Fluxo) **e** dispara o **golpe de troca** da arma que
+  entra, com invencibilidade. Diferente do parry, a troca **não tem bloqueio**: errar = levar o
+  golpe inteiro. Trocas erradas seguidas encurtam a próxima janela.
+
+| Arma | Estilo | Combo | Golpe de troca | Finalização |
+|---|---|---|---|---|
+| Katana | Equilibrada | 3 cortes alternados | Iaijutsu (atravessa em linha) | Corte Limpo (corpo partido ao meio) |
+| Montante | Lenta, pesada, −15% velocidade | Varrido largo + golpe descendente | Queda do Céu (salto com onda) | Execução (esmagamento, poça enorme) |
+| Lâminas Gêmeas | Muito rápida, +12% velocidade | 5 golpes, giro final | Dança das Lâminas (6 cortes em roda) | Mil Cortes (9 estocadas de todos os lados) |
+| Naginata | Alcance | 2 estocadas + varrido de 200° | Estocada Relâmpago (investida de 3 m) | Empalar (ergue na haste e arremessa) |
+| Kusarigama | Alcance e puxão | 2 chicotadas + giro (puxam inimigos) | Laço Ceifador (giro de 3 m que puxa) | Ceifa (gira o inimigo pela corrente) |
+| Manoplas de Ferro | Postura | 4 socos com muita postura | Punho do Trovão (50 de postura) | Coração Partido (soco que atravessa) |
+
+**Sangue:** golpes espirram sangue que mancha o chão até o fim da sala; finalizações inundam
+o chão, com pedaços do corpo conforme a arma. Opção **Sangue: Ligado/Desligado**.
+
+## 2c. Equipamento (itens dropados)
+- Inimigos têm 18% (+1% por profundidade, máx. 40%) de deixar um item; **Guardiões sempre**.
+  O item fica no chão sob um **feixe de luz** da cor da raridade (mais alto quanto mais raro);
+  basta passar por cima. Ao vencer a sala, o que ficou no chão é recolhido.
+- **4 espaços:** Amuleto, Anel, Bracelete, Talismã. Se o espaço está livre, equipa na hora;
+  senão vai para a **mochila** (12). Os itens duram até o fim da run.
+- **10 raridades:** Comum, Incomum, Raro, Épico, Lendário, Mítico, Ancestral, Divino, Celestial,
+  Shura. Mais raro = mais atributos (1 → 5) e valores maiores (×1 → ×5). A profundidade e os
+  Guardiões puxam a raridade para cima.
+- **Atributos:** dano, postura, vida, postura máxima, recarga da esquiva, Fluxo, cura por sala,
+  cura ao finalizar, velocidade, **crítico** (×1,8), **roubo de vida** e, a partir de Lendário,
+  janela de parry.
+- **Elementos** (a partir de Raro, mudam a cor do rastro do corte e acrescentam uma variação
+  de ataque): Fogo (queima), Gelo (inimigo anda e ataca mais devagar), Raio (raio em cadeia),
+  Sangue (sangramento + cura), Vento (o 3º golpe solta uma onda de corte), Sombra (parry
+  perfeito invoca uma lâmina sombria).
+- **Tela de Equipamento** (Tab / Select na recompensa, ou pela pausa): personagem, roda de
+  armas, atributos, espaços, mochila e detalhes do item. O painel de técnicas saiu da tela
+  de jogo.
+
 ## 3. Sistemas
 - **Técnicas Absorvidas:** cada inimigo tem um golpe-assinatura e uma *Resposta Perfeita*.
   Executar a resposta marca o inimigo com o selo dourado; finalizá-lo absorve a técnica,

@@ -30,6 +30,10 @@ namespace Shura
         Shield,
         /// <summary>Four-point sparkle used for blade-on-blade clashes.</summary>
         Star,
+        Greatsword,
+        Glaive,
+        Sickle,
+        Gauntlet,
     }
 
     /// <summary>
@@ -84,6 +88,18 @@ namespace Shura
                     break;
                 case Shape.Arrow:
                     sprite = RasterizeLong(ArrowTexel);
+                    break;
+                case Shape.Greatsword:
+                    sprite = RasterizeLong(GreatswordTexel);
+                    break;
+                case Shape.Glaive:
+                    sprite = RasterizeLong(GlaiveTexel);
+                    break;
+                case Shape.Sickle:
+                    sprite = RasterizeLong(SickleTexel);
+                    break;
+                case Shape.Gauntlet:
+                    sprite = RasterizeLong(GauntletTexel);
                     break;
                 default:
                     sprite = Rasterize(Resolution, p => Coverage(shape, p, Resolution));
@@ -177,6 +193,90 @@ namespace Shura
             if (u > 0.8f) return Shade(1f, AaV(0.38f * (1f - (u - 0.8f) / 0.2f) - av));     // head
             if (u < 0.16f) return Shade(0.9f, AaV(0.32f - av) * (u > 0.03f ? 1f : 0f));    // fletching
             return Shade(0.7f, AaV(0.07f - av));                                            // shaft
+        }
+
+        static Color GreatswordTexel(float u, float v)
+        {
+            float av = Mathf.Abs(v);
+            if (u < 0.03f) return Shade(0.6f, AaV(0.36f - av));                             // pommel
+            if (u < 0.2f) return Shade(0.38f + 0.12f * Mathf.Sin(u * 110f), AaV(0.18f - av)); // long grip
+            if (u < 0.25f) return Shade(0.75f, AaV(0.95f - av));                             // wide guard
+            float half = 0.62f * (1f - Smooth(0.85f, 1f, u));
+            float fuller = av < 0.08f ? 0.7f : (v > 0f ? 1f : 0.82f);                       // central groove
+            return Shade(fuller, AaV(half - av));
+        }
+
+        static Color GlaiveTexel(float u, float v)
+        {
+            Color shaft = Shade(0.5f, u < 0.66f ? AaV(0.11f - Mathf.Abs(v)) : 0f);
+            if (u < 0.64f) return shaft;
+            if (u < 0.67f) return Shade(0.75f, AaV(0.32f - Mathf.Abs(v)));                  // collar
+            // Curved single-edged blade: its centre line bends upward toward the tip.
+            float t = (u - 0.67f) / 0.33f;
+            float centre = 0.35f * t * t;
+            float half = 0.4f * (1f - t * 0.85f);
+            float d = Mathf.Abs(v - centre);
+            return Shade(v > centre ? 1f : 0.82f, AaV(half - d));
+        }
+
+        static Color SickleTexel(float u, float v)
+        {
+            Color handle = Shade(0.45f, u < 0.5f ? AaV(0.13f - Mathf.Abs(v)) : 0f);
+            if (u < 0.45f) return handle;
+            // Hooked blade sweeping back from the top of the handle.
+            float x = (u - 0.45f) / 0.55f;
+            float centre = 0.75f * Mathf.Sin(x * Mathf.PI * 0.9f);
+            float half = 0.22f * (1f - x * 0.8f);
+            float blade = AaV(half - Mathf.Abs(v - centre));
+            return blade > handle.a ? Shade(v > centre ? 1f : 0.85f, blade) : handle;
+        }
+
+        static Color GauntletTexel(float u, float v)
+        {
+            float av = Mathf.Abs(v);
+            if (u < 0.35f) return Shade(0.5f, AaV(0.38f - av));                              // cuff
+            if (u < 0.42f) return Shade(0.7f, AaV(0.48f - av));                              // wrist band
+            // Fist with knuckle ridges.
+            float knuckles = u > 0.82f && Mathf.Repeat(v * 3.2f + 0.5f, 1f) < 0.18f ? 0.65f : 0.9f;
+            float shape = Mathf.Min(0.62f - av, (1f - u) * 2.2f);
+            return Shade(knuckles, AaV(shape));
+        }
+
+        /// <summary>Irregular blood splat, pivot centred. A few variants so floors never look stamped.</summary>
+        public static Sprite Splat(int variant)
+        {
+            int v = Mathf.Abs(variant) % 4;
+            int key = 3000 + v;
+            if (Cache.TryGetValue(key, out Sprite sprite) && sprite != null) return sprite;
+            var rng = new System.Random(911 + v * 37);
+            float[] phase = new float[5];
+            float[] amp = new float[5];
+            for (int i = 0; i < 5; i++)
+            {
+                phase[i] = (float)rng.NextDouble() * Mathf.PI * 2f;
+                amp[i] = 0.05f + (float)rng.NextDouble() * 0.08f;
+            }
+            var drops = new Vector3[6];
+            for (int i = 0; i < drops.Length; i++)
+            {
+                float a = (float)rng.NextDouble() * Mathf.PI * 2f;
+                float r = 0.62f + (float)rng.NextDouble() * 0.3f;
+                drops[i] = new Vector3(Mathf.Cos(a) * r, Mathf.Sin(a) * r, 0.04f + (float)rng.NextDouble() * 0.07f);
+            }
+            sprite = Rasterize(Resolution, p =>
+            {
+                float ang = Mathf.Atan2(p.y, p.x);
+                float radius = 0.5f;
+                for (int i = 0; i < 5; i++) radius += amp[i] * Mathf.Sin(ang * (i + 2) + phase[i]);
+                float coverage = Aa(p.magnitude - radius, Resolution);
+                foreach (Vector3 d in drops)
+                {
+                    coverage = Mathf.Max(coverage, Aa(Vector2.Distance(p, new Vector2(d.x, d.y)) - d.z, Resolution));
+                }
+                return coverage;
+            });
+            Cache[key] = sprite;
+            return sprite;
         }
 
         static float AaV(float sdfInside) => Mathf.Clamp01(0.5f + sdfInside / LongPixelV);

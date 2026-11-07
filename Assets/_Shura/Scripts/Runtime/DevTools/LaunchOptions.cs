@@ -19,6 +19,9 @@ namespace Shura
         public int TargetDepth = 15;
         /// <summary>Automated runs only: start deep (with matching Ascension) to inspect later content.</summary>
         public int StartDepth;
+        /// <summary>Automated runs only: "-shuraWeapons katana,montante".</summary>
+        public string WeaponA;
+        public string WeaponB;
 
         public bool Automated => Bot || ShotDir != null;
 
@@ -41,6 +44,15 @@ namespace Shura
                         break;
                     case "-shuraStartDepth":
                         if (i + 1 < args.Length && int.TryParse(args[i + 1], out int start)) options.StartDepth = start;
+                        i++;
+                        break;
+                    case "-shuraWeapons":
+                        if (i + 1 < args.Length)
+                        {
+                            string[] pair = args[i + 1].Split(',');
+                            options.WeaponA = pair[0];
+                            if (pair.Length > 1) options.WeaponB = pair[1];
+                        }
                         i++;
                         break;
                     case "-shuraDepth":

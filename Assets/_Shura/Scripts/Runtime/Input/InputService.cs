@@ -28,7 +28,7 @@ namespace Shura
 
         readonly InputActionMap gameplay = new InputActionMap("Gameplay");
         readonly InputActionMap ui = new InputActionMap("UI");
-        readonly InputAction move, aim, attack, parry, dodge, pause;
+        readonly InputAction move, aim, attack, parry, dodge, swap, pause;
         readonly InputAction navigate, submit, cancel;
 
         int lastNavX, lastNavY;
@@ -40,6 +40,8 @@ namespace Shura
         public bool Submit { get; private set; }
         public bool Cancel { get; private set; }
         public bool AnyPressed { get; private set; }
+        /// <summary>Tab / gamepad Select: opens the Equipment screen.</summary>
+        public bool EquipmentPressed { get; private set; }
         public int NavX { get; private set; }
         public int NavY { get; private set; }
 
@@ -73,6 +75,11 @@ namespace Shura
             dodge.AddBinding("<Keyboard>/space");
             dodge.AddBinding("<Keyboard>/l");
             dodge.AddBinding("<Gamepad>/buttonSouth");
+
+            swap = gameplay.AddAction("Trocar arma", InputActionType.Button);
+            swap.AddBinding("<Keyboard>/q");
+            swap.AddBinding("<Mouse>/middleButton");
+            swap.AddBinding("<Gamepad>/buttonNorth");
 
             pause = gameplay.AddAction("Pausar", InputActionType.Button);
             pause.AddBinding("<Keyboard>/escape");
@@ -135,12 +142,15 @@ namespace Shura
             Submit = submit.WasPressedThisFrame();
             Cancel = cancel.WasPressedThisFrame();
             AnyPressed = AnyButtonPressed();
+            EquipmentPressed = (Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame) ||
+                               (Gamepad.current != null && Gamepad.current.selectButton.wasPressedThisFrame);
             UpdateNavigation();
 
             if (!gameplayActive) return;
             if (attack.WasPressedThisFrame()) Buffer.Press(BufferedAction.Attack, tuning.actionBufferFrames);
             if (dodge.WasPressedThisFrame()) Buffer.Press(BufferedAction.Dodge, tuning.actionBufferFrames);
             if (parry.WasPressedThisFrame()) Buffer.Press(BufferedAction.Parry, tuning.parryBufferFrames);
+            if (swap.WasPressedThisFrame()) Buffer.Press(BufferedAction.Swap, tuning.parryBufferFrames);
         }
 
         void DetectDevice()
@@ -155,7 +165,7 @@ namespace Shura
                     gp.buttonSouth.wasPressedThisFrame || gp.buttonEast.wasPressedThisFrame ||
                     gp.buttonWest.wasPressedThisFrame || gp.buttonNorth.wasPressedThisFrame ||
                     gp.leftShoulder.wasPressedThisFrame || gp.rightShoulder.wasPressedThisFrame ||
-                    gp.startButton.wasPressedThisFrame;
+                    gp.startButton.wasPressedThisFrame || gp.selectButton.wasPressedThisFrame;
                 if (gamepadActivity) UsingGamepad = true;
             }
 
@@ -235,7 +245,7 @@ namespace Shura
         public List<KeyValuePair<string, string>> DescribeBindings()
         {
             var list = new List<KeyValuePair<string, string>>();
-            foreach (InputAction action in new[] { move, attack, parry, dodge, pause })
+            foreach (InputAction action in new[] { move, attack, parry, dodge, swap, pause })
             {
                 string display;
                 try

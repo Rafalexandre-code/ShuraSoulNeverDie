@@ -40,19 +40,17 @@ namespace Shura
         public float guardMoveMultiplier = 0.45f;
         public float radius = 0.38f;
 
-        [Header("Ataque (combo)")]
-        public int comboLength = 3;
-        public int attackWindup = 5;
-        public int attackActive = 4;
-        public int attackRecovery = 13;
-        public int finalHitExtraRecovery = 8;
+        [Header("Ataque (os golpes vêm de cada arma, em WeaponDefs)")]
         public int attackCancelDelay = 4;
         public int comboChainDelay = 3;
-        public float attackDamage = 10f;
-        public float attackPosture = 7f;
-        public float attackRange = 1.45f;
-        public float attackArcDegrees = 110f;
-        public float attackLunge = 0.35f;
+
+        [Header("Troca de arma")]
+        public int swapFrames = 14;
+        [Tooltip("Trocar de novo antes disso, depois de uma troca errada, corta a janela pela metade.")]
+        public int swapSpamWindow = 30;
+        [Tooltip("A Troca Perfeita causa mais postura que um parry comum.")]
+        public float swapParryPostureMult = 1.3f;
+        public float swapParryFlowMult = 1.5f;
 
         [Header("Parry e bloqueio")]
         public int perfectParryFrames = 9;

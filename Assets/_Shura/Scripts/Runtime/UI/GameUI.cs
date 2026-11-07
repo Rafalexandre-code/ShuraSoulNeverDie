@@ -61,6 +61,9 @@ namespace Shura
         float selAnim;
         int lastSel = -1;
         GUIStyle itemLeftStyle, ecosStyle, damageStyle, streakStyle;
+        readonly List<string> arsenalPicks = new List<string>();
+        int arsenalIndex;
+        int equipIndex;
         int shownStreak;
         float streakPop;
 
@@ -124,6 +127,14 @@ namespace Shura
         public void OnModeChanged(Game.Mode mode)
         {
             menuIndex = 0;
+            if (mode == Game.Mode.Arsenal)
+            {
+                arsenalPicks.Clear();
+                arsenalPicks.Add(game.Settings.weaponA);
+                arsenalPicks.Add(game.Settings.weaponB);
+                arsenalIndex = 0;
+            }
+            if (mode == Game.Mode.Equipment) equipIndex = 0;
             modeChangedFrame = Time.frameCount;
             if (mode == Game.Mode.Title || mode == Game.Mode.MainMenu || mode == Game.Mode.GameOver)
             {
@@ -174,6 +185,12 @@ namespace Shura
                 case Game.Mode.Reward:
                     HandleReward(input);
                     break;
+                case Game.Mode.Arsenal:
+                    HandleArsenal(input);
+                    break;
+                case Game.Mode.Equipment:
+                    HandleEquipment(input);
+                    break;
                 case Game.Mode.Playing:
                     break;
                 default:
@@ -214,7 +231,7 @@ namespace Shura
             switch (game.CurrentMode)
             {
                 case Game.Mode.MainMenu:
-                    AddItem(Strings.Play, game.StartRun);
+                    AddItem(Strings.Play, game.OpenArsenal);
                     AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.Settings, game.OpenSettings);
                     AddItem(Strings.Credits, game.OpenCredits);
@@ -222,6 +239,7 @@ namespace Shura
                     break;
                 case Game.Mode.Paused:
                     AddItem(Strings.Resume, game.Resume);
+                    AddItem(Strings.Equipment, game.OpenEquipment);
                     AddItem(Strings.Settings, game.OpenSettings);
                     AddItem(Strings.RestartRun, game.StartRun);
                     AddItem(Strings.MainMenu, game.QuitToMenu);
@@ -232,6 +250,7 @@ namespace Shura
                     AddSlider(Strings.SfxVolume, () => s.sfx, v => s.sfx = v);
                     AddSlider(Strings.ScreenShake, () => s.shake, v => s.shake = v);
                     AddToggle(Strings.TimingIndicator, () => s.timingIndicator, v => s.timingIndicator = v);
+                    AddToggle(Strings.Blood, () => s.blood, v => s.blood = v);
                     AddToggle(Strings.ReduceFlashes, () => s.reduceFlashes, v => s.reduceFlashes = v);
                     AddToggle(Strings.Fullscreen, () => s.fullscreen, v => s.fullscreen = v);
                     AddItem(Strings.ResetControls, () =>
@@ -246,6 +265,7 @@ namespace Shura
                     break;
                 case Game.Mode.GameOver:
                     AddItem(Strings.NewRun, game.StartRun);
+                    AddItem(Strings.Arsenal, game.OpenArsenal);
                     AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.MainMenu, game.QuitToMenu);
                     break;
@@ -347,6 +367,7 @@ namespace Shura
                 case Game.Mode.Credits: game.GoToMainMenu(); break;
                 case Game.Mode.Paused: game.Resume(); break;
                 case Game.Mode.Altar: game.CloseAltar(); break;
+                case Game.Mode.Equipment: game.CloseEquipment(); break;
             }
         }
 
@@ -385,6 +406,8 @@ namespace Shura
                 case Game.Mode.Reward: DrawReward(); break;
                 case Game.Mode.GameOver: DrawEnd(Strings.DeathTitle, Strings.DeathSubtitle, Pal.danger); break;
                 case Game.Mode.Altar: DrawAltar(); break;
+                case Game.Mode.Arsenal: DrawArsenal(); break;
+                case Game.Mode.Equipment: DrawEquipment(); break;
             }
 
             // The reward screen has its own text blocks; room-clear toasts were already seen in play.
@@ -582,6 +605,7 @@ namespace Shura
                 Label(new Rect(rect.x + 30, y + 32, cardW - 60, 100), r.Cost, cardBodyStyle, Pal.uiText);
             }
             DrawReading(new Rect(260f, 800f, VW - 520f, 200f));
+            Label(new Rect(0, 760f, VW, 34f), Strings.EquipmentOpen + "   ·   " + string.Format(Strings.EquipmentBagCount, game.Run.Bag.Count, RunState.BagCapacity), smallStyleCenter, Pal.gold);
             Label(new Rect(0, VH - 56f, VW, 40), Strings.RewardControls, bodyCenterStyle, Pal.uiDim);
         }
 
@@ -617,13 +641,14 @@ namespace Shura
             RunState run = game.Run;
             if (run != null)
             {
-                var panel = new Rect((VW - 720f) * 0.5f, 296f, 720f, 418f);
+                var panel = new Rect((VW - 720f) * 0.5f, 290f, 720f, 424f);
                 DrawRect(panel, Pal.uiPanel);
                 string[][] rows =
                 {
                     new[] { Strings.StatRooms, run.RoomsCleared.ToString() },
                     new[] { Strings.StatRecord, game.Meta.bestRoom.ToString() },
                     new[] { Strings.StatParries, run.PerfectParries.ToString() },
+                    new[] { Strings.StatSwaps, run.SwapParries.ToString() },
                     new[] { Strings.StatDodges, run.PerfectDodges.ToString() },
                     new[] { Strings.StatCounters, run.Counters.ToString() },
                     new[] { Strings.StatFinishers, run.Finishers.ToString() },
@@ -632,12 +657,12 @@ namespace Shura
                     new[] { Strings.StatTime, FormatTime(run.Elapsed) },
                     new[] { Strings.StatSeed, run.Seed.ToString() },
                 };
-                float y = panel.y + 14;
+                float y = panel.y + 10;
                 foreach (string[] row in rows)
                 {
-                    Label(new Rect(panel.x + 40, y, 420, 40), row[0], bodyStyle, Pal.uiDim);
-                    Label(new Rect(panel.x + 400, y, 280, 40), row[1], bodyRightStyle, Pal.uiText);
-                    y += 44;
+                    Label(new Rect(panel.x + 40, y, 420, 36), row[0], bodyStyle, Pal.uiDim);
+                    Label(new Rect(panel.x + 400, y, 280, 36), row[1], bodyRightStyle, Pal.uiText);
+                    y += 37;
                 }
                 Label(new Rect(0, 716f, VW, 40f), string.Format(Strings.EcosEarned, run.EcosBanked, game.Meta.ecos), toastStyle, Pal.gold);
             }
@@ -734,7 +759,7 @@ namespace Shura
             }
 
             DrawFlow(run.Flow);
-            DrawOwned(run);
+            DrawWeaponsHud(run, x, y + 170f);
         }
 
         void DrawFlow(FlowMeter flow)
@@ -767,28 +792,284 @@ namespace Shura
             }
         }
 
-        void DrawOwned(RunState run)
+        // ── HUD weapons ───────────────────────────────────────────────────────────────
+
+        void DrawWeaponsHud(RunState run, float x, float y)
         {
-            int lines = run.Owned.Count + run.PendingTechniques.Count;
-            if (lines == 0) return;
-            // Top-left under the dodge pips, so it never collides with the hint box at the bottom.
-            float h = 44f + lines * 32f;
-            var panel = new Rect(36f, 214f, 520f, h);
-            DrawRect(panel, Pal.uiPanel);
-            Label(new Rect(panel.x + 18, panel.y + 8, 520, 30), Strings.HudOwned, smallStyle, Pal.uiDim);
-            float y = panel.y + 40;
-            foreach (RewardDef r in run.Owned)
+            Label(new Rect(x, y, 600f, 30f), run.CurrentWeapon.name, smallStyle, Pal.uiText);
+            Label(new Rect(x, y + 26f, 600f, 26f), "<>  " + run.OtherWeapon.name + "  (" + (game.Controls.UsingGamepad ? "Y" : "Q") + ")", smallStyle, Pal.uiDim);
+        }
+
+        // ── Arsenal ───────────────────────────────────────────────────────────────────
+
+        const int ArsenalStartIndex = 6;
+        const int ArsenalBackIndex = 7;
+
+        void HandleArsenal(InputService input)
+        {
+            if (input.NavX != 0 && arsenalIndex < 6)
             {
-                bool tech = r.Kind == RewardKind.Technique;
-                Label(new Rect(panel.x + 18, y, 530, 30), (tech ? Strings.TechniqueTag : Strings.RelicTag) + r.Name, smallStyle, tech ? Pal.gold : Pal.playerAccent);
-                y += 32;
+                int row = arsenalIndex / 3;
+                arsenalIndex = row * 3 + (arsenalIndex % 3 + input.NavX + 3) % 3;
+                game.Audio.Play(Sfx.UiMove, 0.5f, 1f, 0f);
             }
-            foreach (string id in run.PendingTechniques)
+            if (input.NavY != 0)
             {
-                RewardDef preview = RewardRegistry.Create(id);
-                Label(new Rect(panel.x + 18, y, 530, 30), string.Format(Strings.HudPending, preview != null ? preview.Name : id), smallStyle, Pal.gold.WithAlpha(0.7f));
-                y += 32;
+                arsenalIndex = input.NavY < 0
+                    ? (arsenalIndex < 3 ? arsenalIndex + 3 : arsenalIndex < 6 ? ArsenalStartIndex : ArsenalBackIndex)
+                    : (arsenalIndex == ArsenalBackIndex ? ArsenalStartIndex : arsenalIndex == ArsenalStartIndex ? 4 : arsenalIndex >= 3 ? arsenalIndex - 3 : arsenalIndex);
+                game.Audio.Play(Sfx.UiMove, 0.5f, 1f, 0f);
             }
+            if (input.Submit) ActivateArsenal(arsenalIndex);
+            else if (input.Cancel) game.GoToMainMenu();
+        }
+
+        void ActivateArsenal(int index)
+        {
+            if (index == ArsenalBackIndex)
+            {
+                game.GoToMainMenu();
+                return;
+            }
+            if (index == ArsenalStartIndex)
+            {
+                if (arsenalPicks.Count == 2) game.ConfirmArsenal(arsenalPicks[0], arsenalPicks[1]);
+                else game.Audio.Play(Sfx.Denied, 0.6f, 1f, 0f);
+                return;
+            }
+            string id = WeaponDefs.All[index].id;
+            if (arsenalPicks.Contains(id)) arsenalPicks.Remove(id);
+            else if (arsenalPicks.Count < 2) arsenalPicks.Add(id);
+            else arsenalPicks[1] = id;
+            game.Audio.Play(Sfx.Unsheathe, 0.5f, 1.2f, 0f);
+        }
+
+        void DrawArsenal()
+        {
+            DrawRect(FullScreen, Pal.background.WithAlpha(0.9f));
+            Label(new Rect(0, 50, VW, 90), Strings.ArsenalTitle, headerStyle, Pal.uiText);
+            Label(new Rect(0, 140, VW, 40), Strings.ArsenalSubtitle, bodyCenterStyle, Pal.gold);
+
+            const float cardW = 540f, cardH = 300f, gap = 30f;
+            float startX = (VW - (3 * cardW + 2 * gap)) * 0.5f;
+            Event e = Event.current;
+            bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
+            for (int i = 0; i < WeaponDefs.All.Length; i++)
+            {
+                WeaponDef w = WeaponDefs.All[i];
+                var r = new Rect(startX + (i % 3) * (cardW + gap), 200f + (i / 3) * (cardH + gap), cardW, cardH);
+                if (ArsenalMouse(r, i, e, mouseMoved)) return;
+                int pick = arsenalPicks.IndexOf(w.id);
+                bool selected = i == arsenalIndex;
+                DrawRect(r, Pal.uiPanel);
+                if (pick >= 0) DrawFrame(r, Pal.gold, 3f);
+                if (selected) DrawFrame(new Rect(r.x - 4, r.y - 4, r.width + 8, r.height + 8), Pal.uiText, 2f);
+
+                Texture tex = ShapeLibrary.Get(w.sprite).texture;
+                DrawTex(new Rect(r.x + 30f, r.y + 30f, 200f, 50f), tex, w.color);
+                if (w.dual) DrawTex(new Rect(r.x + 30f, r.y + 70f, 200f, 50f), tex, w.color * 0.85f);
+                Label(new Rect(r.x + 250f, r.y + 20f, cardW - 270f, 44f), w.name, cardNameStyle, pick >= 0 ? Pal.gold : Pal.uiText);
+                if (pick >= 0) Label(new Rect(r.x + 6f, r.y + 2f, 40f, 40f), (pick + 1).ToString(), toastStyle, Pal.gold);
+                Label(new Rect(r.x + 30f, r.y + 120f, cardW - 60f, 60f), w.description, cardBodyStyle, Pal.uiText);
+                Label(new Rect(r.x + 30f, r.y + 190f, cardW - 60f, 28f), string.Format(Strings.WeaponCombo, w.combo.Length), smallStyle, Pal.uiDim);
+                Label(new Rect(r.x + 30f, r.y + 218f, cardW - 60f, 28f), string.Format(Strings.WeaponSwapStrike, w.swapStrike.name), smallStyle, Pal.playerAccent);
+                Label(new Rect(r.x + 30f, r.y + 246f, cardW - 60f, 28f), string.Format(Strings.WeaponFinisher, w.finisherName), smallStyle, Pal.danger);
+            }
+
+            var start = new Rect((VW - 500f) * 0.5f, 880f, 500f, 64f);
+            var back = new Rect((VW - 500f) * 0.5f, 950f, 500f, 60f);
+            if (ArsenalMouse(start, ArsenalStartIndex, e, mouseMoved) || ArsenalMouse(back, ArsenalBackIndex, e, mouseMoved)) return;
+            bool ready = arsenalPicks.Count == 2;
+            if (arsenalIndex == ArsenalStartIndex) DrawRect(start, Pal.uiText.WithAlpha(0.1f));
+            if (arsenalIndex == ArsenalBackIndex) DrawRect(back, Pal.uiText.WithAlpha(0.1f));
+            Label(start, ready ? Strings.ArsenalStart : Strings.ArsenalNeedTwo, itemStyle, ready ? (arsenalIndex == ArsenalStartIndex ? Pal.gold : Pal.uiText) : Pal.uiDim);
+            Label(back, Strings.Back, itemStyle, arsenalIndex == ArsenalBackIndex ? Pal.gold : Pal.uiText);
+        }
+
+        bool ArsenalMouse(Rect r, int index, Event e, bool mouseMoved)
+        {
+            if (game.Launch.Automated || !r.Contains(e.mousePosition)) return false;
+            if (e.type == EventType.Repaint && mouseMoved) arsenalIndex = index;
+            if (e.type != EventType.MouseDown || e.button != 0) return false;
+            arsenalIndex = index;
+            e.Use();
+            ActivateArsenal(index);
+            return true;
+        }
+
+        // ── Equipment ─────────────────────────────────────────────────────────────────
+
+        int EquipmentEntries => 4 + game.Run.Bag.Count;
+
+        void HandleEquipment(InputService input)
+        {
+            if (game.Run == null) return;
+            int n = EquipmentEntries;
+            if (input.NavY != 0)
+            {
+                equipIndex = (equipIndex - input.NavY + n) % n;
+                game.Audio.Play(Sfx.UiMove, 0.5f, 1f, 0f);
+            }
+            if (input.Submit) ActivateEquipment(equipIndex);
+            else if (input.Cancel) game.CloseEquipment();
+            equipIndex = Mathf.Clamp(equipIndex, 0, EquipmentEntries - 1);
+        }
+
+        void ActivateEquipment(int index)
+        {
+            RunState run = game.Run;
+            if (index < 4) game.UnequipItem((ItemSlot)index);
+            else if (index - 4 < run.Bag.Count) game.EquipItem(run.Bag[index - 4]);
+        }
+
+        Item EquipmentItemAt(int index)
+        {
+            RunState run = game.Run;
+            if (index < 4) return run.Equipped[index];
+            return index - 4 < run.Bag.Count ? run.Bag[index - 4] : null;
+        }
+
+        void DrawEquipment()
+        {
+            RunState run = game.Run;
+            if (run == null) return;
+            DrawRect(FullScreen, Pal.background.WithAlpha(0.94f));
+            Label(new Rect(0, 30, VW, 80), Strings.EquipmentTitle, headerStyle, Pal.uiText);
+
+            DrawCharacterPanel(run, new Rect(60f, 130f, 600f, 820f));
+
+            Event e = Event.current;
+            bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
+            var slotsPanel = new Rect(700f, 130f, 560f, 300f);
+            DrawRect(slotsPanel, Pal.uiPanel);
+            Label(new Rect(slotsPanel.x + 20f, slotsPanel.y + 10f, 400f, 30f), Strings.EquipmentSlots, smallStyle, Pal.gold);
+            for (int i = 0; i < 4; i++)
+            {
+                var r = new Rect(slotsPanel.x + 10f, slotsPanel.y + 48f + i * 62f, slotsPanel.width - 20f, 56f);
+                if (EquipmentMouse(r, i, e, mouseMoved)) return;
+                DrawItemRow(r, run.Equipped[i], ItemGenerator.SlotName((ItemSlot)i), i == equipIndex);
+            }
+
+            var bagPanel = new Rect(700f, 450f, 560f, 500f);
+            DrawRect(bagPanel, Pal.uiPanel);
+            Label(new Rect(bagPanel.x + 20f, bagPanel.y + 10f, 500f, 30f), Strings.EquipmentBag + "   " + string.Format(Strings.EquipmentBagCount, run.Bag.Count, RunState.BagCapacity), smallStyle, Pal.gold);
+            for (int i = 0; i < run.Bag.Count; i++)
+            {
+                var r = new Rect(bagPanel.x + 10f, bagPanel.y + 44f + i * 37f, bagPanel.width - 20f, 34f);
+                if (EquipmentMouse(r, 4 + i, e, mouseMoved)) return;
+                DrawItemRow(r, run.Bag[i], null, 4 + i == equipIndex);
+            }
+
+            DrawItemTooltip(EquipmentItemAt(equipIndex), new Rect(1290f, 130f, 570f, 820f));
+            Label(new Rect(0, VH - 56f, VW, 36f), Strings.EquipmentControls, smallStyleCenter, Pal.uiDim);
+        }
+
+        bool EquipmentMouse(Rect r, int index, Event e, bool mouseMoved)
+        {
+            if (game.Launch.Automated || !r.Contains(e.mousePosition)) return false;
+            if (e.type == EventType.Repaint && mouseMoved) equipIndex = index;
+            if (e.type != EventType.MouseDown || e.button != 0) return false;
+            equipIndex = index;
+            e.Use();
+            ActivateEquipment(index);
+            return true;
+        }
+
+        void DrawItemRow(Rect r, Item item, string emptyLabel, bool selected)
+        {
+            if (selected) DrawRect(r, Pal.uiText.WithAlpha(0.1f));
+            float icon = Mathf.Min(r.height - 8f, 44f);
+            var iconRect = new Rect(r.x + 8f, r.y + (r.height - icon) * 0.5f, icon, icon);
+            if (item == null)
+            {
+                DrawTex(iconRect, ShapeLibrary.Get(Shape.Ring).texture, Pal.uiDim.WithAlpha(0.5f));
+                Label(new Rect(r.x + icon + 20f, r.y, r.width - icon - 30f, r.height), (emptyLabel ?? string.Empty) + "  " + Strings.EquipmentEmpty, smallStyle, Pal.uiDim);
+                return;
+            }
+            DrawItemIcon(iconRect, item);
+            Label(new Rect(r.x + icon + 20f, r.y, r.width - icon - 30f, r.height), item.Name, smallStyle, Rarities.Color(item.rarity));
+        }
+
+        /// <summary>Procedural item art: slot shape in the element colour, framed by rarity.</summary>
+        void DrawItemIcon(Rect r, Item item)
+        {
+            Color rc = Rarities.Color(item.rarity);
+            DrawTex(new Rect(r.x - 4f, r.y - 4f, r.width + 8f, r.height + 8f), ShapeLibrary.Get(Shape.SoftCircle).texture, rc.WithAlpha(0.35f + 0.04f * (int)item.rarity));
+            DrawTex(r, ShapeLibrary.Get(ItemGenerator.IconShape(item.slot)).texture, Elements.Color(item.element));
+            float gem = r.width * 0.36f;
+            DrawTex(new Rect(r.center.x - gem * 0.5f, r.center.y - gem * 0.5f, gem, gem), ShapeLibrary.Get(Shape.Diamond).texture, rc);
+            if (item.rarity >= Rarity.Mythic)
+            {
+                float spin = Mathf.Repeat(Time.unscaledTime * 0.5f, 1f);
+                DrawTex(new Rect(r.x - 6f + 4f * spin, r.y - 6f, r.width + 12f, r.height + 12f), ShapeLibrary.Get(Shape.Star).texture, rc.WithAlpha(0.6f));
+            }
+        }
+
+        void DrawItemTooltip(Item item, Rect r)
+        {
+            DrawRect(r, Pal.uiPanel);
+            if (item == null)
+            {
+                Label(new Rect(r.x + 30f, r.y + 40f, r.width - 60f, 80f), Strings.EquipmentPickHint, cardBodyStyle, Pal.uiDim);
+                return;
+            }
+            Color rc = Rarities.Color(item.rarity);
+            DrawFrame(r, rc, 3f);
+            DrawItemIcon(new Rect(r.center.x - 60f, r.y + 30f, 120f, 120f), item);
+            Label(new Rect(r.x + 20f, r.y + 170f, r.width - 40f, 50f), item.Name, cardNameStyle, rc);
+            Label(new Rect(r.x + 20f, r.y + 222f, r.width - 40f, 30f), string.Format(Strings.Rarity, Rarities.Name(item.rarity)), smallStyleCenter, rc);
+            Label(new Rect(r.x + 20f, r.y + 252f, r.width - 40f, 30f), string.Format(Strings.ElementLine, ItemGenerator.SlotName(item.slot), Elements.Name(item.element)), smallStyleCenter, Elements.Color(item.element));
+            Label(new Rect(r.x + 30f, r.y + 300f, r.width - 60f, 30f), Strings.Gain, smallStyle, Pal.gold);
+            Label(new Rect(r.x + 30f, r.y + 334f, r.width - 60f, 420f), item.Gain, cardBodyStyle, Pal.uiText);
+        }
+
+        void DrawCharacterPanel(RunState run, Rect r)
+        {
+            DrawRect(r, Pal.uiPanel);
+            PlayerController p = game.World.Player;
+
+            // The duelist at the centre of its weapon wheel.
+            var centre = new Vector2(r.center.x, r.y + 300f);
+            Label(new Rect(r.x, r.y + 10f, r.width, 30f), Strings.EquipmentWheel, smallStyleCenter, Pal.gold);
+            DrawTex(new Rect(centre.x - 190f, centre.y - 190f, 380f, 380f), ShapeLibrary.Get(Shape.Ring).texture, Pal.uiDim.WithAlpha(0.5f));
+            DrawTex(new Rect(centre.x - 120f, centre.y - 120f, 240f, 240f), ShapeLibrary.Get(Shape.SoftCircle).texture, Pal.gold.WithAlpha(0.12f + 0.04f * run.Flow.Level));
+            DrawTex(new Rect(centre.x - 60f, centre.y - 60f, 120f, 120f), ShapeLibrary.Get(Shape.Circle).texture, Pal.player);
+            for (int i = 0; i < 4; i++)
+            {
+                Item item = run.Equipped[i];
+                if (item == null) continue;
+                float a = (45f + 90f * i) * Mathf.Deg2Rad;
+                var pos = centre + new Vector2(Mathf.Cos(a), -Mathf.Sin(a)) * 95f;
+                DrawItemIcon(new Rect(pos.x - 20f, pos.y - 20f, 40f, 40f), item);
+            }
+            DrawWheelWeapon(run.CurrentWeapon, new Rect(centre.x - 130f, centre.y - 235f, 260f, 60f), true);
+            DrawWheelWeapon(run.OtherWeapon, new Rect(centre.x - 130f, centre.y + 175f, 260f, 60f), false);
+
+            Label(new Rect(r.x + 30f, r.y + 560f, r.width - 60f, 30f), Strings.EquipmentStats, smallStyle, Pal.gold);
+            PlayerModifiers m = run.Modifiers;
+            string[] stats =
+            {
+                "Vida  " + Mathf.CeilToInt(p.Health) + " / " + Mathf.RoundToInt(p.MaxHealth),
+                "Postura máxima  " + Mathf.RoundToInt(p.Posture.Max),
+                "Dano  x" + p.DamageDealtMult.ToString("0.00"),
+                "Crítico  " + Mathf.RoundToInt(m.critChance * 100f) + "%     Roubo de vida  " + Mathf.RoundToInt(m.lifesteal * 100f) + "%",
+                "Janela de parry  " + p.PerfectParryFrames + " frames",
+                "Ascensão  " + run.Ascension + "     Técnicas e relíquias  " + run.Owned.Count,
+            };
+            for (int i = 0; i < stats.Length; i++)
+            {
+                Label(new Rect(r.x + 30f, r.y + 594f + i * 30f, r.width - 60f, 32f), stats[i], smallStyle, Pal.uiText);
+            }
+            string owned = string.Empty;
+            foreach (RewardDef d in run.Owned) owned += (owned.Length > 0 ? "  ·  " : string.Empty) + d.Name;
+            if (owned.Length > 0) Label(new Rect(r.x + 30f, r.y + 776f, r.width - 60f, 50f), owned, cardBodyStyle, Pal.uiDim);
+        }
+
+        void DrawWheelWeapon(WeaponDef w, Rect r, bool active)
+        {
+            if (active) DrawRect(r, Pal.gold.WithAlpha(0.12f));
+            DrawTex(new Rect(r.x + 10f, r.y + 5f, 120f, 30f), ShapeLibrary.Get(w.sprite).texture, active ? w.color : w.color * 0.6f);
+            Label(new Rect(r.x + 135f, r.y, r.width - 140f, 40f), w.name, smallStyle, active ? Pal.gold : Pal.uiDim);
         }
 
         void DrawPopups()

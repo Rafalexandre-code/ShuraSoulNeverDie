@@ -85,6 +85,20 @@ namespace Shura
             hurtbox.enabled = false;
         }
 
+        /// <summary>Swaps the drawn weapon (the pose system keeps running).</summary>
+        protected void SetWeapon(Shape shape, Color color, float length)
+        {
+            weapon.sprite = ShapeLibrary.Get(shape);
+            weaponColor = color;
+            weaponLength = length;
+        }
+
+        /// <summary>World-space angle of the weapon as last rendered.</summary>
+        protected float WeaponWorldAngle => FacingAngle + weaponAngle;
+        /// <summary>Distance from the body centre to the weapon's grip as last rendered.</summary>
+        protected float WeaponReach => Radius * 0.55f + weaponExtend;
+        protected float WeaponLength => weaponLength;
+
         protected void BuildWeapon(Shape shape, Color color, float length)
         {
             weaponPivot = new GameObject("WeaponPivot").transform;

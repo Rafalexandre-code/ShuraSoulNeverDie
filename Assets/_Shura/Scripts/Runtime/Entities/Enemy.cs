@@ -47,6 +47,12 @@ namespace Shura
         int guardFrames;
 
         EnemyScaling scaling;
+        bool gibbed;
+        float dotDps;
+        float dotTime;
+        Element dotElement;
+        float dotAccumulator;
+        float chillTime;
         int stepWindup;
         int stepTrack;
         bool stepAdapted;
@@ -65,6 +71,9 @@ namespace Shura
         public int AttackSerial { get; private set; }
         public bool Mastered { get; private set; }
         public bool IsElite => scaling.elite;
+        public bool IsChilled => chillTime > 0f;
+        public Sprite BodySprite => body.sprite;
+        public Color BodyColor => Def.color;
         /// <summary>Damage multiplier from depth and Guardian status.</summary>
         public float PowerMult => scaling.damage;
         /// <summary>Frames until the current swing becomes active (adaptive holds included).</summary>
@@ -152,6 +161,8 @@ namespace Shura
             if (CurrentState == State.Dead) return;
             StateFrame++;
             if (guardFrames > 0) guardFrames--;
+            TickStatus();
+            if (CurrentState == State.Dead) return;
 
             switch (CurrentState)
             {
@@ -228,6 +239,7 @@ namespace Shura
                 strafeTimer = rng.Range(60, 140);
                 if (rng.NextFloat() < 0.5f) strafeSign = -strafeSign;
             }
+            if (IsChilled) desired *= 0.55f;
             Velocity = Vector2.Lerp(Velocity, desired, 0.15f);
 
             if (!player.IsAlive) return;
@@ -236,7 +248,7 @@ namespace Shura
 
         int Idle(int min, int max)
         {
-            float mult = scaling.idle * (1f - 0.45f * world.Adaptation.Pressure);
+            float mult = scaling.idle * (1f - 0.45f * world.Adaptation.Pressure) * (IsChilled ? 1.4f : 1f);
             return Mathf.Max(6, Mathf.RoundToInt(rng.Range(min, max) * mult));
         }
 
@@ -464,10 +476,10 @@ namespace Shura
             if (Posture.Add(amount)) BreakPosture();
         }
 
-        /// <summary>Returns true if the swing connected (hit or deflected).</summary>
-        public bool ReceivePlayerHit(float damage, float posture, Vector2 hitDir, bool unblockable)
+        /// <summary>Posture damage and wounds from a player strike. Reports whether it bit or was deflected.</summary>
+        public StrikeResult ReceivePlayerHit(float damage, float posture, Vector2 hitDir, bool unblockable)
         {
-            if (!CanBeHit) return false;
+            if (!CanBeHit) return StrikeResult.None;
             Vector2 contact = Position - hitDir * Radius;
 
             bool facingAttacker = Vector2.Dot(Facing, -hitDir) > 0.26f;
@@ -475,7 +487,7 @@ namespace Shura
             if (!unblockable && CurrentState == State.Engage && facingAttacker && rng.NextFloat() < blockChance)
             {
                 Deflect(posture, hitDir, contact);
-                return true;
+                return StrikeResult.Deflected;
             }
 
             blockStreak = 0;
@@ -483,15 +495,75 @@ namespace Shura
             Flash(0.07f);
             Squash(Def.superArmor ? 0.92f : 0.8f, Def.superArmor ? 1.08f : 1.2f);
             if (!Def.superArmor && CurrentState != State.Attacking && CurrentState != State.Broken) Velocity = hitDir * et.hitKnockback;
-            world.Fx.Emit(FxType.HitEnemy, contact, hitDir, damage, Def.color);
+            world.Fx.Emit(FxType.HitEnemy, contact, hitDir, damage, Def.bloodColor);
 
             if (Health <= 0f)
             {
                 Die();
-                return true;
+                return StrikeResult.Hit;
             }
             if (CurrentState != State.Broken && Posture.Add(posture)) BreakPosture();
-            return true;
+            return StrikeResult.Hit;
+        }
+
+        // ── Status effects (from equipment) ─────────────────────────────────────────────
+
+        public void ApplyDot(float damagePerSecond, float seconds, Element element)
+        {
+            if (!CanBeHit) return;
+            dotDps = Mathf.Max(dotDps, damagePerSecond);
+            dotTime = Mathf.Max(dotTime, seconds);
+            dotElement = element;
+        }
+
+        public void ApplyChill(float seconds)
+        {
+            if (!CanBeHit) return;
+            chillTime = Mathf.Max(chillTime, seconds);
+        }
+
+        void TickStatus()
+        {
+            if (chillTime > 0f) chillTime -= SimClock.Dt;
+            if (dotTime <= 0f || !CanBeHit) return;
+            dotTime -= SimClock.Dt;
+            dotAccumulator += dotDps * SimClock.Dt;
+            if (dotAccumulator < 2f) return;
+            float dealt = dotAccumulator;
+            dotAccumulator = 0f;
+            Health -= dealt;
+            world.Fx.Emit(FxType.DotTick, Position, Vector2.up, dealt, dotElement == Element.Blood ? Def.bloodColor : Elements.Color(dotElement));
+            if (Health <= 0f) Die();
+        }
+
+        /// <summary>Chain weapons drag enemies in; never through the player, never Guardians or heavy armour much.</summary>
+        public void Pull(Vector2 toward, float strength)
+        {
+            if (!CanBeHit || strength <= 0f) return;
+            Vector2 to = toward - Position;
+            float dist = to.magnitude;
+            float keep = Radius + 0.9f;
+            if (dist <= keep) return;
+            float resist = Def.superArmor || IsElite ? 0.3f : 1f;
+            Position += to / dist * Mathf.Min(dist - keep, 0.45f * strength * resist);
+        }
+
+        // ── Finisher control ────────────────────────────────────────────────────────────
+
+        /// <summary>During a finisher the player's script places the victim.</summary>
+        public void HoldAt(Vector2 position, float scale)
+        {
+            if (CurrentState != State.Finishing) return;
+            Position = position;
+            Velocity = Vector2.zero;
+            Squash(scale, scale);
+        }
+
+        /// <summary>Killed by a finisher: the body is replaced by gore effects.</summary>
+        public void DieByFinisher()
+        {
+            gibbed = true;
+            Die();
         }
 
         /// <summary>The enemy guards: blades clash, the player's sword bounces off.</summary>
@@ -562,6 +634,7 @@ namespace Shura
             Health = 0f;
             Enter(State.Dying);
             if (scaling.elite && world.Run != null) world.Run.ElitesKilled++;
+            world.OnEnemyDied(this);
             world.Fx.Emit(FxType.EnemyDeath, Position, Facing, Radius, Def.color);
         }
 
@@ -777,8 +850,13 @@ namespace Shura
                     c.a = 1f - Mathf.Clamp01(StateFrame / (float)et.dyingFrames);
                     break;
             }
+            if (IsChilled && !IsGone) c = Color.Lerp(c, Elements.Color(Element.Frost), 0.45f);
+            if (dotTime > 0f && !IsGone) c = Color.Lerp(c, dotElement == Element.Blood ? Def.bloodColor : Elements.Color(dotElement), 0.25f + 0.15f * Mathf.Sin(Time.unscaledTime * 14f));
             if (Flashing) c = Color.white.WithAlpha(c.a);
+            if (gibbed) c.a = 0f;
             body.color = c;
+            shadow.enabled = !gibbed;
+            weapon.enabled = !gibbed;
             bool glint = attack != null && !active && windupT > 0.7f;
             pointer.color = glint ? Color.white.WithAlpha(c.a) : (Def.color * 0.85f).WithAlpha(c.a);
             // An adapted (held) strike shows a violet eye: the enemy is reading you.

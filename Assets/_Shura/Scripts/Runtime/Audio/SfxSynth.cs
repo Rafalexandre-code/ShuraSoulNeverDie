@@ -195,6 +195,100 @@ namespace Shura
             return OneShot("clash_" + variant, d, 0.95f);
         }
 
+        /// <summary>Drawing a blade: a rising scrape that ends in a ring ("shiiing").</summary>
+        public static AudioClip Unsheathe()
+        {
+            float[] d = Buffer(0.5f);
+            float lp = 0f;
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)Rate;
+                float cutoff = Mathf.Lerp(0.05f, 0.6f, Mathf.Clamp01(t / 0.3f));
+                float n = Noise();
+                lp += cutoff * (n - lp);
+                float scrape = (n - lp) * Env(t, 0.02f, 0.12f) * 0.6f;
+                float ring = (Sin(3136f, t) + 0.5f * Sin(4699f, t)) * Mathf.Exp(-Mathf.Max(0f, t - 0.18f) / 0.18f) * Mathf.Clamp01((t - 0.15f) * 20f);
+                d[i] = scrape + ring * 0.5f;
+            }
+            return OneShot("unsheathe", d, 0.75f);
+        }
+
+        /// <summary>Wet cut: a falling filtered burst with a low squelch.</summary>
+        public static AudioClip Slice()
+        {
+            float[] d = Buffer(0.32f);
+            float lp = 0f;
+            double phase = 0;
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)Rate;
+                lp += Mathf.Lerp(0.5f, 0.05f, Mathf.Clamp01(t / 0.2f)) * (Noise() - lp);
+                float f = Mathf.Lerp(320f, 110f, Mathf.Clamp01(t / 0.2f));
+                phase += TwoPi * f / Rate;
+                float squelch = (float)Math.Sin(phase) * (0.6f + 0.4f * Noise()) * Env(t, 0.004f, 0.07f);
+                d[i] = lp * Env(t, 0.002f, 0.06f) * 1.2f + squelch * 0.5f;
+            }
+            return OneShot("slice", d, 0.85f);
+        }
+
+        /// <summary>Many small wet droplets landing.</summary>
+        public static AudioClip Splatter()
+        {
+            float[] d = Buffer(0.6f);
+            var rng = new System.Random(4242);
+            for (int drop = 0; drop < 14; drop++)
+            {
+                int start = (int)(rng.NextDouble() * 0.45 * Rate);
+                float vol = 0.3f + (float)rng.NextDouble() * 0.7f;
+                float lp = 0f;
+                int len = (int)(0.05f * Rate);
+                for (int j = 0; j < len && start + j < d.Length; j++)
+                {
+                    float t = j / (float)Rate;
+                    lp += 0.25f * (Noise() - lp);
+                    d[start + j] += lp * Env(t, 0.001f, 0.012f) * vol;
+                }
+            }
+            return OneShot("splatter", d, 0.7f);
+        }
+
+        /// <summary>Bone and armour giving way: crackles over a deep thump.</summary>
+        public static AudioClip Crunch()
+        {
+            float[] d = Buffer(0.3f);
+            var rng = new System.Random(77);
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)Rate;
+                float crackle = rng.NextDouble() < 0.02 ? Noise() * 2f : Noise() * 0.2f;
+                d[i] = crackle * Env(t, 0.001f, 0.08f) + Sin(55f + 60f * Mathf.Exp(-t / 0.04f), t) * Env(t, 0.002f, 0.12f);
+            }
+            return OneShot("crunch", d, 0.9f);
+        }
+
+        /// <summary>Sword returned to its sheath: the full stop after a clean cut.</summary>
+        public static AudioClip SheathClick()
+        {
+            return Partials("sheath", 0.25f, new[] { 2200f, 3300f }, new[] { 1f, 0.5f }, new[] { 0.03f, 0.02f }, 1.4f, 0.004f, 0.6f);
+        }
+
+        /// <summary>Chain links rattling.</summary>
+        public static AudioClip Chain()
+        {
+            float[] d = Buffer(0.35f);
+            for (int k = 0; k < 7; k++)
+            {
+                int start = Mathf.RoundToInt(k * 0.035f * Rate);
+                float f = 2400f + 350f * (k % 3);
+                for (int j = 0; j < 2600 && start + j < d.Length; j++)
+                {
+                    float t = j / (float)Rate;
+                    d[start + j] += Sin(f, t) * Mathf.Exp(-t / 0.012f) * (1f - k * 0.1f);
+                }
+            }
+            return OneShot("chain", d, 0.5f);
+        }
+
         /// <summary>Short bright "tink": the timing ring closed, answer now.</summary>
         public static AudioClip Glint()
         {

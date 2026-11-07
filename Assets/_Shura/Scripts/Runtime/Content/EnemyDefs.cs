@@ -20,6 +20,7 @@ namespace Shura
         public Shape weapon = Shape.Blade;
         public float weaponLength = 1.2f;
         public Color weaponColor = ColorUtil.Hex("#D8DEE9");
+        public Color bloodColor = ColorUtil.Hex("#8E0F1E");
         public float maxHealth;
         public float maxPosture;
         public float radius;
@@ -174,7 +175,7 @@ namespace Shura
         public static readonly EnemyDef Carrasco = new EnemyDef
         {
             id = "carrasco", displayName = "Carrasco", shape = Shape.Octagon, color = ColorUtil.Hex("#7A6C5D"),
-            weapon = Shape.Axe, weaponLength = 1.9f, weaponColor = ColorUtil.Hex("#A39A90"),
+            weapon = Shape.Axe, weaponLength = 1.9f, weaponColor = ColorUtil.Hex("#A39A90"), bloodColor = ColorUtil.Hex("#6A0A14"),
             maxHealth = 150f, maxPosture = 130f, radius = 0.72f, mass = 3.5f, moveSpeed = 1.9f, preferredRange = 1.6f,
             blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 55, idleMax = 95, superArmor = true,
             signatureAnswer = SignatureAnswer.PerfectDodge, techniqueId = RewardIds.ExecutionerBlow,
@@ -210,7 +211,7 @@ namespace Shura
         public static readonly EnemyDef Sombra = new EnemyDef
         {
             id = "sombra", displayName = "Sombra", shape = Shape.Diamond, color = ColorUtil.Hex("#6A5FA0"),
-            weapon = Shape.Blade, weaponLength = 0.8f, weaponColor = ColorUtil.Hex("#C9BFF0"),
+            weapon = Shape.Blade, weaponLength = 0.8f, weaponColor = ColorUtil.Hex("#C9BFF0"), bloodColor = ColorUtil.Hex("#3D1F5C"),
             maxHealth = 50f, maxPosture = 55f, radius = 0.38f, moveSpeed = 3.6f, preferredRange = 2.4f,
             blockChance = 0.35f, postureRegenPerSecond = 10f, idleMin = 45, idleMax = 85,
             signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.Ambush,

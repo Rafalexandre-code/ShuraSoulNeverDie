@@ -10,7 +10,7 @@ namespace Shura
     [Serializable]
     public sealed class GameSettings
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
         const string PrefsKey = "shura.settings";
 
         public int version = CurrentVersion;
@@ -21,6 +21,9 @@ namespace Shura
         public bool reduceFlashes;
         public bool fullscreen = true;
         public bool timingIndicator = true;
+        public bool blood = true;
+        public string weaponA = "katana";
+        public string weaponB = "montante";
         public string bindings = string.Empty;
 
         public static GameSettings Load()
@@ -58,6 +61,10 @@ namespace Shura
             if (bindings == null) bindings = string.Empty;
             // v2 added the timing indicator: older saves get it switched on.
             if (version < 2) timingIndicator = true;
+            // v3 added blood and the weapon loadout.
+            if (version < 3) blood = true;
+            if (!WeaponDefs.Exists(weaponA)) weaponA = "katana";
+            if (!WeaponDefs.Exists(weaponB) || weaponB == weaponA) weaponB = weaponA == "montante" ? "katana" : "montante";
             version = CurrentVersion;
         }
 

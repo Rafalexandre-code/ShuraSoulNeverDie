@@ -20,6 +20,8 @@ Design: [`docs/01-Conceito.md`](docs/01-Conceito.md) · [`docs/02-GDD.md`](docs/
 | Atacar / Finalizar | Botão esquerdo / J | RB |
 | Aparar (toque) / Bloquear (segurar) | Botão direito / K | LB |
 | Esquivar | Espaço / L | A |
+| Trocar arma (no tempo do anel = Troca Perfeita) | Q / botão do meio | Y |
+| Equipamento (na tela de recompensa) | Tab | Select |
 | Pausar | Esc | Start |
 
 **Como ler os golpes:** um anel encolhe sobre o inimigo que vai atacar. Aperte quando ele
@@ -50,7 +52,7 @@ Conteúdo (inimigos, salas, recompensas) fica em `Assets/_Shura/Scripts/Runtime/
 ## Verificação automática
 
 ```bash
-# Testes de lógica (39 testes)
+# Testes de lógica (45 testes)
 "C:/Program Files/Unity/Hub/Editor/6000.6.8f1/Editor/Unity.exe" -batchmode -projectPath . -runTests -testPlatform EditMode -testResults TestResults.xml
 
 # Bot joga até a profundidade 15 (sem janela), com resumo no log

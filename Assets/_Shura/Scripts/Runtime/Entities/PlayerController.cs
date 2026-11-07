@@ -6,8 +6,8 @@ namespace Shura
     /// <summary>
     /// The duelist. A frame-based state machine: every action has windup/active/recovery
     /// frames, defined cancel points and an input buffer, so timing is exact and learnable.
-    /// Blades physically answer each other: a perfect parry kicks your sword up with the
-    /// impact, and an enemy guard bounces your swing back and cuts your combo.
+    /// Carries two weapons: swapping inside an enemy's swing is a Troca Perfeita — a parry
+    /// with no block fallback that unleashes the incoming weapon's Swap Strike.
     /// </summary>
     public sealed class PlayerController : Fighter
     {
@@ -16,6 +16,10 @@ namespace Shura
             Free,
             Attack,
             Parry,
+            /// <summary>Changing weapons; the first frames are the Troca Perfeita window.</summary>
+            Swap,
+            /// <summary>The special attack after a Troca Perfeita (invulnerable).</summary>
+            SwapStrike,
             Dodge,
             /// <summary>Your swing was deflected by an enemy guard: blade bounced, combo cut.</summary>
             Deflected,
@@ -27,8 +31,6 @@ namespace Shura
 
         static readonly PlayerModifiers DefaultMods = new PlayerModifiers();
         const float RestAngle = -55f;
-        const float SwingReach = 72f;
-        const float FinalSwingReach = 100f;
         const int FootstepFrames = 15;
         const int ClashFrames = 14;
         const int FlowTrailInterval = 4;
@@ -44,8 +46,10 @@ namespace Shura
         int parryWindow;
         int framesSinceParryPress = 9999;
         bool lastParrySucceeded;
+        int swapWindow;
+        int framesSinceSwap = 9999;
+        bool lastSwapSucceeded = true;
         int hurtInvuln;
-        Enemy finisherTarget;
         int footstepTimer;
         int trailTimer;
         int clashFrames;
@@ -53,7 +57,14 @@ namespace Shura
         float deflectFromAngle;
         float deflectSide;
 
-        SpriteRenderer parryArc, swingArc, aura, empowerGlow;
+        Enemy finisherTarget;
+        FinisherStyle finisherStyle;
+        Vector2 finisherDir;
+        Vector2 finisherStart;
+        Vector2 finisherAnchor;
+        bool finisherKilled;
+
+        SpriteRenderer parryArc, swingArc, aura, empowerGlow, offhand, chain;
 
         public State CurrentState { get; private set; }
         public int StateFrame { get; private set; }
@@ -67,6 +78,8 @@ namespace Shura
 
         PlayerModifiers Mods => run != null ? run.Modifiers : DefaultMods;
         int FlowLevel => run != null ? run.Flow.Level : 0;
+        WeaponDef Weapon => run != null ? run.CurrentWeapon : WeaponDefs.Katana;
+        PlayerAttackDef CurrentStep => CurrentState == State.SwapStrike ? Weapon.swapStrike : Weapon.combo[Mathf.Clamp(ComboIndex, 0, Weapon.combo.Length - 1)];
 
         public bool IsDodgeInvulnerable =>
             CurrentState == State.Dodge && StateFrame >= t.dodgeIFrameStart && StateFrame <= t.dodgeIFrameEnd;
@@ -92,13 +105,15 @@ namespace Shura
 
             BuildView(owner, Shape.Circle, pal.player, t.radius);
             pointer.color = pal.playerAccent;
-            BuildWeapon(Shape.Blade, ColorUtil.Hex("#E9EEF5"), 1.15f);
+            BuildWeapon(WeaponDefs.Katana.sprite, WeaponDefs.Katana.color, WeaponDefs.Katana.length);
 
             parryArc = SpriteUtil.Make("ParryArc", transform, ShapeLibrary.Wedge(t.parryArcDegrees), pal.playerAccent, Sorting.Ground + 10);
-            swingArc = SpriteUtil.Make("SlashTrail", transform, ShapeLibrary.ArcBand(SwingReach * 2f), Color.white, Sorting.Overlay - 5);
+            swingArc = SpriteUtil.Make("SlashTrail", transform, ShapeLibrary.ArcBand(144f), Color.white, Sorting.Overlay - 5);
             aura = SpriteUtil.Make("FlowAura", transform, ShapeLibrary.Get(Shape.SoftCircle), pal.gold, Sorting.Shadow + 1);
             empowerGlow = SpriteUtil.Make("Empowered", transform, ShapeLibrary.Get(Shape.Ring), pal.gold, Sorting.Overlay - 1);
-            parryArc.enabled = swingArc.enabled = aura.enabled = empowerGlow.enabled = false;
+            offhand = SpriteUtil.Make("Offhand", transform, ShapeLibrary.Get(Shape.Blade), Color.white, 0);
+            chain = SpriteUtil.Make("Chain", transform, ShapeLibrary.Get(Shape.PixelLeft), ColorUtil.Hex("#8C8A86"), 0);
+            parryArc.enabled = swingArc.enabled = aura.enabled = empowerGlow.enabled = offhand.enabled = chain.enabled = false;
         }
 
         public void BeginRun(RunState runState, IPlayerInputSource source)
@@ -109,6 +124,7 @@ namespace Shura
             DodgeCharges = MaxDodgeCharges;
             EmpoweredFrames = 0;
             Facing = Vector2.right;
+            ApplyWeaponVisual();
             Enter(State.Free);
         }
 
@@ -137,8 +153,16 @@ namespace Shura
 
         public void Heal(float amount)
         {
-            if (!IsAlive) return;
+            if (!IsAlive || amount <= 0f) return;
             Health = Mathf.Min(MaxHealth, Health + amount);
+        }
+
+        void ApplyWeaponVisual()
+        {
+            WeaponDef w = Weapon;
+            SetWeapon(w.sprite, w.color, w.length);
+            offhand.sprite = ShapeLibrary.Get(w.sprite);
+            offhand.enabled = w.dual;
         }
 
         public void Tick()
@@ -149,6 +173,7 @@ namespace Shura
             StateFrame++;
             if (hurtInvuln > 0) hurtInvuln--;
             if (framesSinceParryPress < 9999) framesSinceParryPress++;
+            if (framesSinceSwap < 9999) framesSinceSwap++;
             if (EmpoweredFrames > 0) EmpoweredFrames--;
             if (clashFrames > 0) clashFrames--;
             RechargeDodge();
@@ -158,7 +183,9 @@ namespace Shura
             {
                 case State.Free: TickFree(); break;
                 case State.Parry: TickParry(); break;
-                case State.Attack: TickAttack(); break;
+                case State.Swap: TickSwap(); break;
+                case State.Attack: TickStrike(false); break;
+                case State.SwapStrike: TickStrike(true); break;
                 case State.Dodge: TickDodge(); break;
                 case State.Deflected: TickDeflected(); break;
                 case State.Hurt: TickHurt(); break;
@@ -175,7 +202,7 @@ namespace Shura
             StateFrame = 0;
         }
 
-        float MoveSpeed => t.moveSpeed * Mods.moveSpeedMult;
+        float MoveSpeed => t.moveSpeed * Mods.moveSpeedMult * Weapon.moveMult;
 
         // ── States ──────────────────────────────────────────────────────────────────────
 
@@ -183,6 +210,7 @@ namespace Shura
         {
             UpdateFacing(false);
             if (TryStartDodge()) return;
+            if (TryStartSwap()) return;
             if (input.Buffer.Consume(BufferedAction.Parry))
             {
                 StartParry();
@@ -213,6 +241,7 @@ namespace Shura
             if (TryStartDodge()) return;
 
             bool windowOver = StateFrame >= parryWindow;
+            if (windowOver && TryStartSwap()) return;
             if (windowOver && input.Buffer.Consume(BufferedAction.Parry))
             {
                 StartParry();
@@ -232,34 +261,54 @@ namespace Shura
             Steer(input.Move * MoveSpeed * t.guardMoveMultiplier);
         }
 
-        void TickAttack()
+        void TickSwap()
         {
-            int windup = t.attackWindup;
-            int activeEnd = windup + t.attackActive;
+            UpdateFacing(true);
+            Steer(input.Move * MoveSpeed * 0.6f);
+            if (StateFrame < swapWindow) return;
+            if (TryStartDodge()) return;
+            if (StateFrame >= t.swapFrames) Enter(State.Free);
+        }
+
+        /// <summary>Combo steps and Swap Strikes share the same frame logic.</summary>
+        void TickStrike(bool swapStrike)
+        {
+            PlayerAttackDef step = CurrentStep;
+            int activeEnd = step.windup + step.active;
             Velocity = Vector2.Lerp(Velocity, Vector2.zero, 0.35f);
 
-            if (StateFrame == windup)
+            if (StateFrame == step.windup)
             {
-                world.Fx.Emit(FxType.PlayerSwing, Position, Facing, FlowLevel);
+                world.Fx.Emit(swapStrike ? FxType.SwapStrike : FxType.PlayerSwing, Position, Facing, Weapon.swingPitch, TrailColor());
                 Squash(1.28f, 0.8f);
+                if (!swapStrike) for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnSwing(world, ComboIndex, Facing);
+                if (step.style == SwingStyle.Thrust || step.style == SwingStyle.Jab)
+                {
+                    world.Fx.Emit(FxType.ThrustTrail, Position, Facing, step.shape.range, TrailColor());
+                }
             }
 
-            if (StateFrame >= windup && StateFrame < activeEnd)
+            if (StateFrame >= step.windup && StateFrame < activeEnd)
             {
-                Position += Facing * (t.attackLunge / t.attackActive);
-                float damage = t.attackDamage * DamageDealtMult;
-                float posture = t.attackPosture * PostureDealtMult * Mods.normalAttackPostureMult;
-                world.PlayerStrike(HitShape.Arc(t.attackRange, t.attackArcDegrees), damage, posture, hitThisSwing);
+                int f = StateFrame - step.windup;
+                if (step.hits > 1 && f > 0 && f % Mathf.Max(1, step.active / step.hits) == 0) hitThisSwing.Clear();
+                float move = (step.lunge + step.dash) / step.active;
+                Position += Facing * move;
+                float damage = step.damage * DamageDealtMult;
+                float posture = step.posture * PostureDealtMult * Mods.normalAttackPostureMult;
+                world.PlayerStrike(step.shape, damage, posture, hitThisSwing, step.pull, swapStrike);
+                if (step.style == SwingStyle.Slam && f == step.active - 1) world.Fx.Emit(FxType.SlamImpact, Position + Facing * step.shape.range * 0.6f, Facing, step.shape.range);
                 // A deflect inside PlayerStrike ends the swing immediately.
-                if (CurrentState != State.Attack) return;
+                if (CurrentState != (swapStrike ? State.SwapStrike : State.Attack)) return;
             }
 
             if (StateFrame < activeEnd) return;
 
             int sinceActive = StateFrame - activeEnd;
-            if (sinceActive >= t.attackCancelDelay)
+            if (!swapStrike && sinceActive >= t.attackCancelDelay)
             {
                 if (TryStartDodge()) return;
+                if (TryStartSwap()) return;
                 if (input.Buffer.Consume(BufferedAction.Parry))
                 {
                     StartParry();
@@ -267,14 +316,14 @@ namespace Shura
                 }
             }
 
-            if (sinceActive >= t.comboChainDelay && ComboIndex + 1 < t.comboLength &&
+            if (!swapStrike && sinceActive >= t.comboChainDelay && ComboIndex + 1 < Weapon.combo.Length &&
                 input.Buffer.Consume(BufferedAction.Attack))
             {
                 if (!TryStartFinisher()) StartAttack(ComboIndex + 1);
                 return;
             }
 
-            if (StateFrame >= activeEnd + RecoveryFrames()) Enter(State.Free);
+            if (StateFrame >= activeEnd + RecoveryFrames(step)) Enter(State.Free);
         }
 
         void TickDodge()
@@ -299,6 +348,7 @@ namespace Shura
             {
                 // Recover in time to parry the riposte: deflection is a warning, not a stun-lock.
                 if (TryStartDodge()) return;
+                if (TryStartSwap()) return;
                 if (input.Buffer.Consume(BufferedAction.Parry))
                 {
                     StartParry();
@@ -322,24 +372,120 @@ namespace Shura
             Enter(State.Free);
         }
 
+        // ── Finishers: one scripted kill per weapon ─────────────────────────────────────
+
+        int FinisherLength(FinisherStyle style)
+        {
+            switch (style)
+            {
+                case FinisherStyle.CleanCut: return 46;
+                case FinisherStyle.Execution: return 48;
+                case FinisherStyle.ThousandCuts: return 52;
+                case FinisherStyle.Impale: return 50;
+                case FinisherStyle.Reap: return 52;
+                default: return 46;
+            }
+        }
+
         void TickFinisher()
         {
-            if (finisherTarget != null && StateFrame < t.finisherImpactFrame)
+            int f = StateFrame;
+            Enemy e = finisherTarget;
+            Velocity = Vector2.zero;
+
+            if (e != null && !finisherKilled)
             {
-                Vector2 to = finisherTarget.Position - Position;
-                float dist = to.magnitude;
-                float contact = finisherTarget.Radius + Radius + 0.15f;
-                if (dist > contact) Position += to / dist * Mathf.Min(dist - contact, 0.25f);
+                switch (finisherStyle)
+                {
+                    case FinisherStyle.CleanCut:
+                        // Dash through, stand with your back to it, and let it fall apart.
+                        if (f <= 6)
+                        {
+                            Vector2 beyond = finisherAnchor + finisherDir * (e.Radius + Radius + 0.9f);
+                            Position = Vector2.Lerp(finisherStart, beyond, CombatMath.EaseOutCubic(f / 6f));
+                        }
+                        if (f == 4) Impact(e, 0.8f);
+                        e.HoldAt(finisherAnchor, 1f);
+                        if (f == 30) Kill(e);
+                        break;
+
+                    case FinisherStyle.Execution:
+                        e.HoldAt(finisherAnchor, f < 18 ? Mathf.Lerp(1f, 0.85f, f / 18f) : 0.85f);
+                        if (f == 18) Kill(e);
+                        break;
+
+                    case FinisherStyle.ThousandCuts:
+                        if (f >= 4 && f <= 36 && f % 4 == 0)
+                        {
+                            // Blink around the target, a stab from each side.
+                            float side = (f / 4) % 2 == 0 ? 1f : -1f;
+                            Vector2 dir = CombatMath.RotateTowards(finisherDir, CombatMath.Perpendicular(finisherDir) * side, 50f);
+                            Position = finisherAnchor - dir * (e.Radius + Radius + 0.15f);
+                            Facing = dir;
+                            Impact(e, 0.45f);
+                        }
+                        e.HoldAt(finisherAnchor, 1f);
+                        if (f == 42) Kill(e);
+                        break;
+
+                    case FinisherStyle.Impale:
+                        if (f == 6) Impact(e, 1f);
+                        if (f >= 6)
+                        {
+                            float lift = Mathf.Clamp01((f - 6) / 20f);
+                            Vector2 tip = Position + Facing * (Radius * 0.55f + Weapon.length * 0.85f);
+                            e.HoldAt(Vector2.Lerp(finisherAnchor, tip, lift), 1f + 0.25f * lift);
+                            if (f % 6 == 0) world.Fx.Blood(e.Position, Vector2.down, 4f, e.Def.bloodColor);
+                        }
+                        else e.HoldAt(finisherAnchor, 1f);
+                        if (f == 28) Kill(e);
+                        break;
+
+                    case FinisherStyle.Reap:
+                        if (f == 8) Impact(e, 0.8f);
+                        if (f >= 8)
+                        {
+                            float a = CombatMath.AngleDegrees(finisherDir) + 540f * CombatMath.EaseOutQuad(Mathf.Clamp01((f - 8) / 26f));
+                            var around = new Vector2(Mathf.Cos(a * Mathf.Deg2Rad), Mathf.Sin(a * Mathf.Deg2Rad));
+                            e.HoldAt(Position + around * 2f, 1f);
+                            Facing = around;
+                            if (f % 3 == 0) world.Fx.Blood(e.Position, CombatMath.Perpendicular(around), 3f, e.Def.bloodColor);
+                        }
+                        else e.HoldAt(finisherAnchor, 1f);
+                        if (f == 34)
+                        {
+                            finisherDir = CombatMath.Perpendicular(Facing);
+                            Kill(e);
+                        }
+                        break;
+
+                    case FinisherStyle.HeartBreak:
+                        if (f == 5 || f == 11 || f == 17)
+                        {
+                            finisherAnchor += finisherDir * 0.15f;
+                            Impact(e, 0.6f);
+                        }
+                        e.HoldAt(finisherAnchor, 1f);
+                        if (f == 27) Kill(e);
+                        break;
+                }
             }
 
-            if (StateFrame == t.finisherImpactFrame && finisherTarget != null)
-            {
-                world.ExecuteFinisher(finisherTarget);
-                finisherTarget = null;
-                Squash(1.35f, 0.75f);
-            }
+            if (f >= FinisherLength(finisherStyle)) Enter(State.Free);
+        }
 
-            if (StateFrame >= t.finisherFrames) Enter(State.Free);
+        void Impact(Enemy e, float intensity)
+        {
+            world.FinisherImpact(e, finisherDir, intensity);
+            Squash(1.3f, 0.78f);
+        }
+
+        void Kill(Enemy e)
+        {
+            finisherKilled = true;
+            world.ExecuteFinisher(e, finisherStyle, finisherDir);
+            finisherTarget = null;
+            Squash(1.35f, 0.75f);
         }
 
         // ── Actions ─────────────────────────────────────────────────────────────────────
@@ -364,17 +510,49 @@ namespace Shura
             Enter(State.Parry);
         }
 
+        /// <summary>
+        /// Swapping is always allowed; inside an enemy swing it is a Troca Perfeita. A whiffed
+        /// swap shortens the next window, so the swap cannot be spammed as a free parry.
+        /// </summary>
+        bool TryStartSwap()
+        {
+            if (!input.Buffer.Consume(BufferedAction.Swap)) return false;
+            world.ProfileParryPress(PerfectParryFrames);
+            int window = PerfectParryFrames;
+            if (framesSinceSwap < t.swapSpamWindow && !lastSwapSucceeded) window = Mathf.Max(1, window / 2);
+            framesSinceSwap = 0;
+            lastSwapSucceeded = false;
+            swapWindow = window;
+            run.ActiveWeapon = 1 - run.ActiveWeapon;
+            ApplyWeaponVisual();
+            UpdateFacing(true);
+            Enter(State.Swap);
+            Squash(0.85f, 1.15f);
+            world.Fx.Emit(FxType.WeaponSwap, Position, Facing, 1f, Weapon.color);
+            return true;
+        }
+
+        void StartSwapStrike()
+        {
+            hitThisSwing.Clear();
+            Velocity = Vector2.zero;
+            Enter(State.SwapStrike);
+            world.Fx.Popup(Weapon.swapStrike.name.ToUpperInvariant(), Position + Vector2.up * 1.1f, pal.gold);
+        }
+
         void StartAttack(int index)
         {
             run.Profile.OnAttack();
             ComboIndex = index;
             hitThisSwing.Clear();
             UpdateFacing(false);
-            Enemy target = world.FindAssistTarget(Position, Facing, t.aimAssistDegrees, t.attackRange + 1.2f, false);
+            PlayerAttackDef step = Weapon.combo[index];
+            Enemy target = world.FindAssistTarget(Position, Facing, t.aimAssistDegrees, step.shape.range + 1.2f, false);
             if (target != null) Facing = (target.Position - Position).normalized;
             Velocity *= 0.3f;
             Enter(State.Attack);
             Squash(0.85f, 1.12f);
+            swingArc.sprite = ShapeLibrary.ArcBand(step.style == SwingStyle.Spin ? 360f : Mathf.Abs(step.fromAngle - step.toAngle) + 20f);
         }
 
         bool TryStartDodge()
@@ -397,19 +575,24 @@ namespace Shura
             Enemy target = world.FindFinisherTarget(Position, t.finisherRange);
             if (target == null) return false;
             finisherTarget = target;
+            finisherStyle = Weapon.finisher;
             target.BeginFinisher();
             Vector2 to = target.Position - Position;
-            if (to.sqrMagnitude > 1e-4f) Facing = to.normalized;
+            finisherDir = to.sqrMagnitude > 1e-4f ? to.normalized : Facing;
+            Facing = finisherDir;
+            finisherStart = Position;
+            finisherAnchor = target.Position;
+            finisherKilled = false;
             Velocity = Vector2.zero;
             Enter(State.Finisher);
             Squash(0.8f, 1.2f);
+            world.Fx.Emit(FxType.FinisherStart, target.Position, finisherDir, (int)finisherStyle);
             return true;
         }
 
-        int RecoveryFrames()
+        int RecoveryFrames(PlayerAttackDef step)
         {
-            int recovery = t.attackRecovery + (ComboIndex == t.comboLength - 1 ? t.finalHitExtraRecovery : 0);
-            return Mathf.Max(2, Mathf.RoundToInt(recovery * Mods.recoveryMult));
+            return Mathf.Max(2, Mathf.RoundToInt(step.recovery * Mods.recoveryMult));
         }
 
         void UpdateFacing(bool parryAssist)
@@ -457,14 +640,21 @@ namespace Shura
             world.Fx.Emit(FxType.Afterimage, Position, Facing, Radius * 0.9f, pal.gold.WithAlpha(0.6f));
         }
 
+        Color TrailColor()
+        {
+            if (EmpoweredFrames > 0 || FlowLevel >= 3) return pal.gold;
+            if (Mods.trailElement != Element.None) return Elements.Color(Mods.trailElement);
+            return Weapon.trail;
+        }
+
         // ── Blade contact ───────────────────────────────────────────────────────────────
 
         /// <summary>An enemy guard deflected this swing: the blade bounces back and the combo ends.</summary>
         public void OnDeflected()
         {
             if (CurrentState != State.Attack) return;
-            deflectFromAngle = SwingAngle();
-            deflectSide = ComboIndex % 2 == 0 ? 1f : -1f;
+            deflectFromAngle = StrikeAngle();
+            deflectSide = Mathf.Sign(CurrentStep.fromAngle == 0f ? 1f : CurrentStep.fromAngle);
             Enter(State.Deflected);
             Velocity = -Facing * 2.5f;
             Squash(0.82f, 1.15f);
@@ -482,8 +672,9 @@ namespace Shura
             var defender = new DefenderState
             {
                 dodgeIFrames = IsDodgeInvulnerable,
-                hurtInvulnerable = hurtInvuln > 0 || CurrentState == State.Finisher,
+                hurtInvulnerable = hurtInvuln > 0 || CurrentState == State.Finisher || CurrentState == State.SwapStrike,
                 parryWindow = CurrentState == State.Parry && StateFrame < parryWindow,
+                swapWindow = CurrentState == State.Swap && StateFrame < swapWindow,
                 guarding = CurrentState == State.Parry,
                 facing = Facing,
                 toAttacker = toAttacker,
@@ -499,24 +690,35 @@ namespace Shura
             switch (outcome)
             {
                 case HitOutcome.PerfectParry:
+                case HitOutcome.SwapParry:
+                {
+                    bool swap = outcome == HitOutcome.SwapParry;
                     run.PerfectParries++;
+                    if (swap) run.SwapParries++;
                     run.Profile.OnPerfect();
-                    lastParrySucceeded = true;
+                    if (swap) lastSwapSucceeded = true;
+                    else lastParrySucceeded = true;
                     clashFrames = ClashFrames;
                     clashStrength = 1f;
                     world.RegisterPerfect(clashPoint);
                     world.TryMaster(attacker, SignatureAnswer.PerfectParry, incoming.signature);
-                    world.Fx.Emit(FxType.PerfectParry, clashPoint, toDir, FlowLevel);
+                    world.Fx.Emit(swap ? FxType.SwapParry : FxType.PerfectParry, clashPoint, toDir, FlowLevel, Weapon.color);
                     Squash(0.8f, 1.2f);
                     if (!incoming.projectile)
                     {
-                        float posture = attack.postureOnParried * PostureDealtMult * Mods.perfectParryPostureMult;
-                        for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].ModifyParryPosture(world, attacker, ref posture);
+                        float posture = attack.postureOnParried * PostureDealtMult * Mods.perfectParryPostureMult * (swap ? t.swapParryPostureMult : 1f);
+                        for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].ModifyParryPosture(world, attacker, ref posture);
                         attacker.OnParried(posture);
                     }
-                    world.AddFlow(flowTuning.perfectParryPoints);
-                    for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].OnPerfectParry(world, attacker);
+                    world.AddFlow(flowTuning.perfectParryPoints * (swap ? t.swapParryFlowMult : 1f));
+                    for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnPerfectParry(world, attacker);
+                    if (swap)
+                    {
+                        Facing = toDir;
+                        StartSwapStrike();
+                    }
                     break;
+                }
 
                 case HitOutcome.Blocked:
                     clashFrames = ClashFrames;
@@ -526,7 +728,7 @@ namespace Shura
                     Squash(0.88f, 1.1f);
                     if (!incoming.projectile)
                     {
-                        for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].OnBlock(world, attacker);
+                        for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnBlock(world, attacker);
                     }
                     if (Posture.Add(attack.postureDamage * power * t.blockPostureMultiplier * Mods.blockWearMult)) GuardBreak(toDir);
                     break;
@@ -537,7 +739,7 @@ namespace Shura
                     world.TryMaster(attacker, SignatureAnswer.PerfectDodge, incoming.signature);
                     world.Fx.Emit(FxType.PerfectDodge, Position, dodgeDir);
                     if (attack.IsDangerous) world.AddFlow(flowTuning.perfectDodgePoints);
-                    for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].OnPerfectDodge(world, attacker);
+                    for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnPerfectDodge(world, attacker);
                     break;
 
                 case HitOutcome.CounterThrust:
@@ -548,7 +750,7 @@ namespace Shura
                     world.Fx.Emit(FxType.CounterThrust, clashPoint, toDir, FlowLevel);
                     attacker.OnCounterThrust(t.counterThrustPosture * PostureDealtMult);
                     world.AddFlow(flowTuning.counterPoints);
-                    for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].OnPerfectDodge(world, attacker);
+                    for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnPerfectDodge(world, attacker);
                     break;
 
                 case HitOutcome.Hit:
@@ -565,6 +767,7 @@ namespace Shura
             if (!world.PlayerInvincible) Health = Mathf.Max(0f, Health - damage);
 
             world.Fx.Emit(FxType.PlayerHurt, Position, -toAttacker, damage);
+            world.Fx.Blood(Position, -toAttacker, 6f + damage * 0.3f, ColorUtil.Hex("#8E0F1E"));
             world.DropFlow(1 + Mods.extraFlowLossOnHurt);
             run.BreakStreak();
             hurtInvuln = t.hurtInvulnFrames;
@@ -597,6 +800,44 @@ namespace Shura
 
         // ── View ────────────────────────────────────────────────────────────────────────
 
+        /// <summary>Weapon angle for the current strike frame, by swing style.</summary>
+        float StrikeAngle()
+        {
+            PlayerAttackDef step = CurrentStep;
+            int f = StateFrame;
+            float tW = Mathf.Clamp01(f / (float)Mathf.Max(1, step.windup));
+            float tA = Mathf.Clamp01((f - step.windup + 1) / (float)step.active);
+            float tR = Mathf.Clamp01((f - step.windup - step.active) / (float)Mathf.Max(1, RecoveryFrames(step)));
+            bool winding = f < step.windup;
+            bool active = !winding && f < step.windup + step.active;
+
+            switch (step.style)
+            {
+                case SwingStyle.Sweep:
+                case SwingStyle.Spin:
+                case SwingStyle.Slam:
+                    if (winding) return Mathf.Lerp(RestAngle, step.fromAngle, CombatMath.EaseOutQuad(tW));
+                    if (active) return Mathf.Lerp(step.fromAngle, step.toAngle, CombatMath.EaseOutQuad(tA));
+                    return Mathf.Lerp(step.toAngle, RestAngle + (step.style == SwingStyle.Spin ? 360f : 0f), CombatMath.EaseOutQuad(tR));
+                case SwingStyle.Jab:
+                    return (ComboIndex % 2 == 0 ? 12f : -12f) * (winding ? tW : 1f - tR);
+                default:
+                    return 0f;
+            }
+        }
+
+        float StrikeExtend()
+        {
+            PlayerAttackDef step = CurrentStep;
+            int f = StateFrame;
+            float tW = Mathf.Clamp01(f / (float)Mathf.Max(1, step.windup));
+            float tA = Mathf.Clamp01((f - step.windup + 1) / (float)step.active);
+            float tR = Mathf.Clamp01((f - step.windup - step.active) / (float)Mathf.Max(1, RecoveryFrames(step)));
+            if (f < step.windup) return Mathf.Lerp(0f, -0.3f, CombatMath.EaseOutCubic(tW));
+            if (f < step.windup + step.active) return Mathf.Lerp(-0.3f, step.extend, CombatMath.EaseOutQuad(tA));
+            return Mathf.Lerp(step.extend, 0f, CombatMath.EaseOutQuad(tR));
+        }
+
         protected override WeaponPose GetWeaponPose()
         {
             var pose = new WeaponPose
@@ -613,9 +854,18 @@ namespace Shura
                     pose.extend = -0.1f;
                     if (perfect) pose.tint = Color.Lerp(weaponColor, pal.playerAccent, 0.75f);
                     break;
-                case State.Attack:
+                case State.Swap:
+                    // The new weapon spins into the hand.
                     pose.snap = true;
-                    pose.angle = SwingAngle();
+                    pose.angle = RestAngle + 360f * (1f - CombatMath.EaseOutCubic(Mathf.Clamp01(StateFrame / (float)t.swapFrames)));
+                    if (StateFrame < swapWindow) pose.tint = Color.Lerp(weaponColor, Color.white, 0.6f);
+                    break;
+                case State.Attack:
+                case State.SwapStrike:
+                    pose.snap = true;
+                    pose.angle = StrikeAngle();
+                    pose.extend = StrikeExtend();
+                    if (CurrentState == State.SwapStrike) pose.tint = Color.Lerp(weaponColor, pal.gold, 0.5f);
                     break;
                 case State.Deflected:
                 {
@@ -638,11 +888,7 @@ namespace Shura
                     break;
                 case State.Finisher:
                     pose.snap = true;
-                    pose.angle = 0f;
-                    pose.extend = StateFrame < t.finisherImpactFrame
-                        ? Mathf.Lerp(0f, -0.45f, StateFrame / (float)t.finisherImpactFrame)
-                        : Mathf.Lerp(0.65f, 0.1f, (StateFrame - t.finisherImpactFrame) / (float)Mathf.Max(1, t.finisherFrames - t.finisherImpactFrame));
-                    pose.tint = Color.Lerp(weaponColor, pal.gold, 0.5f);
+                    FinisherPose(ref pose);
                     break;
                 case State.Dead:
                     pose.angle = -150f;
@@ -651,7 +897,7 @@ namespace Shura
             }
 
             // The parry clash: the blade is slammed back by the enemy's sword, then settles.
-            if (clashFrames > 0 && (CurrentState == State.Parry || CurrentState == State.Free))
+            if (clashFrames > 0 && (CurrentState == State.Parry || CurrentState == State.Free || CurrentState == State.Swap))
             {
                 int f = ClashFrames - clashFrames;
                 float bump = Bounce(f, ClashFrames, 3);
@@ -666,19 +912,37 @@ namespace Shura
             return pose;
         }
 
-        /// <summary>Combo swings alternate sides; the last one is wider.</summary>
-        float SwingAngle()
+        void FinisherPose(ref WeaponPose pose)
         {
-            float side = ComboIndex % 2 == 0 ? 1f : -1f;
-            float reach = ComboIndex == t.comboLength - 1 ? FinalSwingReach : SwingReach;
-            float start = reach * side;
-            float end = -reach * side;
-            int windup = t.attackWindup;
-            int active = t.attackActive;
-            if (StateFrame < windup) return Mathf.Lerp(RestAngle, start, CombatMath.EaseOutQuad(StateFrame / (float)windup));
-            if (StateFrame < windup + active) return Mathf.Lerp(start, end, CombatMath.EaseOutQuad((StateFrame - windup + 1) / (float)active));
-            float r = (StateFrame - windup - active) / (float)Mathf.Max(1, RecoveryFrames());
-            return Mathf.Lerp(end, RestAngle, CombatMath.EaseOutQuad(Mathf.Clamp01(r)));
+            int f = StateFrame;
+            pose.tint = Color.Lerp(weaponColor, finisherKilled ? ColorUtil.Hex("#8E0F1E") : pal.gold, 0.45f);
+            switch (finisherStyle)
+            {
+                case FinisherStyle.CleanCut:
+                    // Blade held behind after the pass, then slowly sheathed.
+                    pose.angle = f < 6 ? Mathf.Lerp(80f, -150f, f / 6f) : Mathf.Lerp(-150f, -95f, Mathf.Clamp01((f - 6) / 24f));
+                    break;
+                case FinisherStyle.Execution:
+                    pose.angle = f < 18 ? Mathf.Lerp(RestAngle, 170f, CombatMath.EaseOutCubic(f / 18f)) : Mathf.Lerp(170f, 0f, CombatMath.EaseOutCubic(Mathf.Clamp01((f - 18) / 3f)));
+                    pose.extend = f < 18 ? -0.2f : 0.25f;
+                    break;
+                case FinisherStyle.ThousandCuts:
+                    pose.angle = (f / 2) % 2 == 0 ? 25f : -25f;
+                    pose.extend = 0.35f * Mathf.Abs(Mathf.Sin(f * 0.8f));
+                    break;
+                case FinisherStyle.Impale:
+                    pose.angle = 0f;
+                    pose.extend = f < 6 ? Mathf.Lerp(-0.3f, 0.9f, f / 6f) : 0.9f;
+                    break;
+                case FinisherStyle.Reap:
+                    pose.angle = 0f;
+                    pose.extend = f < 8 ? Mathf.Lerp(0f, 1.6f, f / 8f) : 1.6f;
+                    break;
+                case FinisherStyle.HeartBreak:
+                    pose.angle = (f / 6) % 2 == 0 ? 10f : -10f;
+                    pose.extend = f >= 24 ? 0.7f : 0.35f * Mathf.Abs(Mathf.Sin(f * 0.5f));
+                    break;
+            }
         }
 
         protected override void RenderExtra(Vector2 renderPosition, float visualDt)
@@ -693,31 +957,20 @@ namespace Shura
             pointer.color = pal.playerAccent.WithAlpha(c.a);
 
             float facingAngle = FacingAngle;
+            RenderOffhandAndChain(c.a);
 
-            bool showParry = CurrentState == State.Parry;
+            bool showParry = CurrentState == State.Parry || (CurrentState == State.Swap && StateFrame < swapWindow);
             parryArc.enabled = showParry;
             if (showParry)
             {
-                bool perfect = StateFrame < parryWindow;
-                parryArc.color = pal.playerAccent.WithAlpha(perfect ? 0.6f : 0.22f);
+                bool perfect = CurrentState == State.Swap || StateFrame < parryWindow;
+                parryArc.color = (CurrentState == State.Swap ? pal.gold : pal.playerAccent).WithAlpha(perfect ? 0.6f : 0.22f);
                 parryArc.transform.localRotation = Quaternion.Euler(0f, 0f, facingAngle);
                 float s = perfect ? 2.3f : 2.0f;
                 parryArc.transform.localScale = new Vector3(s, s, 1f);
             }
 
-            int windup = t.attackWindup;
-            int trailFrames = t.attackActive + 4;
-            bool swinging = CurrentState == State.Attack && StateFrame >= windup && StateFrame < windup + trailFrames;
-            swingArc.enabled = swinging;
-            if (swinging)
-            {
-                float k = (StateFrame - windup) / (float)trailFrames;
-                Color trail = EmpoweredFrames > 0 || FlowLevel >= 3 ? pal.gold : Color.white;
-                swingArc.color = trail.WithAlpha(0.75f * (1f - k * k));
-                swingArc.transform.localRotation = Quaternion.Euler(0f, 0f, facingAngle);
-                float s = t.attackRange * 2f * (1f + 0.08f * k + 0.06f * FlowLevel);
-                swingArc.transform.localScale = new Vector3(s, ComboIndex % 2 == 0 ? s : -s, 1f);
-            }
+            RenderSlashTrail(facingAngle);
 
             int flow = FlowLevel;
             aura.enabled = flow > 0 && IsAlive;
@@ -733,6 +986,56 @@ namespace Shura
             {
                 float s = Radius * 2f * (1.5f + 0.1f * Mathf.Sin(Time.unscaledTime * 20f));
                 empowerGlow.transform.localScale = new Vector3(s, s, 1f);
+            }
+        }
+
+        void RenderSlashTrail(float facingAngle)
+        {
+            bool striking = CurrentState == State.Attack || CurrentState == State.SwapStrike;
+            PlayerAttackDef step = striking ? CurrentStep : null;
+            bool sweeping = step != null && step.style != SwingStyle.Thrust && step.style != SwingStyle.Jab;
+            int trailFrames = step != null ? step.active + 4 : 0;
+            bool show = sweeping && StateFrame >= step.windup && StateFrame < step.windup + trailFrames;
+            swingArc.enabled = show;
+            if (!show) return;
+
+            float k = (StateFrame - step.windup) / (float)trailFrames;
+            swingArc.color = TrailColor().WithAlpha(0.8f * (1f - k * k));
+            float mid = (step.fromAngle + step.toAngle) * 0.5f;
+            swingArc.transform.localRotation = Quaternion.Euler(0f, 0f, facingAngle + (step.style == SwingStyle.Spin ? 0f : mid));
+            float s = step.shape.range * 2f * (1f + 0.08f * k + 0.06f * FlowLevel);
+            swingArc.transform.localScale = new Vector3(s, step.fromAngle >= step.toAngle ? s : -s, 1f);
+        }
+
+        /// <summary>Second dagger/fist mirrors the main hand; chain weapons draw their chain.</summary>
+        void RenderOffhandAndChain(float alpha)
+        {
+            WeaponDef w = Weapon;
+            int order = body.sortingOrder;
+            if (offhand.enabled)
+            {
+                float mirror = -(WeaponWorldAngle - FacingAngle) + FacingAngle;
+                bool jab = (CurrentState == State.Attack || CurrentState == State.SwapStrike) && CurrentStep.style == SwingStyle.Jab;
+                float reach = jab && ComboIndex % 2 == 1 ? WeaponReach : Radius * 0.55f;
+                float rad = mirror * Mathf.Deg2Rad;
+                var dir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+                offhand.transform.localPosition = (Vector3)(dir * reach) + new Vector3(0f, 0f, 0f);
+                offhand.transform.localRotation = Quaternion.Euler(0f, 0f, mirror);
+                offhand.transform.localScale = new Vector3(w.length, w.length, 1f);
+                offhand.color = weapon.color.WithAlpha(alpha);
+                offhand.sortingOrder = Mathf.Sin(rad) > 0.2f ? order - 1 : order + 2;
+            }
+
+            bool showChain = w.chain && WeaponReach > Radius * 0.55f + 0.4f;
+            chain.enabled = showChain;
+            if (showChain)
+            {
+                float rad = WeaponWorldAngle * Mathf.Deg2Rad;
+                chain.transform.localPosition = Vector3.zero;
+                chain.transform.localRotation = Quaternion.Euler(0f, 0f, WeaponWorldAngle);
+                chain.transform.localScale = new Vector3(WeaponReach, 0.05f, 1f);
+                chain.color = ColorUtil.Hex("#8C8A86").WithAlpha(alpha);
+                chain.sortingOrder = Mathf.Sin(rad) > 0.2f ? order - 2 : order + 1;
             }
         }
     }

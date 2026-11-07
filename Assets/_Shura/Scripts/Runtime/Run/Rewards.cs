@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace Shura
 {
@@ -8,6 +9,8 @@ namespace Shura
         Relic,
         /// <summary>Small, repeatable, cost-free growth: keeps an endless run rewarding.</summary>
         Blessing,
+        /// <summary>Dropped equipment, worn in one of four slots for the rest of the run.</summary>
+        Item,
     }
 
     /// <summary>
@@ -37,6 +40,12 @@ namespace Shura
         public int extraRewardChoices;
         public float moveSpeedMult = 1f;
         public float dodgeDistanceMult = 1f;
+        /// <summary>Chance (0..1) for a hit to deal critical damage.</summary>
+        public float critChance;
+        /// <summary>Fraction of damage dealt returned as health.</summary>
+        public float lifesteal;
+        /// <summary>Element that colours the slash trail (first equipped elemental item).</summary>
+        public Element trailElement;
     }
 
     /// <summary>
@@ -64,6 +73,10 @@ namespace Shura
         public virtual void ModifyParryPosture(World world, Enemy attacker, ref float posture) { }
         public virtual void OnBlock(World world, Enemy attacker) { }
         public virtual void OnFinisher(World world, Enemy target) { }
+        /// <summary>After a player strike actually wounds an enemy (not when it is deflected).</summary>
+        public virtual void OnDealtDamage(World world, Enemy target, float damage) { }
+        /// <summary>When a combo strike's active frames begin.</summary>
+        public virtual void OnSwing(World world, int comboIndex, Vector2 direction) { }
     }
 
     /// <summary>A blessing is a small permanent-for-this-run boost that can stack.</summary>

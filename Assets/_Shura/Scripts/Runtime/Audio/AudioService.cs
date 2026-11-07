@@ -28,6 +28,13 @@ namespace Shura
         Denied,
         /// <summary>Blade on blade; one of several variants is picked at random.</summary>
         Clash,
+        Unsheathe,
+        Slice,
+        Splatter,
+        Crunch,
+        SheathClick,
+        Chain,
+        Pickup,
     }
 
     public enum MusicLayer
@@ -82,6 +89,13 @@ namespace Shura
             clips[(int)Sfx.Denied] = SfxSynth.Denied();
             clashVariants = new[] { SfxSynth.SwordClash(0), SfxSynth.SwordClash(1), SfxSynth.SwordClash(2) };
             clips[(int)Sfx.Clash] = clashVariants[0];
+            clips[(int)Sfx.Unsheathe] = SfxSynth.Unsheathe();
+            clips[(int)Sfx.Slice] = SfxSynth.Slice();
+            clips[(int)Sfx.Splatter] = SfxSynth.Splatter();
+            clips[(int)Sfx.Crunch] = SfxSynth.Crunch();
+            clips[(int)Sfx.SheathClick] = SfxSynth.SheathClick();
+            clips[(int)Sfx.Chain] = SfxSynth.Chain();
+            clips[(int)Sfx.Pickup] = SfxSynth.Chime();
 
             pool = new AudioSource[PoolSize];
             for (int i = 0; i < PoolSize; i++)

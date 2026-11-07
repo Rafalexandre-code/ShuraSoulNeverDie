@@ -41,10 +41,22 @@ namespace Shura
         protected World world;
         protected Transform bodyPivot;
         protected SpriteRenderer body;
-        protected SpriteRenderer pointer;
+        /// <summary>White silhouette over the body: hit flash, wind-up heat, "reading you" glow.</summary>
+        protected SpriteRenderer bodyGlow;
         protected SpriteRenderer shadow;
         protected SpriteRenderer weapon;
         protected Color weaponColor = Color.white;
+        protected CharacterArt art;
+
+        const float LeanToTilt = 0.35f;
+        const float MaxTilt = 14f;
+
+        float visualScale = 1f;
+        float feetY;
+        float animTime;
+        bool faceLeft;
+        Sprite[] currentFrames;
+        int currentFrame;
 
         Transform weaponPivot;
         float weaponLength;
@@ -83,42 +95,65 @@ namespace Shura
             return 1f - CombatMath.EaseOutQuad((frame - peakFrame) / Mathf.Max(1f, duration - peakFrame));
         }
 
-        protected void BuildView(World owner, Shape shape, Color color, float radius)
+        /// <summary>
+        /// Pixel-art body: the sprite stands on the collision circle's lower edge (top-down
+        /// three-quarter view), faces left or right, and is drawn at the shared 16 px/unit
+        /// density times <paramref name="scale"/> (Guardians are bigger).
+        /// </summary>
+        protected void BuildView(World owner, CharacterArt characterArt, float radius, float scale)
         {
             world = owner;
+            art = characterArt;
             Radius = radius;
+            visualScale = scale;
+            feetY = -radius * 0.6f;
             bobPhase = Random.Range(0f, 10f);
+            animTime = Random.Range(0f, 4f);
 
-            shadow = SpriteUtil.Make("Shadow", transform, ShapeLibrary.Get(Shape.SoftCircle), new Color(0f, 0f, 0f, 0.5f), Sorting.Shadow);
-            shadow.transform.localPosition = new Vector3(0f, -radius * 0.55f, 0f);
-            shadow.transform.localScale = new Vector3(radius * 2.8f, radius * 1.3f, 1f);
+            shadow = SpriteUtil.Make("Shadow", transform, ShapeLibrary.Get(Shape.SoftCircle), new Color(0f, 0f, 0f, 0.45f), Sorting.Shadow);
+            shadow.transform.localPosition = new Vector3(0f, feetY + 0.04f, 0f);
+            shadow.transform.localScale = new Vector3(radius * 2.6f, radius * 0.95f, 1f);
 
             bodyPivot = new GameObject("Body").transform;
             bodyPivot.SetParent(transform, false);
-            body = SpriteUtil.Make("Shape", bodyPivot, ShapeLibrary.Get(shape), color, 0);
-            pointer = SpriteUtil.Make("Pointer", bodyPivot, ShapeLibrary.Get(Shape.Triangle), color, 1);
-            pointer.transform.localPosition = new Vector3(0.7f, 0f, 0f);
-            pointer.transform.localScale = new Vector3(0.34f, 0.34f, 1f);
+            bodyPivot.localPosition = new Vector3(0f, feetY, 0f);
+            Sprite first = art != null ? art.idle[0] : ShapeLibrary.Get(Shape.Circle);
+            body = SpriteUtil.Make("Sprite", bodyPivot, first, Color.white, 0);
+            bodyGlow = SpriteUtil.Make("Glow", bodyPivot, art != null ? art.idleWhite[0] : first, Color.clear, 1);
+            currentFrames = art?.idle;
 
             hurtbox = SpriteUtil.Make("DebugHurtbox", transform, ShapeLibrary.Get(Shape.Ring), new Color(0.3f, 1f, 0.4f, 0.8f), Sorting.Overlay + 50);
             hurtbox.transform.localScale = Vector3.one * radius * 2f;
             hurtbox.enabled = false;
         }
 
-        /// <summary>Swaps the drawn weapon (the pose system keeps running).</summary>
-        protected void SetWeapon(Shape shape, Color color, float length)
+        /// <summary>Top of the drawn character, relative to the entity's position (bars sit above it).</summary>
+        protected float VisualTop => feetY + (art != null ? art.visibleHeight * visualScale : Radius * 2f);
+
+        /// <summary>Body colour (multiplies the art) and the white overlay (flash / heat / glow).</summary>
+        protected void SetBodyLook(Color tint, Color glow)
         {
-            weapon.sprite = ShapeLibrary.Get(shape);
+            body.color = tint;
+            bodyGlow.color = glow;
+        }
+
+        /// <summary>True while the character should show its "taking a hit" frame.</summary>
+        protected virtual bool HurtPose => false;
+
+        /// <summary>Swaps the drawn weapon (the pose system keeps running).</summary>
+        protected void SetWeapon(Sprite sprite, Color color, float length)
+        {
+            weapon.sprite = sprite;
             weaponColor = color;
             weaponLength = length;
             trail?.Clear();
         }
 
-        protected void BuildWeapon(Shape shape, Color color, float length)
+        protected void BuildWeapon(Sprite sprite, Color color, float length)
         {
             weaponPivot = new GameObject("WeaponPivot").transform;
             weaponPivot.SetParent(transform, false);
-            weapon = SpriteUtil.Make("Weapon", weaponPivot, ShapeLibrary.Get(shape), color, 2);
+            weapon = SpriteUtil.Make("Weapon", weaponPivot, sprite, color, 2);
             weaponColor = color;
             weaponLength = length;
             trail = new BladeTrail(transform, weapon.sharedMaterial);
@@ -165,26 +200,59 @@ namespace Shura
             // Top-down depth: lower on screen draws in front.
             int order = -Mathf.RoundToInt(p.y * 20f);
             body.sortingOrder = order;
-            pointer.sortingOrder = order + 1;
+            bodyGlow.sortingOrder = order + 1;
 
             // Breathing when idle, a light hop when moving: bodies never look frozen.
             float speed = IsAlive ? Velocity.magnitude : 0f;
             bobPhase += visualDt * (2.2f + speed * 2.2f);
             float breath = IsAlive ? 0.025f * Mathf.Sin(bobPhase) : 0f;
-            float hop = Mathf.Abs(Mathf.Sin(bobPhase * 1.6f)) * 0.07f * Mathf.Clamp01(speed / 4f);
-            bodyPivot.localPosition = new Vector3(0f, hop, 0f);
+            float hop = Mathf.Abs(Mathf.Sin(bobPhase * 1.6f)) * 0.05f * Mathf.Clamp01(speed / 4f);
+            bodyPivot.localPosition = new Vector3(0f, feetY + hop, 0f);
 
-            // The torso turns into the swing (follow-through), easing back after.
+            AnimateSprite(speed, visualDt);
+
+            // The torso tilts into the swing (follow-through), easing back after.
             lean = Mathf.LerpAngle(lean, BodyLean, CombatMath.Damp(LeanSharpness, visualDt));
             squash = Vector2.Lerp(squash, Vector2.one, CombatMath.Damp(12f, visualDt));
-            bodyPivot.localRotation = Quaternion.Euler(0f, 0f, FacingAngle + lean);
-            bodyPivot.localScale = new Vector3(Radius * 2f * squash.x * (1f + breath), Radius * 2f * squash.y * (1f - breath * 0.5f), 1f);
+            float tilt = Mathf.Clamp(lean * LeanToTilt, -MaxTilt, MaxTilt);
+            bodyPivot.localRotation = Quaternion.Euler(0f, 0f, tilt);
+            float size = art != null ? visualScale : Radius * 2f;
+            bodyPivot.localScale = new Vector3(size * squash.x * (1f + breath), size * squash.y * (1f - breath * 0.5f), 1f);
             if (flashTimer > 0f) flashTimer -= visualDt;
 
             if (weapon != null) RenderWeapon(order, hop, visualDt);
 
             hurtbox.enabled = showHitboxes && IsAlive;
             RenderExtra(p, visualDt);
+        }
+
+        /// <summary>Idle/run/hit loop, faster with speed; faces the side the fighter looks at.</summary>
+        void AnimateSprite(float speed, float visualDt)
+        {
+            if (Facing.x < -0.12f) faceLeft = true;
+            else if (Facing.x > 0.12f) faceLeft = false;
+            body.flipX = bodyGlow.flipX = faceLeft;
+            if (art == null) return;
+
+            bool moving = speed > 0.6f;
+            Sprite[] frames = HurtPose && art.HasHit ? art.hit : moving ? art.run : art.idle;
+            Sprite[] white = HurtPose && art.HasHit ? art.hitWhite : moving ? art.runWhite : art.idleWhite;
+            if (frames != currentFrames)
+            {
+                currentFrames = frames;
+                animTime = 0f;
+            }
+            if (IsAlive) animTime += visualDt * (moving ? 7f + speed * 1.6f : 6f);
+            int index = Mathf.FloorToInt(animTime) % frames.Length;
+            if (index != currentFrame && moving && (index == 0 || index == 2)) OnFootfall();
+            currentFrame = index;
+            body.sprite = frames[index];
+            bodyGlow.sprite = white[Mathf.Min(index, white.Length - 1)];
+        }
+
+        /// <summary>A foot touches the ground (run frames 0 and 2).</summary>
+        protected virtual void OnFootfall()
+        {
         }
 
         void RenderWeapon(int order, float hop, float visualDt)
@@ -212,8 +280,10 @@ namespace Shura
             weapon.transform.localPosition = new Vector3(Radius * 0.55f + weaponExtend, 0f, 0f);
             weapon.transform.localScale = new Vector3(weaponLength, weaponLength, 1f);
             weapon.color = pose.tint;
-            // A weapon pointing "up" the screen passes behind the body, otherwise in front.
+            // Pointing "up" the screen it passes behind the body, otherwise in front. Blades on
+            // the left half flip so their edge and guard never render upside down.
             weapon.sortingOrder = Mathf.Sin(worldAngle * Mathf.Deg2Rad) > 0.2f ? order - 1 : order + 2;
+            weapon.flipY = Mathf.Cos(worldAngle * Mathf.Deg2Rad) < 0f;
 
             float reach = Radius * 0.55f + weaponExtend;
             var centre = new Vector2(transform.position.x, transform.position.y + hop);

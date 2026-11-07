@@ -88,6 +88,8 @@ namespace Shura
         /// <summary>The body's fate at the end of a finisher.</summary>
         void Gore(FinisherStyle style, Vector2 position, Vector2 direction, Sprite body, Color bodyColor, Color blood, float radius);
         void ItemCollected(Item item, bool equipped, Vector2 position);
+        /// <summary>The player's foot touches the ground.</summary>
+        void Footstep(Vector2 position);
     }
 
     /// <summary>Used by tests and headless runs where nothing needs to be shown.</summary>
@@ -100,5 +102,6 @@ namespace Shura
         public void Blood(Vector2 position, Vector2 direction, float amount, Color color) { }
         public void Gore(FinisherStyle style, Vector2 position, Vector2 direction, Sprite body, Color bodyColor, Color blood, float radius) { }
         public void ItemCollected(Item item, bool equipped, Vector2 position) { }
+        public void Footstep(Vector2 position) { }
     }
 }

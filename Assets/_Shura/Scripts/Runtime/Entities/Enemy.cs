@@ -114,15 +114,16 @@ namespace Shura
             float size = scaling.elite ? DifficultyRules.EliteSizeMult : 1f;
             if (scaling.elite) Mass *= 2f;
 
-            BuildView(owner, def.shape, def.color, def.radius * size);
-            BuildWeapon(def.weapon, def.weaponColor, def.weaponLength * size);
+            BuildView(owner, PixelArt.Character(def.art), def.radius * size, size);
+            Sprite weaponArt = def.weapon == Shape.Bow ? PixelArt.WeaponCentered(def.weaponArt) : PixelArt.Weapon(def.weaponArt);
+            BuildWeapon(weaponArt != null ? weaponArt : ShapeLibrary.Get(def.weapon), weaponArt != null ? Color.white : def.weaponColor, def.weaponLength * size);
             eliteAura = SpriteUtil.Make("GuardianAura", transform, ShapeLibrary.Get(Shape.SoftCircle), pal.gold, Sorting.Shadow + 3);
             eliteAura.enabled = scaling.elite;
             Teleport(spawn);
             Vector2 toPlayer = owner.Player.Position - spawn;
             if (toPlayer.sqrMagnitude > 1e-4f) Facing = toPlayer.normalized;
 
-            float barY = Radius + 0.55f;
+            float barY = VisualTop + 0.25f;
             barBack = SpriteUtil.Make("BarBack", transform, ShapeLibrary.Get(Shape.Pixel), new Color(0f, 0f, 0f, 0.65f), Sorting.Overlay);
             barBack.transform.localPosition = new Vector3(0f, barY, 0f);
             barBack.transform.localScale = new Vector3(BarWidth + 0.08f, 0.22f, 1f);
@@ -640,6 +641,8 @@ namespace Shura
 
         // ── View ────────────────────────────────────────────────────────────────────────
 
+        protected override bool HurtPose => CurrentState == State.Recoil || CurrentState == State.Stagger || Flashing;
+
         float IdleAngle =>
             Def.weapon == Shape.Spear || Def.weapon == Shape.Bow ? 0f :
             Def.weapon == Shape.Staff || Def.weapon == Shape.Axe ? 35f : -50f;
@@ -860,27 +863,32 @@ namespace Shura
             bool active = attack != null && StepFrame >= stepWindup && StepFrame < stepWindup + attack.active;
             bool telegraphing = attack != null && !attack.IsProjectile && StepFrame < stepWindup + attack.active;
 
-            Color c = Def.color;
+            // The art keeps its own colours: states tint it, and a white silhouette on top
+            // carries the hit flash, the wind-up heat and the "reading you" glow.
+            Color c = Color.white;
+            Color glow = Color.clear;
             switch (CurrentState)
             {
                 case State.Spawning:
                     c.a = Mathf.Clamp01(StateFrame / (float)et.spawnFrames);
+                    glow = Def.color.WithAlpha(0.6f * (1f - c.a));
                     break;
                 case State.Attacking:
                     // Anticipation: the body heats toward white as the swing approaches.
-                    if (!active && attack != null && StepFrame < stepWindup) c = Color.Lerp(Def.color, Color.white, windupT * windupT * 0.55f);
+                    if (!active && attack != null && StepFrame < stepWindup) glow = Color.white.WithAlpha(windupT * windupT * 0.6f);
+                    if (attack != null && attack.IsDangerous && !active && StepFrame < stepWindup) glow = pal.danger.WithAlpha(windupT * windupT * 0.55f);
                     if (attack != null && attack.teleportBehind && StepFrame < TeleportFadeFrames) c.a = 0.2f + 0.8f * StepFrame / TeleportFadeFrames;
                     break;
                 case State.Recoil:
-                    c = Color.Lerp(Def.color, pal.uiDim, 0.35f);
+                    c = Color.Lerp(Color.white, pal.uiDim, 0.35f);
                     break;
                 case State.Stagger:
-                    c = Color.Lerp(Def.color, pal.uiDim, 0.5f);
+                    c = Color.Lerp(Color.white, pal.uiDim, 0.5f);
                     break;
                 case State.Broken:
                 case State.Finishing:
-                    c = Color.Lerp(Def.color * 0.6f, pal.gold, 0.3f + 0.2f * Mathf.Sin(Time.unscaledTime * 12f));
-                    c.a = 1f;
+                    c = Color.Lerp(Color.white, pal.gold, 0.25f);
+                    glow = pal.gold.WithAlpha(0.18f + 0.14f * Mathf.Sin(Time.unscaledTime * 12f));
                     break;
                 case State.Dying:
                     c.a = 1f - Mathf.Clamp01(StateFrame / (float)et.dyingFrames);
@@ -888,15 +896,14 @@ namespace Shura
             }
             if (IsChilled && !IsGone) c = Color.Lerp(c, Elements.Color(Element.Frost), 0.45f);
             if (dotTime > 0f && !IsGone) c = Color.Lerp(c, dotElement == Element.Blood ? Def.bloodColor : Elements.Color(dotElement), 0.25f + 0.15f * Mathf.Sin(Time.unscaledTime * 14f));
-            if (Flashing) c = Color.white.WithAlpha(c.a);
+            // An adapted (held) strike glows violet: the enemy is reading you.
+            if (attack != null && stepAdapted && StepFrame < stepWindup) glow = pal.adapted.WithAlpha(0.35f + 0.25f * windupT);
+            if (Flashing) glow = Color.white;
             if (gibbed) c.a = 0f;
-            body.color = c;
+            glow.a *= c.a;
+            SetBodyLook(c, glow);
             shadow.enabled = !gibbed;
             weapon.enabled = !gibbed;
-            bool glint = attack != null && !active && windupT > 0.7f;
-            pointer.color = glint ? Color.white.WithAlpha(c.a) : (Def.color * 0.85f).WithAlpha(c.a);
-            // An adapted (held) strike shows a violet eye: the enemy is reading you.
-            if (attack != null && stepAdapted && StepFrame < stepWindup) pointer.color = pal.adapted.WithAlpha(c.a);
 
             if (eliteAura.enabled)
             {

@@ -39,8 +39,14 @@ afina ao sumir, cor da arma/perigo), antecipação + exagero + assentamento em t
 inclinação do corpo e balanço da arma com o movimento, *chiburi* da katana (floreio que
 sacode o sangue) no fim do combo; inimigos com as mesmas curvas.
 
+**M1.6 — arte e som de verdade (feito):** pixel art 0x72 (CC0) para jogador, 8 inimigos,
+todas as armas, flechas e arenas (piso, paredes, estandartes) com tinta por bioma; braseiro,
+chamas, gore, corrente e ícones de itens em pixel art própria; animação idle/corrida/dano
+por sprite com flash por silhueta; ~140 SFX gravados (CC0) com variação; trilha "Samurai
+Nights" (CC-BY) em 5 camadas sincronizadas; passos. Créditos em `CREDITS.md` e no jogo.
+
 ## M2 — Vertical slice (G)
-Chefe com 2 fases; pixel art livre escolhida + shader de paleta; migração URP 2D; corredores
+Chefe com 2 fases; shader de paleta unificando a pixel art; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.
 **Pronto quando:** sala + chefe com qualidade de produto final.
 

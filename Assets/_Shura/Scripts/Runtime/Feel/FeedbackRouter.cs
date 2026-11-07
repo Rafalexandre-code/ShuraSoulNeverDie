@@ -37,8 +37,8 @@ namespace Shura
             switch (type)
             {
                 case FxType.PlayerSwing:
-                    // magnitude: the weapon's swing pitch (heavy weapons whoosh low).
-                    audio.Play(Sfx.Swing, 0.5f + 0.08f * FlowLevel, magnitude * (1.05f + 0.05f * FlowLevel));
+                    // magnitude: the weapon's swing pitch (heavy weapons whoosh low and long).
+                    audio.Play(magnitude < 0.95f ? Sfx.SwingHeavy : Sfx.Swing, 0.5f + 0.08f * FlowLevel, Mathf.Max(0.8f, magnitude) * (1.05f + 0.05f * FlowLevel));
                     if (game.Run != null && game.Run.CurrentWeapon.chain) audio.Play(Sfx.Chain, 0.4f);
                     break;
 
@@ -66,7 +66,7 @@ namespace Shura
 
                 case FxType.SwapStrike:
                     cam.Punch(0.2f);
-                    audio.Play(Sfx.Swing, 0.9f, magnitude * 0.85f);
+                    audio.Play(Sfx.SwingHeavy, 0.9f, Mathf.Max(0.85f, magnitude * 0.95f));
                     vfx.Ring(pos, 0.3f, 2.2f, col.WithAlpha(0.8f), 0.3f);
                     break;
 
@@ -129,7 +129,8 @@ namespace Shura
 
                 case FxType.EnemySwing:
                     // magnitude: 1 normal, 1.5 dangerous, 2 bow release.
-                    audio.Play(Sfx.Swing, 0.45f, magnitude >= 2f ? 1.6f : magnitude > 1f ? 0.75f : 0.88f);
+                    if (magnitude > 1f && magnitude < 2f) audio.Play(Sfx.SwingHeavy, 0.55f, 0.85f);
+                    else audio.Play(Sfx.Swing, 0.45f, magnitude >= 2f ? 1.6f : 0.9f);
                     break;
 
                 case FxType.HitEnemy:
@@ -352,15 +353,18 @@ namespace Shura
             AudioService audio = game.Audio;
             CameraRig cam = game.CameraRig;
             Vector2 perp = CombatMath.Perpendicular(dir);
-            Color flesh = Color.Lerp(bodyColor, blood, 0.25f);
+            // The body pieces are the enemy's own pixel art, stained with its blood.
+            Color flesh = Color.Lerp(Color.white, blood, 0.3f);
             float size = radius * 2f;
+            // Body sprites are drawn 1:1 in the arena; their pieces keep that size.
+            const float bodySize = 1f;
 
             switch (style)
             {
                 case FinisherStyle.CleanCut:
                     // Split along the cut: two halves slide apart, a geyser between them.
-                    vfx.Gib(bodySprite, pos + perp * radius * 0.4f, perp * 3.2f + dir * 0.8f, size, 0.5f, flesh, blood);
-                    vfx.Gib(bodySprite, pos - perp * radius * 0.4f, -perp * 3.2f + dir * 0.8f, size, 0.5f, flesh, blood);
+                    vfx.Gib(bodySprite, pos + perp * radius * 0.4f, perp * 3.2f + dir * 0.8f, bodySize, 0.5f, flesh, blood);
+                    vfx.Gib(bodySprite, pos - perp * radius * 0.4f, -perp * 3.2f + dir * 0.8f, bodySize, 0.5f, flesh, blood);
                     vfx.Blood(pos, perp, 40, 9f, 25f, blood);
                     vfx.Blood(pos, -perp, 40, 9f, 25f, blood);
                     vfx.BloodPool(pos, size * 1.6f, blood);
@@ -375,7 +379,7 @@ namespace Shura
                     for (int i = 0; i < 8; i++)
                     {
                         Vector2 v = Random.insideUnitCircle.normalized * Random.Range(2f, 5f);
-                        vfx.Gib(ShapeLibrary.Get(Shape.Square), pos, v, radius * Random.Range(0.4f, 0.7f), 1f, flesh, blood);
+                        vfx.Gib(PixelArt.GoreChunk(i), pos, v, radius * Random.Range(0.6f, 0.95f), 1f, Color.Lerp(Color.white, blood, 0.2f), blood);
                     }
                     vfx.Blood(pos, dir, 90, 10f, 180f, blood);
                     vfx.BloodPool(pos, size * 2.4f, blood);
@@ -385,7 +389,7 @@ namespace Shura
                     break;
 
                 case FinisherStyle.ThousandCuts:
-                    vfx.Gib(bodySprite, pos, dir * 1.2f, size, 1f, flesh * 0.8f, blood);
+                    vfx.Gib(bodySprite, pos, dir * 1.2f, bodySize, 1f, flesh * 0.8f, blood);
                     vfx.Blood(pos, dir, 70, 8f, 180f, blood);
                     vfx.BloodPool(pos, size * 1.8f, blood);
                     audio.Play(Sfx.Slice, 1f, 1.2f);
@@ -393,14 +397,14 @@ namespace Shura
 
                 case FinisherStyle.Impale:
                     // Flung off the polearm: the body tumbles away painting a long smear.
-                    vfx.Gib(bodySprite, pos, dir * 9f, size, 1f, flesh, blood);
+                    vfx.Gib(bodySprite, pos, dir * 9f, bodySize, 1f, flesh, blood);
                     vfx.Blood(pos, dir, 60, 11f, 20f, blood);
                     vfx.BloodStreak(pos, dir, 3.5f, blood);
                     vfx.BloodPool(pos + dir * 3.5f, size * 1.4f, blood);
                     break;
 
                 case FinisherStyle.Reap:
-                    vfx.Gib(bodySprite, pos, dir * 10f, size, 1f, flesh, blood);
+                    vfx.Gib(bodySprite, pos, dir * 10f, bodySize, 1f, flesh, blood);
                     vfx.Blood(pos, dir, 70, 10f, 180f, blood);
                     vfx.Ring(pos, 0.3f, 2.6f, blood.WithAlpha(0.6f), 0.3f);
                     vfx.BloodStreak(pos, dir, 3f, blood);
@@ -412,14 +416,23 @@ namespace Shura
                     for (int i = 0; i < 6; i++)
                     {
                         Vector2 v = CombatMath.RotateTowards(dir, perp * (i % 2 == 0 ? 1f : -1f), Random.Range(0f, 35f)) * Random.Range(5f, 9f);
-                        vfx.Gib(ShapeLibrary.Get(Shape.Square), pos, v, radius * Random.Range(0.35f, 0.6f), 1f, flesh, blood);
+                        vfx.Gib(PixelArt.GoreChunk(i + 1), pos, v, radius * Random.Range(0.55f, 0.85f), 1f, Color.Lerp(Color.white, blood, 0.2f), blood);
                     }
-                    vfx.Gib(bodySprite, pos, dir * 6f, size, 1f, flesh * 0.8f, blood);
+                    vfx.Gib(bodySprite, pos, dir * 6f, bodySize, 1f, flesh * 0.8f, blood);
                     vfx.Blood(pos, dir, 100, 13f, 30f, blood);
                     vfx.BloodPool(pos + dir * 1.5f, size * 2f, blood);
                     audio.Play(Sfx.Crunch, 1f, 1f);
                     break;
             }
+        }
+
+        float nextStep;
+
+        public void Footstep(Vector2 position)
+        {
+            if (Time.unscaledTime < nextStep) return;
+            nextStep = Time.unscaledTime + 0.12f;
+            game.Audio.Play(Sfx.Step, 0.32f, 1f, 0.1f);
         }
 
         public void ItemCollected(Item item, bool equipped, Vector2 position)

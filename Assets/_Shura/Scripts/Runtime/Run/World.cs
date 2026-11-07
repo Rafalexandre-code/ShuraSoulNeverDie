@@ -593,16 +593,17 @@ namespace Shura
                 Root = go.transform,
                 Glow = SpriteUtil.Make("Glow", go.transform, ShapeLibrary.Get(Shape.SoftCircle), rc.WithAlpha(0.35f), Sorting.Shadow + 4),
                 Beam = SpriteUtil.Make("Beam", go.transform, ShapeLibrary.Get(Shape.Pixel), rc.WithAlpha(0.35f), Sorting.Overlay - 20),
-                Frame = SpriteUtil.Make("Frame", go.transform, ShapeLibrary.Get(Shape.Ring), rc, Sorting.Overlay - 18),
-                Icon = SpriteUtil.Make("Icon", go.transform, ShapeLibrary.Get(ItemGenerator.IconShape(item.slot)), Elements.Color(item.element), Sorting.Overlay - 19),
+                // A soft halo in the rarity colour behind the pixel-art item.
+                Frame = SpriteUtil.Make("Halo", go.transform, ShapeLibrary.Get(Shape.SoftCircle), rc.WithAlpha(0.8f), Sorting.Overlay - 20),
+                Icon = SpriteUtil.Make("Icon", go.transform, PixelArt.ItemIcon(item.slot, item.element, item.rarity), Color.white, Sorting.Overlay - 19),
             };
             // Rarer loot stands taller: you can read a drop's worth from across the arena.
             float beamHeight = 1.2f + 0.45f * tier;
             pickup.Beam.transform.localPosition = new Vector3(0f, beamHeight * 0.5f, 0f);
             pickup.Beam.transform.localScale = new Vector3(0.1f + 0.015f * tier, beamHeight, 1f);
             pickup.Glow.transform.localScale = Vector3.one * (1.2f + 0.15f * tier);
-            pickup.Frame.transform.localScale = Vector3.one * 0.62f;
-            pickup.Icon.transform.localScale = Vector3.one * 0.38f;
+            pickup.Frame.transform.localScale = Vector3.one * 0.85f;
+            pickup.Icon.transform.localScale = Vector3.one * 0.75f;
             Pickups.Add(pickup);
             Fx.Emit(FxType.ItemDrop, position, Vector2.up, tier, rc);
         }
@@ -648,7 +649,7 @@ namespace Shura
         {
             Vector2 dir = owner.Facing;
             Vector2 start = owner.Position + dir * (owner.Radius + 0.3f);
-            Projectile p = CreateProjectile(start, dir, attack.projectileSpeed, attack.projectileRadius, owner.Def.weaponColor);
+            Projectile p = CreateProjectile(start, dir, attack.projectileSpeed, attack.projectileRadius, PixelArt.Weapon("weapon_arrow") != null ? Color.white : owner.Def.weaponColor);
             p.Attack = attack;
             p.Owner = owner;
             p.Signature = signature;
@@ -669,6 +670,7 @@ namespace Shura
         {
             var go = new GameObject("Projectile");
             go.transform.SetParent(root, false);
+            if (sprite == null && arrow) sprite = PixelArt.Weapon("weapon_arrow");
             var p = new Projectile
             {
                 Position = start,
@@ -900,7 +902,8 @@ namespace Shura
                 float t = Time.unscaledTime * 2f + p.Position.x;
                 p.Icon.transform.localPosition = new Vector3(0f, 0.15f + 0.08f * Mathf.Sin(t), 0f);
                 p.Frame.transform.localPosition = p.Icon.transform.localPosition;
-                p.Frame.transform.localRotation = Quaternion.Euler(0f, 0f, Time.unscaledTime * 60f);
+                float halo = 0.85f + 0.12f * Mathf.Sin(t * 2.3f);
+                p.Frame.transform.localScale = new Vector3(halo, halo, 1f);
                 Color b = p.Beam.color;
                 b.a = 0.25f + 0.15f * Mathf.Sin(t * 1.7f);
                 p.Beam.color = b;

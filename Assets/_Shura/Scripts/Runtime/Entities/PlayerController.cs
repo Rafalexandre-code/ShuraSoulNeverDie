@@ -104,15 +104,16 @@ namespace Shura
             MaxDodgeCharges = t.dodgeCharges;
             DodgeCharges = MaxDodgeCharges;
 
-            BuildView(owner, Shape.Circle, pal.player, t.radius);
-            pointer.color = pal.playerAccent;
-            BuildWeapon(WeaponDefs.Katana.sprite, WeaponDefs.Katana.color, WeaponDefs.Katana.length);
+            BuildView(owner, PixelArt.Character(PlayerArt), t.radius, 1f);
+            BuildWeapon(WeaponSprite(WeaponDefs.Katana), Color.white, WeaponDefs.Katana.length);
 
             parryArc = SpriteUtil.Make("ParryArc", transform, ShapeLibrary.Wedge(t.parryArcDegrees), pal.playerAccent, Sorting.Ground + 10);
             aura = SpriteUtil.Make("FlowAura", transform, ShapeLibrary.Get(Shape.SoftCircle), pal.gold, Sorting.Shadow + 1);
             empowerGlow = SpriteUtil.Make("Empowered", transform, ShapeLibrary.Get(Shape.Ring), pal.gold, Sorting.Overlay - 1);
-            offhand = SpriteUtil.Make("Offhand", transform, ShapeLibrary.Get(Shape.Blade), Color.white, 0);
-            chain = SpriteUtil.Make("Chain", transform, ShapeLibrary.Get(Shape.PixelLeft), ColorUtil.Hex("#8C8A86"), 0);
+            offhand = SpriteUtil.Make("Offhand", transform, WeaponSprite(WeaponDefs.Katana), Color.white, 0);
+            Sprite link = PixelArt.ChainLink();
+            chain = SpriteUtil.Make("Chain", transform, link != null ? link : ShapeLibrary.Get(Shape.PixelLeft), Color.white, 0);
+            if (link != null) chain.drawMode = SpriteDrawMode.Tiled;
             parryArc.enabled = aura.enabled = empowerGlow.enabled = offhand.enabled = chain.enabled = false;
         }
 
@@ -157,12 +158,29 @@ namespace Shura
             Health = Mathf.Min(MaxHealth, Health + amount);
         }
 
+        /// <summary>The knight from 0x72's DungeonTileset II.</summary>
+        public const string PlayerArt = "knight_m";
+
+        /// <summary>Pixel-art weapon, or the old procedural shape if the art is missing.</summary>
+        public static Sprite WeaponSprite(WeaponDef w)
+        {
+            Sprite s = PixelArt.Weapon(w.art);
+            return s != null ? s : ShapeLibrary.Get(w.sprite);
+        }
+
         void ApplyWeaponVisual()
         {
             WeaponDef w = Weapon;
-            SetWeapon(w.sprite, w.color, w.length);
-            offhand.sprite = ShapeLibrary.Get(w.sprite);
+            SetWeapon(WeaponSprite(w), Color.white, w.length);
+            offhand.sprite = WeaponSprite(w);
             offhand.enabled = w.dual;
+        }
+
+        protected override bool HurtPose => CurrentState == State.Hurt || CurrentState == State.GuardBroken;
+
+        protected override void OnFootfall()
+        {
+            world.Fx.Footstep(Position);
         }
 
         public void Tick()
@@ -1044,14 +1062,18 @@ namespace Shura
 
         protected override void RenderExtra(Vector2 renderPosition, float visualDt)
         {
-            Color c = pal.player;
-            if (CurrentState == State.GuardBroken) c = Color.Lerp(pal.player, pal.postureHigh, 0.6f);
-            if (CurrentState == State.Dead) c = new Color(0.4f, 0.4f, 0.45f, 1f);
-            if (Flashing) c = Color.white;
+            Color c = Color.white;
+            Color glow = Color.clear;
+            if (CurrentState == State.GuardBroken) c = Color.Lerp(Color.white, pal.postureHigh, 0.5f);
+            if (CurrentState == State.Dead) c = new Color(0.45f, 0.45f, 0.5f, 1f);
             if (hurtInvuln > 0 && CurrentState != State.Hurt && Mathf.Repeat(Time.unscaledTime * 12f, 1f) < 0.5f) c.a = 0.35f;
-            if (IsDodgeInvulnerable) c.a = 0.6f;
-            body.color = c;
-            pointer.color = pal.playerAccent.WithAlpha(c.a);
+            if (IsDodgeInvulnerable)
+            {
+                c.a = 0.6f;
+                glow = pal.playerAccent.WithAlpha(0.35f);
+            }
+            if (Flashing) glow = Color.white.WithAlpha(c.a);
+            SetBodyLook(c, glow);
 
             float facingAngle = FacingAngle;
             RenderOffhandAndChain(c.a);
@@ -1103,6 +1125,7 @@ namespace Shura
                 offhand.transform.localScale = new Vector3(w.length, w.length, 1f);
                 offhand.color = weapon.color.WithAlpha(alpha);
                 offhand.sortingOrder = Mathf.Sin(rad) > 0.2f ? order - 1 : order + 2;
+                offhand.flipY = Mathf.Cos(rad) < 0f;
             }
 
             bool showChain = w.chain && WeaponReach > Radius * 0.55f + 0.4f;
@@ -1112,8 +1135,17 @@ namespace Shura
                 float rad = WeaponWorldAngle * Mathf.Deg2Rad;
                 chain.transform.localPosition = Vector3.zero;
                 chain.transform.localRotation = Quaternion.Euler(0f, 0f, WeaponWorldAngle);
-                chain.transform.localScale = new Vector3(WeaponReach, 0.05f, 1f);
-                chain.color = ColorUtil.Hex("#8C8A86").WithAlpha(alpha);
+                if (chain.drawMode == SpriteDrawMode.Tiled)
+                {
+                    chain.transform.localScale = Vector3.one;
+                    chain.size = new Vector2(WeaponReach, chain.sprite.bounds.size.y);
+                    chain.color = Color.white.WithAlpha(alpha);
+                }
+                else
+                {
+                    chain.transform.localScale = new Vector3(WeaponReach, 0.05f, 1f);
+                    chain.color = ColorUtil.Hex("#8C8A86").WithAlpha(alpha);
+                }
                 chain.sortingOrder = Mathf.Sin(rad) > 0.2f ? order - 2 : order + 1;
             }
         }

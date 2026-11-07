@@ -198,8 +198,31 @@ Sala 1 = um único Ronin, com dicas de controle no chão. Sala 2 introduz o Lanc
 (estocada) já sabendo aparar. Sala 3 introduz a Varredura isolada. Sala 4 combina.
 
 ## 10. Direção de arte
-Pixel art livre unificada por paleta única (shader no polimento). Telegraphs feitos por
-código. Paleta:
+Pixel art livre: **0x72 "16x16 DungeonTileset II" (CC0)**, 16 px por unidade para tudo
+(personagens, armas, piso, paredes), filtro Point, visão de cima em 3/4 (o personagem vira
+para a esquerda/direita; a arma gira 360° na mão). Elenco:
+
+| Entidade | Sprite | Arma |
+|---|---|---|
+| Jogador | cavaleiro (`knight_m`) | a arma equipada |
+| Ronin Errante | orc guerreiro | espada comum |
+| Lanceiro | orc mascarado | lança |
+| Monge do Sino | golem de pedra (grande) | cajado rubro |
+| Kenkaku Veloz | demônio vermelho (chort) | espada de duelo |
+| Carrasco | ogro (grande) | machado de guerra |
+| Arqueiro das Cinzas | esqueleto | arco (flechas em pixel art) |
+| Sombra | necromante encapuzado | faca |
+| Escudeiro | anão de armadura | espada de cavaleiro |
+
+Armas do jogador: Katana (katana), Montante (espadão), Gêmeas (dois facões), Naginata
+(lança), Kusarigama (lâmina + corrente em elos), Manoplas (duas maças). Arenas montadas
+tile a tile (laje limpa, rachaduras raras, caveiras, parede de tijolos com estandartes),
+tingidas pela cor do bioma. Peças desenhadas por nós em pixel art no mesmo estilo:
+braseiro, chamas animadas, pedaços de gore, ícones de itens (amuleto, anel, bracelete,
+talismã de papel) com metal na cor da raridade e pedra na cor do elemento.
+Flash de dano e "calor" do ataque são uma silhueta branca/colorida sobre o sprite.
+Telegraphs, anéis de timing e partículas continuam feitos por código (são leitura de
+jogo, não entidades). Créditos completos em `CREDITS.md`. Paleta de UI:
 | Uso | Hex |
 |---|---|
 | Fundo | `#15141B` |
@@ -213,10 +236,17 @@ código. Paleta:
 | Selo de técnica / Fluxo | `#F2C14E` |
 
 ## 11. Áudio
-SFX: golpe, acerto, bloqueio, parry perfeito, quebra de postura, finalizador, esquiva,
-dano recebido, aviso de perigo, subida de Fluxo, UI. Música em camadas: drone
-(exploração) → tambores (combate) → cordas (Fluxo 2) → coro (Fluxo 3 / chefe).
-No protótipo tudo é sintetizado por código; a estrutura aceita arquivos reais depois.
+SFX gravados (CC0): ~140 variações em 14 categorias — cortes no ar, golpes pesados,
+choques de lâmina, parry (katana contra lâmina, gravações profissionais), bloqueio
+(cabo/guarda contra lâmina), impactos pesados e esmagamento, carne, sangue,
+desembainhar/embainhar, passos de couro, esquiva. Cada evento sorteia uma variação (nunca
+a mesma duas vezes seguidas) com leve variação de tom; eventos-chave somam por baixo o som
+sintetizado antigo (o "ting" do parry perfeito, o baque da quebra de postura). Interface e
+avisos continuam sintetizados.
+
+Música: "Samurai Nights" (majadroid, CC-BY) separada em 5 camadas sincronizadas, cortadas
+em loops exatos de 4 compassos a 140 BPM: qin (base, sempre) → percussão + baixo (combate)
+→ erhu (Fluxo 1, cresce no 2) → flauta dizi (Fluxo 3 e menus).
 
 ## 12. Acessibilidade
 Perigo nunca só por cor (forma + som + marca no chão). Indicador de tempo liga/desliga.

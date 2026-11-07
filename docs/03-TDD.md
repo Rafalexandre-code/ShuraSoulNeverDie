@@ -22,6 +22,16 @@ Assets/_Shura/
 docs/            documentos de design
 ```
 
+### Arte e áudio carregados de Resources
+- `PixelArt` carrega quadros de `Resources/Art/0x72` (legíveis, Point, sem compressão — regra
+  em `ArtImportRules`), monta `CharacterArt` (idle/run/hit + silhuetas brancas, pivô nos pés),
+  gira armas 90° para a convenção "+X, pivô na empunhadura, 1 unidade" e desenha props em grade
+  de caracteres (braseiro, chamas, gore, elo, ícones). Sem a arte, cai nas formas antigas.
+- `ArenaBuilder` compõe piso e paredes numa única textura por sala (tiles tingidos pelo bioma).
+- `AudioService` carrega `Resources/Audio/Sfx/<categoria>` como bancos de variações por `Sfx`
+  (sorteio sem repetição imediata, camada sintetizada opcional por baixo) e 5 stems de música
+  com `PlayScheduled` no mesmo instante — todos múltiplos exatos de 302 400 amostras.
+
 ## Dependências
 ```
 Game ─► SimClock, InputService, World, CameraRig, Vfx, AudioService, GameUI, RunState

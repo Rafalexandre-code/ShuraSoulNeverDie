@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -26,7 +27,7 @@ namespace Shura
         Glint,
         Purchase,
         Denied,
-        /// <summary>Blade on blade; one of several variants is picked at random.</summary>
+        /// <summary>Blade on blade; one of many recorded variants is picked at random.</summary>
         Clash,
         Unsheathe,
         Slice,
@@ -35,6 +36,9 @@ namespace Shura
         SheathClick,
         Chain,
         Pickup,
+        /// <summary>Long, low whoosh of a heavy weapon (or a big special strike).</summary>
+        SwingHeavy,
+        Step,
     }
 
     public enum MusicLayer
@@ -43,59 +47,81 @@ namespace Shura
         Drums = 1,
         Strings = 2,
         Choir = 3,
+        /// <summary>Bass line that rides with the drums.</summary>
+        Bass = 4,
     }
 
     /// <summary>
-    /// Pooled one-shots with slight pitch variation (so repeats never sound robotic) and four
-    /// synchronized music layers whose volumes follow combat state and Flow.
+    /// Pooled one-shots and five synchronized music layers whose volumes follow combat state
+    /// and Flow.
+    ///
+    /// Sound effects are real recordings (CC0 packs in Resources/Audio/Sfx, see CREDITS.md):
+    /// each event draws a random variant, never the same one twice in a row, with slight pitch
+    /// variation. Some events also layer the old synthesized sound underneath for its musical
+    /// "sting" (the ring of a perfect parry, the thump of a posture break). Anything missing
+    /// falls back to the synthesizer, so the game never goes silent.
     /// </summary>
     public sealed class AudioService : MonoBehaviour
     {
-        const int PoolSize = 20;
+        const int PoolSize = 24;
         const float MusicFadeSharpness = 2.5f;
+        const int LayerCount = 5;
 
-        readonly AudioSource[] music = new AudioSource[4];
-        readonly float[] musicTarget = new float[4];
+        sealed class Bank
+        {
+            public AudioClip[] samples;
+            public AudioClip synth;
+            /// <summary>Volume of the synthesized layer when samples exist (0 = samples only).</summary>
+            public float synthLayer;
+            public float sampleVolume = 1f;
+            public int last = -1;
+        }
+
+        readonly AudioSource[] music = new AudioSource[LayerCount];
+        readonly float[] musicTarget = new float[LayerCount];
         AudioSource[] pool;
-        AudioClip[] clips;
-        AudioClip[] clashVariants;
+        Bank[] banks;
         int next;
         GameSettings settings;
+
+        public bool UsingRecordedAudio { get; private set; }
 
         public void Init(GameSettings gameSettings, bool headless)
         {
             settings = gameSettings;
 
-            clips = new AudioClip[Enum.GetValues(typeof(Sfx)).Length];
-            clips[(int)Sfx.Swing] = SfxSynth.Swing();
-            clips[(int)Sfx.Hit] = SfxSynth.Hit();
-            clips[(int)Sfx.Block] = SfxSynth.Block();
-            clips[(int)Sfx.PerfectParry] = SfxSynth.PerfectParry();
-            clips[(int)Sfx.PostureBreak] = SfxSynth.PostureBreak();
-            clips[(int)Sfx.Finisher] = SfxSynth.Finisher();
-            clips[(int)Sfx.Dodge] = SfxSynth.Dodge();
-            clips[(int)Sfx.Hurt] = SfxSynth.Hurt();
-            clips[(int)Sfx.Danger] = SfxSynth.Danger();
-            clips[(int)Sfx.FlowUp] = SfxSynth.FlowUp();
-            clips[(int)Sfx.FlowDown] = SfxSynth.FlowDown();
-            clips[(int)Sfx.Absorb] = SfxSynth.Absorb();
-            clips[(int)Sfx.Death] = SfxSynth.Death();
-            clips[(int)Sfx.Spawn] = SfxSynth.Spawn();
-            clips[(int)Sfx.Chime] = SfxSynth.Chime();
-            clips[(int)Sfx.UiMove] = SfxSynth.UiMove();
-            clips[(int)Sfx.UiConfirm] = SfxSynth.UiConfirm();
-            clips[(int)Sfx.Glint] = SfxSynth.Glint();
-            clips[(int)Sfx.Purchase] = SfxSynth.Purchase();
-            clips[(int)Sfx.Denied] = SfxSynth.Denied();
-            clashVariants = new[] { SfxSynth.SwordClash(0), SfxSynth.SwordClash(1), SfxSynth.SwordClash(2) };
-            clips[(int)Sfx.Clash] = clashVariants[0];
-            clips[(int)Sfx.Unsheathe] = SfxSynth.Unsheathe();
-            clips[(int)Sfx.Slice] = SfxSynth.Slice();
-            clips[(int)Sfx.Splatter] = SfxSynth.Splatter();
-            clips[(int)Sfx.Crunch] = SfxSynth.Crunch();
-            clips[(int)Sfx.SheathClick] = SfxSynth.SheathClick();
-            clips[(int)Sfx.Chain] = SfxSynth.Chain();
-            clips[(int)Sfx.Pickup] = SfxSynth.Chime();
+            banks = new Bank[Enum.GetValues(typeof(Sfx)).Length];
+            Set(Sfx.Swing, SfxSynth.Swing(), "swing");
+            Set(Sfx.SwingHeavy, SfxSynth.Swing(), "slash");
+            Set(Sfx.Hit, SfxSynth.Hit(), "flesh", 0.45f);
+            Set(Sfx.Block, SfxSynth.Block(), "block", 0.3f);
+            Set(Sfx.PerfectParry, SfxSynth.PerfectParry(), "parry", 0.55f);
+            Set(Sfx.PostureBreak, SfxSynth.PostureBreak(), "heavy", 0.7f);
+            Set(Sfx.Finisher, SfxSynth.Finisher(), "heavy", 0.75f);
+            Set(Sfx.Dodge, SfxSynth.Dodge(), "dodge", 0.6f);
+            Set(Sfx.Hurt, SfxSynth.Hurt(), "flesh", 0.7f);
+            Set(Sfx.Danger, SfxSynth.Danger());
+            Set(Sfx.FlowUp, SfxSynth.FlowUp());
+            Set(Sfx.FlowDown, SfxSynth.FlowDown());
+            Set(Sfx.Absorb, SfxSynth.Absorb());
+            Set(Sfx.Death, SfxSynth.Death(), "splat", 0.6f);
+            Set(Sfx.Spawn, SfxSynth.Spawn());
+            Set(Sfx.Chime, SfxSynth.Chime());
+            Set(Sfx.UiMove, SfxSynth.UiMove());
+            Set(Sfx.UiConfirm, SfxSynth.UiConfirm());
+            Set(Sfx.Glint, SfxSynth.Glint());
+            Set(Sfx.Purchase, SfxSynth.Purchase());
+            Set(Sfx.Denied, SfxSynth.Denied());
+            Set(Sfx.Clash, SfxSynth.SwordClash(0), "clash", 0.25f);
+            Set(Sfx.Unsheathe, SfxSynth.Unsheathe(), "unsheathe");
+            Set(Sfx.Slice, SfxSynth.Slice(), "flesh", 0.8f);
+            Set(Sfx.Splatter, SfxSynth.Splatter(), "splat", 0.4f);
+            Set(Sfx.Crunch, SfxSynth.Crunch(), "crunch", 0.5f);
+            Set(Sfx.SheathClick, SfxSynth.SheathClick(), "sheathe");
+            Set(Sfx.Chain, SfxSynth.Chain());
+            Set(Sfx.Pickup, SfxSynth.Chime(), "pickup", 0.8f);
+            Set(Sfx.Step, null, "step");
+            banks[(int)Sfx.Slice].sampleVolume = 0.55f;
 
             pool = new AudioSource[PoolSize];
             for (int i = 0; i < PoolSize; i++)
@@ -104,12 +130,21 @@ namespace Shura
                 pool[i].playOnAwake = false;
             }
 
-            // Headless test runs skip the (comparatively slow) music synthesis.
+            // Headless test runs skip music entirely.
             if (headless) return;
-            AudioClip[] loops = { SfxSynth.MusicDrone(), SfxSynth.MusicDrums(), SfxSynth.MusicStrings(), SfxSynth.MusicChoir() };
-            double start = AudioSettings.dspTime + 0.2;
+            AudioClip[] loops =
+            {
+                LoadMusic("drone") ?? SfxSynth.MusicDrone(),
+                LoadMusic("drums") ?? SfxSynth.MusicDrums(),
+                LoadMusic("strings") ?? SfxSynth.MusicStrings(),
+                LoadMusic("choir") ?? SfxSynth.MusicChoir(),
+                LoadMusic("bass"),
+            };
+            // All stems are whole multiples of one 4-bar loop, so starting them together keeps them locked.
+            double start = AudioSettings.dspTime + 0.3;
             for (int i = 0; i < loops.Length; i++)
             {
+                if (loops[i] == null) continue;
                 AudioSource src = gameObject.AddComponent<AudioSource>();
                 src.clip = loops[i];
                 src.loop = true;
@@ -120,18 +155,47 @@ namespace Shura
             }
         }
 
+        void Set(Sfx sfx, AudioClip synth, string folder = null, float synthLayer = 0f)
+        {
+            AudioClip[] samples = folder != null ? Resources.LoadAll<AudioClip>("Audio/Sfx/" + folder) : null;
+            if (samples != null && samples.Length > 0)
+            {
+                Array.Sort(samples, (a, b) => string.CompareOrdinal(a.name, b.name));
+                UsingRecordedAudio = true;
+            }
+            banks[(int)sfx] = new Bank { samples = samples, synth = synth, synthLayer = synthLayer };
+        }
+
+        static AudioClip LoadMusic(string name)
+        {
+            return Resources.Load<AudioClip>("Audio/Music/" + name);
+        }
+
         public void Play(Sfx sfx, float volume = 1f, float pitch = 1f, float pitchVariance = 0.06f)
         {
-            if (clips == null) return;
-            AudioClip clip = sfx == Sfx.Clash && clashVariants != null
-                ? clashVariants[Random.Range(0, clashVariants.Length)]
-                : clips[(int)sfx];
-            if (clip == null) return;
+            if (banks == null) return;
+            Bank bank = banks[(int)sfx];
+            if (bank == null) return;
+            float p = pitch * (1f + Random.Range(-pitchVariance, pitchVariance));
+            if (bank.samples != null && bank.samples.Length > 0)
+            {
+                int pick = Random.Range(0, bank.samples.Length);
+                if (bank.samples.Length > 1 && pick == bank.last) pick = (pick + 1) % bank.samples.Length;
+                bank.last = pick;
+                Emit(bank.samples[pick], volume * bank.sampleVolume, p);
+                if (bank.synth != null && bank.synthLayer > 0f) Emit(bank.synth, volume * bank.synthLayer, p);
+                return;
+            }
+            if (bank.synth != null) Emit(bank.synth, volume, p);
+        }
+
+        void Emit(AudioClip clip, float volume, float pitch)
+        {
             AudioSource src = pool[next];
             next = (next + 1) % PoolSize;
             src.clip = clip;
             src.volume = volume * settings.sfx;
-            src.pitch = pitch * (1f + Random.Range(-pitchVariance, pitchVariance));
+            src.pitch = pitch;
             src.Play();
         }
 
@@ -141,6 +205,7 @@ namespace Shura
             musicTarget[(int)MusicLayer.Drums] = drums;
             musicTarget[(int)MusicLayer.Strings] = strings;
             musicTarget[(int)MusicLayer.Choir] = choir;
+            musicTarget[(int)MusicLayer.Bass] = drums * 0.8f;
         }
 
         void Update()

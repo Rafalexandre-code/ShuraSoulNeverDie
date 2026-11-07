@@ -538,7 +538,7 @@ namespace Shura
         {
             DrawRect(FullScreen, Pal.background.WithAlpha(0.85f));
             Label(new Rect(0, 140, VW, 90), Strings.CreditsTitle, headerStyle, Pal.uiText);
-            Label(new Rect(260, 300, VW - 520, 420), Strings.CreditsBody, bodyCenterStyle, Pal.uiText);
+            Label(new Rect(160, 260, VW - 320, 520), Strings.CreditsBody, bodyCenterStyle, Pal.uiText);
             DrawMenuList(820f, 72f, 500f);
         }
 
@@ -865,9 +865,8 @@ namespace Shura
                 if (pick >= 0) DrawFrame(r, Pal.gold, 3f);
                 if (selected) DrawFrame(new Rect(r.x - 4, r.y - 4, r.width + 8, r.height + 8), Pal.uiText, 2f);
 
-                Texture tex = ShapeLibrary.Get(w.sprite).texture;
-                DrawTex(new Rect(r.x + 30f, r.y + 30f, 200f, 50f), tex, w.color);
-                if (w.dual) DrawTex(new Rect(r.x + 30f, r.y + 70f, 200f, 50f), tex, w.color * 0.85f);
+                DrawWeaponArt(w, new Rect(r.x + 30f, r.y + 30f, 200f, 50f), Color.white);
+                if (w.dual) DrawWeaponArt(w, new Rect(r.x + 30f, r.y + 70f, 200f, 50f), new Color(0.85f, 0.85f, 0.85f, 1f));
                 Label(new Rect(r.x + 250f, r.y + 20f, cardW - 270f, 44f), w.name, cardNameStyle, pick >= 0 ? Pal.gold : Pal.uiText);
                 if (pick >= 0) Label(new Rect(r.x + 6f, r.y + 2f, 40f, 40f), (pick + 1).ToString(), toastStyle, Pal.gold);
                 Label(new Rect(r.x + 30f, r.y + 120f, cardW - 60f, 60f), w.description, cardBodyStyle, Pal.uiText);
@@ -990,14 +989,14 @@ namespace Shura
             Label(new Rect(r.x + icon + 20f, r.y, r.width - icon - 30f, r.height), item.Name, smallStyle, Rarities.Color(item.rarity));
         }
 
-        /// <summary>Procedural item art: slot shape in the element colour, framed by rarity.</summary>
+        /// <summary>Pixel-art item: the slot's object in rarity metal with an element stone, on a rarity glow.</summary>
         void DrawItemIcon(Rect r, Item item)
         {
             Color rc = Rarities.Color(item.rarity);
             DrawTex(new Rect(r.x - 4f, r.y - 4f, r.width + 8f, r.height + 8f), ShapeLibrary.Get(Shape.SoftCircle).texture, rc.WithAlpha(0.35f + 0.04f * (int)item.rarity));
-            DrawTex(r, ShapeLibrary.Get(ItemGenerator.IconShape(item.slot)).texture, Elements.Color(item.element));
-            float gem = r.width * 0.36f;
-            DrawTex(new Rect(r.center.x - gem * 0.5f, r.center.y - gem * 0.5f, gem, gem), ShapeLibrary.Get(Shape.Diamond).texture, rc);
+            Sprite icon = PixelArt.ItemIcon(item.slot, item.element, item.rarity);
+            if (icon != null) DrawTex(r, icon.texture, Color.white);
+            else DrawTex(r, ShapeLibrary.Get(ItemGenerator.IconShape(item.slot)).texture, Elements.Color(item.element));
             if (item.rarity >= Rarity.Mythic)
             {
                 float spin = Mathf.Repeat(Time.unscaledTime * 0.5f, 1f);
@@ -1033,7 +1032,7 @@ namespace Shura
             Label(new Rect(r.x, r.y + 10f, r.width, 30f), Strings.EquipmentWheel, smallStyleCenter, Pal.gold);
             DrawTex(new Rect(centre.x - 190f, centre.y - 190f, 380f, 380f), ShapeLibrary.Get(Shape.Ring).texture, Pal.uiDim.WithAlpha(0.5f));
             DrawTex(new Rect(centre.x - 120f, centre.y - 120f, 240f, 240f), ShapeLibrary.Get(Shape.SoftCircle).texture, Pal.gold.WithAlpha(0.12f + 0.04f * run.Flow.Level));
-            DrawTex(new Rect(centre.x - 60f, centre.y - 60f, 120f, 120f), ShapeLibrary.Get(Shape.Circle).texture, Pal.player);
+            DrawCharacterArt(new Rect(centre.x - 60f, centre.y - 100f, 120f, 210f));
             for (int i = 0; i < 4; i++)
             {
                 Item item = run.Equipped[i];
@@ -1065,11 +1064,39 @@ namespace Shura
             if (owned.Length > 0) Label(new Rect(r.x + 30f, r.y + 776f, r.width - 60f, 50f), owned, cardBodyStyle, Pal.uiDim);
         }
 
+        /// <summary>A texture scaled to fit (whole pixels stay square) and centred in the rect.</summary>
+        void DrawFitted(Rect r, Texture tex, Color color)
+        {
+            float k = Mathf.Min(r.width / tex.width, r.height / tex.height);
+            var fit = new Rect(r.center.x - tex.width * k * 0.5f, r.center.y - tex.height * k * 0.5f, tex.width * k, tex.height * k);
+            DrawTex(fit, tex, color);
+        }
+
+        void DrawWeaponArt(WeaponDef w, Rect r, Color color)
+        {
+            Sprite s = PlayerController.WeaponSprite(w);
+            if (s.texture.width >= s.texture.height * 2) DrawFitted(r, s.texture, color);
+            else DrawTex(r, s.texture, w.color * color);
+        }
+
+        /// <summary>The duelist's idle loop, large, for the equipment screen.</summary>
+        void DrawCharacterArt(Rect r)
+        {
+            CharacterArt art = PixelArt.Character(PlayerController.PlayerArt);
+            if (art == null)
+            {
+                DrawTex(r, ShapeLibrary.Get(Shape.Circle).texture, Pal.player);
+                return;
+            }
+            Sprite frame = art.idle[Mathf.FloorToInt(Time.unscaledTime * 6f) % art.idle.Length];
+            DrawFitted(r, frame.texture, Color.white);
+        }
+
         void DrawWheelWeapon(WeaponDef w, Rect r, bool active)
         {
             if (active) DrawRect(r, Pal.gold.WithAlpha(0.12f));
-            DrawTex(new Rect(r.x + 10f, r.y + 5f, 120f, 30f), ShapeLibrary.Get(w.sprite).texture, active ? w.color : w.color * 0.6f);
-            Label(new Rect(r.x + 135f, r.y, r.width - 140f, 40f), w.name, smallStyle, active ? Pal.gold : Pal.uiDim);
+            DrawWeaponArt(w, new Rect(r.x - 20f, r.y + 8f, 110f, 30f), active ? Color.white : new Color(0.6f, 0.6f, 0.6f, 1f));
+            Label(new Rect(r.x + 100f, r.y, r.width + 40f, 40f), w.name, smallStyle, active ? Pal.gold : Pal.uiDim);
         }
 
         void DrawPopups()

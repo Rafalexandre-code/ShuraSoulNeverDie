@@ -505,7 +505,8 @@ namespace Shura
 
             float drone = CurrentMode == Mode.GameOver ? 0.35f : 0.55f;
             float drums = combat ? 0.8f : inRun ? 0.15f : 0f;
-            float strings = inRun && flow >= 2 ? 0.55f : 0f;
+            // The erhu melody enters with the first Flow level and swells with the next.
+            float strings = inRun && combat && flow >= 1 ? (flow >= 2 ? 0.6f : 0.4f) : 0f;
             float choir = inRun ? (flow >= 3 ? 0.6f : 0f) : (menu ? 0.35f : 0f);
             Audio.SetMusicTargets(drone, drums, strings, choir);
         }

@@ -13,6 +13,19 @@ livre **com crédito obrigatório** (já presente na tela de Créditos do jogo).
 Arte própria do projeto (pixel art desenhada em código no `PixelArt.cs`): pedaços de gore,
 elo de corrente e ícones de itens.
 
+## Interface (arte própria + fontes)
+
+A arte da interface (papel washi, pinceladas sumi-e, ensō, selo, logo "修羅", paisagem do
+título, pétalas) é **do projeto**, gerada por `Tools/ui_art/gen_ui.py` (pincel simulado).
+
+| Fonte | Autor | Licença | Uso |
+|---|---|---|---|
+| Kaushan Script | Impallari Type | SIL OFL 1.1 | Títulos, nomes, números de dano (`Resources/UI/Fonts`) |
+| Spectral (Medium, SemiBold) | Production Type | SIL OFL 1.1 | Textos e menus (`Resources/UI/Fonts`) |
+| Yuji Syuku | Kinuta Font Factory | SIL OFL 1.1 | Só para pintar o logo e o selo "修羅" (não vai no jogo) |
+
+Textos das licenças em `Licenses/`.
+
 ## Música
 
 | Faixa | Autor | Licença | Fonte | Uso |

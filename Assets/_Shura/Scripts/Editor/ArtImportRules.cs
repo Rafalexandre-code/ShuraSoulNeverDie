@@ -15,6 +15,20 @@ namespace Shura.EditorTools
 
         void OnPreprocessTexture()
         {
+            if (assetPath.Contains("/Resources/UI/"))
+            {
+                // Painted UI: smooth filtering, full colour, paper tiles repeat.
+                var ui = (TextureImporter)assetImporter;
+                ui.textureType = TextureImporterType.Default;
+                ui.isReadable = false;
+                ui.filterMode = UnityEngine.FilterMode.Bilinear;
+                ui.mipmapEnabled = false;
+                ui.npotScale = TextureImporterNPOTScale.None;
+                ui.textureCompression = TextureImporterCompression.Uncompressed;
+                ui.alphaIsTransparency = true;
+                ui.wrapMode = assetPath.Contains("_tile") ? UnityEngine.TextureWrapMode.Repeat : UnityEngine.TextureWrapMode.Clamp;
+                return;
+            }
             if (!assetPath.Contains("/Resources/Art/")) return;
             var importer = (TextureImporter)assetImporter;
             importer.textureType = TextureImporterType.Default;

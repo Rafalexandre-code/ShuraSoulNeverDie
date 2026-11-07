@@ -5,9 +5,10 @@ using UnityEngine;
 namespace Shura
 {
     /// <summary>
-    /// Prototype UI drawn with IMGUI on a virtual 1920x1080 canvas (letterboxed). Navigation
-    /// is read in Update through InputService, so keyboard, mouse and gamepad all work; OnGUI
-    /// only draws and handles mouse hover/click. Replaced by the final UI in the polish milestone.
+    /// The game's UI, hand-painted in sumi-e ink on washi paper (see UiKit), drawn with IMGUI
+    /// on a virtual 1920x1080 canvas (letterboxed). Navigation is read in Update through
+    /// InputService, so keyboard, mouse and gamepad all work; OnGUI only draws and handles
+    /// mouse hover/click.
     /// </summary>
     public sealed class GameUI : MonoBehaviour
     {
@@ -39,6 +40,7 @@ namespace Shura
         readonly List<FloatingText> toasts = new List<FloatingText>();
 
         Game game;
+        readonly UiKit kit = new UiKit();
         Texture2D white;
         GUIStyle titleStyle, headerStyle, itemStyle, bodyStyle, bodyCenterStyle, smallStyle, smallRightStyle,
                  popupStyle, cardNameStyle, cardBodyStyle, hintStyle, toastStyle, roomStyle;
@@ -74,6 +76,7 @@ namespace Shura
             game = owner;
             white = Texture2D.whiteTexture;
             vignette = ShapeLibrary.VignetteTexture();
+            kit.Load();
         }
 
         /// <summary>Screen fades in from black (room transitions).</summary>
@@ -161,6 +164,7 @@ namespace Shura
             shownStreak = streak;
             streakPop = Mathf.MoveTowards(streakPop, 0f, dt * 4f);
             UpdateGhostHealth(dt);
+            UpdatePetals(dt);
             if (menuIndex != lastSel)
             {
                 lastSel = menuIndex;
@@ -374,6 +378,70 @@ namespace Shura
 
         // ── Drawing ────────────────────────────────────────────────────────────────────
 
+        struct PetalFx
+        {
+            public Vector2 pos;
+            public Vector2 vel;
+            public float rot;
+            public float spin;
+            public float size;
+            public float phase;
+        }
+
+        readonly List<PetalFx> petals = new List<PetalFx>();
+        const int PetalCount = 28;
+
+        bool PaintingScreen
+        {
+            get
+            {
+                Game.Mode m = game.CurrentMode;
+                return m == Game.Mode.Title || m == Game.Mode.MainMenu || m == Game.Mode.Credits || m == Game.Mode.Arsenal ||
+                       m == Game.Mode.Altar || (m == Game.Mode.Settings && !game.SettingsFromPause);
+            }
+        }
+
+        /// <summary>Sakura petals drift across the painted screens.</summary>
+        void UpdatePetals(float dt)
+        {
+            if (!PaintingScreen)
+            {
+                petals.Clear();
+                return;
+            }
+            bool fresh = petals.Count == 0;
+            while (petals.Count < PetalCount)
+            {
+                petals.Add(new PetalFx
+                {
+                    pos = new Vector2(UnityEngine.Random.Range(-300f, VW), fresh ? UnityEngine.Random.Range(-60f, VH) : UnityEngine.Random.Range(-90f, -30f)),
+                    vel = new Vector2(UnityEngine.Random.Range(25f, 70f), UnityEngine.Random.Range(35f, 85f)),
+                    rot = UnityEngine.Random.Range(0f, 360f),
+                    spin = UnityEngine.Random.Range(-120f, 120f),
+                    size = UnityEngine.Random.Range(13f, 26f),
+                    phase = UnityEngine.Random.Range(0f, 10f),
+                });
+            }
+            for (int i = petals.Count - 1; i >= 0; i--)
+            {
+                PetalFx p = petals[i];
+                p.phase += dt;
+                p.pos += (p.vel + new Vector2(Mathf.Sin(p.phase * 1.3f) * 30f, 0f)) * dt;
+                p.rot += p.spin * dt;
+                petals[i] = p;
+                if (p.pos.y > VH + 40f || p.pos.x > VW + 60f) petals.RemoveAt(i);
+            }
+        }
+
+        void DrawPetals()
+        {
+            foreach (PetalFx p in petals)
+            {
+                float flutter = 0.55f + 0.45f * Mathf.Abs(Mathf.Sin(p.phase * 2.1f));
+                kit.Petal(new Rect(p.pos.x, p.pos.y, p.size, p.size * flutter), p.rot, 0.9f);
+            }
+        }
+
         void OnGUI()
         {
             if (game == null) return;
@@ -384,14 +452,22 @@ namespace Shura
 
             Game.Mode mode = game.CurrentMode;
             bool inRun = mode == Game.Mode.Playing || mode == Game.Mode.Paused || mode == Game.Mode.Reward;
-            DrawTex(FullScreen, vignette, new Color(1f, 1f, 1f, 0.85f));
+            if (PaintingScreen)
+            {
+                kit.Painting(FullScreen, Mathf.Sin(Time.unscaledTime * 0.05f) * 12f);
+                DrawPetals();
+            }
+            else
+            {
+                DrawTex(FullScreen, vignette, new Color(1f, 1f, 1f, 0.85f));
+            }
             if (inRun && game.Run != null && game.Run.Flow.Level >= game.Run.Flow.MaxLevel)
             {
                 // Full Flow: the screen edges burn gold.
                 float pulse = 0.35f + 0.15f * Mathf.Sin(Time.unscaledTime * 4f);
                 DrawTex(FullScreen, vignette, Pal.gold.WithAlpha(pulse));
             }
-            if (inRun)
+            if (mode == Game.Mode.Playing || mode == Game.Mode.Paused)
             {
                 DrawHud();
                 DrawPopups();
@@ -405,7 +481,7 @@ namespace Shura
                 case Game.Mode.Credits: DrawCredits(); break;
                 case Game.Mode.Paused: DrawPause(); break;
                 case Game.Mode.Reward: DrawReward(); break;
-                case Game.Mode.GameOver: DrawEnd(Strings.DeathTitle, Strings.DeathSubtitle, Pal.danger); break;
+                case Game.Mode.GameOver: DrawEnd(Strings.DeathTitle, Strings.DeathSubtitle); break;
                 case Game.Mode.Altar: DrawAltar(); break;
                 case Game.Mode.Arsenal: DrawArsenal(); break;
                 case Game.Mode.Equipment: DrawEquipment(); break;
@@ -422,43 +498,155 @@ namespace Shura
 
         Rect FullScreen => new Rect(-offset.x / scale, -offset.y / scale, Screen.width / scale, Screen.height / scale);
 
+        /// <summary>The game frozen behind a screen: darkened, with an ink wash creeping in from the edges.</summary>
+        void DimGame(float amount)
+        {
+            DrawRect(FullScreen, Color.black.WithAlpha(0.45f * amount));
+            kit.InkVignette(FullScreen, new Color(0.05f, 0.04f, 0.04f, 0.95f * amount));
+        }
+
+        /// <summary>A brush heading with a dry stroke beneath it.</summary>
+        void Heading(Rect r, string text, Color color, Color underline, float underlineWidth = 420f)
+        {
+            Label(r, UiKit.Sentence(text), headerStyle, color);
+            kit.Underline(new Rect(r.center.x - underlineWidth * 0.5f, r.yMax - 6f, underlineWidth, 18f), underline);
+        }
+
+        // ── Title & menus ─────────────────────────────────────────────────────────────
+
         void DrawTitle()
         {
-            DrawRect(FullScreen, Pal.background.WithAlpha(0.55f));
-            DrawTitleGlow(360f);
-            Label(new Rect(0, 250, VW, 220), Strings.Title, titleStyle, Pal.uiText);
-            Label(new Rect(0, 480, VW, 50), Strings.Tagline, bodyCenterStyle, Pal.gold);
-            float blink = 0.45f + 0.55f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 2.2f));
-            Label(new Rect(0, 760, VW, 50), Strings.PressAnyButton, itemStyle, Pal.uiText.WithAlpha(blink));
-            Label(new Rect(VW - 460, VH - 60, 420, 40), Strings.BuildLabel, smallRightStyle, Pal.uiDim);
+            float t = Time.unscaledTime;
+            var logo = new Rect(110f, 70f, 900f, 458f);
+            kit.Logo(logo, UiKit.Ink);
+            kit.Seal(new Rect(930f, 420f, 128f, 128f), 0.95f);
+            Label(new Rect(110f, 520f, 900f, 80f), Strings.Title, latinTitleStyle, UiKit.Ink);
+            Label(new Rect(110f, 600f, 900f, 40f), Strings.Tagline, taglineStyle, UiKit.InkSoft);
+
+            // "Press any button" sits on a breathing ink stroke.
+            float breath = 0.55f + 0.45f * Mathf.Abs(Mathf.Sin(t * 1.8f));
+            var stroke = new Rect(VW * 0.5f - 380f, 850f, 760f, 120f);
+            kit.Stroke(stroke, UiKit.Ink.WithAlpha(0.88f * breath));
+            Label(new Rect(stroke.x, stroke.y + 6f, stroke.width, stroke.height - 12f), Strings.PressAnyButton, itemStyle, UiKit.PaperText.WithAlpha(0.6f + 0.4f * breath));
+            Label(new Rect(VW - 460, VH - 56, 420, 40), Strings.BuildLabel, smallRightStyle, UiKit.PaperText.WithAlpha(0.7f));
         }
 
         void DrawMainMenu()
         {
-            DrawRect(FullScreen, Pal.background.WithAlpha(0.65f));
-            DrawTitleGlow(250f);
-            Label(new Rect(0, 150, VW, 200), Strings.Title, titleStyle, Pal.uiText);
-            DrawMenuList(470f, 72f, 640f);
-            Label(new Rect(VW - 460, VH - 60, 420, 40), Strings.BuildLabel, smallRightStyle, Pal.uiDim);
+            kit.Logo(new Rect(90f, 40f, 640f, 326f), UiKit.Ink);
+            kit.Seal(new Rect(660f, 280f, 92f, 92f), 0.95f);
+            var panel = new Rect(110f, 395f, 620f, 590f);
+            kit.PaperPanel(panel);
+            Label(new Rect(panel.x, panel.y + 44f, panel.width, 34f), Strings.Tagline, taglineSmallStyle, UiKit.InkSoft);
+            DrawMenuList(panel.y + 110f, 86f, 520f, panel.center.x, true);
+            Label(new Rect(VW - 460, VH - 56, 420, 40), Strings.BuildLabel, smallRightStyle, UiKit.PaperText.WithAlpha(0.7f));
         }
 
-        void DrawTitleGlow(float centerY)
+        /// <summary>
+        /// Menu entries. The selected one is painted over with a vermilion stroke (it sweeps in
+        /// when the selection moves) and its text turns to paper.
+        /// </summary>
+        void DrawMenuList(float top, float itemHeight, float width, float centerX, bool onPaper)
         {
-            Texture glow = ShapeLibrary.Get(Shape.SoftCircle).texture;
-            float pulse = 0.14f + 0.05f * Mathf.Sin(Time.unscaledTime * 1.6f);
-            DrawTex(new Rect(VW * 0.5f - 520f, centerY - 260f, 1040f, 520f), glow, Pal.gold.WithAlpha(pulse));
+            float x = centerX - width * 0.5f;
+            Event e = Event.current;
+            bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var r = new Rect(x, top + i * itemHeight, width, itemHeight - 8f);
+                bool hover = !game.Launch.Automated && r.Contains(e.mousePosition);
+                if (hover && e.type == EventType.Repaint && mouseMoved) menuIndex = i;
+                if (hover && e.type == EventType.MouseDown && e.button == 0)
+                {
+                    menuIndex = i;
+                    e.Use();
+                    Activate(i);
+                    return;
+                }
+
+                bool selected = i == menuIndex;
+                MenuItem item = items[i];
+                string text = item.label;
+                if (item.value != null) text += selected ? "     ‹  " + item.value() + "  ›" : "     " + item.value();
+                if (selected)
+                {
+                    float textW = itemStyle.CalcSize(new GUIContent(text)).x;
+                    float sw = Mathf.Min(width + 60f, textW + 170f);
+                    var stroke = new Rect(centerX - sw * 0.5f, r.center.y - itemHeight * 0.62f, sw, itemHeight * 1.24f);
+                    kit.Stroke(stroke, UiKit.Shu.WithAlpha(0.95f), CombatMath.EaseOutCubic(selAnim));
+                }
+                Color c = selected ? UiKit.PaperText : onPaper ? UiKit.Ink : UiKit.PaperText;
+                FitLabel(r, text, itemStyle, c);
+            }
         }
+
+        void DrawSettings()
+        {
+            if (game.SettingsFromPause) DimGame(1f);
+            var panel = new Rect(300f, 28f, 900f, 1024f);
+            kit.PaperPanel(panel);
+            Heading(new Rect(panel.x, panel.y + 40f, panel.width, 90f), Strings.SettingsTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f));
+            DrawMenuList(panel.y + 160f, 72f, 760f, panel.center.x, true);
+            DrawControlsPanel(new Rect(1250f, 300f, 600f, 340f), false);
+        }
+
+        void DrawCredits()
+        {
+            var panel = new Rect(300f, 80f, 1320f, 920f);
+            kit.PaperPanel(panel);
+            Heading(new Rect(panel.x, panel.y + 50f, panel.width, 90f), Strings.CreditsTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f));
+            Label(new Rect(panel.x + 100f, panel.y + 190f, panel.width - 200f, 520f), Strings.CreditsBody, bodyCenterStyle, UiKit.Ink);
+            kit.Seal(new Rect(panel.xMax - 190f, panel.yMax - 200f, 110f, 110f), 0.9f);
+            DrawMenuList(panel.yMax - 170f, 86f, 420f, panel.center.x, true);
+        }
+
+        void DrawPause()
+        {
+            DimGame(1f);
+            var panel = new Rect(560f, 90f, 800f, 900f);
+            kit.PaperPanel(panel);
+            Heading(new Rect(panel.x, panel.y + 40f, panel.width, 100f), Strings.Paused, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f));
+            RoomDef room = game.World != null ? game.World.CurrentRoom : null;
+            if (room != null && game.Run != null)
+            {
+                Label(new Rect(panel.x, panel.y + 160f, panel.width, 34f), string.Format(Strings.HudRoom, game.Run.RoomIndex + 1, room.name), smallStyleCenter, UiKit.InkSoft);
+            }
+            DrawMenuList(panel.y + 215f, 80f, 560f, panel.center.x, true);
+            DrawControlsPanel(new Rect(panel.x + 90f, panel.y + 640f, panel.width - 180f, 230f), true);
+            kit.Seal(new Rect(panel.xMax - 120f, panel.y + 40f, 76f, 76f), 0.85f);
+        }
+
+        void DrawControlsPanel(Rect r, bool onPaper)
+        {
+            Color title = onPaper ? UiKit.Shu : Pal.gold;
+            Color key = onPaper ? UiKit.InkSoft : UiKit.PaperDim;
+            Color value = onPaper ? UiKit.Ink : UiKit.PaperText;
+            if (onPaper) kit.Underline(new Rect(r.x, r.y - 8f, r.width, 16f), UiKit.Ink.WithAlpha(0.5f));
+            else kit.InkPanel(new Rect(r.x - 30f, r.y - 24f, r.width + 60f, r.height + 48f), 0.92f);
+            Label(new Rect(r.x + 10, r.y + 10, r.width - 20, 32), Strings.ControlsTitle, smallStyle, title);
+            float y = r.y + 46;
+            foreach (KeyValuePair<string, string> b in game.Controls.DescribeBindings())
+            {
+                Label(new Rect(r.x + 10, y, 200, 30), b.Key, smallStyle, key);
+                Label(new Rect(r.x + 200, y, r.width - 210, 30), b.Value, smallStyle, value);
+                y += 30;
+            }
+        }
+
+        // ── Altar ─────────────────────────────────────────────────────────────────────
 
         void DrawAltar()
         {
             MetaProgress meta = game.Meta;
-            DrawRect(FullScreen, Pal.background.WithAlpha(0.88f));
-            Label(new Rect(0, 60, VW, 90), Strings.AltarTitle, headerStyle, Pal.gold);
-            Label(new Rect(0, 150, VW, 40), Strings.AltarSubtitle, bodyCenterStyle, Pal.uiDim);
-            Label(new Rect(0, 200, VW, 64), string.Format(Strings.EcosBalance, meta.ecos), ecosStyle, Pal.gold);
+            var panel = new Rect(210f, 16f, 1500f, 1048f);
+            kit.PaperPanel(panel);
+            Heading(new Rect(panel.x, panel.y + 34f, panel.width, 90f), Strings.AltarTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f));
+            Label(new Rect(panel.x, panel.y + 130f, panel.width, 36f), Strings.AltarSubtitle, bodyCenterStyle, UiKit.InkSoft);
+            Label(new Rect(panel.x, panel.y + 168f, panel.width, 64f), string.Format(Strings.EcosBalance, meta.ecos), ecosStyle, UiKit.GoldInk);
 
-            const float width = 1340f, rowH = 64f, top = 290f;
-            float x = (VW - width) * 0.5f;
+            const float width = 1340f, rowH = 62f;
+            float top = panel.y + 250f;
+            float x = panel.center.x - width * 0.5f;
             Event e = Event.current;
             bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
             MetaUpgradeDef[] defs = MetaUpgrades.All;
@@ -478,101 +666,71 @@ namespace Shura
                 bool selected = i == menuIndex;
                 if (selected)
                 {
-                    DrawRect(new Rect(r.x, r.y, r.width * CombatMath.EaseOutCubic(selAnim), r.height), Pal.uiText.WithAlpha(0.08f));
-                    DrawRect(new Rect(r.x, r.y, 6f, r.height), Pal.gold);
+                    kit.Stroke(new Rect(r.x - 30f, r.y - 10f, i >= defs.Length ? r.width : 470f, r.height + 20f), UiKit.Shu.WithAlpha(0.92f), CombatMath.EaseOutCubic(selAnim));
                 }
+                Color nameColor = selected ? UiKit.PaperText : UiKit.Ink;
 
                 if (i >= defs.Length)
                 {
-                    Label(r, items[i].label, itemStyle, selected ? Pal.gold : Pal.uiText);
+                    Label(r, items[i].label, itemStyle, nameColor);
                     continue;
                 }
 
                 MetaUpgradeDef def = defs[i];
                 int level = meta.GetLevel(def.id);
                 bool maxed = meta.IsMaxed(def);
-                Label(new Rect(r.x + 30f, r.y, 400f, r.height), def.name, itemLeftStyle, selected ? Pal.gold : Pal.uiText);
+                Label(new Rect(r.x + 10f, r.y, 420f, r.height), def.name, itemLeftStyle, nameColor);
 
-                Texture pip = ShapeLibrary.Get(Shape.Diamond).texture;
-                Texture pipEmpty = ShapeLibrary.Get(Shape.DiamondOutline).texture;
                 for (int j = 0; j < def.maxLevel; j++)
                 {
-                    var pr = new Rect(r.x + 450f + j * 34f, r.y + r.height * 0.5f - 13f, 26f, 26f);
-                    DrawTex(pr, j < level ? pip : pipEmpty, j < level ? Pal.gold : Pal.uiDim.WithAlpha(0.7f));
+                    var pr = new Rect(r.x + 470f + j * 34f, r.y + r.height * 0.5f - 15f, 30f, 30f);
+                    kit.Dab(pr, j < level ? UiKit.Shu : UiKit.Ink.WithAlpha(0.16f));
                 }
 
                 string effect = level > 0 ? def.EffectAt(level) : "—";
-                if (!maxed) effect += "   >   " + def.EffectAt(level + 1);
-                Label(new Rect(r.x + 650f, r.y, 480f, r.height), effect, smallStyle, Pal.uiText);
+                if (!maxed) effect += "   ›   " + def.EffectAt(level + 1);
+                Label(new Rect(r.x + 680f, r.y, 450f, r.height), effect, smallStyle, UiKit.Ink);
 
                 string cost = maxed ? Strings.Max : string.Format(Strings.CostLabel, meta.NextCost(def));
-                Color costColor = maxed ? Pal.gold : meta.CanBuy(def) ? Pal.uiText : Pal.danger;
-                Label(new Rect(r.xMax - 230f, r.y, 200f, r.height), cost, bodyRightStyle, costColor);
+                Color costColor = maxed ? UiKit.GoldInk : meta.CanBuy(def) ? UiKit.Ink : UiKit.Shu;
+                Label(new Rect(r.xMax - 220f, r.y, 210f, r.height), cost, bodyRightStyle, costColor);
             }
 
-            float by = top + items.Count * rowH + 10f;
+            float by = top + items.Count * rowH + 6f;
+            kit.Underline(new Rect(panel.center.x - 500f, by, 1000f, 16f), UiKit.Ink.WithAlpha(0.45f));
             if (menuIndex < defs.Length)
             {
-                Label(new Rect(0, by, VW, 36), defs[menuIndex].description, bodyCenterStyle, Pal.uiText);
+                Label(new Rect(panel.x + 80f, by + 18f, panel.width - 160f, 36), defs[menuIndex].description, bodyCenterStyle, UiKit.Ink);
             }
-            Label(new Rect(0, by + 44f, VW, 30), string.Format(Strings.AltarStats, meta.runs, meta.bestRoom), smallStyleCenter, Pal.uiDim);
-            Label(new Rect(0, VH - 60f, VW, 32), Strings.AltarControls, smallStyleCenter, Pal.uiDim);
+            Label(new Rect(panel.x, by + 60f, panel.width, 30), string.Format(Strings.AltarStats, meta.runs, meta.bestRoom), smallStyleCenter, UiKit.InkSoft);
+            Label(new Rect(panel.x, panel.yMax - 70f, panel.width, 32), Strings.AltarControls, smallStyleCenter, UiKit.InkSoft);
         }
 
-        void DrawPause()
-        {
-            DrawRect(FullScreen, Pal.background.WithAlpha(0.7f));
-            Label(new Rect(0, 170, VW, 90), Strings.Paused, headerStyle, Pal.uiText);
-            DrawMenuList(330f, 72f, 640f);
-            DrawControlsPanel(new Rect(560, 690, 800, 250));
-        }
-
-        void DrawSettings()
-        {
-            DrawRect(FullScreen, Pal.background.WithAlpha(0.8f));
-            Label(new Rect(0, 100, VW, 90), Strings.SettingsTitle, headerStyle, Pal.uiText);
-            DrawMenuList(210f, 52f, 900f);
-            DrawControlsPanel(new Rect(560, 800, 800, 250));
-        }
-
-        void DrawCredits()
-        {
-            DrawRect(FullScreen, Pal.background.WithAlpha(0.85f));
-            Label(new Rect(0, 140, VW, 90), Strings.CreditsTitle, headerStyle, Pal.uiText);
-            Label(new Rect(160, 260, VW - 320, 520), Strings.CreditsBody, bodyCenterStyle, Pal.uiText);
-            DrawMenuList(820f, 72f, 500f);
-        }
-
-        void DrawControlsPanel(Rect r)
-        {
-            DrawRect(r, Pal.uiPanel);
-            Label(new Rect(r.x + 24, r.y + 14, r.width - 48, 32), Strings.ControlsTitle, smallStyle, Pal.gold);
-            float y = r.y + 54;
-            foreach (KeyValuePair<string, string> b in game.Controls.DescribeBindings())
-            {
-                Label(new Rect(r.x + 24, y, 200, 30), b.Key, smallStyle, Pal.uiDim);
-                Label(new Rect(r.x + 220, y, r.width - 244, 30), b.Value, smallStyle, Pal.uiText);
-                y += 36;
-            }
-        }
+        // ── Reward ────────────────────────────────────────────────────────────────────
 
         void DrawReward()
         {
-            DrawRect(FullScreen, Pal.background.WithAlpha(0.75f));
-            Label(new Rect(0, 110, VW, 90), Strings.RewardTitle, headerStyle, Pal.uiText);
-            Label(new Rect(0, 200, VW, 44), Strings.RewardSubtitle, bodyCenterStyle, Pal.uiDim);
+            DimGame(1.2f);
+            Heading(new Rect(0, 50, VW, 100), Strings.RewardTitle, UiKit.PaperText, UiKit.Shu, 620f);
+            Label(new Rect(0, 160, VW, 40), Strings.RewardSubtitle, bodyCenterStyle, UiKit.PaperDim);
 
             IReadOnlyList<RewardDef> choices = game.RewardChoices;
-            const float cardH = 470f, gap = 40f;
+            const float gap = 46f;
             int n = Mathf.Max(1, choices.Count);
-            float cardW = Mathf.Min(480f, (VW - 160f - gap * (n - 1)) / n);
+            float cardW = Mathf.Min(470f, (VW - 160f - gap * (n - 1)) / n);
+            float bodyW = cardW - 80f;
+            // Every card is as tall as the wordiest one, so the row stays even.
+            float cardH = 440f;
+            for (int i = 0; i < choices.Count; i++) cardH = Mathf.Max(cardH, RewardCardHeight(choices[i], cardW, bodyW));
             float startX = (VW - (choices.Count * cardW + (choices.Count - 1) * gap)) * 0.5f;
+            float top = Mathf.Min(236f, 790f - cardH);
             Event e = Event.current;
             for (int i = 0; i < choices.Count; i++)
             {
                 RewardDef r = choices[i];
                 bool selected = i == menuIndex;
-                var rect = new Rect(startX + i * (cardW + gap), selected ? 285f : 300f, cardW, cardH);
+                float lift = selected ? -18f * CombatMath.EaseOutCubic(selAnim) : 0f;
+                var rect = new Rect(startX + i * (cardW + gap), top + lift, cardW, cardH);
 
                 if (!game.Launch.Automated && rect.Contains(e.mousePosition))
                 {
@@ -587,63 +745,96 @@ namespace Shura
 
                 bool technique = r.Kind == RewardKind.Technique;
                 bool blessing = r.Kind == RewardKind.Blessing;
-                Color accent = technique ? Pal.gold : blessing ? Pal.blessing : Pal.playerAccent;
-                DrawRect(rect, Pal.uiPanel);
-                if (selected) DrawFrame(rect, accent, 4f);
-
-                Label(new Rect(rect.x, rect.y + 24, cardW, 34), technique ? Strings.Technique : blessing ? Strings.Blessing : Strings.Relic, smallStyleCenter, accent);
-                Label(new Rect(rect.x + 20, rect.y + 62, cardW - 40, 100), r.Name, cardNameStyle, Pal.uiText);
-                float y = rect.y + 150;
+                Color accent = technique ? UiKit.GoldInk : blessing ? UiKit.Ai : UiKit.Shu;
+                // Talisman card: paper, a coloured band across the top, a seal when chosen.
+                kit.PaperPanel(rect, selected ? 1f : 0.93f);
+                kit.Stroke(new Rect(rect.x + 30f, rect.y + 28f, rect.width - 60f, 64f), accent.WithAlpha(0.92f));
+                Label(new Rect(rect.x, rect.y + 32f, cardW, 54f), technique ? Strings.Technique : blessing ? Strings.Blessing : Strings.Relic, cardKindStyle, UiKit.PaperText);
+                float nameH = cardNameStyle.CalcHeight(new GUIContent(r.Name), cardW - 60f);
+                Label(new Rect(rect.x + 30, rect.y + 100, cardW - 60, nameH), r.Name, cardNameStyle, UiKit.Ink);
+                float y = rect.y + 104 + nameH;
                 if (r.SourceEnemy != null)
                 {
-                    Label(new Rect(rect.x, y, cardW, 30), string.Format(Strings.AbsorbedFrom, r.SourceEnemy), smallStyleCenter, Pal.uiDim);
+                    Label(new Rect(rect.x, y, cardW, 30), string.Format(Strings.AbsorbedFrom, r.SourceEnemy), smallStyleCenter, UiKit.InkSoft);
+                    y += 32;
                 }
-                y += 50;
-                Label(new Rect(rect.x + 30, y, cardW - 60, 30), Strings.Gain, smallStyle, accent);
-                Label(new Rect(rect.x + 30, y + 32, cardW - 60, 110), r.Gain, cardBodyStyle, Pal.uiText);
-                y += 150;
-                Label(new Rect(rect.x + 30, y, cardW - 60, 30), Strings.Cost, smallStyle, Pal.danger);
-                Label(new Rect(rect.x + 30, y + 32, cardW - 60, 100), r.Cost, cardBodyStyle, Pal.uiText);
+                y += 10;
+                kit.Underline(new Rect(rect.x + 50f, y, cardW - 100f, 14f), UiKit.Ink.WithAlpha(0.35f));
+                y += 18;
+                float gainH = cardBodyStyle.CalcHeight(new GUIContent(r.Gain), bodyW);
+                Label(new Rect(rect.x + 40, y, bodyW, 28), Strings.Gain, capsStyle, accent);
+                Label(new Rect(rect.x + 40, y + 28, bodyW, gainH), r.Gain, cardBodyStyle, UiKit.Ink);
+                y += 28 + gainH + 16;
+                float costH = cardBodyStyle.CalcHeight(new GUIContent(r.Cost), bodyW);
+                Label(new Rect(rect.x + 40, y, bodyW, 28), Strings.Cost, capsStyle, UiKit.Shu);
+                Label(new Rect(rect.x + 40, y + 28, bodyW, costH), r.Cost, cardBodyStyle, UiKit.Ink);
+                if (selected) kit.Seal(new Rect(rect.xMax - 64f, rect.y - 22f, 78f, 78f), 0.95f * CombatMath.EaseOutCubic(selAnim));
             }
-            DrawReading(new Rect(260f, 800f, VW - 520f, 200f));
-            Label(new Rect(0, 760f, VW, 34f), Strings.EquipmentOpen + "   ·   " + string.Format(Strings.EquipmentBagCount, game.Run.Bag.Count, RunState.BagCapacity), smallStyleCenter, Pal.gold);
-            Label(new Rect(0, VH - 56f, VW, 40), Strings.RewardControls, bodyCenterStyle, Pal.uiDim);
+            Label(new Rect(0, top + cardH + 12f, VW, 34f), Strings.EquipmentOpen + "   ·   " + string.Format(Strings.EquipmentBagCount, game.Run.Bag.Count, RunState.BagCapacity), smallStyleCenter, Pal.gold);
+            DrawReading(new Rect(300f, 840f, VW - 600f, 160f));
+            Label(new Rect(0, VH - 52f, VW, 40), Strings.RewardControls, bodyCenterStyle, UiKit.PaperDim);
+        }
+
+        float RewardCardHeight(RewardDef r, float cardW, float bodyW)
+        {
+            float h = 104f + cardNameStyle.CalcHeight(new GUIContent(r.Name), cardW - 60f);
+            if (r.SourceEnemy != null) h += 32f;
+            h += 28f;
+            h += 28f + cardBodyStyle.CalcHeight(new GUIContent(r.Gain), bodyW) + 16f;
+            h += 28f + cardBodyStyle.CalcHeight(new GUIContent(r.Cost), bodyW) + 40f;
+            return h;
+        }
+
+        /// <summary>Single-line text that shrinks its font until it fits the rect's width.</summary>
+        void FitLabel(Rect r, string text, GUIStyle style, Color color)
+        {
+            int size = style.fontSize;
+            bool wrap = style.wordWrap;
+            style.wordWrap = false;
+            var content = new GUIContent(text);
+            while (style.fontSize > 16 && style.CalcSize(content).x > r.width) style.fontSize -= 2;
+            Label(r, text, style, color);
+            style.fontSize = size;
+            style.wordWrap = wrap;
         }
 
         /// <summary>What the enemies have learned about you: shown between rooms so adaptation is never hidden.</summary>
         void DrawReading(Rect r)
         {
-            DrawRect(r, Pal.uiPanel);
-            DrawRect(new Rect(r.x, r.y, 6f, r.height), Pal.adapted);
+            kit.InkPanel(new Rect(r.x - 30f, r.y - 14f, r.width + 60f, r.height + 28f), 0.95f);
             Label(new Rect(r.x + 30f, r.y + 10f, r.width - 60f, 32f), Strings.ReadingTitle, smallStyle, Pal.adapted);
             List<ReadingId> active = game.World.Adaptation.Active();
             if (active.Count == 0)
             {
-                Label(new Rect(r.x + 30f, r.y + 50f, r.width - 60f, 32f), Strings.ReadingNone, cardBodyStyle, Pal.uiDim);
+                Label(new Rect(r.x + 30f, r.y + 50f, r.width - 60f, 32f), Strings.ReadingNone, cardBodyStyle, UiKit.PaperDim);
                 return;
             }
             float y = r.y + 46f;
             foreach (ReadingId id in active)
             {
                 Label(new Rect(r.x + 30f, y, 220f, 30f), Strings.ReadingName(id), smallStyle, Pal.adapted);
-                Label(new Rect(r.x + 250f, y, r.width - 280f, 30f), Strings.ReadingText(id), cardBodyStyle, Pal.uiText);
+                Label(new Rect(r.x + 250f, y, r.width - 280f, 30f), Strings.ReadingText(id), cardBodyStyle, UiKit.PaperText);
                 y += 30f;
             }
         }
 
         GUIStyle smallStyleCenter;
 
-        void DrawEnd(string title, string subtitle, Color titleColor)
+        // ── Death ─────────────────────────────────────────────────────────────────────
+
+        void DrawEnd(string title, string subtitle)
         {
-            DrawRect(FullScreen, Pal.background.WithAlpha(0.8f));
-            Label(new Rect(0, 130, VW, 100), title, headerStyle, titleColor);
-            Label(new Rect(0, 235, VW, 44), subtitle, bodyCenterStyle, Pal.uiDim);
+            DimGame(1.15f);
+            // A vermilion splash behind the verdict.
+            kit.Splat(1, new Rect(VW * 0.5f - 330f, 0f, 660f, 360f), UiKit.Shu.WithAlpha(0.85f));
+            Label(new Rect(0, 90, VW, 130), UiKit.Sentence(title), deathTitleStyle, UiKit.PaperText);
+            Label(new Rect(0, 222, VW, 40), subtitle, bodyCenterStyle, UiKit.PaperDim);
 
             RunState run = game.Run;
             if (run != null)
             {
-                var panel = new Rect((VW - 720f) * 0.5f, 290f, 720f, 424f);
-                DrawRect(panel, Pal.uiPanel);
+                var panel = new Rect((VW - 760f) * 0.5f, 280f, 760f, 470f);
+                kit.PaperPanel(panel);
                 string[][] rows =
                 {
                     new[] { Strings.StatRooms, run.RoomsCleared.ToString() },
@@ -658,16 +849,16 @@ namespace Shura
                     new[] { Strings.StatTime, FormatTime(run.Elapsed) },
                     new[] { Strings.StatSeed, run.Seed.ToString() },
                 };
-                float y = panel.y + 10;
+                float y = panel.y + 34;
                 foreach (string[] row in rows)
                 {
-                    Label(new Rect(panel.x + 40, y, 420, 36), row[0], bodyStyle, Pal.uiDim);
-                    Label(new Rect(panel.x + 400, y, 280, 36), row[1], bodyRightStyle, Pal.uiText);
-                    y += 37;
+                    Label(new Rect(panel.x + 70, y, 420, 36), row[0], bodyStyle, UiKit.InkSoft);
+                    Label(new Rect(panel.x + 400, y, 290, 36), row[1], bodyRightStyle, UiKit.Ink);
+                    y += 36;
                 }
-                Label(new Rect(0, 716f, VW, 40f), string.Format(Strings.EcosEarned, run.EcosBanked, game.Meta.ecos), toastStyle, Pal.gold);
+                Label(new Rect(0, 766f, VW, 44f), string.Format(Strings.EcosEarned, run.EcosBanked, game.Meta.ecos), ecosSmallStyle, Pal.gold);
             }
-            DrawMenuList(770f, 70f, 560f);
+            DrawMenuList(818f, 64f, 560f, VW * 0.5f, false);
         }
 
         GUIStyle bodyRightStyle;
@@ -678,38 +869,7 @@ namespace Shura
             return (s / 60).ToString("00") + ":" + (s % 60).ToString("00");
         }
 
-        void DrawMenuList(float top, float itemHeight, float width)
-        {
-            float x = (VW - width) * 0.5f;
-            Event e = Event.current;
-            bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
-            for (int i = 0; i < items.Count; i++)
-            {
-                var r = new Rect(x, top + i * itemHeight, width, itemHeight - 10f);
-                bool hover = !game.Launch.Automated && r.Contains(e.mousePosition);
-                if (hover && e.type == EventType.Repaint && mouseMoved) menuIndex = i;
-                if (hover && e.type == EventType.MouseDown && e.button == 0)
-                {
-                    menuIndex = i;
-                    e.Use();
-                    Activate(i);
-                    return;
-                }
-
-                bool selected = i == menuIndex;
-                float slide = selected ? CombatMath.EaseOutCubic(selAnim) : 0f;
-                if (selected)
-                {
-                    float hw = r.width * slide;
-                    DrawRect(new Rect(r.center.x - hw * 0.5f, r.y, hw, r.height), Pal.uiText.WithAlpha(0.08f));
-                    DrawRect(new Rect(r.x, r.y, 6f, r.height), Pal.gold.WithAlpha(slide));
-                }
-                MenuItem item = items[i];
-                string text = item.label;
-                if (item.value != null) text += selected ? "     <  " + item.value() + "  >" : "     " + item.value();
-                Label(new Rect(r.x + 10f * slide, r.y, r.width, r.height), text, itemStyle, selected ? Pal.gold : Pal.uiText);
-            }
-        }
+        // ── HUD ───────────────────────────────────────────────────────────────────────
 
         void DrawHud()
         {
@@ -717,79 +877,80 @@ namespace Shura
             PlayerController p = game.World.Player;
             if (run == null || p == null) return;
 
-            const float x = 48f, y = 36f, w = 460f;
-            Label(new Rect(x, y, w, 28), Strings.HudHealth, smallStyle, Pal.uiDim);
-            var hpRect = new Rect(x, y + 30, w, 26);
-            Bar(hpRect, p.Health / p.MaxHealth, Pal.health);
+            const float x = 52f, y = 30f, w = 440f;
+            kit.InkPanel(new Rect(10f, 2f, 560f, 270f), 0.82f);
+
+            Label(new Rect(x, y, w, 26), Strings.HudHealth, capsStyle, UiKit.PaperDim);
+            var hpRect = new Rect(x - 8f, y + 24, w + 16f, 40);
             float hpRatio = Mathf.Clamp01(p.Health / p.MaxHealth);
             float ghostRatio = Mathf.Clamp01(ghostHp / p.MaxHealth);
-            if (ghostRatio > hpRatio)
-            {
-                DrawRect(new Rect(hpRect.x + hpRect.width * hpRatio, hpRect.y, hpRect.width * (ghostRatio - hpRatio), hpRect.height), Color.white.WithAlpha(0.75f));
-            }
-            Label(new Rect(x, y + 30, w - 12, 26), Mathf.CeilToInt(p.Health) + " / " + Mathf.RoundToInt(p.MaxHealth), smallRightStyle, Pal.uiText);
+            kit.Bar(hpRect, hpRatio, UiKit.ShuBright, Color.black.WithAlpha(0.7f), ghostRatio, UiKit.PaperText.WithAlpha(0.8f));
+            Label(new Rect(x, y, w, 26), Mathf.CeilToInt(p.Health) + " / " + Mathf.RoundToInt(p.MaxHealth), smallRightStyle, UiKit.PaperText);
 
             float pr = p.Posture.Ratio;
             Color pc = Color.Lerp(Pal.postureLow, Pal.postureHigh, pr);
             if (pr > 0.8f) pc = Color.Lerp(pc, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 14f));
-            Label(new Rect(x, y + 64, w, 28), Strings.HudPosture, smallStyle, Pal.uiDim);
-            Bar(new Rect(x, y + 94, w, 14), pr, pc);
+            Label(new Rect(x, y + 70, w, 26), Strings.HudPosture, capsStyle, UiKit.PaperDim);
+            kit.Bar(new Rect(x - 8f, y + 92, w + 16f, 28), pr, pc, Color.black.WithAlpha(0.7f));
 
-            Label(new Rect(x, y + 116, w, 28), Strings.HudDodge, smallStyle, Pal.uiDim);
+            Label(new Rect(x, y + 126, w, 26), Strings.HudDodge, capsStyle, UiKit.PaperDim);
             for (int i = 0; i < p.MaxDodgeCharges; i++)
             {
-                var r = new Rect(x + i * 48f, y + 148, 40f, 12f);
-                DrawRect(r, new Color(0f, 0f, 0f, 0.6f));
+                var r = new Rect(x + 140f + i * 40f, y + 120, 36f, 36f);
                 float fill = Mathf.Clamp01(p.DodgeCharges - i);
-                DrawRect(new Rect(r.x, r.y, r.width * fill, r.height), fill >= 1f ? Pal.playerAccent : Pal.playerAccent.WithAlpha(0.4f));
+                kit.Dab(r, Color.black.WithAlpha(0.6f));
+                if (fill > 0f) kit.Dab(new Rect(r.x + 3f, r.y + 3f, r.width - 6f, r.height - 6f), Pal.playerAccent.WithAlpha(fill >= 1f ? 1f : 0.35f));
             }
 
             RoomDef room = game.World.CurrentRoom;
             if (room != null)
             {
-                Label(new Rect(0, 30, VW, 44), string.Format(Strings.HudRoom, run.RoomIndex + 1, room.name), roomStyle, room.guardian ? Pal.gold : Pal.uiText);
+                Color rc = room.guardian ? Pal.gold : UiKit.PaperText;
+                Label(new Rect(0, 8, VW, 60), string.Format(Strings.HudRoom, run.RoomIndex + 1, room.name), roomStyle, rc);
+                kit.Underline(new Rect(VW * 0.5f - 230f, 62f, 460f, 16f), rc.WithAlpha(0.55f));
                 int wave = Mathf.Max(1, game.World.WaveIndex + 1);
-                Label(new Rect(0, 74, VW, 32), string.Format(Strings.HudWave, wave, room.waves.Length), smallStyleCenter, Pal.uiDim);
+                Label(new Rect(0, 76, VW, 30), string.Format(Strings.HudWave, wave, room.waves.Length), smallStyleCenter, UiKit.PaperDim);
                 List<ReadingId> reading = game.World.Adaptation.Active();
                 if (reading.Count > 0)
                 {
                     var names = new string[reading.Count];
                     for (int i = 0; i < reading.Count; i++) names[i] = Strings.ReadingName(reading[i]);
-                    Label(new Rect(0, 102, VW, 30), string.Format(Strings.HudReading, string.Join("  ·  ", names)), smallStyleCenter, Pal.adapted);
+                    Label(new Rect(0, 104, VW, 30), string.Format(Strings.HudReading, string.Join("  ·  ", names)), smallStyleCenter, Pal.adapted);
                 }
             }
 
             DrawFlow(run.Flow);
-            DrawWeaponsHud(run, x, y + 170f);
+            DrawWeaponsHud(run, x, y + 168f);
         }
 
         void DrawFlow(FlowMeter flow)
         {
             const float w = 360f;
-            float fx = VW - 48f - w, fy = 36f;
+            float fx = VW - 52f - w, fy = 30f;
+            kit.InkPanel(new Rect(VW - 470f, 2f, 460f, 230f), 0.82f);
             int level = flow.Level;
-            Label(new Rect(fx, fy, w, 30), Strings.HudFlow, smallRightStyle, level > 0 ? Pal.gold : Pal.uiDim);
-            // Textured diamonds: GUIUtility.RotateAroundPivot misplaces the pivot under a scaled GUI.matrix.
-            Texture diamond = ShapeLibrary.Get(Shape.Diamond).texture;
-            Texture outline = ShapeLibrary.Get(Shape.DiamondOutline).texture;
+            Label(new Rect(fx, fy, w, 26), Strings.HudFlow, capsRightStyle, level > 0 ? Pal.gold : UiKit.PaperDim);
+            // Each Flow level is an ensō; lit ones are gold with a filled heart.
             for (int i = 0; i < flow.MaxLevel; i++)
             {
-                float cx = fx + w - 26f - (flow.MaxLevel - 1 - i) * 58f;
-                var r = new Rect(cx - 24f, fy + 38f, 48f, 48f);
+                float cx = fx + w - 34f - (flow.MaxLevel - 1 - i) * 76f;
+                var r = new Rect(cx - 34f, fy + 30f, 68f, 68f);
                 bool lit = level > i;
-                DrawTex(r, lit ? diamond : outline, lit ? Pal.gold : Pal.uiDim.WithAlpha(0.6f));
+                float spin = lit ? Time.unscaledTime * 20f + i * 40f : i * 50f;
+                kit.Enso(r, lit ? Pal.gold : UiKit.PaperText.WithAlpha(0.28f), spin);
+                if (lit) kit.Dab(new Rect(r.center.x - 13f, r.center.y - 13f, 26f, 26f), Pal.gold);
             }
-            Bar(new Rect(fx + w - 190f, fy + 98f, 190f, 8f), flow.ProgressInLevel, Pal.gold);
-            Label(new Rect(fx, fy + 114f, w, 30f), string.Format(Strings.HudEcos, MetaRules.EcosForRun(game.Run)), smallRightStyle, Pal.gold.WithAlpha(0.85f));
+            kit.Bar(new Rect(fx + w - 230f, fy + 104f, 230f, 22f), flow.ProgressInLevel, Pal.gold, Color.black.WithAlpha(0.6f));
+            Label(new Rect(fx, fy + 128f, w, 40f), string.Format(Strings.HudEcos, MetaRules.EcosForRun(game.Run)), ecosHudStyle, Pal.gold.WithAlpha(0.9f));
 
             int streak = game.Run.PerfectStreak;
             if (streak >= 2)
             {
                 // Pops on every new perfect action; brighter the longer it runs.
                 // Font-size pop (pivot-based GUI scaling misplaces under the letterbox matrix).
-                Color sc = Color.Lerp(Pal.uiText, Pal.gold, Mathf.Clamp01(streak / 10f));
-                streakStyle.fontSize = Mathf.RoundToInt(30f * (1f + 0.4f * streakPop));
-                Label(new Rect(fx, fy + 146f, w, 50f), string.Format(Strings.HudStreak, streak), streakStyle, sc);
+                Color sc = Color.Lerp(UiKit.PaperText, Pal.gold, Mathf.Clamp01(streak / 10f));
+                streakStyle.fontSize = Mathf.RoundToInt(34f * (1f + 0.4f * streakPop));
+                Label(new Rect(fx - 40f, fy + 210f, w + 40f, 56f), string.Format(Strings.HudStreak, streak), streakStyle, sc);
             }
         }
 
@@ -797,8 +958,9 @@ namespace Shura
 
         void DrawWeaponsHud(RunState run, float x, float y)
         {
-            Label(new Rect(x, y, 600f, 30f), run.CurrentWeapon.name, smallStyle, Pal.uiText);
-            Label(new Rect(x, y + 26f, 600f, 26f), "<>  " + run.OtherWeapon.name + "  (" + (game.Controls.UsingGamepad ? "Y" : "Q") + ")", smallStyle, Pal.uiDim);
+            DrawWeaponArt(run.CurrentWeapon, new Rect(x - 6f, y + 4f, 70f, 30f), Color.white);
+            Label(new Rect(x + 76f, y - 4f, 400f, 40f), run.CurrentWeapon.name, weaponHudStyle, UiKit.PaperText);
+            Label(new Rect(x + 76f, y + 32f, 400f, 26f), "‹›  " + run.OtherWeapon.name + "  (" + (game.Controls.UsingGamepad ? "Y" : "Q") + ")", smallStyle, UiKit.PaperDim);
         }
 
         // ── Arsenal ───────────────────────────────────────────────────────────────────
@@ -847,43 +1009,53 @@ namespace Shura
 
         void DrawArsenal()
         {
-            DrawRect(FullScreen, Pal.background.WithAlpha(0.9f));
-            Label(new Rect(0, 50, VW, 90), Strings.ArsenalTitle, headerStyle, Pal.uiText);
-            Label(new Rect(0, 140, VW, 40), Strings.ArsenalSubtitle, bodyCenterStyle, Pal.gold);
+            DrawRect(FullScreen, UiKit.Ink.WithAlpha(0.42f));
+            Heading(new Rect(0, 10, VW, 100), Strings.ArsenalTitle, UiKit.PaperText, UiKit.Shu.WithAlpha(0.9f));
+            Label(new Rect(0, 112, VW, 40), Strings.ArsenalSubtitle, taglineStyle, UiKit.PaperText);
 
-            const float cardW = 540f, cardH = 300f, gap = 30f;
+            const float cardW = 560f, cardH = 322f, gap = 26f;
             float startX = (VW - (3 * cardW + 2 * gap)) * 0.5f;
             Event e = Event.current;
             bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
             for (int i = 0; i < WeaponDefs.All.Length; i++)
             {
                 WeaponDef w = WeaponDefs.All[i];
-                var r = new Rect(startX + (i % 3) * (cardW + gap), 200f + (i / 3) * (cardH + gap), cardW, cardH);
+                bool selected = i == arsenalIndex;
+                float lift = selected ? -10f * CombatMath.EaseOutCubic(selAnim) : 0f;
+                var r = new Rect(startX + (i % 3) * (cardW + gap), 166f + (i / 3) * (cardH + gap) + lift, cardW, cardH);
                 if (ArsenalMouse(r, i, e, mouseMoved)) return;
                 int pick = arsenalPicks.IndexOf(w.id);
-                bool selected = i == arsenalIndex;
-                DrawRect(r, Pal.uiPanel);
-                if (pick >= 0) DrawFrame(r, Pal.gold, 3f);
-                if (selected) DrawFrame(new Rect(r.x - 4, r.y - 4, r.width + 8, r.height + 8), Pal.uiText, 2f);
+                kit.PaperPanel(r, selected || pick >= 0 ? 1f : 0.92f);
 
-                DrawWeaponArt(w, new Rect(r.x + 30f, r.y + 30f, 200f, 50f), Color.white);
-                if (w.dual) DrawWeaponArt(w, new Rect(r.x + 30f, r.y + 70f, 200f, 50f), new Color(0.85f, 0.85f, 0.85f, 1f));
-                Label(new Rect(r.x + 250f, r.y + 20f, cardW - 270f, 44f), w.name, cardNameStyle, pick >= 0 ? Pal.gold : Pal.uiText);
-                if (pick >= 0) Label(new Rect(r.x + 6f, r.y + 2f, 40f, 40f), (pick + 1).ToString(), toastStyle, Pal.gold);
-                Label(new Rect(r.x + 30f, r.y + 120f, cardW - 60f, 60f), w.description, cardBodyStyle, Pal.uiText);
-                Label(new Rect(r.x + 30f, r.y + 190f, cardW - 60f, 28f), string.Format(Strings.WeaponCombo, w.combo.Length), smallStyle, Pal.uiDim);
-                Label(new Rect(r.x + 30f, r.y + 218f, cardW - 60f, 28f), string.Format(Strings.WeaponSwapStrike, w.swapStrike.name), smallStyle, Pal.playerAccent);
-                Label(new Rect(r.x + 30f, r.y + 246f, cardW - 60f, 28f), string.Format(Strings.WeaponFinisher, w.finisherName), smallStyle, Pal.danger);
+                // The weapon lies on an ink swatch; chosen weapons get a vermilion one.
+                var swatch = new Rect(r.x + 26f, r.y + 34f, 240f, 86f);
+                kit.Stroke(swatch, (pick >= 0 ? UiKit.Shu : UiKit.Ink).WithAlpha(selected ? 0.95f : 0.82f));
+                DrawWeaponArt(w, new Rect(swatch.x + 30f, swatch.y + 18f, 180f, 50f), Color.white);
+                if (w.dual) DrawWeaponArt(w, new Rect(swatch.x + 50f, swatch.y + 30f, 180f, 50f), new Color(0.85f, 0.85f, 0.85f, 1f));
+                FitLabel(new Rect(r.x + 280f, r.y + 34f, cardW - 370f, 86f), w.name, cardNameLeftStyle, pick >= 0 ? UiKit.Shu : UiKit.Ink);
+                if (pick >= 0)
+                {
+                    var dab = new Rect(r.xMax - 92f, r.y + 22f, 60f, 60f);
+                    kit.Dab(dab, UiKit.Shu);
+                    Label(dab, (pick + 1).ToString(), pickStyle, UiKit.PaperText);
+                }
+                Label(new Rect(r.x + 36f, r.y + 126f, cardW - 72f, 70f), w.description, cardBodyStyle, UiKit.Ink);
+                Label(new Rect(r.x + 36f, r.y + 204f, cardW - 72f, 28f), string.Format(Strings.WeaponCombo, w.combo.Length), smallStyle, UiKit.InkSoft);
+                Label(new Rect(r.x + 36f, r.y + 232f, cardW - 72f, 28f), string.Format(Strings.WeaponSwapStrike, w.swapStrike.name), smallStyle, UiKit.Ai);
+                Label(new Rect(r.x + 36f, r.y + 260f, cardW - 72f, 28f), string.Format(Strings.WeaponFinisher, w.finisherName), smallStyle, UiKit.Shu);
+                if (selected) kit.Underline(new Rect(r.x + 40f, r.yMax - 34f, cardW - 80f, 16f), UiKit.Shu.WithAlpha(0.8f));
             }
 
-            var start = new Rect((VW - 500f) * 0.5f, 880f, 500f, 64f);
-            var back = new Rect((VW - 500f) * 0.5f, 950f, 500f, 60f);
+            var start = new Rect((VW - 560f) * 0.5f, 872f, 560f, 88f);
+            var back = new Rect((VW - 400f) * 0.5f, 964f, 400f, 68f);
             if (ArsenalMouse(start, ArsenalStartIndex, e, mouseMoved) || ArsenalMouse(back, ArsenalBackIndex, e, mouseMoved)) return;
             bool ready = arsenalPicks.Count == 2;
-            if (arsenalIndex == ArsenalStartIndex) DrawRect(start, Pal.uiText.WithAlpha(0.1f));
-            if (arsenalIndex == ArsenalBackIndex) DrawRect(back, Pal.uiText.WithAlpha(0.1f));
-            Label(start, ready ? Strings.ArsenalStart : Strings.ArsenalNeedTwo, itemStyle, ready ? (arsenalIndex == ArsenalStartIndex ? Pal.gold : Pal.uiText) : Pal.uiDim);
-            Label(back, Strings.Back, itemStyle, arsenalIndex == ArsenalBackIndex ? Pal.gold : Pal.uiText);
+            bool onStart = arsenalIndex == ArsenalStartIndex;
+            bool onBack = arsenalIndex == ArsenalBackIndex;
+            kit.Stroke(new Rect(start.x - 40f, start.y - 10f, start.width + 80f, start.height + 20f), (onStart && ready ? UiKit.Shu : UiKit.Ink).WithAlpha(ready ? 0.95f : 0.5f));
+            Label(start, ready ? Strings.ArsenalStart : Strings.ArsenalNeedTwo, itemStyle, ready ? UiKit.PaperText : UiKit.PaperDim);
+            if (onBack) kit.Stroke(new Rect(back.x - 30f, back.y - 6f, back.width + 60f, back.height + 12f), UiKit.Shu.WithAlpha(0.95f), CombatMath.EaseOutCubic(selAnim));
+            Label(back, Strings.Back, itemStyle, UiKit.PaperText);
         }
 
         bool ArsenalMouse(Rect r, int index, Event e, bool mouseMoved)
@@ -933,35 +1105,35 @@ namespace Shura
         {
             RunState run = game.Run;
             if (run == null) return;
-            DrawRect(FullScreen, Pal.background.WithAlpha(0.94f));
-            Label(new Rect(0, 30, VW, 80), Strings.EquipmentTitle, headerStyle, Pal.uiText);
+            DimGame(1.2f);
+            Heading(new Rect(0, 12, VW, 96), Strings.EquipmentTitle, UiKit.PaperText, UiKit.Shu, 520f);
 
-            DrawCharacterPanel(run, new Rect(60f, 130f, 600f, 820f));
+            DrawCharacterPanel(run, new Rect(40f, 120f, 640f, 860f));
 
             Event e = Event.current;
             bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
-            var slotsPanel = new Rect(700f, 130f, 560f, 300f);
-            DrawRect(slotsPanel, Pal.uiPanel);
-            Label(new Rect(slotsPanel.x + 20f, slotsPanel.y + 10f, 400f, 30f), Strings.EquipmentSlots, smallStyle, Pal.gold);
+            var slotsPanel = new Rect(700f, 120f, 580f, 340f);
+            kit.PaperPanel(slotsPanel);
+            Label(new Rect(slotsPanel.x + 50f, slotsPanel.y + 34f, 400f, 30f), Strings.EquipmentSlots, capsStyle, UiKit.Shu);
             for (int i = 0; i < 4; i++)
             {
-                var r = new Rect(slotsPanel.x + 10f, slotsPanel.y + 48f + i * 62f, slotsPanel.width - 20f, 56f);
+                var r = new Rect(slotsPanel.x + 40f, slotsPanel.y + 70f + i * 62f, slotsPanel.width - 80f, 58f);
                 if (EquipmentMouse(r, i, e, mouseMoved)) return;
                 DrawItemRow(r, run.Equipped[i], ItemGenerator.SlotName((ItemSlot)i), i == equipIndex);
             }
 
-            var bagPanel = new Rect(700f, 450f, 560f, 500f);
-            DrawRect(bagPanel, Pal.uiPanel);
-            Label(new Rect(bagPanel.x + 20f, bagPanel.y + 10f, 500f, 30f), Strings.EquipmentBag + "   " + string.Format(Strings.EquipmentBagCount, run.Bag.Count, RunState.BagCapacity), smallStyle, Pal.gold);
+            var bagPanel = new Rect(700f, 476f, 580f, 504f);
+            kit.PaperPanel(bagPanel);
+            Label(new Rect(bagPanel.x + 50f, bagPanel.y + 34f, 500f, 30f), Strings.EquipmentBag + "   " + string.Format(Strings.EquipmentBagCount, run.Bag.Count, RunState.BagCapacity), capsStyle, UiKit.Shu);
             for (int i = 0; i < run.Bag.Count; i++)
             {
-                var r = new Rect(bagPanel.x + 10f, bagPanel.y + 44f + i * 37f, bagPanel.width - 20f, 34f);
+                var r = new Rect(bagPanel.x + 40f, bagPanel.y + 70f + i * 34f, bagPanel.width - 80f, 32f);
                 if (EquipmentMouse(r, 4 + i, e, mouseMoved)) return;
                 DrawItemRow(r, run.Bag[i], null, 4 + i == equipIndex);
             }
 
-            DrawItemTooltip(EquipmentItemAt(equipIndex), new Rect(1290f, 130f, 570f, 820f));
-            Label(new Rect(0, VH - 56f, VW, 36f), Strings.EquipmentControls, smallStyleCenter, Pal.uiDim);
+            DrawItemTooltip(EquipmentItemAt(equipIndex), new Rect(1300f, 120f, 580f, 860f));
+            Label(new Rect(0, VH - 52f, VW, 36f), Strings.EquipmentControls, smallStyleCenter, UiKit.PaperDim);
         }
 
         bool EquipmentMouse(Rect r, int index, Event e, bool mouseMoved)
@@ -977,92 +1149,98 @@ namespace Shura
 
         void DrawItemRow(Rect r, Item item, string emptyLabel, bool selected)
         {
-            if (selected) DrawRect(r, Pal.uiText.WithAlpha(0.1f));
-            float icon = Mathf.Min(r.height - 8f, 44f);
+            if (selected) kit.Stroke(new Rect(r.x - 24f, r.y - 8f, r.width + 48f, r.height + 16f), UiKit.Shu.WithAlpha(0.92f), CombatMath.EaseOutCubic(selAnim));
+            float icon = Mathf.Min(r.height - 6f, 46f);
             var iconRect = new Rect(r.x + 8f, r.y + (r.height - icon) * 0.5f, icon, icon);
+            var textRect = new Rect(r.x + icon + 22f, r.y, r.width - icon - 30f, r.height);
             if (item == null)
             {
-                DrawTex(iconRect, ShapeLibrary.Get(Shape.Ring).texture, Pal.uiDim.WithAlpha(0.5f));
-                Label(new Rect(r.x + icon + 20f, r.y, r.width - icon - 30f, r.height), (emptyLabel ?? string.Empty) + "  " + Strings.EquipmentEmpty, smallStyle, Pal.uiDim);
+                kit.Enso(iconRect, (selected ? UiKit.PaperText : UiKit.Ink).WithAlpha(0.35f));
+                Label(textRect, (emptyLabel ?? string.Empty) + "  " + Strings.EquipmentEmpty, smallStyle, selected ? UiKit.PaperText : UiKit.InkSoft);
                 return;
             }
             DrawItemIcon(iconRect, item);
-            Label(new Rect(r.x + icon + 20f, r.y, r.width - icon - 30f, r.height), item.Name, smallStyle, Rarities.Color(item.rarity));
+            Label(textRect, item.Name, smallStyle, selected ? UiKit.PaperText : UiKit.OnPaper(Rarities.Color(item.rarity)));
         }
 
-        /// <summary>Pixel-art item: the slot's object in rarity metal with an element stone, on a rarity glow.</summary>
+        /// <summary>Pixel-art item on a rarity-coloured ink dab.</summary>
         void DrawItemIcon(Rect r, Item item)
         {
             Color rc = Rarities.Color(item.rarity);
-            DrawTex(new Rect(r.x - 4f, r.y - 4f, r.width + 8f, r.height + 8f), ShapeLibrary.Get(Shape.SoftCircle).texture, rc.WithAlpha(0.35f + 0.04f * (int)item.rarity));
+            kit.Dab(new Rect(r.x - 6f, r.y - 6f, r.width + 12f, r.height + 12f), rc.WithAlpha(0.55f + 0.03f * (int)item.rarity));
             Sprite icon = PixelArt.ItemIcon(item.slot, item.element, item.rarity);
             if (icon != null) DrawTex(r, icon.texture, Color.white);
             else DrawTex(r, ShapeLibrary.Get(ItemGenerator.IconShape(item.slot)).texture, Elements.Color(item.element));
             if (item.rarity >= Rarity.Mythic)
             {
-                float spin = Mathf.Repeat(Time.unscaledTime * 0.5f, 1f);
-                DrawTex(new Rect(r.x - 6f + 4f * spin, r.y - 6f, r.width + 12f, r.height + 12f), ShapeLibrary.Get(Shape.Star).texture, rc.WithAlpha(0.6f));
+                float spin = Time.unscaledTime * 40f;
+                kit.Enso(new Rect(r.x - 10f, r.y - 10f, r.width + 20f, r.height + 20f), rc.WithAlpha(0.8f), spin);
             }
         }
 
         void DrawItemTooltip(Item item, Rect r)
         {
-            DrawRect(r, Pal.uiPanel);
+            kit.PaperPanel(r);
             if (item == null)
             {
-                Label(new Rect(r.x + 30f, r.y + 40f, r.width - 60f, 80f), Strings.EquipmentPickHint, cardBodyStyle, Pal.uiDim);
+                Label(new Rect(r.x + 60f, r.y + 70f, r.width - 120f, 120f), Strings.EquipmentPickHint, cardBodyStyle, UiKit.InkSoft);
+                kit.Enso(new Rect(r.center.x - 110f, r.y + 260f, 220f, 220f), UiKit.Ink.WithAlpha(0.15f));
                 return;
             }
             Color rc = Rarities.Color(item.rarity);
-            DrawFrame(r, rc, 3f);
-            DrawItemIcon(new Rect(r.center.x - 60f, r.y + 30f, 120f, 120f), item);
-            Label(new Rect(r.x + 20f, r.y + 170f, r.width - 40f, 50f), item.Name, cardNameStyle, rc);
-            Label(new Rect(r.x + 20f, r.y + 222f, r.width - 40f, 30f), string.Format(Strings.Rarity, Rarities.Name(item.rarity)), smallStyleCenter, rc);
-            Label(new Rect(r.x + 20f, r.y + 252f, r.width - 40f, 30f), string.Format(Strings.ElementLine, ItemGenerator.SlotName(item.slot), Elements.Name(item.element)), smallStyleCenter, Elements.Color(item.element));
-            Label(new Rect(r.x + 30f, r.y + 300f, r.width - 60f, 30f), Strings.Gain, smallStyle, Pal.gold);
-            Label(new Rect(r.x + 30f, r.y + 334f, r.width - 60f, 420f), item.Gain, cardBodyStyle, Pal.uiText);
+            Color rcInk = UiKit.OnPaper(rc);
+            kit.Enso(new Rect(r.center.x - 100f, r.y + 36f, 200f, 200f), rcInk.WithAlpha(0.8f));
+            DrawItemIcon(new Rect(r.center.x - 56f, r.y + 80f, 112f, 112f), item);
+            Label(new Rect(r.x + 40f, r.y + 244f, r.width - 80f, 60f), item.Name, cardNameStyle, UiKit.Ink);
+            Label(new Rect(r.x + 40f, r.y + 306f, r.width - 80f, 30f), string.Format(Strings.Rarity, Rarities.Name(item.rarity)), smallStyleCenter, rcInk);
+            Label(new Rect(r.x + 40f, r.y + 336f, r.width - 80f, 30f), string.Format(Strings.ElementLine, ItemGenerator.SlotName(item.slot), Elements.Name(item.element)), smallStyleCenter, UiKit.OnPaper(Elements.Color(item.element)));
+            kit.Underline(new Rect(r.x + 60f, r.y + 378f, r.width - 120f, 16f), UiKit.Ink.WithAlpha(0.45f));
+            Label(new Rect(r.x + 60f, r.y + 400f, r.width - 120f, 30f), Strings.Gain, capsStyle, UiKit.Shu);
+            Label(new Rect(r.x + 60f, r.y + 434f, r.width - 120f, 380f), item.Gain, cardBodyStyle, UiKit.Ink);
         }
 
         void DrawCharacterPanel(RunState run, Rect r)
         {
-            DrawRect(r, Pal.uiPanel);
+            kit.PaperPanel(r);
             PlayerController p = game.World.Player;
 
-            // The duelist at the centre of its weapon wheel.
-            var centre = new Vector2(r.center.x, r.y + 300f);
-            Label(new Rect(r.x, r.y + 10f, r.width, 30f), Strings.EquipmentWheel, smallStyleCenter, Pal.gold);
-            DrawTex(new Rect(centre.x - 190f, centre.y - 190f, 380f, 380f), ShapeLibrary.Get(Shape.Ring).texture, Pal.uiDim.WithAlpha(0.5f));
-            DrawTex(new Rect(centre.x - 120f, centre.y - 120f, 240f, 240f), ShapeLibrary.Get(Shape.SoftCircle).texture, Pal.gold.WithAlpha(0.12f + 0.04f * run.Flow.Level));
-            DrawCharacterArt(new Rect(centre.x - 75f, centre.y - 75f, 150f, 150f));
+            // The duelist inside an ensō, its two blades above and below.
+            var centre = new Vector2(r.center.x, r.y + 330f);
+            Label(new Rect(r.x, r.y + 34f, r.width, 30f), Strings.EquipmentWheel, capsCenterStyle, UiKit.Shu);
+            kit.Enso(new Rect(centre.x - 200f, centre.y - 200f, 400f, 400f), UiKit.Ink.WithAlpha(0.9f), Mathf.Sin(Time.unscaledTime * 0.4f) * 6f);
+            kit.Dab(new Rect(centre.x - 120f, centre.y - 120f, 240f, 240f), Pal.gold.WithAlpha(0.10f + 0.04f * run.Flow.Level));
+            DrawCharacterArt(new Rect(centre.x - 80f, centre.y - 80f, 160f, 160f));
             for (int i = 0; i < 4; i++)
             {
                 Item item = run.Equipped[i];
                 if (item == null) continue;
                 float a = (45f + 90f * i) * Mathf.Deg2Rad;
-                var pos = centre + new Vector2(Mathf.Cos(a), -Mathf.Sin(a)) * 95f;
-                DrawItemIcon(new Rect(pos.x - 20f, pos.y - 20f, 40f, 40f), item);
+                var pos = centre + new Vector2(Mathf.Cos(a), -Mathf.Sin(a)) * 118f;
+                DrawItemIcon(new Rect(pos.x - 22f, pos.y - 22f, 44f, 44f), item);
             }
-            DrawWheelWeapon(run.CurrentWeapon, new Rect(centre.x - 130f, centre.y - 235f, 260f, 60f), true);
-            DrawWheelWeapon(run.OtherWeapon, new Rect(centre.x - 130f, centre.y + 175f, 260f, 60f), false);
+            DrawWheelWeapon(run.CurrentWeapon, new Rect(centre.x - 170f, centre.y - 262f, 340f, 56f), true);
+            DrawWheelWeapon(run.OtherWeapon, new Rect(centre.x - 170f, centre.y + 208f, 340f, 56f), false);
 
-            Label(new Rect(r.x + 30f, r.y + 560f, r.width - 60f, 30f), Strings.EquipmentStats, smallStyle, Pal.gold);
+            Label(new Rect(r.x + 50f, r.y + 600f, r.width - 100f, 30f), Strings.EquipmentStats, capsStyle, UiKit.Shu);
             PlayerModifiers m = run.Modifiers;
-            string[] stats =
+            string[][] stats =
             {
-                "Vida  " + Mathf.CeilToInt(p.Health) + " / " + Mathf.RoundToInt(p.MaxHealth),
-                "Postura máxima  " + Mathf.RoundToInt(p.Posture.Max),
-                "Dano  x" + p.DamageDealtMult.ToString("0.00"),
-                "Crítico  " + Mathf.RoundToInt(m.critChance * 100f) + "%     Roubo de vida  " + Mathf.RoundToInt(m.lifesteal * 100f) + "%",
-                "Janela de parry  " + p.PerfectParryFrames + " frames",
-                "Ascensão  " + run.Ascension + "     Técnicas e relíquias  " + run.Owned.Count,
+                new[] { "Vida", Mathf.CeilToInt(p.Health) + " / " + Mathf.RoundToInt(p.MaxHealth) },
+                new[] { "Postura máxima", Mathf.RoundToInt(p.Posture.Max).ToString() },
+                new[] { "Dano", "x" + p.DamageDealtMult.ToString("0.00") },
+                new[] { "Crítico · Roubo de vida", Mathf.RoundToInt(m.critChance * 100f) + "% · " + Mathf.RoundToInt(m.lifesteal * 100f) + "%" },
+                new[] { "Janela de parry", p.PerfectParryFrames + " frames" },
+                new[] { "Ascensão · Técnicas", run.Ascension + " · " + run.Owned.Count },
             };
             for (int i = 0; i < stats.Length; i++)
             {
-                Label(new Rect(r.x + 30f, r.y + 594f + i * 30f, r.width - 60f, 32f), stats[i], smallStyle, Pal.uiText);
+                float y = r.y + 634f + i * 30f;
+                Label(new Rect(r.x + 50f, y, 320f, 30f), stats[i][0], smallStyle, UiKit.InkSoft);
+                Label(new Rect(r.x + 330f, y, r.width - 380f, 30f), stats[i][1], smallRightStyle, UiKit.Ink);
             }
             string owned = string.Empty;
             foreach (RewardDef d in run.Owned) owned += (owned.Length > 0 ? "  ·  " : string.Empty) + d.Name;
-            if (owned.Length > 0) Label(new Rect(r.x + 30f, r.y + 776f, r.width - 60f, 50f), owned, cardBodyStyle, Pal.uiDim);
+            if (owned.Length > 0) Label(new Rect(r.x + 50f, r.y + 818f, r.width - 100f, 40f), owned, cardBodyStyle, UiKit.InkSoft);
         }
 
         /// <summary>A texture scaled to fit (whole pixels stay square) and centred in the rect.</summary>
@@ -1081,7 +1259,7 @@ namespace Shura
             else DrawTex(r, s.texture, w.color * color);
         }
 
-        /// <summary>The duelist's idle loop, large, for the equipment screen.</summary>
+        /// <summary>The duelist walking toward the viewer, large, for the equipment screen.</summary>
         void DrawCharacterArt(Rect r)
         {
             CharacterArt art = PixelArt.Character(PlayerController.PlayerArt);
@@ -1090,7 +1268,7 @@ namespace Shura
                 DrawTex(r, ShapeLibrary.Get(Shape.Circle).texture, Pal.player);
                 return;
             }
-            // Walking toward the viewer, cut from the sheet (IMGUI draws whole textures, so use UVs).
+            // Cut from the sheet (IMGUI draws whole textures, so use UVs).
             Sprite[] walk = art.walk[(int)ArtDir.Down];
             Sprite frame = walk[Mathf.FloorToInt(Time.unscaledTime * 6f) % walk.Length];
             Rect tr = frame.textureRect;
@@ -1106,9 +1284,9 @@ namespace Shura
 
         void DrawWheelWeapon(WeaponDef w, Rect r, bool active)
         {
-            if (active) DrawRect(r, Pal.gold.WithAlpha(0.12f));
-            DrawWeaponArt(w, new Rect(r.x - 20f, r.y + 8f, 110f, 30f), active ? Color.white : new Color(0.6f, 0.6f, 0.6f, 1f));
-            Label(new Rect(r.x + 100f, r.y, r.width + 40f, 40f), w.name, smallStyle, active ? Pal.gold : Pal.uiDim);
+            if (active) kit.Stroke(new Rect(r.x - 20f, r.y - 8f, r.width + 40f, r.height + 16f), UiKit.Ink.WithAlpha(0.9f));
+            DrawWeaponArt(w, new Rect(r.x + 10f, r.y + 10f, 100f, 36f), active ? Color.white : new Color(0.55f, 0.5f, 0.45f, 1f));
+            Label(new Rect(r.x + 118f, r.y, r.width - 118f, r.height), w.name, weaponHudStyle, active ? UiKit.PaperText : UiKit.InkSoft);
         }
 
         void DrawPopups()
@@ -1123,20 +1301,23 @@ namespace Shura
                 float gx = (sp.x - offset.x) / scale;
                 float gy = (Screen.height - sp.y - offset.y) / scale;
                 float alpha = 1f - Mathf.Clamp01((t - 0.6f) / 0.4f);
-                Label(new Rect(gx - 260f, gy - 22f, 520f, 44f), p.text, p.small ? damageStyle : popupStyle, p.color.WithAlpha(alpha));
+                Label(new Rect(gx - 260f, gy - 24f, 520f, 48f), p.text, p.small ? damageStyle : popupStyle, p.color.WithAlpha(alpha));
             }
         }
 
         void DrawToasts()
         {
             // During play toasts sit under the room title; on full screens they move to the
-            // bottom so they never cover the screen's own heading.
+            // bottom so they never cover the screen's own heading. Each rides an ink stroke.
             bool playing = game.CurrentMode == Game.Mode.Playing;
             for (int i = 0; i < toasts.Count; i++)
             {
                 FloatingText t = toasts[i];
                 float alpha = Mathf.Clamp01((t.life - t.age) / 0.5f) * Mathf.Clamp01(t.age / 0.15f);
-                float y = playing ? 150f + i * 50f : VH - 110f - i * 50f;
+                float y = playing ? 150f + i * 54f : VH - 120f - i * 54f;
+                float tw = toastStyle.CalcSize(new GUIContent(t.text)).x;
+                float sw = Mathf.Min(VW - 100f, tw + 160f);
+                kit.Stroke(new Rect(VW * 0.5f - sw * 0.5f, y - 10f, sw, 68f), UiKit.Ink.WithAlpha(0.8f * alpha), Mathf.Clamp01(t.age / 0.2f));
                 Label(new Rect(0, y, VW, 48), t.text, toastStyle, t.color.WithAlpha(alpha));
             }
         }
@@ -1145,24 +1326,15 @@ namespace Shura
         {
             if (string.IsNullOrEmpty(hint) || hintTimer <= 0f) return;
             float alpha = Mathf.Clamp01(hintTimer / 0.6f);
-            var r = new Rect(240f, VH - 160f, VW - 480f, 104f);
-            DrawRect(r, Pal.uiPanel.WithAlpha(Pal.uiPanel.a * alpha));
-            DrawRect(new Rect(r.x, r.y, 6f, r.height), Pal.gold.WithAlpha(alpha));
-            Label(new Rect(r.x + 30, r.y + 10, r.width - 60, r.height - 20), hint, hintStyle, Pal.uiText.WithAlpha(alpha));
+            var r = new Rect(230f, VH - 190f, VW - 460f, 150f);
+            kit.PaperPanel(r, alpha);
+            kit.Seal(new Rect(r.x + 44f, r.y + 39f, 72f, 72f), 0.9f * alpha);
+            Label(new Rect(r.x + 140, r.y + 22, r.width - 200, r.height - 44), hint, hintStyle, UiKit.Ink.WithAlpha(alpha));
         }
 
         void DrawOverlays()
         {
-            if (hurtAlpha > 0.001f)
-            {
-                Rect fs = FullScreen;
-                for (int k = 0; k < 6; k++)
-                {
-                    float inset = k * 22f;
-                    float a = hurtAlpha * (1f - k / 6f) * 0.5f;
-                    DrawFrame(new Rect(fs.x + inset, fs.y + inset, fs.width - inset * 2f, fs.height - inset * 2f), Pal.danger.WithAlpha(a), 22f);
-                }
-            }
+            if (hurtAlpha > 0.001f) kit.InkVignette(FullScreen, Pal.danger.WithAlpha(Mathf.Clamp01(hurtAlpha * 1.6f)));
             if (flashAlpha > 0.001f) DrawRect(FullScreen, flashColor.WithAlpha(flashAlpha));
         }
 
@@ -1184,66 +1356,78 @@ namespace Shura
             GUI.color = prev;
         }
 
-        void DrawFrame(Rect r, Color c, float thickness)
-        {
-            DrawRect(new Rect(r.x, r.y, r.width, thickness), c);
-            DrawRect(new Rect(r.x, r.yMax - thickness, r.width, thickness), c);
-            DrawRect(new Rect(r.x, r.y + thickness, thickness, r.height - thickness * 2f), c);
-            DrawRect(new Rect(r.xMax - thickness, r.y + thickness, thickness, r.height - thickness * 2f), c);
-        }
-
-        void Bar(Rect r, float ratio, Color fill)
-        {
-            DrawRect(r, new Color(0f, 0f, 0f, 0.6f));
-            DrawRect(new Rect(r.x, r.y, r.width * Mathf.Clamp01(ratio), r.height), fill);
-        }
-
+        /// <summary>Light text gets a soft ink shadow over the game; dark ink on paper needs none.</summary>
         static void Label(Rect r, string text, GUIStyle style, Color color)
         {
             Color prev = style.normal.textColor;
-            style.normal.textColor = new Color(0f, 0f, 0f, 0.75f * color.a);
-            GUI.Label(new Rect(r.x + 2f, r.y + 2f, r.width, r.height), text, style);
+            float luminance = color.r * 0.3f + color.g * 0.59f + color.b * 0.11f;
+            if (luminance > 0.62f)
+            {
+                style.normal.textColor = new Color(0f, 0f, 0f, 0.7f * color.a);
+                GUI.Label(new Rect(r.x + 2f, r.y + 2f, r.width, r.height), text, style);
+            }
             style.normal.textColor = color;
             GUI.Label(r, text, style);
             style.normal.textColor = prev;
         }
 
+        GUIStyle latinTitleStyle, taglineStyle, taglineSmallStyle, cardKindStyle, cardNameLeftStyle, pickStyle, deathTitleStyle,
+                 ecosSmallStyle, ecosHudStyle, capsStyle, capsRightStyle, capsCenterStyle, weaponHudStyle;
+
         void EnsureStyles()
         {
             if (stylesReady) return;
             stylesReady = true;
-            titleStyle = MakeStyle(150, TextAnchor.MiddleCenter, true);
-            headerStyle = MakeStyle(64, TextAnchor.MiddleCenter, true);
-            itemStyle = MakeStyle(38, TextAnchor.MiddleCenter, false);
-            bodyStyle = MakeStyle(30, TextAnchor.MiddleLeft, false);
-            bodyRightStyle = MakeStyle(30, TextAnchor.MiddleRight, true);
-            bodyCenterStyle = MakeStyle(30, TextAnchor.UpperCenter, false);
-            smallStyle = MakeStyle(22, TextAnchor.MiddleLeft, true);
-            smallRightStyle = MakeStyle(22, TextAnchor.MiddleRight, true);
-            smallStyleCenter = MakeStyle(22, TextAnchor.MiddleCenter, true);
-            popupStyle = MakeStyle(30, TextAnchor.MiddleCenter, true);
-            cardNameStyle = MakeStyle(40, TextAnchor.UpperCenter, true);
-            cardBodyStyle = MakeStyle(25, TextAnchor.UpperLeft, false);
-            hintStyle = MakeStyle(27, TextAnchor.MiddleCenter, false);
-            toastStyle = MakeStyle(34, TextAnchor.MiddleCenter, true);
-            roomStyle = MakeStyle(30, TextAnchor.MiddleCenter, true);
-            itemLeftStyle = MakeStyle(34, TextAnchor.MiddleLeft, false);
-            ecosStyle = MakeStyle(48, TextAnchor.MiddleCenter, true);
-            damageStyle = MakeStyle(24, TextAnchor.MiddleCenter, true);
-            streakStyle = MakeStyle(30, TextAnchor.MiddleRight, true);
+            Font brush = kit.Brush;
+            Font text = kit.Text;
+            Font bold = kit.TextBold;
+            titleStyle = MakeStyle(150, TextAnchor.MiddleCenter, brush);
+            latinTitleStyle = MakeStyle(78, TextAnchor.MiddleCenter, brush);
+            taglineStyle = MakeStyle(30, TextAnchor.MiddleCenter, text, FontStyle.Italic);
+            taglineSmallStyle = MakeStyle(22, TextAnchor.MiddleCenter, text, FontStyle.Italic);
+            headerStyle = MakeStyle(76, TextAnchor.MiddleCenter, brush);
+            deathTitleStyle = MakeStyle(118, TextAnchor.MiddleCenter, brush);
+            itemStyle = MakeStyle(36, TextAnchor.MiddleCenter, bold);
+            itemLeftStyle = MakeStyle(32, TextAnchor.MiddleLeft, bold);
+            bodyStyle = MakeStyle(28, TextAnchor.MiddleLeft, text);
+            bodyRightStyle = MakeStyle(28, TextAnchor.MiddleRight, bold);
+            bodyCenterStyle = MakeStyle(28, TextAnchor.UpperCenter, text);
+            smallStyle = MakeStyle(22, TextAnchor.MiddleLeft, bold);
+            smallRightStyle = MakeStyle(22, TextAnchor.MiddleRight, bold);
+            smallStyleCenter = MakeStyle(22, TextAnchor.MiddleCenter, bold);
+            capsStyle = MakeStyle(19, TextAnchor.MiddleLeft, bold);
+            capsRightStyle = MakeStyle(19, TextAnchor.MiddleRight, bold);
+            capsCenterStyle = MakeStyle(19, TextAnchor.MiddleCenter, bold);
+            popupStyle = MakeStyle(36, TextAnchor.MiddleCenter, brush);
+            cardKindStyle = MakeStyle(34, TextAnchor.MiddleCenter, brush);
+            cardNameStyle = MakeStyle(42, TextAnchor.UpperCenter, brush);
+            cardNameLeftStyle = MakeStyle(40, TextAnchor.MiddleLeft, brush);
+            pickStyle = MakeStyle(34, TextAnchor.MiddleCenter, brush);
+            cardBodyStyle = MakeStyle(24, TextAnchor.UpperLeft, text);
+            hintStyle = MakeStyle(27, TextAnchor.MiddleLeft, text);
+            toastStyle = MakeStyle(30, TextAnchor.MiddleCenter, bold);
+            roomStyle = MakeStyle(44, TextAnchor.MiddleCenter, brush);
+            ecosStyle = MakeStyle(52, TextAnchor.MiddleCenter, brush);
+            ecosSmallStyle = MakeStyle(36, TextAnchor.MiddleCenter, brush);
+            ecosHudStyle = MakeStyle(30, TextAnchor.MiddleRight, brush);
+            damageStyle = MakeStyle(30, TextAnchor.MiddleCenter, brush);
+            streakStyle = MakeStyle(34, TextAnchor.MiddleRight, brush);
+            weaponHudStyle = MakeStyle(32, TextAnchor.MiddleLeft, brush);
         }
 
-        static GUIStyle MakeStyle(int size, TextAnchor anchor, bool bold)
+        static GUIStyle MakeStyle(int size, TextAnchor anchor, Font font, FontStyle fontStyle = FontStyle.Normal)
         {
-            return new GUIStyle(GUI.skin.label)
+            var style = new GUIStyle(GUI.skin.label)
             {
                 fontSize = size,
                 alignment = anchor,
-                fontStyle = bold ? FontStyle.Bold : FontStyle.Normal,
+                fontStyle = font != null ? fontStyle : FontStyle.Bold,
                 wordWrap = true,
                 richText = false,
                 clipping = TextClipping.Overflow,
             };
+            if (font != null) style.font = font;
+            return style;
         }
     }
 }

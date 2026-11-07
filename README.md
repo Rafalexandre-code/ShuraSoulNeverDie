@@ -88,5 +88,5 @@ Para trocar um som: coloque arquivos `.ogg`/`.wav` na pasta da categoria em
 ## Estado
 
 Arte de personagens, armas e arenas: "Ninja Adventure" (CC0), elenco samurai. Sons gravados
-e trilha do pacote, com "Samurai Nights" como alternativa nas Configurações (ver `CREDITS.md`). A UI ainda é provisória (IMGUI), e um shader de
-paleta para unificar a pixel art fica para o M2.
+e trilha do pacote, com "Samurai Nights" como alternativa nas Configurações (ver `CREDITS.md`). Interface pintada à mão (tinta sumi-e sobre washi,
+arte própria em `Tools/ui_art`); um shader de paleta para unificar a pixel art fica para o M2.

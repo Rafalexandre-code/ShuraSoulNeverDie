@@ -191,7 +191,19 @@ Pausa (Continuar, Configurações, Recomeçar, Menu) → Recompensa → … → 
 ganhos; Nova run, Altar, Menu) → Menu.
 HUD: vida (com barra "fantasma" do dano recente), postura, cargas de esquiva, Fluxo, Ecos
 da run, técnicas, sala atual. Números de dano sobre os inimigos.
-UI do protótipo é provisória (IMGUI); UI final na Fase 6.
+
+**Estilo (M1.8): tinta sumi-e sobre papel washi**, com vermelho *shu* e dourado — arte própria
+gerada por `Tools/ui_art/gen_ui.py` (pincel simulado com fibras secas). Elementos:
+- Título/menu: pintura de paisagem (montanhas em aguada, sol vermelho, pinheiro, pássaros),
+  pétalas de sakura caindo, logo "修羅" a pincel com selo *hanko*.
+- Painéis: folhas de washi com bordas rasgadas e chamuscadas e moldura de tinta seca; item
+  selecionado ganha uma pincelada vermelha que "pinta" da esquerda para a direita.
+- Pausa, recompensa, equipamento e morte: o jogo congelado sob uma aguada de tinta nas bordas.
+- Recompensas como talismãs (faixa de cor por tipo, selo quando escolhida); arsenal com a
+  arma sobre uma pincelada; equipamento com o samurai dentro de um *ensō*.
+- HUD: barras de vida/postura como pinceladas (vermelho com rastro de dano), esquivas como
+  gotas de tinta, níveis de Fluxo como *ensō* dourados girando, dicas num rolo de papel.
+- Fontes: Kaushan Script (pincel) para títulos/nomes/números; Spectral para texto.
 
 ## 9. Onboarding
 Sala 1 = um único Ronin, com dicas de controle no chão. Sala 2 introduz o Lanceiro

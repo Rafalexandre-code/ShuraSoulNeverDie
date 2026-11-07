@@ -50,6 +50,12 @@ samurai, inimigos samurai/ninja/monge/oni em 4 direções com pose de golpe e qu
 japonesas, arenas de templo por bioma com nobori e lanternas andon; trilha do pacote
 (calma/combate/Fluxo alto) como padrão e "Samurai Nights" como opção nas Configurações.
 
+**M1.8 — interface pintada à mão (feito):** toda a UI refeita em tinta sumi-e sobre washi
+(arte própria gerada por script): título com paisagem pintada e logo "修羅", menus em rolos
+de papel com pinceladas vermelhas, pausa/recompensa/equipamento/morte/altar/arsenal/
+configurações/créditos redesenhados, HUD com barras de pincel e Fluxo em ensō; fontes
+Kaushan Script + Spectral (OFL).
+
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; shader de paleta unificando a pixel art; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.

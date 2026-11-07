@@ -279,6 +279,9 @@ namespace Shura
             if (CurrentMode == Mode.Paused) SetMode(Mode.Playing);
         }
 
+        /// <summary>Settings opened from the pause menu sit over the frozen game, not the title painting.</summary>
+        public bool SettingsFromPause => settingsReturnMode == Mode.Paused;
+
         public void OpenSettings()
         {
             settingsReturnMode = CurrentMode;

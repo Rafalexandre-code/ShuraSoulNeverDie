@@ -127,8 +127,39 @@ namespace Shura
             if (!finished && elapsed > MaxSeconds) Finish("tempo esgotado");
         }
 
+        int burstFrames;
+        int burstStride;
+        int burstCounter;
+        bool swingBurstDone;
+        bool finisherBurstDone;
+
+        /// <summary>Consecutive-frame captures of a swing and a finisher, to judge animation fluidity.</summary>
+        void UpdateBursts()
+        {
+            PlayerController p = game.World.Player;
+            if (!swingBurstDone && p.CurrentState == PlayerController.State.Attack && p.StateFrame <= 1)
+            {
+                swingBurstDone = true;
+                burstFrames = 12;
+                burstStride = 1;
+                burstCounter = 0;
+            }
+            if (!finisherBurstDone && p.CurrentState == PlayerController.State.Finisher && p.StateFrame <= 1)
+            {
+                finisherBurstDone = true;
+                burstFrames = 14;
+                burstStride = 3;
+                burstCounter = 0;
+            }
+            if (burstFrames <= 0) return;
+            if (burstCounter++ % burstStride != 0) return;
+            Shot(burstStride == 1 ? "swing" : "finisher");
+            burstFrames--;
+        }
+
         void UpdatePlaying()
         {
+            if (shots) UpdateBursts();
             // Endless runs: an automated run stops at the target depth.
             if (!shots && game.Run != null && game.Run.RoomsCleared >= game.Launch.TargetDepth)
             {

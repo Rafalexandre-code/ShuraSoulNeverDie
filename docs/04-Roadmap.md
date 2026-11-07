@@ -33,6 +33,12 @@ finalizações próprias; Troca Perfeita; sangue e manchas persistentes (com op�
 10 raridades, 4 espaços, 6 elementos e atributos aleatórios; tela de Arsenal e de
 Equipamento; painel de técnicas removido da tela de jogo.
 
+**M1.5 — animação fluida (feito):** poses interpoladas entre ticks da simulação (sem
+"degraus" a 49 Hz), suavização angular sem saltos, rastro de lâmina em malha (crescente que
+afina ao sumir, cor da arma/perigo), antecipação + exagero + assentamento em todo golpe,
+inclinação do corpo e balanço da arma com o movimento, *chiburi* da katana (floreio que
+sacode o sangue) no fim do combo; inimigos com as mesmas curvas.
+
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; pixel art livre escolhida + shader de paleta; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.

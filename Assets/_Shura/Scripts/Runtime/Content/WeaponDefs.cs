@@ -82,6 +82,8 @@ namespace Shura
         public string finisherName;
         /// <summary>Pitch of this weapon's swing sound: heavy weapons whoosh low.</summary>
         public float swingPitch = 1f;
+        /// <summary>Degrees of the flourish after the last combo hit (the katana's chiburi blade flick).</summary>
+        public float flourish;
     }
 
     /// <summary>
@@ -155,7 +157,7 @@ namespace Shura
                 Sweep(6, 5, 21, 13f, 10f, 1.55f, 140f, 0.5f, 100f, -100f),
             },
             swapStrike = Named(Thrust(4, 6, 16, 24f, 35f, 2.8f, 0.9f, 0f, 0.5f), "Iaijutsu", dash: 2.6f),
-            finisher = FinisherStyle.CleanCut, finisherName = "Corte Limpo",
+            finisher = FinisherStyle.CleanCut, finisherName = "Corte Limpo", flourish = 70f,
         };
 
         public static readonly WeaponDef Montante = new WeaponDef
@@ -188,7 +190,7 @@ namespace Shura
                 Spin(4, 6, 16, 8f, 6f, 1.3f, 2),
             },
             swapStrike = Named(Spin(3, 18, 12, 6f, 6f, 1.6f, 6), "Dança das Lâminas"),
-            finisher = FinisherStyle.ThousandCuts, finisherName = "Mil Cortes",
+            finisher = FinisherStyle.ThousandCuts, finisherName = "Mil Cortes", flourish = 35f,
         };
 
         public static readonly WeaponDef Naginata = new WeaponDef
@@ -204,7 +206,7 @@ namespace Shura
                 Sweep(9, 6, 22, 14f, 11f, 2.3f, 200f, 0.3f, 130f, -130f),
             },
             swapStrike = Named(Thrust(4, 6, 18, 22f, 32f, 4.2f, 0.8f, 0f, 0.9f), "Estocada Relâmpago", dash: 3.0f),
-            finisher = FinisherStyle.Impale, finisherName = "Empalar",
+            finisher = FinisherStyle.Impale, finisherName = "Empalar", flourish = 40f,
         };
 
         public static readonly WeaponDef Kusarigama = new WeaponDef

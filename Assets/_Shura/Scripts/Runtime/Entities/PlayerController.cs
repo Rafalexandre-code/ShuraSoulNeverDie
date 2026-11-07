@@ -64,7 +64,8 @@ namespace Shura
         Vector2 finisherAnchor;
         bool finisherKilled;
 
-        SpriteRenderer parryArc, swingArc, aura, empowerGlow, offhand, chain;
+        SpriteRenderer parryArc, aura, empowerGlow, offhand, chain;
+        bool flickDone;
 
         public State CurrentState { get; private set; }
         public int StateFrame { get; private set; }
@@ -108,12 +109,11 @@ namespace Shura
             BuildWeapon(WeaponDefs.Katana.sprite, WeaponDefs.Katana.color, WeaponDefs.Katana.length);
 
             parryArc = SpriteUtil.Make("ParryArc", transform, ShapeLibrary.Wedge(t.parryArcDegrees), pal.playerAccent, Sorting.Ground + 10);
-            swingArc = SpriteUtil.Make("SlashTrail", transform, ShapeLibrary.ArcBand(144f), Color.white, Sorting.Overlay - 5);
             aura = SpriteUtil.Make("FlowAura", transform, ShapeLibrary.Get(Shape.SoftCircle), pal.gold, Sorting.Shadow + 1);
             empowerGlow = SpriteUtil.Make("Empowered", transform, ShapeLibrary.Get(Shape.Ring), pal.gold, Sorting.Overlay - 1);
             offhand = SpriteUtil.Make("Offhand", transform, ShapeLibrary.Get(Shape.Blade), Color.white, 0);
             chain = SpriteUtil.Make("Chain", transform, ShapeLibrary.Get(Shape.PixelLeft), ColorUtil.Hex("#8C8A86"), 0);
-            parryArc.enabled = swingArc.enabled = aura.enabled = empowerGlow.enabled = offhand.enabled = chain.enabled = false;
+            parryArc.enabled = aura.enabled = empowerGlow.enabled = offhand.enabled = chain.enabled = false;
         }
 
         public void BeginRun(RunState runState, IPlayerInputSource source)
@@ -552,7 +552,7 @@ namespace Shura
             Velocity *= 0.3f;
             Enter(State.Attack);
             Squash(0.85f, 1.12f);
-            swingArc.sprite = ShapeLibrary.ArcBand(step.style == SwingStyle.Spin ? 360f : Mathf.Abs(step.fromAngle - step.toAngle) + 20f);
+            flickDone = false;
         }
 
         bool TryStartDodge()
@@ -800,14 +800,26 @@ namespace Shura
 
         // ── View ────────────────────────────────────────────────────────────────────────
 
-        /// <summary>Weapon angle for the current strike frame, by swing style.</summary>
+        const float Anticipation = 16f;
+        const float Overshoot = 18f;
+
+        /// <summary>+1 when the swing travels counter-clockwise, -1 clockwise.</summary>
+        float SwingSide(PlayerAttackDef step) => step.toAngle >= step.fromAngle ? 1f : -1f;
+
+        bool IsFinalComboStep => CurrentState == State.Attack && ComboIndex == Weapon.combo.Length - 1;
+
+        /// <summary>
+        /// Weapon angle at the current (sub-frame) moment of a strike: pull back past the start
+        /// (anticipation), whip through and past the end (overshoot), then settle — with the
+        /// katana's chiburi flick after the last hit of its combo.
+        /// </summary>
         float StrikeAngle()
         {
             PlayerAttackDef step = CurrentStep;
-            int f = StateFrame;
-            float tW = Mathf.Clamp01(f / (float)Mathf.Max(1, step.windup));
-            float tA = Mathf.Clamp01((f - step.windup + 1) / (float)step.active);
-            float tR = Mathf.Clamp01((f - step.windup - step.active) / (float)Mathf.Max(1, RecoveryFrames(step)));
+            float f = AnimFrame(StateFrame);
+            float tW = Mathf.Clamp01(f / Mathf.Max(1, step.windup));
+            float tA = Mathf.Clamp01((f - step.windup) / step.active);
+            float tR = Mathf.Clamp01((f - step.windup - step.active) / Mathf.Max(1, RecoveryFrames(step)));
             bool winding = f < step.windup;
             bool active = !winding && f < step.windup + step.active;
 
@@ -816,26 +828,111 @@ namespace Shura
                 case SwingStyle.Sweep:
                 case SwingStyle.Spin:
                 case SwingStyle.Slam:
-                    if (winding) return Mathf.Lerp(RestAngle, step.fromAngle, CombatMath.EaseOutQuad(tW));
-                    if (active) return Mathf.Lerp(step.fromAngle, step.toAngle, CombatMath.EaseOutQuad(tA));
-                    return Mathf.Lerp(step.toAngle, RestAngle + (step.style == SwingStyle.Spin ? 360f : 0f), CombatMath.EaseOutQuad(tR));
+                {
+                    float side = SwingSide(step);
+                    float from = step.fromAngle - side * Anticipation;
+                    float to = step.toAngle + side * (step.style == SwingStyle.Spin ? 0f : Overshoot);
+                    float rest = RestAngle + (step.style == SwingStyle.Spin ? 360f : 0f);
+                    if (winding) return Mathf.Lerp(RestAngle, from, CombatMath.EaseInOutSine(tW));
+                    if (active) return Mathf.Lerp(from, to, CombatMath.EaseOutCubic(tA));
+                    float settle = Mathf.Lerp(to, rest, CombatMath.EaseInOutSine(tR));
+                    if (IsFinalComboStep && Weapon.flourish > 0f)
+                    {
+                        // Chiburi: a sharp flick of the blade before it settles.
+                        settle -= side * Weapon.flourish * Mathf.Sin(Mathf.Clamp01((tR - 0.2f) / 0.45f) * Mathf.PI);
+                    }
+                    return settle;
+                }
                 case SwingStyle.Jab:
-                    return (ComboIndex % 2 == 0 ? 12f : -12f) * (winding ? tW : 1f - tR);
+                    return (ComboIndex % 2 == 0 ? 12f : -12f) * (winding ? CombatMath.EaseInOutSine(tW) : 1f - CombatMath.EaseInOutSine(tR));
                 default:
+                    if (IsFinalComboStep && Weapon.flourish > 0f && !winding && !active)
+                    {
+                        // Polearm twirl after the last thrust.
+                        return Weapon.flourish * Mathf.Sin(tR * Mathf.PI * 2f) * (1f - tR);
+                    }
                     return 0f;
             }
         }
 
+        /// <summary>Thrusts and jabs: draw back, spring past full reach, then return.</summary>
         float StrikeExtend()
         {
             PlayerAttackDef step = CurrentStep;
-            int f = StateFrame;
-            float tW = Mathf.Clamp01(f / (float)Mathf.Max(1, step.windup));
-            float tA = Mathf.Clamp01((f - step.windup + 1) / (float)step.active);
-            float tR = Mathf.Clamp01((f - step.windup - step.active) / (float)Mathf.Max(1, RecoveryFrames(step)));
-            if (f < step.windup) return Mathf.Lerp(0f, -0.3f, CombatMath.EaseOutCubic(tW));
-            if (f < step.windup + step.active) return Mathf.Lerp(-0.3f, step.extend, CombatMath.EaseOutQuad(tA));
-            return Mathf.Lerp(step.extend, 0f, CombatMath.EaseOutQuad(tR));
+            if (step.style == SwingStyle.Sweep || step.style == SwingStyle.Spin) return SweepExtend(step);
+            float f = AnimFrame(StateFrame);
+            float tW = Mathf.Clamp01(f / Mathf.Max(1, step.windup));
+            float tA = Mathf.Clamp01((f - step.windup) / step.active);
+            float tR = Mathf.Clamp01((f - step.windup - step.active) / Mathf.Max(1, RecoveryFrames(step)));
+            if (f < step.windup) return Mathf.Lerp(0f, -0.35f, CombatMath.EaseInOutSine(tW));
+            if (f < step.windup + step.active) return Mathf.LerpUnclamped(-0.35f, step.extend, CombatMath.EaseOutBack(tA));
+            return Mathf.Lerp(step.extend, 0f, CombatMath.EaseInOutSine(tR));
+        }
+
+        /// <summary>Sweeps reach out at mid-swing (and chain weapons fly out to their extend).</summary>
+        float SweepExtend(PlayerAttackDef step)
+        {
+            float f = AnimFrame(StateFrame);
+            float tA = Mathf.Clamp01((f - step.windup) / step.active);
+            float tR = Mathf.Clamp01((f - step.windup - step.active) / Mathf.Max(1, RecoveryFrames(step)));
+            float reach = Mathf.Max(0.12f, step.extend);
+            if (f < step.windup) return Mathf.Lerp(0f, -0.1f, f / Mathf.Max(1, step.windup));
+            if (f < step.windup + step.active) return reach * Mathf.Sin(tA * Mathf.PI * 0.5f + 0.4f);
+            return Mathf.Lerp(reach * 0.6f, 0f, CombatMath.EaseInOutSine(tR));
+        }
+
+        protected override float BodyLean
+        {
+            get
+            {
+                if (CurrentState == State.Attack || CurrentState == State.SwapStrike)
+                {
+                    PlayerAttackDef step = CurrentStep;
+                    if (step.style == SwingStyle.Thrust || step.style == SwingStyle.Jab) return 0f;
+                    float side = SwingSide(step);
+                    float f = AnimFrame(StateFrame);
+                    if (f < step.windup) return -side * 12f * CombatMath.EaseInOutSine(f / Mathf.Max(1, step.windup));
+                    float tA = Mathf.Clamp01((f - step.windup) / step.active);
+                    float tR = Mathf.Clamp01((f - step.windup - step.active) / Mathf.Max(1, RecoveryFrames(step)));
+                    return f < step.windup + step.active ? Mathf.Lerp(-12f, 20f, tA) * side : 20f * side * (1f - CombatMath.EaseInOutSine(tR));
+                }
+                if (CurrentState == State.Deflected) return -deflectSide * 18f * Bounce(AnimFrame(StateFrame), t.deflectedFrames, 3);
+                if (CurrentState == State.Finisher && finisherStyle == FinisherStyle.Execution && StateFrame < 18) return -10f;
+                return 0f;
+            }
+        }
+
+        protected override bool TrailEmitting
+        {
+            get
+            {
+                if (CurrentState == State.Attack || CurrentState == State.SwapStrike)
+                {
+                    PlayerAttackDef step = CurrentStep;
+                    float f = AnimFrame(StateFrame);
+                    bool flourishing = IsFinalComboStep && Weapon.flourish > 0f && f >= step.windup + step.active;
+                    return (f >= step.windup - 0.5f && f < step.windup + step.active + 1.5f) || (flourishing && f < step.windup + step.active + RecoveryFrames(step) * 0.6f);
+                }
+                if (CurrentState == State.Finisher) return StateFrame <= 8 || (StateFrame >= 16 && StateFrame <= 30);
+                return CurrentState == State.Swap && StateFrame < 6;
+            }
+        }
+
+        protected override Color TrailTint => TrailColor();
+
+        /// <summary>The chiburi flick throws the blood off the blade.</summary>
+        void EmitChiburiBlood()
+        {
+            if (flickDone || !IsFinalComboStep || Weapon.flourish <= 0f || hitThisSwing.Count == 0) return;
+            PlayerAttackDef step = CurrentStep;
+            float f = AnimFrame(StateFrame);
+            float tR = (f - step.windup - step.active) / Mathf.Max(1, RecoveryFrames(step));
+            if (tR < 0.4f) return;
+            flickDone = true;
+            float rad = WeaponWorldAngle * Mathf.Deg2Rad;
+            var dir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+            Vector2 tip = RenderPosition + dir * (WeaponReach + WeaponLength * 0.9f);
+            world.Fx.Blood(tip, CombatMath.Perpendicular(dir) * -SwingSide(step), 7f, ColorUtil.Hex("#8E0F1E"));
         }
 
         protected override WeaponPose GetWeaponPose()
@@ -857,7 +954,7 @@ namespace Shura
                 case State.Swap:
                     // The new weapon spins into the hand.
                     pose.snap = true;
-                    pose.angle = RestAngle + 360f * (1f - CombatMath.EaseOutCubic(Mathf.Clamp01(StateFrame / (float)t.swapFrames)));
+                    pose.angle = RestAngle + 360f * (1f - CombatMath.EaseOutCubic(Mathf.Clamp01(AnimFrame(StateFrame) / t.swapFrames)));
                     if (StateFrame < swapWindow) pose.tint = Color.Lerp(weaponColor, Color.white, 0.6f);
                     break;
                 case State.Attack:
@@ -870,11 +967,11 @@ namespace Shura
                 case State.Deflected:
                 {
                     pose.snap = true;
-                    int f = StateFrame;
+                    float f = AnimFrame(StateFrame);
                     float knocked = deflectFromAngle + deflectSide * 65f;
-                    pose.angle = f < 4
-                        ? Mathf.Lerp(deflectFromAngle, knocked, CombatMath.EaseOutCubic(f / 4f))
-                        : Mathf.Lerp(knocked, RestAngle, CombatMath.EaseOutQuad((f - 4) / (float)Mathf.Max(1, t.deflectedFrames - 4)));
+                    pose.angle = f < 4f
+                        ? Mathf.Lerp(deflectFromAngle, knocked, CombatMath.EaseOutBack(f / 4f))
+                        : Mathf.Lerp(knocked, RestAngle, CombatMath.EaseInOutSine((f - 4f) / Mathf.Max(1, t.deflectedFrames - 4)));
                     if (f < 4) pose.tint = Color.white;
                     break;
                 }
@@ -899,7 +996,7 @@ namespace Shura
             // The parry clash: the blade is slammed back by the enemy's sword, then settles.
             if (clashFrames > 0 && (CurrentState == State.Parry || CurrentState == State.Free || CurrentState == State.Swap))
             {
-                int f = ClashFrames - clashFrames;
+                float f = ClashFrames - clashFrames - 1f + AnimFrame(1);
                 float bump = Bounce(f, ClashFrames, 3);
                 pose.snap = true;
                 pose.angle = 78f + 38f * clashStrength * bump;
@@ -914,7 +1011,7 @@ namespace Shura
 
         void FinisherPose(ref WeaponPose pose)
         {
-            int f = StateFrame;
+            float f = AnimFrame(StateFrame);
             pose.tint = Color.Lerp(weaponColor, finisherKilled ? ColorUtil.Hex("#8E0F1E") : pal.gold, 0.45f);
             switch (finisherStyle)
             {
@@ -927,7 +1024,7 @@ namespace Shura
                     pose.extend = f < 18 ? -0.2f : 0.25f;
                     break;
                 case FinisherStyle.ThousandCuts:
-                    pose.angle = (f / 2) % 2 == 0 ? 25f : -25f;
+                    pose.angle = 25f * Mathf.Sin(f * 0.8f);
                     pose.extend = 0.35f * Mathf.Abs(Mathf.Sin(f * 0.8f));
                     break;
                 case FinisherStyle.Impale:
@@ -939,7 +1036,7 @@ namespace Shura
                     pose.extend = f < 8 ? Mathf.Lerp(0f, 1.6f, f / 8f) : 1.6f;
                     break;
                 case FinisherStyle.HeartBreak:
-                    pose.angle = (f / 6) % 2 == 0 ? 10f : -10f;
+                    pose.angle = 10f * Mathf.Sin(f * 0.5f);
                     pose.extend = f >= 24 ? 0.7f : 0.35f * Mathf.Abs(Mathf.Sin(f * 0.5f));
                     break;
             }
@@ -970,7 +1067,7 @@ namespace Shura
                 parryArc.transform.localScale = new Vector3(s, s, 1f);
             }
 
-            RenderSlashTrail(facingAngle);
+            EmitChiburiBlood();
 
             int flow = FlowLevel;
             aura.enabled = flow > 0 && IsAlive;
@@ -987,24 +1084,6 @@ namespace Shura
                 float s = Radius * 2f * (1.5f + 0.1f * Mathf.Sin(Time.unscaledTime * 20f));
                 empowerGlow.transform.localScale = new Vector3(s, s, 1f);
             }
-        }
-
-        void RenderSlashTrail(float facingAngle)
-        {
-            bool striking = CurrentState == State.Attack || CurrentState == State.SwapStrike;
-            PlayerAttackDef step = striking ? CurrentStep : null;
-            bool sweeping = step != null && step.style != SwingStyle.Thrust && step.style != SwingStyle.Jab;
-            int trailFrames = step != null ? step.active + 4 : 0;
-            bool show = sweeping && StateFrame >= step.windup && StateFrame < step.windup + trailFrames;
-            swingArc.enabled = show;
-            if (!show) return;
-
-            float k = (StateFrame - step.windup) / (float)trailFrames;
-            swingArc.color = TrailColor().WithAlpha(0.8f * (1f - k * k));
-            float mid = (step.fromAngle + step.toAngle) * 0.5f;
-            swingArc.transform.localRotation = Quaternion.Euler(0f, 0f, facingAngle + (step.style == SwingStyle.Spin ? 0f : mid));
-            float s = step.shape.range * 2f * (1f + 0.08f * k + 0.06f * FlowLevel);
-            swingArc.transform.localScale = new Vector3(s, step.fromAngle >= step.toAngle ? s : -s, 1f);
         }
 
         /// <summary>Second dagger/fist mirrors the main hand; chain weapons draw their chain.</summary>

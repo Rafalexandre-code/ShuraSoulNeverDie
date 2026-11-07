@@ -699,7 +699,7 @@ namespace Shura
         /// <summary>The blade is knocked back the way it came, freezes, then drifts back to guard.</summary>
         void RecoilPose(float idle, ref WeaponPose pose)
         {
-            int f = StateFrame;
+            float f = AnimFrame(StateFrame);
             float bump = Bounce(f, recoilDuration, 4);
             if (recoilIsThrust)
             {
@@ -710,8 +710,8 @@ namespace Shura
             {
                 float knocked = recoilFromAngle + recoilSide * 60f;
                 pose.angle = f < 4
-                    ? Mathf.Lerp(recoilFromAngle, knocked, CombatMath.EaseOutCubic(f / 4f))
-                    : Mathf.Lerp(knocked, idle, CombatMath.EaseOutQuad((f - 4) / (float)Mathf.Max(1, recoilDuration - 4)));
+                    ? Mathf.Lerp(recoilFromAngle, knocked, CombatMath.EaseOutBack(f / 4f))
+                    : Mathf.Lerp(knocked, idle, CombatMath.EaseInOutSine((f - 4f) / Mathf.Max(1, recoilDuration - 4)));
             }
             pose.tint = Color.Lerp(weaponColor, Color.white, f < 4 ? 0.8f : 0f);
         }
@@ -722,11 +722,12 @@ namespace Shura
         /// </summary>
         void AttackPose(AttackDef attack, float idle, ref WeaponPose pose)
         {
-            float tW = Mathf.Clamp01(StepFrame / (float)Mathf.Max(1, stepWindup));
-            bool winding = StepFrame < stepWindup;
-            bool active = !winding && StepFrame < stepWindup + attack.active;
-            float tA = Mathf.Clamp01((StepFrame - stepWindup + 1) / (float)attack.active);
-            float tR = Mathf.Clamp01((StepFrame - stepWindup - attack.active) / (float)Mathf.Max(1, attack.recovery));
+            float f = AnimFrame(StepFrame);
+            float tW = Mathf.Clamp01(f / Mathf.Max(1, stepWindup));
+            bool winding = f < stepWindup;
+            bool active = !winding && f < stepWindup + attack.active;
+            float tA = Mathf.Clamp01((f - stepWindup) / attack.active);
+            float tR = Mathf.Clamp01((f - stepWindup - attack.active) / Mathf.Max(1, attack.recovery));
             float tremble = stepWindup >= 30 && tW > 0.66f && winding ? Mathf.Sin(Time.unscaledTime * 70f) * 3f : 0f;
 
             if (attack.IsProjectile)
@@ -744,18 +745,18 @@ namespace Shura
                 {
                     float side = StepIndex % 2 == 0 ? 1f : -1f;
                     float start = (attack.shape.arcDegrees * 0.5f + 35f) * side;
-                    float end = -start;
-                    if (winding) pose.angle = Mathf.Lerp(idle, start, CombatMath.EaseOutCubic(tW)) + tremble;
-                    else if (active) pose.angle = Mathf.Lerp(start, end, CombatMath.EaseOutQuad(tA));
-                    else pose.angle = Mathf.Lerp(end, idle, CombatMath.EaseOutQuad(tR));
+                    float end = -start - side * 15f;
+                    if (winding) pose.angle = Mathf.Lerp(idle, start, CombatMath.EaseInOutSine(tW)) + tremble;
+                    else if (active) pose.angle = Mathf.Lerp(start, end, CombatMath.EaseOutCubic(tA));
+                    else pose.angle = Mathf.Lerp(end, idle, CombatMath.EaseInOutSine(tR));
                     break;
                 }
                 case HitShapeType.Line:
                 {
                     pose.angle = tremble;
-                    if (winding) pose.extend = Mathf.Lerp(0f, -0.5f, CombatMath.EaseOutCubic(tW));
-                    else if (active) pose.extend = Mathf.Lerp(-0.5f, 0.8f, CombatMath.EaseOutQuad(tA));
-                    else pose.extend = Mathf.Lerp(0.8f, 0f, CombatMath.EaseOutQuad(tR));
+                    if (winding) pose.extend = Mathf.Lerp(0f, -0.5f, CombatMath.EaseInOutSine(tW));
+                    else if (active) pose.extend = Mathf.LerpUnclamped(-0.5f, 0.8f, CombatMath.EaseOutBack(tA));
+                    else pose.extend = Mathf.Lerp(0.8f, 0f, CombatMath.EaseInOutSine(tR));
                     break;
                 }
                 case HitShapeType.Circle:
@@ -767,6 +768,41 @@ namespace Shura
                 }
             }
             if (attack.IsDangerous && (winding || active)) pose.tint = Color.Lerp(weaponColor, pal.danger, 0.55f);
+        }
+
+        protected override bool TrailEmitting
+        {
+            get
+            {
+                AttackDef a = CurrentAttack;
+                if (a == null || a.IsProjectile) return false;
+                float f = AnimFrame(StepFrame);
+                return f >= stepWindup - 0.5f && f < stepWindup + a.active + 1.5f;
+            }
+        }
+
+        protected override Color TrailTint
+        {
+            get
+            {
+                AttackDef a = CurrentAttack;
+                return a != null && a.IsDangerous ? pal.danger : Color.Lerp(weaponColor, Color.white, 0.3f).WithAlpha(0.75f);
+            }
+        }
+
+        protected override float BodyLean
+        {
+            get
+            {
+                AttackDef a = CurrentAttack;
+                if (a == null || a.shape.type != HitShapeType.Arc) return 0f;
+                float side = StepIndex % 2 == 0 ? 1f : -1f;
+                float f = AnimFrame(StepFrame);
+                if (f < stepWindup) return side * 10f * CombatMath.EaseInOutSine(f / Mathf.Max(1, stepWindup));
+                float tA = Mathf.Clamp01((f - stepWindup) / a.active);
+                float tR = Mathf.Clamp01((f - stepWindup - a.active) / Mathf.Max(1, a.recovery));
+                return f < stepWindup + a.active ? Mathf.Lerp(10f, -16f, tA) * side : -16f * side * (1f - CombatMath.EaseInOutSine(tR));
+            }
         }
 
         /// <summary>

@@ -37,6 +37,11 @@ GameUI ─► Game (somente leitura + comandos)
 - **Hit-stop** = ticks de simulação pulados. O buffer de entrada não envelhece durante o
   hit-stop, então um comando apertado no congelamento é executado logo depois.
 - Renderização interpola posições entre o tick anterior e o atual (suave em 144 Hz).
+- Poses também: `Fighter.AnimFrame(stateFrame)` devolve o quadro do estado com a fração de
+  render, então ângulo de arma, extensão e inclinação andam contínuos mesmo com o tempo
+  global reduzido. O ângulo final passa por suavização exponencial com `DeltaAngle` (sem
+  saltos de 360°). O rastro da lâmina (`Fighter.BladeTrail`) é uma malha em espaço de mundo,
+  amostrada a cada quadro de render e subdividida por ângulo; congela durante o hit-stop.
 - Não usamos física do Unity: colisão é círculo × círculo e círculo × retângulo da arena.
 
 ## Máquina de estados do jogo

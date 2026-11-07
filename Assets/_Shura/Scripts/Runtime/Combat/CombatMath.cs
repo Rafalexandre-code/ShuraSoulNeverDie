@@ -71,6 +71,19 @@ namespace Shura
             return 1f - t * t * t;
         }
 
+        public static float EaseInOutSine(float t)
+        {
+            t = Mathf.Clamp01(t);
+            return 0.5f - 0.5f * Mathf.Cos(t * Mathf.PI);
+        }
+
+        /// <summary>Overshoots past 1 then settles: weight and follow-through.</summary>
+        public static float EaseOutBack(float t, float overshoot = 1.6f)
+        {
+            t = Mathf.Clamp01(t) - 1f;
+            return 1f + t * t * ((overshoot + 1f) * t + overshoot);
+        }
+
         /// <summary>Frame-rate independent exponential smoothing factor.</summary>
         public static float Damp(float sharpness, float dt)
         {

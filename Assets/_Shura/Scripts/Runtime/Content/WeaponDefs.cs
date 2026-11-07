@@ -68,7 +68,7 @@ namespace Shura
         public string name;
         public string description;
         public Shape sprite;
-        /// <summary>0x72 weapon sprite (Resources/Art/0x72); the Shape is the fallback.</summary>
+        /// <summary>Weapon sprite in Resources/Art/NA; the Shape is the fallback.</summary>
         public string art;
         public Color color;
         public float length;
@@ -149,7 +149,7 @@ namespace Shura
 
         public static readonly WeaponDef Katana = new WeaponDef
         {
-            id = "katana", art = "weapon_katana", name = "Katana",
+            id = "katana", art = "weapon_Katana", name = "Katana",
             description = "Equilibrada. Três cortes rápidos que alternam de lado.",
             sprite = Shape.Blade, color = ColorUtil.Hex("#E9EEF5"), length = 1.15f, trail = Color.white,
             combo = new[]
@@ -164,7 +164,7 @@ namespace Shura
 
         public static readonly WeaponDef Montante = new WeaponDef
         {
-            id = "montante", art = "weapon_anime_sword", name = "Montante",
+            id = "montante", art = "weapon_BigSword", name = "Montante",
             description = "Espadão lento e devastador. Cortes largos que esmagam a postura.",
             sprite = Shape.Greatsword, color = ColorUtil.Hex("#C9CDD6"), length = 1.65f, moveMult = 0.85f,
             trail = ColorUtil.Hex("#FFD9A0"), swingPitch = 0.7f,
@@ -179,7 +179,7 @@ namespace Shura
 
         public static readonly WeaponDef Gemeas = new WeaponDef
         {
-            id = "gemeas", art = "weapon_machete", name = "Lâminas Gêmeas",
+            id = "gemeas", art = "weapon_Sai", name = "Lâminas Gêmeas",
             description = "Duas adagas. Cinco golpes velozes; dano baixo por golpe, ritmo altíssimo.",
             sprite = Shape.Blade, color = ColorUtil.Hex("#F0E0E6"), length = 0.72f, dual = true, moveMult = 1.12f,
             trail = ColorUtil.Hex("#FFC2D1"), swingPitch = 1.35f,
@@ -197,7 +197,7 @@ namespace Shura
 
         public static readonly WeaponDef Naginata = new WeaponDef
         {
-            id = "naginata", art = "weapon_spear", name = "Naginata",
+            id = "naginata", art = "weapon_Lance2", name = "Naginata",
             description = "Lâmina em haste longa. Estocadas de longe e um varrido enorme.",
             sprite = Shape.Glaive, color = ColorUtil.Hex("#D8D2C4"), length = 2.0f, moveMult = 0.95f,
             trail = ColorUtil.Hex("#CFE8FF"), swingPitch = 0.85f,
@@ -213,7 +213,7 @@ namespace Shura
 
         public static readonly WeaponDef Kusarigama = new WeaponDef
         {
-            id = "kusarigama", art = "weapon_cleaver", name = "Kusarigama",
+            id = "kusarigama", art = "weapon_AxeTool", name = "Kusarigama",
             description = "Foice na corrente. Alcance enorme e golpes que puxam os inimigos para você.",
             sprite = Shape.Sickle, color = ColorUtil.Hex("#C8C2B8"), length = 0.8f, chain = true,
             trail = ColorUtil.Hex("#D6D0C4"), swingPitch = 1.15f,
@@ -229,7 +229,7 @@ namespace Shura
 
         public static readonly WeaponDef Manoplas = new WeaponDef
         {
-            id = "manoplas", art = "weapon_mace", name = "Manoplas de Ferro",
+            id = "manoplas", art = "weapon_Hammer", name = "Manoplas de Ferro",
             description = "Punhos blindados. Pouco dano na vida, mas destroem a postura em segundos.",
             sprite = Shape.Gauntlet, color = ColorUtil.Hex("#B8B0A6"), length = 0.55f, dual = true, moveMult = 1.08f,
             trail = ColorUtil.Hex("#FFB070"), swingPitch = 0.9f,

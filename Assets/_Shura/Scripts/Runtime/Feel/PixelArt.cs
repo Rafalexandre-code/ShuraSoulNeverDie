@@ -3,32 +3,51 @@ using UnityEngine;
 
 namespace Shura
 {
-    /// <summary>Idle/run/hit frames of one character, plus white silhouettes for hit flashes.</summary>
-    public sealed class CharacterArt
+    /// <summary>Facing used to pick a character's frames.</summary>
+    public enum ArtDir
     {
-        public Sprite[] idle;
-        public Sprite[] run;
-        public Sprite[] hit;
-        public Sprite[] idleWhite;
-        public Sprite[] runWhite;
-        public Sprite[] hitWhite;
-        /// <summary>Height of the visible pixels in world units at scale 1 (empty rows excluded).</summary>
-        public float visibleHeight;
-
-        public bool HasHit => hit != null && hit.Length > 0;
+        Down = 0,
+        Up = 1,
+        Left = 2,
+        Right = 3,
     }
 
     /// <summary>
-    /// Pixel art for every entity. Characters, weapons and tiles come from 0x72's
-    /// "16x16 DungeonTileset II" (CC0) in Resources/Art/0x72. A few props the pack lacks
-    /// (brazier, flames, gore chunks, chain, item icons) are hand-authored here as pixel grids
-    /// in the same palette. One world unit = 16 art pixels, so characters, tiles and props share
-    /// one pixel density.
+    /// A character in four directions: walk loop, idle, strike pose and a fallen frame, plus
+    /// white silhouettes of each for hit flashes and wind-up glows.
+    /// </summary>
+    public sealed class CharacterArt
+    {
+        public Sprite[][] walk = new Sprite[4][];
+        public Sprite[][] walkWhite = new Sprite[4][];
+        public Sprite[] idle = new Sprite[4];
+        public Sprite[] idleWhite = new Sprite[4];
+        public Sprite[] attack = new Sprite[4];
+        public Sprite[] attackWhite = new Sprite[4];
+        public Sprite dead;
+        public Sprite deadWhite;
+        /// <summary>Height of the visible pixels in world units at scale 1 (empty rows excluded).</summary>
+        public float visibleHeight;
+
+        public static ArtDir DirOf(Vector2 facing)
+        {
+            if (Mathf.Abs(facing.x) >= Mathf.Abs(facing.y) * 0.9f) return facing.x < 0f ? ArtDir.Left : ArtDir.Right;
+            return facing.y > 0f ? ArtDir.Up : ArtDir.Down;
+        }
+    }
+
+    /// <summary>
+    /// Pixel art for every entity, from Pixel-Boy &amp; AAA's "Ninja Adventure" pack (CC0) in
+    /// Resources/Art/NA: samurai, ninjas, monks and oni in four directions, their weapons,
+    /// temple floors, walls, banners and lanterns. A few props the pack lacks (gore chunks,
+    /// chain links, item icons) are hand-authored here as pixel grids in the same style. One
+    /// world unit = 16 art pixels everywhere.
     /// </summary>
     public static class PixelArt
     {
         public const int PixelsPerUnit = 16;
-        const string Root = "Art/0x72/";
+        const string Root = "Art/NA/";
+        const int Cell = 16;
 
         static readonly Dictionary<string, Texture2D> Textures = new Dictionary<string, Texture2D>();
         static readonly Dictionary<string, Sprite> Sprites = new Dictionary<string, Sprite>();
@@ -36,7 +55,7 @@ namespace Shura
 
         // ── Loading ─────────────────────────────────────────────────────────────────────
 
-        /// <summary>Readable, point-filtered texture of one frame, or null when missing.</summary>
+        /// <summary>Readable, point-filtered texture, or null when missing.</summary>
         public static Texture2D Texture(string name)
         {
             if (Textures.TryGetValue(name, out Texture2D cached)) return cached;
@@ -68,12 +87,21 @@ namespace Shura
             return copy;
         }
 
-        public static Sprite Sprite(string name, Vector2 pivot)
+        /// <summary>
+        /// A region of a sheet, in tiles counted from the sheet's top-left (as the pack's
+        /// previews are laid out). Pivot is relative to the region.
+        /// </summary>
+        public static Sprite Region(string sheet, int tileX, int tileY, int tilesW, int tilesH, Vector2 pivot)
         {
-            string key = name + "@" + pivot.x.ToString("0.###") + "," + pivot.y.ToString("0.###");
+            string key = sheet + "#" + tileX + "," + tileY + "," + tilesW + "," + tilesH + "@" + pivot.x.ToString("0.##") + "," + pivot.y.ToString("0.##");
             if (Sprites.TryGetValue(key, out Sprite cached)) return cached;
-            Texture2D tex = Texture(name);
-            Sprite s = tex != null ? UnityEngine.Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), pivot, PixelsPerUnit, 0, SpriteMeshType.FullRect) : null;
+            Texture2D tex = Texture(sheet);
+            Sprite s = null;
+            if (tex != null)
+            {
+                var rect = new Rect(tileX * Cell, tex.height - (tileY + tilesH) * Cell, tilesW * Cell, tilesH * Cell);
+                s = UnityEngine.Sprite.Create(tex, rect, pivot, PixelsPerUnit, 0, SpriteMeshType.FullRect);
+            }
             Sprites[key] = s;
             return s;
         }
@@ -81,67 +109,63 @@ namespace Shura
         // ── Characters ──────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Loads "{id}_idle_anim_f0..", "{id}_run_anim_f0..", "{id}_hit_anim_f0" (creatures with a
-        /// single loop use "{id}_anim_f0.." for both). Pivot sits on the feet.
+        /// Loads "{id}_walk" (4 columns = down, up, left, right; 4 rows = frames), "{id}_idle"
+        /// and "{id}_attack" (one frame per direction) and "{id}_dead". Pivot on the feet.
         /// </summary>
         public static CharacterArt Character(string id)
         {
             if (string.IsNullOrEmpty(id)) return null;
             if (Characters.TryGetValue(id, out CharacterArt cached)) return cached;
 
-            List<Texture2D> idle = Frames(id + "_idle_anim_f");
-            List<Texture2D> run = Frames(id + "_run_anim_f");
-            List<Texture2D> hit = Frames(id + "_hit_anim_f");
-            if (idle.Count == 0) idle = Frames(id + "_anim_f");
-            if (run.Count == 0) run = idle;
-            if (idle.Count == 0)
+            Texture2D walk = Texture(id + "_walk");
+            Texture2D idle = Texture(id + "_idle");
+            if (walk == null || idle == null)
             {
                 Characters[id] = null;
                 return null;
             }
+            Texture2D attack = Texture(id + "_attack") ?? idle;
+            Texture2D dead = Texture(id + "_dead");
 
-            Texture2D first = idle[0];
-            int bottom = EmptyRowsBottom(first);
-            int top = EmptyRowsTop(first);
-            var pivot = new Vector2(0.5f, bottom / (float)first.height);
-            var art = new CharacterArt
+            int bottom = EmptyRowsBottom(idle, new RectInt(0, 0, Cell, Cell));
+            int top = EmptyRowsTop(idle, new RectInt(0, 0, Cell, Cell));
+            var pivot = new Vector2(0.5f, bottom / (float)Cell);
+            var art = new CharacterArt { visibleHeight = (Cell - top - bottom) / (float)PixelsPerUnit };
+            Texture2D walkWhite = Silhouette(walk);
+            Texture2D idleWhite = Silhouette(idle);
+            Texture2D attackWhite = Silhouette(attack);
+            int rows = walk.height / Cell;
+            for (int d = 0; d < 4; d++)
             {
-                idle = ToSprites(idle, pivot, false),
-                run = ToSprites(run, pivot, false),
-                hit = ToSprites(hit, pivot, false),
-                idleWhite = ToSprites(idle, pivot, true),
-                runWhite = ToSprites(run, pivot, true),
-                hitWhite = ToSprites(hit, pivot, true),
-                visibleHeight = (first.height - top - bottom) / (float)PixelsPerUnit,
-            };
+                art.walk[d] = new Sprite[rows];
+                art.walkWhite[d] = new Sprite[rows];
+                for (int f = 0; f < rows; f++)
+                {
+                    art.walk[d][f] = Cut(walk, d, f, pivot);
+                    art.walkWhite[d][f] = Cut(walkWhite, d, f, pivot);
+                }
+                art.idle[d] = Cut(idle, d, 0, pivot);
+                art.idleWhite[d] = Cut(idleWhite, d, 0, pivot);
+                art.attack[d] = Cut(attack, d, 0, pivot);
+                art.attackWhite[d] = Cut(attackWhite, d, 0, pivot);
+            }
+            if (dead != null)
+            {
+                art.dead = Cut(dead, 0, 0, pivot);
+                art.deadWhite = Cut(Silhouette(dead), 0, 0, pivot);
+            }
             Characters[id] = art;
             return art;
         }
 
-        static List<Texture2D> Frames(string prefix)
+        /// <summary>Cell (column, row-from-top) of a 16 px sheet.</summary>
+        static Sprite Cut(Texture2D sheet, int column, int row, Vector2 pivot)
         {
-            var list = new List<Texture2D>();
-            for (int i = 0; i < 8; i++)
-            {
-                Texture2D t = Texture(prefix + i);
-                if (t == null) break;
-                list.Add(t);
-            }
-            return list;
+            var rect = new Rect(column * Cell, sheet.height - (row + 1) * Cell, Cell, Cell);
+            return UnityEngine.Sprite.Create(sheet, rect, pivot, PixelsPerUnit, 0, SpriteMeshType.FullRect);
         }
 
-        static Sprite[] ToSprites(List<Texture2D> frames, Vector2 pivot, bool white)
-        {
-            var result = new Sprite[frames.Count];
-            for (int i = 0; i < frames.Count; i++)
-            {
-                Texture2D t = white ? Silhouette(frames[i]) : frames[i];
-                result[i] = UnityEngine.Sprite.Create(t, new Rect(0, 0, t.width, t.height), pivot, PixelsPerUnit, 0, SpriteMeshType.FullRect);
-            }
-            return result;
-        }
-
-        /// <summary>The frame's shape in pure white: drawn on top and faded for hit flashes and wind-up heat.</summary>
+        /// <summary>The sheet's shape in pure white: drawn on top and faded for flashes and glows.</summary>
         static Texture2D Silhouette(Texture2D source)
         {
             string key = source.name + "#white";
@@ -158,24 +182,22 @@ namespace Shura
             return tex;
         }
 
-        static int EmptyRowsBottom(Texture2D t)
+        static int EmptyRowsBottom(Texture2D t, RectInt r)
         {
             if (!t.isReadable) return 0;
-            Color32[] px = t.GetPixels32();
-            for (int y = 0; y < t.height; y++)
+            for (int y = r.yMin; y < r.yMax; y++)
             {
-                for (int x = 0; x < t.width; x++) if (px[y * t.width + x].a > 8) return y;
+                for (int x = r.xMin; x < r.xMax; x++) if (t.GetPixel(x, y).a > 0.03f) return y - r.yMin;
             }
             return 0;
         }
 
-        static int EmptyRowsTop(Texture2D t)
+        static int EmptyRowsTop(Texture2D t, RectInt r)
         {
             if (!t.isReadable) return 0;
-            Color32[] px = t.GetPixels32();
-            for (int y = t.height - 1; y >= 0; y--)
+            for (int y = r.yMax - 1; y >= r.yMin; y--)
             {
-                for (int x = 0; x < t.width; x++) if (px[y * t.width + x].a > 8) return t.height - 1 - y;
+                for (int x = r.xMin; x < r.xMax; x++) if (t.GetPixel(x, y).a > 0.03f) return r.yMax - 1 - y;
             }
             return 0;
         }
@@ -187,25 +209,16 @@ namespace Shura
         {
             switch (name)
             {
-                case "weapon_spear":
-                case "weapon_red_magic_staff":
-                case "weapon_green_magic_staff":
-                    return 0.28f;
-                case "weapon_waraxe":
-                case "weapon_axe":
-                case "weapon_mace":
-                case "weapon_hammer":
-                case "weapon_big_hammer":
-                case "weapon_baton_with_spikes":
-                case "weapon_double_axe":
-                    return 0.22f;
-                case "weapon_cleaver":
-                case "weapon_knife":
+                case "weapon_Lance":
+                case "weapon_Lance2":
+                case "weapon_Stick":
+                    return 0.3f;
+                case "weapon_Club":
+                case "weapon_Hammer":
+                case "weapon_AxeTool":
                     return 0.25f;
-                case "weapon_arrow":
-                    return 0f;
                 default:
-                    return 0.12f;
+                    return 0.18f;
             }
         }
 
@@ -219,43 +232,71 @@ namespace Shura
             if (string.IsNullOrEmpty(name)) return null;
             string key = name + "#weapon";
             if (Sprites.TryGetValue(key, out Sprite cached)) return cached;
-            Texture2D src = Texture(name);
-            Sprite s = null;
-            if (src != null && src.isReadable)
-            {
-                int w = src.width;
-                int h = src.height;
-                Texture2D tex = NewTexture(h, w, key);
-                Color32[] from = src.GetPixels32();
-                var to = new Color32[w * h];
-                for (int y = 0; y < h; y++)
-                {
-                    for (int x = 0; x < w; x++)
-                    {
-                        // Up becomes right; the blade's left edge becomes its top edge.
-                        int nx = y;
-                        int ny = w - 1 - x;
-                        to[ny * h + nx] = from[y * w + x];
-                    }
-                }
-                tex.SetPixels32(to);
-                tex.Apply(false, false);
-                s = UnityEngine.Sprite.Create(tex, new Rect(0, 0, h, w), new Vector2(Grip(name), 0.5f), h, 0, SpriteMeshType.FullRect);
-            }
+            Texture2D rotated = Rotate(Texture(name), true, key);
+            Sprite s = rotated != null
+                ? UnityEngine.Sprite.Create(rotated, new Rect(0, 0, rotated.width, rotated.height), new Vector2(Grip(name), 0.5f), rotated.width, 0, SpriteMeshType.FullRect)
+                : null;
             Sprites[key] = s;
             return s;
         }
 
-        /// <summary>Held, not swung from a hilt (bows): centred, as drawn, 1 unit tall.</summary>
+        /// <summary>
+        /// Held, not swung from a hilt (bows): centred, 1 unit tall, turned so the belly of the
+        /// bow faces +X (the pack draws it lying down, belly toward the bottom).
+        /// </summary>
         public static Sprite WeaponCentered(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
             string key = name + "#centered";
             if (Sprites.TryGetValue(key, out Sprite cached)) return cached;
-            Texture2D tex = Texture(name);
-            Sprite s = tex != null ? UnityEngine.Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), tex.height, 0, SpriteMeshType.FullRect) : null;
+            Texture2D rotated = Rotate(Texture(name), false, key);
+            Sprite s = rotated != null
+                ? UnityEngine.Sprite.Create(rotated, new Rect(0, 0, rotated.width, rotated.height), new Vector2(0.5f, 0.5f), rotated.height, 0, SpriteMeshType.FullRect)
+                : null;
             Sprites[key] = s;
             return s;
+        }
+
+        /// <summary>
+        /// Arrows are drawn on the diagonal (tip up-right). The sprite keeps that and its pivot
+        /// on the tail; rotate it by <see cref="ArrowAngleOffset"/> so the tip leads.
+        /// </summary>
+        public static Sprite Arrow()
+        {
+            const string key = "weapon_Arrow#arrow";
+            if (Sprites.TryGetValue(key, out Sprite cached)) return cached;
+            Texture2D tex = Texture("weapon_Arrow");
+            // Diagonal length = 1 unit.
+            Sprite s = tex != null
+                ? UnityEngine.Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.06f, 0.06f), tex.width * 1.3f, 0, SpriteMeshType.FullRect)
+                : null;
+            Sprites[key] = s;
+            return s;
+        }
+
+        public const float ArrowAngleOffset = -45f;
+
+        /// <summary>Quarter turn of a sprite's pixels: clockwise (up → right) or counter-clockwise (down → right).</summary>
+        static Texture2D Rotate(Texture2D src, bool clockwise, string name)
+        {
+            if (src == null || !src.isReadable) return null;
+            int w = src.width;
+            int h = src.height;
+            Texture2D tex = NewTexture(h, w, name);
+            Color32[] from = src.GetPixels32();
+            var to = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    int nx = clockwise ? y : h - 1 - y;
+                    int ny = clockwise ? w - 1 - x : x;
+                    to[ny * h + nx] = from[y * w + x];
+                }
+            }
+            tex.SetPixels32(to);
+            tex.Apply(false, false);
+            return tex;
         }
 
         // ── Hand-authored pixel props ───────────────────────────────────────────────────
@@ -296,104 +337,6 @@ namespace Shura
                 wrapMode = TextureWrapMode.Clamp,
                 name = name,
             };
-        }
-
-        static readonly string[] BrazierRows =
-        {
-            ".oooooooooooo.",
-            "obbbbbbbbbbbbo",
-            "oddddddddddddo",
-            ".ommmmmmmmmmo.",
-            ".odmmmhmmmmdo.",
-            "..odmmmmmmdo..",
-            "...oddddddo...",
-            "....oommoo....",
-            ".....omdo.....",
-            "....ommmdo....",
-            "...omo..odo...",
-            "..omo....odo..",
-            "..oo......oo..",
-        };
-
-        /// <summary>Iron fire bowl on a tripod; the flames sit on top.</summary>
-        public static Sprite Brazier()
-        {
-            var pal = new Dictionary<char, Color>
-            {
-                { 'o', Outline }, { 'b', ColorUtil.Hex("#3A2A22") }, { 'd', ColorUtil.Hex("#3B3644") },
-                { 'm', ColorUtil.Hex("#5C5566") }, { 'h', ColorUtil.Hex("#8A8396") },
-            };
-            return FromGrid("brazier", BrazierRows, pal, new Vector2(0.5f, 0.15f));
-        }
-
-        static readonly string[][] FlameRows =
-        {
-            new[]
-            {
-                "....o.....",
-                "...ofo....",
-                "...off.o..",
-                "..offfofo.",
-                "..offyffo.",
-                ".offyyyfo.",
-                ".ofyywyfo.",
-                ".ofywwyfo.",
-                "..ofyyfo..",
-                "...oooo...",
-            },
-            new[]
-            {
-                ".....o....",
-                "....ofo...",
-                ".o..off...",
-                "ofo.offo..",
-                "offoffyfo.",
-                ".ofyyyyfo.",
-                ".ofywwyfo.",
-                ".ofywwyfo.",
-                "..ofyyfo..",
-                "...oooo...",
-            },
-            new[]
-            {
-                "...o......",
-                "..ofo.....",
-                "..offo..o.",
-                ".offfo.ofo",
-                ".offyfoffo",
-                ".ofyyyyfo.",
-                ".ofywwyfo.",
-                ".ofywwyfo.",
-                "..ofyyfo..",
-                "...oooo...",
-            },
-            new[]
-            {
-                "..........",
-                "....oo....",
-                "...offo...",
-                "..offfo...",
-                "..offyfo..",
-                ".offyyyfo.",
-                ".ofywwyfo.",
-                ".ofywwyfo.",
-                "..ofyyfo..",
-                "...oooo...",
-            },
-        };
-
-        /// <summary>Four flickering flame frames in the biome's fire colour.</summary>
-        public static Sprite[] Flames(Color flame)
-        {
-            var pal = new Dictionary<char, Color>
-            {
-                { 'o', Color.Lerp(flame, Color.black, 0.55f) }, { 'f', flame },
-                { 'y', Color.Lerp(flame, ColorUtil.Hex("#FFE9A0"), 0.6f) }, { 'w', ColorUtil.Hex("#FFF8E6") },
-            };
-            string tint = ColorUtility.ToHtmlStringRGB(flame);
-            var frames = new Sprite[FlameRows.Length];
-            for (int i = 0; i < frames.Length; i++) frames[i] = FromGrid("flame_" + tint + "_" + i, FlameRows[i], pal, new Vector2(0.5f, 0f));
-            return frames;
         }
 
         static readonly string[][] GoreRows =

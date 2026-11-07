@@ -45,6 +45,11 @@ chamas, gore, corrente e ícones de itens em pixel art própria; animação idle
 por sprite com flash por silhueta; ~140 SFX gravados (CC0) com variação; trilha "Samurai
 Nights" (CC-BY) em 5 camadas sincronizadas; passos. Créditos em `CREDITS.md` e no jogo.
 
+**M1.7 — elenco samurai (feito):** arte trocada pelo pacote "Ninja Adventure" (CC0): jogador
+samurai, inimigos samurai/ninja/monge/oni em 4 direções com pose de golpe e queda, armas
+japonesas, arenas de templo por bioma com nobori e lanternas andon; trilha do pacote
+(calma/combate/Fluxo alto) como padrão e "Samurai Nights" como opção nas Configurações.
+
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; shader de paleta unificando a pixel art; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.

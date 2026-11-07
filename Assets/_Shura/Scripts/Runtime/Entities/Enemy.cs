@@ -114,7 +114,7 @@ namespace Shura
             float size = scaling.elite ? DifficultyRules.EliteSizeMult : 1f;
             if (scaling.elite) Mass *= 2f;
 
-            BuildView(owner, PixelArt.Character(def.art), def.radius * size, size);
+            BuildView(owner, PixelArt.Character(def.art), def.radius * size, size * def.artScale);
             Sprite weaponArt = def.weapon == Shape.Bow ? PixelArt.WeaponCentered(def.weaponArt) : PixelArt.Weapon(def.weaponArt);
             BuildWeapon(weaponArt != null ? weaponArt : ShapeLibrary.Get(def.weapon), weaponArt != null ? Color.white : def.weaponColor, def.weaponLength * size);
             eliteAura = SpriteUtil.Make("GuardianAura", transform, ShapeLibrary.Get(Shape.SoftCircle), pal.gold, Sorting.Shadow + 3);
@@ -642,6 +642,9 @@ namespace Shura
         // ── View ────────────────────────────────────────────────────────────────────────
 
         protected override bool HurtPose => CurrentState == State.Recoil || CurrentState == State.Stagger || Flashing;
+
+        /// <summary>The strike pose snaps in just before the blow lands and holds through recovery.</summary>
+        protected override bool StrikePose => CurrentState == State.Attacking && CurrentAttack != null && StepFrame >= stepWindup - 3;
 
         float IdleAngle =>
             Def.weapon == Shape.Spear || Def.weapon == Shape.Bow ? 0f :

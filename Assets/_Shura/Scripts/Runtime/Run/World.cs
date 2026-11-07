@@ -41,6 +41,8 @@ namespace Shura
         public float Size;
         /// <summary>Arrows are drawn from the tail; waves are centred.</summary>
         public bool IsArrow = true;
+        /// <summary>Extra rotation of the art (the pack draws arrows on the diagonal).</summary>
+        public float ArtAngle;
         /// <summary>Passes through every enemy instead of stopping at the first.</summary>
         public bool Piercing;
         public readonly HashSet<Enemy> Struck = new HashSet<Enemy>();
@@ -649,7 +651,7 @@ namespace Shura
         {
             Vector2 dir = owner.Facing;
             Vector2 start = owner.Position + dir * (owner.Radius + 0.3f);
-            Projectile p = CreateProjectile(start, dir, attack.projectileSpeed, attack.projectileRadius, PixelArt.Weapon("weapon_arrow") != null ? Color.white : owner.Def.weaponColor);
+            Projectile p = CreateProjectile(start, dir, attack.projectileSpeed, attack.projectileRadius, PixelArt.Arrow() != null ? Color.white : owner.Def.weaponColor);
             p.Attack = attack;
             p.Owner = owner;
             p.Signature = signature;
@@ -670,7 +672,12 @@ namespace Shura
         {
             var go = new GameObject("Projectile");
             go.transform.SetParent(root, false);
-            if (sprite == null && arrow) sprite = PixelArt.Weapon("weapon_arrow");
+            float artAngle = 0f;
+            if (sprite == null && arrow)
+            {
+                sprite = PixelArt.Arrow();
+                if (sprite != null) artAngle = PixelArt.ArrowAngleOffset;
+            }
             var p = new Projectile
             {
                 Position = start,
@@ -682,6 +689,7 @@ namespace Shura
                 View = SpriteUtil.Make("Arrow", go.transform, sprite != null ? sprite : ShapeLibrary.Get(Shape.Arrow), color, Sorting.Overlay - 10),
                 Size = size,
                 IsArrow = arrow,
+                ArtAngle = artAngle,
                 Ring = SpriteUtil.Make("ArrowRing", go.transform, ShapeLibrary.Get(Shape.Ring), Config.palette.playerAccent, Sorting.Overlay - 9),
                 Glow = SpriteUtil.Make("ArrowGlow", go.transform, ShapeLibrary.Get(Shape.SoftCircle), Color.white, Sorting.Overlay - 11),
             };
@@ -920,7 +928,7 @@ namespace Shura
             Transform holder = p.View.transform.parent;
             holder.position = new Vector3(pos.x, pos.y, 0f);
             float angle = CombatMath.AngleDegrees(p.Direction);
-            p.View.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
+            p.View.transform.localRotation = Quaternion.Euler(0f, 0f, angle + p.ArtAngle);
             p.View.transform.localPosition = p.IsArrow ? -(Vector3)(p.Direction * p.Size) : Vector3.zero;
             p.View.transform.localScale = new Vector3(p.Size, p.Size, 1f);
 

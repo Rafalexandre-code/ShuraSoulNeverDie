@@ -8,16 +8,17 @@ livre **com crédito obrigatório** (já presente na tela de Créditos do jogo).
 
 | Pacote | Autor | Licença | Fonte | Uso no jogo |
 |---|---|---|---|---|
-| 16x16 DungeonTileset II v1.7 | 0x72 (Robert) | CC0 | https://0x72.itch.io/dungeontileset-ii | Jogador (cavaleiro), 8 inimigos, armas, flechas, piso, paredes, estandartes, caveiras (`Resources/Art/0x72`) |
+| Ninja Adventure — Asset Pack | Pixel-Boy & AAA | CC0 | https://pixel-boy.itch.io/ninja-adventure-asset-pack | Jogador (Samurai), 8 inimigos (SamuraiBlue, GladiatorBlue, Monk2, NinjaRed, DemonRed, Skeleton, NinjaDark, Knight), 13 armas, flecha, piso de templo, paredes, estandartes nobori, lanternas andon (`Resources/Art/NA`) |
 
-Arte própria do projeto (pixel art desenhada em código no `PixelArt.cs`): braseiro, chamas,
-pedaços de gore, elo de corrente e ícones de itens.
+Arte própria do projeto (pixel art desenhada em código no `PixelArt.cs`): pedaços de gore,
+elo de corrente e ícones de itens.
 
 ## Música
 
 | Faixa | Autor | Licença | Fonte | Uso |
 |---|---|---|---|---|
-| Samurai Nights (loops separados) | Maik Hoffmann — majadroid (https://www.majadroid.com) | CC-BY 3.0 / CC-BY 4.0 / OGA-BY 3.0 | https://opengameart.org/content/samurai-nights | 5 camadas da trilha dinâmica (`Resources/Audio/Music`), recortadas em loops exatos |
+| "12 - Temple", "17 - Fight", "34 - Fight" | Pixel-Boy & AAA (Ninja Adventure) | CC0 | https://pixel-boy.itch.io/ninja-adventure-asset-pack | Trilha padrão: calma / combate / Fluxo alto (`Resources/Audio/Music/NA`) |
+| Samurai Nights (loops separados) | Maik Hoffmann — majadroid (https://www.majadroid.com) | CC-BY 3.0 / CC-BY 4.0 / OGA-BY 3.0 | https://opengameart.org/content/samurai-nights | Trilha alternativa (Configurações): 5 camadas recortadas em loops exatos (`Resources/Audio/Music`) |
 
 **Crédito exigido:** "Samurai Nights" by Maik Hoffmann (majadroid), licensed CC-BY.
 

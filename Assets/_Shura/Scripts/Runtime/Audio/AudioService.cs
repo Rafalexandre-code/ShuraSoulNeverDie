@@ -52,8 +52,9 @@ namespace Shura
     }
 
     /// <summary>
-    /// Pooled one-shots and five synchronized music layers whose volumes follow combat state
-    /// and Flow.
+    /// Pooled one-shots and music that follows combat state and Flow: by default three
+    /// Ninja Adventure tracks crossfading (calm / fight / intense); optionally "Samurai
+    /// Nights" as five synchronized layers (Settings).
     ///
     /// Sound effects are real recordings (CC0 packs in Resources/Audio/Sfx, see CREDITS.md):
     /// each event draws a random variant, never the same one twice in a row, with slight pitch
@@ -79,6 +80,9 @@ namespace Shura
 
         readonly AudioSource[] music = new AudioSource[LayerCount];
         readonly float[] musicTarget = new float[LayerCount];
+        /// <summary>Ninja Adventure tracks: calm (exploration, menus), fight, intense (high Flow).</summary>
+        readonly AudioSource[] tracks = new AudioSource[3];
+        readonly float[] trackTarget = new float[3];
         AudioSource[] pool;
         Bank[] banks;
         int next;
@@ -132,6 +136,19 @@ namespace Shura
 
             // Headless test runs skip music entirely.
             if (headless) return;
+            string[] trackNames = { "calm", "fight", "intense" };
+            for (int i = 0; i < tracks.Length; i++)
+            {
+                AudioClip clip = LoadMusic("NA/" + trackNames[i]);
+                if (clip == null) continue;
+                AudioSource src = gameObject.AddComponent<AudioSource>();
+                src.clip = clip;
+                src.loop = true;
+                src.volume = 0f;
+                src.playOnAwake = false;
+                src.Play();
+                tracks[i] = src;
+            }
             AudioClip[] loops =
             {
                 LoadMusic("drone") ?? SfxSynth.MusicDrone(),
@@ -206,16 +223,34 @@ namespace Shura
             musicTarget[(int)MusicLayer.Strings] = strings;
             musicTarget[(int)MusicLayer.Choir] = choir;
             musicTarget[(int)MusicLayer.Bass] = drums * 0.8f;
+
+            // The same intent drives the full-length tracks: calm outside combat, the fight
+            // track in combat, the intense one once Flow brings the melody in (level 2+).
+            bool combat = drums > 0.5f;
+            bool intense = combat && strings >= 0.55f;
+            trackTarget[0] = combat ? 0f : Mathf.Max(drone, choir);
+            trackTarget[1] = combat && !intense ? 0.75f : 0f;
+            trackTarget[2] = intense ? 0.8f : 0f;
         }
+
+        bool UseTracks => !settings.samuraiNights && tracks[0] != null;
 
         void Update()
         {
             if (settings == null) return;
             float k = CombatMath.Damp(MusicFadeSharpness, Time.unscaledDeltaTime);
+            bool useTracks = UseTracks;
             for (int i = 0; i < music.Length; i++)
             {
                 if (music[i] == null) continue;
-                music[i].volume = Mathf.Lerp(music[i].volume, musicTarget[i] * settings.music, k);
+                float target = useTracks ? 0f : musicTarget[i];
+                music[i].volume = Mathf.Lerp(music[i].volume, target * settings.music, k);
+            }
+            for (int i = 0; i < tracks.Length; i++)
+            {
+                if (tracks[i] == null) continue;
+                float target = useTracks ? trackTarget[i] : 0f;
+                tracks[i].volume = Mathf.Lerp(tracks[i].volume, target * settings.music, k);
             }
         }
     }

@@ -16,9 +16,10 @@ namespace Shura
         public string id;
         public string displayName;
         public Shape shape;
-        /// <summary>0x72 character id (idle/run frames) and weapon sprite.</summary>
+        /// <summary>Character and weapon sprites in Resources/Art/NA; artScale draws big foes bigger.</summary>
         public string art;
         public string weaponArt;
+        public float artScale = 1f;
         public Color color;
         public Shape weapon = Shape.Blade;
         public float weaponLength = 1.2f;
@@ -100,7 +101,7 @@ namespace Shura
         /// <summary>The teacher: honest swings and one held strike that tests patience.</summary>
         public static readonly EnemyDef Ronin = new EnemyDef
         {
-            id = "ronin", art = "orc_warrior", weaponArt = "weapon_regular_sword", displayName = "Ronin Errante", shape = Shape.Square, color = ColorUtil.Hex("#C9A66B"),
+            id = "ronin", art = "SamuraiBlue", weaponArt = "weapon_Sword", artScale = 1.0f, displayName = "Ronin Errante", shape = Shape.Square, color = ColorUtil.Hex("#C9A66B"),
             maxHealth = 60f, maxPosture = 60f, radius = 0.42f, moveSpeed = 3.2f, preferredRange = 1.6f,
             blockChance = 0.45f, postureRegenPerSecond = 9f, idleMin = 40, idleMax = 80,
             signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.PatientBlade,
@@ -117,7 +118,7 @@ namespace Shura
         /// <summary>Distance: pokes from range, and a dangerous thrust you must dodge INTO.</summary>
         public static readonly EnemyDef Lanceiro = new EnemyDef
         {
-            id = "lanceiro", art = "masked_orc", weaponArt = "weapon_spear", displayName = "Lanceiro", shape = Shape.Triangle, color = ColorUtil.Hex("#9DB4C0"),
+            id = "lanceiro", art = "GladiatorBlue", weaponArt = "weapon_Lance", artScale = 1.0f, displayName = "Lanceiro", shape = Shape.Triangle, color = ColorUtil.Hex("#9DB4C0"),
             weapon = Shape.Spear, weaponLength = 1.9f, weaponColor = ColorUtil.Hex("#C9CED6"),
             maxHealth = 55f, maxPosture = 50f, radius = 0.40f, moveSpeed = 3.0f, preferredRange = 2.8f,
             blockChance = 0.3f, postureRegenPerSecond = 8f, idleMin = 45, idleMax = 90,
@@ -133,7 +134,7 @@ namespace Shura
         /// <summary>Heavy posture pressure and a dangerous sweep you must dodge through.</summary>
         public static readonly EnemyDef Monge = new EnemyDef
         {
-            id = "monge", art = "big_zombie", weaponArt = "weapon_red_magic_staff", displayName = "Monge do Sino", shape = Shape.Hexagon, color = ColorUtil.Hex("#B48EAD"),
+            id = "monge", art = "Monk2", weaponArt = "weapon_Stick", artScale = 1.45f, displayName = "Monge do Sino", shape = Shape.Hexagon, color = ColorUtil.Hex("#B48EAD"),
             weapon = Shape.Staff, weaponLength = 1.7f, weaponColor = ColorUtil.Hex("#B08D6A"),
             maxHealth = 110f, maxPosture = 100f, radius = 0.62f, mass = 2.5f, moveSpeed = 2.2f, preferredRange = 1.5f,
             blockChance = 0.6f, postureRegenPerSecond = 12f, idleMin = 50, idleMax = 90,
@@ -156,7 +157,7 @@ namespace Shura
         /// <summary>Rhythm: fast flurries; its signature is four strikes to parry in a row.</summary>
         public static readonly EnemyDef Kenkaku = new EnemyDef
         {
-            id = "kenkaku", art = "chort", weaponArt = "weapon_duel_sword", displayName = "Kenkaku Veloz", shape = Shape.Pentagon, color = ColorUtil.Hex("#D1495B"),
+            id = "kenkaku", art = "NinjaRed", weaponArt = "weapon_Ninjaku", artScale = 1.0f, displayName = "Kenkaku Veloz", shape = Shape.Pentagon, color = ColorUtil.Hex("#D1495B"),
             weapon = Shape.Blade, weaponLength = 1.05f, weaponColor = ColorUtil.Hex("#F0E6E8"),
             maxHealth = 50f, maxPosture = 55f, radius = 0.40f, moveSpeed = 3.9f, preferredRange = 1.5f,
             blockChance = 0.5f, postureRegenPerSecond = 11f, idleMin = 30, idleMax = 60,
@@ -177,7 +178,7 @@ namespace Shura
         /// <summary>Patience: slow and enormous, ignores knockback, and grabs (dodge only).</summary>
         public static readonly EnemyDef Carrasco = new EnemyDef
         {
-            id = "carrasco", art = "ogre", weaponArt = "weapon_waraxe", displayName = "Carrasco", shape = Shape.Octagon, color = ColorUtil.Hex("#7A6C5D"),
+            id = "carrasco", art = "DemonRed", weaponArt = "weapon_Club", artScale = 1.65f, displayName = "Carrasco", shape = Shape.Octagon, color = ColorUtil.Hex("#7A6C5D"),
             weapon = Shape.Axe, weaponLength = 1.9f, weaponColor = ColorUtil.Hex("#A39A90"), bloodColor = ColorUtil.Hex("#6A0A14"),
             maxHealth = 150f, maxPosture = 130f, radius = 0.72f, mass = 3.5f, moveSpeed = 1.9f, preferredRange = 1.6f,
             blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 55, idleMax = 95, superArmor = true,
@@ -197,7 +198,7 @@ namespace Shura
         /// <summary>Distance and direction: keeps away and shoots arrows that a perfect parry reflects.</summary>
         public static readonly EnemyDef Arqueiro = new EnemyDef
         {
-            id = "arqueiro", art = "skelet", weaponArt = "weapon_bow", displayName = "Arqueiro das Cinzas", shape = Shape.Capsule, color = ColorUtil.Hex("#8AA170"),
+            id = "arqueiro", art = "Skeleton", weaponArt = "weapon_Bow", artScale = 1.0f, displayName = "Arqueiro das Cinzas", shape = Shape.Capsule, color = ColorUtil.Hex("#8AA170"),
             weapon = Shape.Bow, weaponLength = 0.95f, weaponColor = ColorUtil.Hex("#B08D6A"),
             maxHealth = 45f, maxPosture = 45f, radius = 0.38f, moveSpeed = 3.0f, preferredRange = 6.0f,
             blockChance = 0.2f, postureRegenPerSecond = 8f, idleMin = 40, idleMax = 80,
@@ -213,7 +214,7 @@ namespace Shura
         /// <summary>Direction: vanishes and strikes from behind — turn and parry.</summary>
         public static readonly EnemyDef Sombra = new EnemyDef
         {
-            id = "sombra", art = "necromancer", weaponArt = "weapon_knife", displayName = "Sombra", shape = Shape.Diamond, color = ColorUtil.Hex("#6A5FA0"),
+            id = "sombra", art = "NinjaDark", weaponArt = "weapon_Sai", artScale = 1.0f, displayName = "Sombra", shape = Shape.Diamond, color = ColorUtil.Hex("#6A5FA0"),
             weapon = Shape.Blade, weaponLength = 0.8f, weaponColor = ColorUtil.Hex("#C9BFF0"), bloodColor = ColorUtil.Hex("#3D1F5C"),
             maxHealth = 50f, maxPosture = 55f, radius = 0.38f, moveSpeed = 3.6f, preferredRange = 2.4f,
             blockChance = 0.35f, postureRegenPerSecond = 10f, idleMin = 45, idleMax = 85,
@@ -228,7 +229,7 @@ namespace Shura
         /// <summary>Patience: deflects almost everything from the front. Break it by parrying.</summary>
         public static readonly EnemyDef Escudeiro = new EnemyDef
         {
-            id = "escudeiro", art = "dwarf_m", weaponArt = "weapon_knight_sword", displayName = "Escudeiro", shape = Shape.Shield, color = ColorUtil.Hex("#4F7CAC"),
+            id = "escudeiro", art = "Knight", weaponArt = "weapon_Sword2", artScale = 1.15f, displayName = "Escudeiro", shape = Shape.Shield, color = ColorUtil.Hex("#4F7CAC"),
             weapon = Shape.Blade, weaponLength = 1.0f, weaponColor = ColorUtil.Hex("#D8DEE9"),
             maxHealth = 70f, maxPosture = 80f, radius = 0.5f, mass = 2f, moveSpeed = 2.6f, preferredRange = 1.7f,
             blockChance = 0.85f, postureRegenPerSecond = 9f, idleMin = 50, idleMax = 90,

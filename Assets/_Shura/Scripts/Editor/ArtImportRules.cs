@@ -9,7 +9,7 @@ namespace Shura.EditorTools
     /// </summary>
     public sealed class ArtImportRules : AssetPostprocessor
     {
-        const uint Version = 2;
+        const uint Version = 3;
 
         public override uint GetVersion() => Version;
 
@@ -34,7 +34,8 @@ namespace Shura.EditorTools
             bool music = assetPath.Contains("/Audio/Music/");
             importer.forceToMono = !music;
             AudioImporterSampleSettings s = importer.defaultSampleSettings;
-            s.loadType = UnityEngine.AudioClipLoadType.DecompressOnLoad;
+            // Full-length tracks stream; short effects and the synced stems load whole.
+            s.loadType = assetPath.Contains("/Music/NA/") ? UnityEngine.AudioClipLoadType.Streaming : UnityEngine.AudioClipLoadType.DecompressOnLoad;
             s.compressionFormat = UnityEngine.AudioCompressionFormat.Vorbis;
             s.quality = music ? 0.7f : 0.8f;
             importer.defaultSampleSettings = s;

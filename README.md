@@ -74,9 +74,9 @@ Assets/_Shura/
   Scenes/Main.unity          só contém o objeto "Game"; tudo é criado por código
   Scripts/Runtime/           Core, Config, Input, Combat, Entities, Content, Run, Feel, Audio, UI, DevTools
   Scripts/Editor/            ProjectSetup (cena, build settings, builds), ArtImportRules
-  Resources/Art/0x72/        pixel art (personagens, armas, tiles) — CC0
+  Resources/Art/NA/          pixel art Ninja Adventure (personagens, armas, tiles) — CC0
   Resources/Audio/Sfx/       efeitos gravados por categoria (swing, clash, parry...) — CC0
-  Resources/Audio/Music/     5 camadas da trilha em loops exatos — CC-BY (crédito obrigatório)
+  Resources/Audio/Music/     NA/ trilha padrão (CC0) · raiz: Samurai Nights em 5 camadas (CC-BY, crédito obrigatório)
   Tests/EditMode/            testes das regras de combate
 docs/                        conceito, GDD, documento técnico, roadmap
 CREDITS.md                   autores e licenças de todos os assets de terceiros
@@ -87,6 +87,6 @@ Para trocar um som: coloque arquivos `.ogg`/`.wav` na pasta da categoria em
 
 ## Estado
 
-Arte de personagens, armas e arenas: pixel art 0x72 (CC0). Sons gravados e trilha
-"Samurai Nights" (ver `CREDITS.md`). A UI ainda é provisória (IMGUI), e um shader de
+Arte de personagens, armas e arenas: "Ninja Adventure" (CC0), elenco samurai. Sons gravados
+e trilha do pacote, com "Samurai Nights" como alternativa nas Configurações (ver `CREDITS.md`). A UI ainda é provisória (IMGUI), e um shader de
 paleta para unificar a pixel art fica para o M2.

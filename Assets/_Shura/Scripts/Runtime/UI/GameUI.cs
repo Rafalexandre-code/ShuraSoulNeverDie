@@ -251,6 +251,7 @@ namespace Shura
                     AddSlider(Strings.ScreenShake, () => s.shake, v => s.shake = v);
                     AddToggle(Strings.TimingIndicator, () => s.timingIndicator, v => s.timingIndicator = v);
                     AddToggle(Strings.Blood, () => s.blood, v => s.blood = v);
+                    AddToggle(Strings.SamuraiNightsMusic, () => s.samuraiNights, v => s.samuraiNights = v);
                     AddToggle(Strings.ReduceFlashes, () => s.reduceFlashes, v => s.reduceFlashes = v);
                     AddToggle(Strings.Fullscreen, () => s.fullscreen, v => s.fullscreen = v);
                     AddItem(Strings.ResetControls, () =>
@@ -530,8 +531,8 @@ namespace Shura
         {
             DrawRect(FullScreen, Pal.background.WithAlpha(0.8f));
             Label(new Rect(0, 100, VW, 90), Strings.SettingsTitle, headerStyle, Pal.uiText);
-            DrawMenuList(230f, 64f, 900f);
-            DrawControlsPanel(new Rect(560, 770, 800, 250));
+            DrawMenuList(210f, 52f, 900f);
+            DrawControlsPanel(new Rect(560, 800, 800, 250));
         }
 
         void DrawCredits()
@@ -1032,7 +1033,7 @@ namespace Shura
             Label(new Rect(r.x, r.y + 10f, r.width, 30f), Strings.EquipmentWheel, smallStyleCenter, Pal.gold);
             DrawTex(new Rect(centre.x - 190f, centre.y - 190f, 380f, 380f), ShapeLibrary.Get(Shape.Ring).texture, Pal.uiDim.WithAlpha(0.5f));
             DrawTex(new Rect(centre.x - 120f, centre.y - 120f, 240f, 240f), ShapeLibrary.Get(Shape.SoftCircle).texture, Pal.gold.WithAlpha(0.12f + 0.04f * run.Flow.Level));
-            DrawCharacterArt(new Rect(centre.x - 60f, centre.y - 100f, 120f, 210f));
+            DrawCharacterArt(new Rect(centre.x - 75f, centre.y - 75f, 150f, 150f));
             for (int i = 0; i < 4; i++)
             {
                 Item item = run.Equipped[i];
@@ -1075,7 +1076,8 @@ namespace Shura
         void DrawWeaponArt(WeaponDef w, Rect r, Color color)
         {
             Sprite s = PlayerController.WeaponSprite(w);
-            if (s.texture.width >= s.texture.height * 2) DrawFitted(r, s.texture, color);
+            // Pixel-art weapons have their own small texture; the old shapes share big ones.
+            if (s.texture.width <= 64) DrawFitted(r, s.texture, color);
             else DrawTex(r, s.texture, w.color * color);
         }
 
@@ -1088,8 +1090,18 @@ namespace Shura
                 DrawTex(r, ShapeLibrary.Get(Shape.Circle).texture, Pal.player);
                 return;
             }
-            Sprite frame = art.idle[Mathf.FloorToInt(Time.unscaledTime * 6f) % art.idle.Length];
-            DrawFitted(r, frame.texture, Color.white);
+            // Walking toward the viewer, cut from the sheet (IMGUI draws whole textures, so use UVs).
+            Sprite[] walk = art.walk[(int)ArtDir.Down];
+            Sprite frame = walk[Mathf.FloorToInt(Time.unscaledTime * 6f) % walk.Length];
+            Rect tr = frame.textureRect;
+            Texture tex = frame.texture;
+            float k = Mathf.Min(r.width / tr.width, r.height / tr.height);
+            var fit = new Rect(r.center.x - tr.width * k * 0.5f, r.center.y - tr.height * k * 0.5f, tr.width * k, tr.height * k);
+            var uv = new Rect(tr.x / tex.width, tr.y / tex.height, tr.width / tex.width, tr.height / tex.height);
+            Color old = GUI.color;
+            GUI.color = Color.white;
+            GUI.DrawTextureWithTexCoords(fit, tex, uv);
+            GUI.color = old;
         }
 
         void DrawWheelWeapon(WeaponDef w, Rect r, bool active)

@@ -140,12 +140,14 @@ namespace Shura
         public const string ToastRoomClear = "Sala vencida  ·  +{0} de vida";
         public const string ToastInvincible = "Invencível: {0}";
 
+        public const string SamuraiNightsMusic = "Trilha alternativa (Samurai Nights)";
+
         public const string CreditsBody =
             "SHURA  ·  Protótipo M1\n\n" +
             "Direção criativa: [seu nome aqui]\n" +
             "Design, programação e efeitos: Claude (Anthropic)  ·  Feito com Unity 6\n\n" +
-            "Pixel art: \"16x16 DungeonTileset II\" de 0x72 (CC0)\n" +
-            "Música: \"Samurai Nights\" de Maik Hoffmann / majadroid (CC-BY 3.0)\n" +
+            "Arte e trilha: \"Ninja Adventure\" de Pixel-Boy e AAA (CC0)\n" +
+            "Trilha alternativa: \"Samurai Nights\" de Maik Hoffmann / majadroid (CC-BY 3.0)\n" +
             "Sons: StarNinjas, EZduzziteh, Still North Media e coleções CC0 do OpenGameArt.org\n" +
             "Lista completa em CREDITS.md\n\n" +
             "Inspirações: Sekiro, Nine Sols, Dead Cells, Hades, Hollow Knight, Katana ZERO";

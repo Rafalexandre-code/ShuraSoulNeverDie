@@ -23,14 +23,17 @@ docs/            documentos de design
 ```
 
 ### Arte e áudio carregados de Resources
-- `PixelArt` carrega quadros de `Resources/Art/0x72` (legíveis, Point, sem compressão — regra
-  em `ArtImportRules`), monta `CharacterArt` (idle/run/hit + silhuetas brancas, pivô nos pés),
+- `PixelArt` carrega folhas de `Resources/Art/NA` (legíveis, Point, sem compressão — regra
+  em `ArtImportRules`), monta `CharacterArt` em 4 direções (andar/parado/golpe/caído +
+  silhuetas brancas, pivô nos pés), recorta regiões de tilesets por coordenada de tile,
   gira armas 90° para a convenção "+X, pivô na empunhadura, 1 unidade" e desenha props em grade
   de caracteres (braseiro, chamas, gore, elo, ícones). Sem a arte, cai nas formas antigas.
 - `ArenaBuilder` compõe piso e paredes numa única textura por sala (tiles tingidos pelo bioma).
 - `AudioService` carrega `Resources/Audio/Sfx/<categoria>` como bancos de variações por `Sfx`
   (sorteio sem repetição imediata, camada sintetizada opcional por baixo) e 5 stems de música
-  com `PlayScheduled` no mesmo instante — todos múltiplos exatos de 302 400 amostras.
+  com `PlayScheduled` no mesmo instante — todos múltiplos exatos de 302 400 amostras. Por
+  padrão toca a trilha do Ninja Adventure (3 faixas em streaming com crossfade calma/combate/
+  Fluxo alto); `GameSettings.samuraiNights` troca para os stems.
 
 ## Dependências
 ```

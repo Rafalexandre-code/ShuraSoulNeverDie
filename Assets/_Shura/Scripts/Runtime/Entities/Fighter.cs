@@ -54,8 +54,8 @@ namespace Shura
         float visualScale = 1f;
         float feetY;
         float animTime;
-        bool faceLeft;
-        Sprite[] currentFrames;
+        ArtDir dir = ArtDir.Down;
+        bool wasMoving;
         int currentFrame;
 
         Transform weaponPivot;
@@ -120,7 +120,6 @@ namespace Shura
             Sprite first = art != null ? art.idle[0] : ShapeLibrary.Get(Shape.Circle);
             body = SpriteUtil.Make("Sprite", bodyPivot, first, Color.white, 0);
             bodyGlow = SpriteUtil.Make("Glow", bodyPivot, art != null ? art.idleWhite[0] : first, Color.clear, 1);
-            currentFrames = art?.idle;
 
             hurtbox = SpriteUtil.Make("DebugHurtbox", transform, ShapeLibrary.Get(Shape.Ring), new Color(0.3f, 1f, 0.4f, 0.8f), Sorting.Overlay + 50);
             hurtbox.transform.localScale = Vector3.one * radius * 2f;
@@ -137,8 +136,14 @@ namespace Shura
             bodyGlow.color = glow;
         }
 
-        /// <summary>True while the character should show its "taking a hit" frame.</summary>
+        /// <summary>True while the character is reeling from a hit (held, flashing frame).</summary>
         protected virtual bool HurtPose => false;
+
+        /// <summary>True while the character should show its strike pose.</summary>
+        protected virtual bool StrikePose => false;
+
+        /// <summary>True once the character has fallen (dead frame).</summary>
+        protected virtual bool FallenPose => !IsAlive;
 
         /// <summary>Swaps the drawn weapon (the pose system keeps running).</summary>
         protected void SetWeapon(Sprite sprite, Color color, float length)
@@ -226,28 +231,55 @@ namespace Shura
             RenderExtra(p, visualDt);
         }
 
-        /// <summary>Idle/run/hit loop, faster with speed; faces the side the fighter looks at.</summary>
+        /// <summary>
+        /// Four-direction animation: walk loop (faster with speed), idle, strike pose or fallen
+        /// frame, facing where the fighter looks (with a little hysteresis on the diagonals).
+        /// </summary>
         void AnimateSprite(float speed, float visualDt)
         {
-            if (Facing.x < -0.12f) faceLeft = true;
-            else if (Facing.x > 0.12f) faceLeft = false;
-            body.flipX = bodyGlow.flipX = faceLeft;
             if (art == null) return;
-
-            bool moving = speed > 0.6f;
-            Sprite[] frames = HurtPose && art.HasHit ? art.hit : moving ? art.run : art.idle;
-            Sprite[] white = HurtPose && art.HasHit ? art.hitWhite : moving ? art.runWhite : art.idleWhite;
-            if (frames != currentFrames)
+            ArtDir want = CharacterArt.DirOf(Facing);
+            if (want != dir)
             {
-                currentFrames = frames;
-                animTime = 0f;
+                // Keep the current side until the turn is clear, so diagonals do not flicker.
+                Vector2 f = Facing;
+                bool clear = Mathf.Abs(Mathf.Abs(f.x) - Mathf.Abs(f.y)) > 0.15f;
+                if (clear) dir = want;
             }
-            if (IsAlive) animTime += visualDt * (moving ? 7f + speed * 1.6f : 6f);
+            int d = (int)dir;
+
+            if (FallenPose && art.dead != null)
+            {
+                body.sprite = art.dead;
+                bodyGlow.sprite = art.deadWhite;
+                return;
+            }
+            if (StrikePose)
+            {
+                body.sprite = art.attack[d];
+                bodyGlow.sprite = art.attackWhite[d];
+                return;
+            }
+
+            bool moving = speed > 0.6f && !HurtPose;
+            if (moving != wasMoving)
+            {
+                wasMoving = moving;
+                animTime = moving ? 1f : 0f;
+            }
+            if (!moving)
+            {
+                body.sprite = art.idle[d];
+                bodyGlow.sprite = art.idleWhite[d];
+                return;
+            }
+            animTime += visualDt * (6f + speed * 1.5f);
+            Sprite[] frames = art.walk[d];
             int index = Mathf.FloorToInt(animTime) % frames.Length;
-            if (index != currentFrame && moving && (index == 0 || index == 2)) OnFootfall();
+            if (index != currentFrame && (index == 0 || index == 2)) OnFootfall();
             currentFrame = index;
             body.sprite = frames[index];
-            bodyGlow.sprite = white[Mathf.Min(index, white.Length - 1)];
+            bodyGlow.sprite = art.walkWhite[d][index];
         }
 
         /// <summary>A foot touches the ground (run frames 0 and 2).</summary>

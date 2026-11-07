@@ -198,28 +198,31 @@ Sala 1 = um único Ronin, com dicas de controle no chão. Sala 2 introduz o Lanc
 (estocada) já sabendo aparar. Sala 3 introduz a Varredura isolada. Sala 4 combina.
 
 ## 10. Direção de arte
-Pixel art livre: **0x72 "16x16 DungeonTileset II" (CC0)**, 16 px por unidade para tudo
-(personagens, armas, piso, paredes), filtro Point, visão de cima em 3/4 (o personagem vira
-para a esquerda/direita; a arma gira 360° na mão). Elenco:
+Pixel art livre: **"Ninja Adventure" de Pixel-Boy & AAA (CC0)**, tema japonês, visão de cima,
+16 px por unidade para tudo (personagens, armas, piso, paredes), filtro Point. Os personagens
+têm 4 direções (cima, baixo, esquerda, direita): andar, parado, pose de golpe e caído; a arma
+gira 360° na mão. Elenco:
 
 | Entidade | Sprite | Arma |
 |---|---|---|
-| Jogador | cavaleiro (`knight_m`) | a arma equipada |
-| Ronin Errante | orc guerreiro | espada comum |
-| Lanceiro | orc mascarado | lança |
-| Monge do Sino | golem de pedra (grande) | cajado rubro |
-| Kenkaku Veloz | demônio vermelho (chort) | espada de duelo |
-| Carrasco | ogro (grande) | machado de guerra |
-| Arqueiro das Cinzas | esqueleto | arco (flechas em pixel art) |
-| Sombra | necromante encapuzado | faca |
-| Escudeiro | anão de armadura | espada de cavaleiro |
+| Jogador | samurai de chapéu de palha (Samurai) | a arma equipada |
+| Ronin Errante | samurai azul (SamuraiBlue) | espada |
+| Lanceiro | soldado de elmo (GladiatorBlue) | lança |
+| Monge do Sino | monge careca (Monk2), 1,45× | bastão (bō) |
+| Kenkaku Veloz | ninja vermelho (NinjaRed) | ninjaku |
+| Carrasco | oni vermelho (DemonRed), 1,65× | kanabō (clava) |
+| Arqueiro das Cinzas | esqueleto (Skeleton) | arco (flecha do pacote) |
+| Sombra | ninja negro (NinjaDark) | sai |
+| Escudeiro | guerreiro de armadura (Knight), 1,15× | espada |
 
-Armas do jogador: Katana (katana), Montante (espadão), Gêmeas (dois facões), Naginata
-(lança), Kusarigama (lâmina + corrente em elos), Manoplas (duas maças). Arenas montadas
-tile a tile (laje limpa, rachaduras raras, caveiras, parede de tijolos com estandartes),
-tingidas pela cor do bioma. Peças desenhadas por nós em pixel art no mesmo estilo:
-braseiro, chamas animadas, pedaços de gore, ícones de itens (amuleto, anel, bracelete,
-talismã de papel) com metal na cor da raridade e pedra na cor do elemento.
+Armas do jogador: Katana, Montante (espadão), Gêmeas (dois sai), Naginata (lança de lâmina),
+Kusarigama (machadinha + corrente em elos), Manoplas (dois martelos). Arenas de templo
+montadas tile a tile, uma por bioma: Cinzas (pedra escura), Musgo (ladrilho verde
+ornamentado), Sangue (tijolo avermelhado), Abismo (pedra arroxeada), Gelo (ladrilho de
+templo azulado); moldura de parede do pacote, estandartes *nobori* na parede do fundo e
+lanternas *andon* acesas nos cantos. Peças desenhadas por nós em pixel art: pedaços de gore,
+elo de corrente, ícones de itens (amuleto, anel, bracelete, talismã de papel) com metal na
+cor da raridade e pedra na cor do elemento.
 Flash de dano e "calor" do ataque são uma silhueta branca/colorida sobre o sprite.
 Telegraphs, anéis de timing e partículas continuam feitos por código (são leitura de
 jogo, não entidades). Créditos completos em `CREDITS.md`. Paleta de UI:
@@ -244,7 +247,7 @@ a mesma duas vezes seguidas) com leve variação de tom; eventos-chave somam por
 sintetizado antigo (o "ting" do parry perfeito, o baque da quebra de postura). Interface e
 avisos continuam sintetizados.
 
-Música: "Samurai Nights" (majadroid, CC-BY) separada em 5 camadas sincronizadas, cortadas
+Música padrão (Ninja Adventure, CC0): "Temple" fora de combate e nos menus, "Fight" em combate e o segundo "Fight" a partir do Fluxo 2, com transições suaves. Alternativa nas Configurações: "Samurai Nights" (majadroid, CC-BY) separada em 5 camadas sincronizadas, cortadas
 em loops exatos de 4 compassos a 140 BPM: qin (base, sempre) → percussão + baixo (combate)
 → erhu (Fluxo 1, cresce no 2) → flauta dizi (Fluxo 3 e menus).
 

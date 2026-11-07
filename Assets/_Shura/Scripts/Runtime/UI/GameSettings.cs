@@ -22,6 +22,8 @@ namespace Shura
         public bool fullscreen = true;
         public bool timingIndicator = true;
         public bool blood = true;
+        /// <summary>false = Ninja Adventure tracks; true = "Samurai Nights" in five layers.</summary>
+        public bool samuraiNights;
         public string weaponA = "katana";
         public string weaponB = "montante";
         public string bindings = string.Empty;

@@ -158,8 +158,8 @@ namespace Shura
             Health = Mathf.Min(MaxHealth, Health + amount);
         }
 
-        /// <summary>The knight from 0x72's DungeonTileset II.</summary>
-        public const string PlayerArt = "knight_m";
+        /// <summary>The straw-hat samurai from Ninja Adventure.</summary>
+        public const string PlayerArt = "Samurai";
 
         /// <summary>Pixel-art weapon, or the old procedural shape if the art is missing.</summary>
         public static Sprite WeaponSprite(WeaponDef w)
@@ -177,6 +177,11 @@ namespace Shura
         }
 
         protected override bool HurtPose => CurrentState == State.Hurt || CurrentState == State.GuardBroken;
+
+        protected override bool StrikePose =>
+            CurrentState == State.Attack || CurrentState == State.SwapStrike || CurrentState == State.Finisher;
+
+        protected override bool FallenPose => CurrentState == State.Dead;
 
         protected override void OnFootfall()
         {

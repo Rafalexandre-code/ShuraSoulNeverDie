@@ -26,6 +26,14 @@ namespace Shura
         public const string HawkEyes = "rel_olhos_de_falcao";
         public const string BurningFlow = "rel_fluxo_ardente";
 
+        public const string BlessingVigor = "ben_vigor";
+        public const string BlessingEdge = "ben_gume";
+        public const string BlessingGuard = "ben_guarda";
+        public const string BlessingWind = "ben_vento";
+        public const string BlessingCalm = "ben_calma";
+
+        public static readonly string[] Blessings = { BlessingVigor, BlessingEdge, BlessingGuard, BlessingWind, BlessingCalm };
+
         public static readonly string[] Relics =
         {
             HungryBlade, IronGuard, LightSteps, BloodOath, RelentlessRhythm, HawkEyes, BurningFlow,
@@ -47,6 +55,17 @@ namespace Shura
                 case RewardIds.ReflexArrow: return new ReflexArrowTechnique();
                 case RewardIds.Ambush: return new AmbushTechnique();
                 case RewardIds.Bulwark: return new BulwarkTechnique();
+
+                case RewardIds.BlessingVigor:
+                    return new Blessing(id, "Bênção do Vigor", "+12 de vida máxima e cura 20.", 20f, m => m.maxHealthBonus += 12f);
+                case RewardIds.BlessingEdge:
+                    return new Blessing(id, "Bênção do Gume", "+8% de dano.", 0f, m => m.damageMult *= 1.08f);
+                case RewardIds.BlessingGuard:
+                    return new Blessing(id, "Bênção da Guarda", "+15 de postura máxima.", 0f, m => m.maxPostureBonus += 15f);
+                case RewardIds.BlessingWind:
+                    return new Blessing(id, "Bênção do Vento", "Esquivas recarregam 6% mais rápido.", 0f, m => m.dodgeRechargeMult *= 0.94f);
+                case RewardIds.BlessingCalm:
+                    return new Blessing(id, "Bênção da Calma", "+6 de cura ao vencer cada sala.", 0f, m => m.roomClearHealBonus += 6f);
 
                 case RewardIds.HungryBlade:
                     return new Relic(id, "Lâmina Faminta",

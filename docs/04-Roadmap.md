@@ -24,6 +24,10 @@ sorteadas (run de 6); choque de lâminas com quique das armas; som metálico de 
 ritmo global mais lento que acelera com o Fluxo; Fluxo dá dano e impacto; sequência
 perfeita; câmera lenta no último golpe.
 
+**M1.3 — run infinita (feito):** salas procedurais infinitas por profundidade, biomas,
+arenas de tamanhos variados, Guardiões a cada 5 salas, escala de dificuldade, Ascensão
+automática, Bênçãos repetíveis, IA que lê o jogador (5 leituras) e as anuncia.
+
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; pixel art livre escolhida + shader de paleta; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.

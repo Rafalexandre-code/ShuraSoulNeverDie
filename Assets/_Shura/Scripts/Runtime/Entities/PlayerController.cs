@@ -346,6 +346,7 @@ namespace Shura
 
         void StartParry()
         {
+            world.ProfileParryPress(PerfectParryFrames);
             int window = PerfectParryFrames;
             // Only a whiffed parry is punished, so a flurry can be answered blow by blow.
             if (framesSinceParryPress < t.parrySpamWindow && !lastParrySucceeded) window = Mathf.Max(1, window / 2);
@@ -365,6 +366,7 @@ namespace Shura
 
         void StartAttack(int index)
         {
+            run.Profile.OnAttack();
             ComboIndex = index;
             hitThisSwing.Clear();
             UpdateFacing(false);
@@ -380,6 +382,7 @@ namespace Shura
             if (!input.Buffer.Peek(BufferedAction.Dodge) || DodgeCharges < 1f) return false;
             input.Buffer.Consume(BufferedAction.Dodge);
             DodgeCharges -= 1f;
+            run.Profile.OnDodge();
             Vector2 move = input.Move;
             dodgeDir = move.sqrMagnitude > 0.04f ? move.normalized : Facing;
             Velocity = Vector2.zero;
@@ -473,6 +476,7 @@ namespace Shura
 
             Enemy attacker = incoming.attacker;
             AttackDef attack = incoming.attack;
+            float power = incoming.powerMult > 0f ? incoming.powerMult : 1f;
             Vector2 toAttacker = incoming.source - Position;
             Vector2 toDir = toAttacker.sqrMagnitude > 1e-6f ? toAttacker.normalized : Facing;
             var defender = new DefenderState
@@ -496,6 +500,7 @@ namespace Shura
             {
                 case HitOutcome.PerfectParry:
                     run.PerfectParries++;
+                    run.Profile.OnPerfect();
                     lastParrySucceeded = true;
                     clashFrames = ClashFrames;
                     clashStrength = 1f;
@@ -523,7 +528,7 @@ namespace Shura
                     {
                         for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].OnBlock(world, attacker);
                     }
-                    if (Posture.Add(attack.postureDamage * t.blockPostureMultiplier * Mods.blockWearMult)) GuardBreak(toDir);
+                    if (Posture.Add(attack.postureDamage * power * t.blockPostureMultiplier * Mods.blockWearMult)) GuardBreak(toDir);
                     break;
 
                 case HitOutcome.PerfectDodge:
@@ -537,6 +542,7 @@ namespace Shura
 
                 case HitOutcome.CounterThrust:
                     run.Counters++;
+                    run.Profile.OnPerfect();
                     world.RegisterPerfect(clashPoint);
                     world.TryMaster(attacker, SignatureAnswer.CounterThrust, incoming.signature);
                     world.Fx.Emit(FxType.CounterThrust, clashPoint, toDir, FlowLevel);
@@ -546,16 +552,16 @@ namespace Shura
                     break;
 
                 case HitOutcome.Hit:
-                    TakeHit(attack, toDir);
+                    TakeHit(attack, toDir, power);
                     break;
             }
             return outcome;
         }
 
-        void TakeHit(AttackDef attack, Vector2 toAttacker)
+        void TakeHit(AttackDef attack, Vector2 toAttacker, float power)
         {
             bool maxFlow = run.Flow.Level >= run.Flow.MaxLevel;
-            float damage = attack.damage * Mods.damageTakenMult * (maxFlow ? Mods.damageTakenAtMaxFlowMult : 1f);
+            float damage = attack.damage * power * Mods.damageTakenMult * (maxFlow ? Mods.damageTakenAtMaxFlowMult : 1f);
             if (!world.PlayerInvincible) Health = Mathf.Max(0f, Health - damage);
 
             world.Fx.Emit(FxType.PlayerHurt, Position, -toAttacker, damage);
@@ -574,7 +580,7 @@ namespace Shura
                 return;
             }
 
-            if (Posture.Add(attack.postureDamage * t.hitPostureFraction))
+            if (Posture.Add(attack.postureDamage * power * t.hitPostureFraction))
             {
                 GuardBreak(toAttacker);
                 return;

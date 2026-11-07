@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using UnityEngine;
@@ -89,7 +90,6 @@ namespace Shura
                     }
                     break;
                 case Game.Mode.GameOver:
-                case Game.Mode.Victory:
                     if (ShotThenAct(game.CurrentMode.ToString().ToLowerInvariant(), shots ? 1.2f : 0f))
                     {
                         if (shots && !altarShotDone) game.OpenAltar();
@@ -110,6 +110,12 @@ namespace Shura
 
         void UpdatePlaying()
         {
+            // Endless runs: an automated run stops at the target depth.
+            if (!shots && game.Run != null && game.Run.RoomsCleared >= game.Launch.TargetDepth)
+            {
+                Finish("profundidade alvo");
+                return;
+            }
             if (!shots) return;
             if (elapsed >= nextShot)
             {
@@ -168,10 +174,15 @@ namespace Shura
             RunState run = game.Run;
             if (run != null)
             {
-                sb.Append(" salas=").Append(run.RoomsCleared).Append('/').Append(run.Rooms.Count);
+                sb.Append(" profundidade=").Append(run.RoomsCleared);
+                sb.Append(" ascensao=").Append(run.Ascension);
+                sb.Append(" guardioes=").Append(run.ElitesKilled);
                 sb.Append(" sequenciaMax=").Append(run.BestStreak);
-                sb.Append(" salasSorteadas=[");
-                for (int i = 0; i < run.Rooms.Count; i++) sb.Append(i > 0 ? ", " : string.Empty).Append(run.Rooms[i].name);
+                sb.Append(" leitura=[");
+                List<ReadingId> reading = game.World.Adaptation.Active();
+                for (int i = 0; i < reading.Count; i++) sb.Append(i > 0 ? ", " : string.Empty).Append(Strings.ReadingName(reading[i]));
+                sb.Append("] salas=[");
+                for (int i = 0; i <= run.RoomIndex; i++) sb.Append(i > 0 ? ", " : string.Empty).Append(run.GetRoom(i).name);
                 sb.Append(']');
                 sb.Append(" parries=").Append(run.PerfectParries);
                 sb.Append(" esquivas=").Append(run.PerfectDodges);
@@ -182,7 +193,7 @@ namespace Shura
                 sb.Append(" vida=").Append(Mathf.CeilToInt(game.World.Player.Health));
                 sb.Append(" tempoSim=").Append(run.Elapsed.ToString("0.0")).Append('s');
                 sb.Append(" semente=").Append(run.Seed);
-                sb.Append(" ecos=").Append(run.EcosBanked).Append(" (total ").Append(game.Meta.ecos).Append(')');
+                sb.Append(" ecos=").Append(MetaRules.EcosForRun(run)).Append(" (total ").Append(game.Meta.ecos).Append(')');
                 sb.Append(" recompensas=[");
                 for (int i = 0; i < run.Owned.Count; i++) sb.Append(i > 0 ? ", " : string.Empty).Append(run.Owned[i].Name);
                 sb.Append(']');

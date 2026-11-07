@@ -94,10 +94,11 @@ namespace Shura.Tests
         [Test]
         public void Ecos_RewardRoomsAndSkill()
         {
-            var run = new RunState(1, new FlowTuning()) { RoomsCleared = 2, Finishers = 4, PerfectParries = 10 };
-            int expected = MetaRules.RoomEcos(0) + MetaRules.RoomEcos(1) + 4 * MetaRules.EcosPerFinisher + 10 * MetaRules.EcosPerPerfectParry;
-            Assert.AreEqual(expected, MetaRules.EcosForRun(run, false));
-            Assert.AreEqual(expected + MetaRules.VictoryBonus, MetaRules.EcosForRun(run, true));
+            var run = new RunState(1, new FlowTuning()) { RoomsCleared = 2, Finishers = 4, PerfectParries = 10, ElitesKilled = 1 };
+            int expected = MetaRules.RoomEcos(0) + MetaRules.RoomEcos(1) + 4 * MetaRules.EcosPerFinisher +
+                           10 * MetaRules.EcosPerPerfectParry + MetaRules.EcosPerGuardian;
+            Assert.AreEqual(expected, MetaRules.EcosForRun(run));
+            Assert.AreEqual(MetaRules.RoomEcos(25), MetaRules.RoomEcos(80), "Room value is capped");
         }
 
         // ── Timing indicator ────────────────────────────────────────────────

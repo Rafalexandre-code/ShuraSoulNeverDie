@@ -21,7 +21,6 @@ namespace Shura
             Paused,
             Reward,
             GameOver,
-            Victory,
             Altar,
         }
 
@@ -42,6 +41,7 @@ namespace Shura
         float tempo = 1f;
         float slowMoTimer;
         float slowMoScale = 1f;
+        readonly HashSet<ReadingId> announcedReadings = new HashSet<ReadingId>();
         BotInput bot;
         AutoDriver autoDriver;
 
@@ -191,7 +191,7 @@ namespace Shura
         public void StartRun()
         {
             // Restarting mid-run still banks what was earned: progress is never thrown away.
-            if (Run != null && !Run.Banked) BankRun(false);
+            if (Run != null && !Run.Banked) BankRun();
             ulong seed = Launch.Seed ?? (ulong)DateTime.UtcNow.Ticks;
             Run = new RunState(seed, Config.flow, Meta);
             if (Run.Modifiers.startFlowPoints > 0f) Run.Flow.Add(Run.Modifiers.startFlowPoints);
@@ -199,7 +199,12 @@ namespace Shura
             deathTimer = -1;
             rewardChoices.Clear();
             World.BeginRun(Run, ActiveInput);
-            World.StartRoom(Run.Rooms[0], true);
+            int startDepth = Launch.Automated ? Mathf.Max(0, Launch.StartDepth) : 0;
+            for (int i = 0; i < startDepth; i++) Run.Ascend();
+            Run.RoomIndex = startDepth;
+            World.Player.ApplyStats(true);
+            World.StartRoom(Run.GetRoom(startDepth), startDepth == 0);
+            announcedReadings.Clear();
             tempo = Config.feel.baseTempo;
             slowMoTimer = 0f;
             Vfx.Clear();
@@ -237,7 +242,7 @@ namespace Shura
 
         public void QuitToMenu()
         {
-            if (Run != null && !Run.Banked) BankRun(false);
+            if (Run != null && !Run.Banked) BankRun();
             World.EndRun();
             Run = null;
             SetMode(Mode.MainMenu);
@@ -258,7 +263,10 @@ namespace Shura
             RewardDef reward = rewardChoices[index];
             Run.Acquire(reward);
             World.Player.ApplyStats(false);
-            Color c = reward.Kind == RewardKind.Technique ? Config.palette.gold : Config.palette.playerAccent;
+            if (reward.HealOnPick > 0f) World.Player.Heal(reward.HealOnPick);
+            Color c = reward.Kind == RewardKind.Technique ? Config.palette.gold
+                    : reward.Kind == RewardKind.Blessing ? Config.palette.blessing
+                    : Config.palette.playerAccent;
             UI.Toast(string.Format(Strings.Obtained, reward.Name), c);
             Audio.Play(Sfx.UiConfirm, 0.8f, 1f, 0f);
             rewardChoices.Clear();
@@ -292,12 +300,12 @@ namespace Shura
             return false;
         }
 
-        void BankRun(bool victory)
+        void BankRun()
         {
             if (Run == null || Run.Banked) return;
-            Run.EcosBanked = MetaRules.EcosForRun(Run, victory);
+            Run.EcosBanked = MetaRules.EcosForRun(Run);
             Run.Banked = true;
-            Meta.RecordRun(Run.EcosBanked, Run.RoomsCleared, victory);
+            Meta.RecordRun(Run.EcosBanked, Run.RoomsCleared, false);
             SaveMeta();
         }
 
@@ -351,26 +359,46 @@ namespace Shura
 
         public void DevForceGameOver()
         {
-            BankRun(false);
+            BankRun();
             SetMode(Mode.GameOver);
         }
 
         void NextRoom()
         {
             Run.RoomIndex++;
-            World.StartRoom(Run.Rooms[Run.RoomIndex], false);
+            RoomDef room = Run.GetRoom(Run.RoomIndex);
+            World.StartRoom(room, false);
             SetMode(Mode.Playing);
             UI.FadeFromBlack();
+            AnnounceRoom(room);
+        }
+
+        /// <summary>Tells the player what changed: depth, new enemy, Guardian, and what the enemies learned.</summary>
+        void AnnounceRoom(RoomDef room)
+        {
+            Palette pal = Config.palette;
+            UI.Toast(string.Format(Strings.ToastDepth, room.depth + 1), pal.uiText);
+            string newcomer = RoomGenerator.NewEnemyAt(room.depth);
+            if (newcomer != null) UI.Toast(string.Format(Strings.ToastNewEnemy, EnemyDefs.Get(newcomer).displayName), pal.danger);
+            if (room.guardian) UI.Toast(Strings.ToastGuardian, pal.gold);
+            foreach (ReadingId reading in World.Adaptation.Active())
+            {
+                if (announcedReadings.Add(reading)) UI.Toast(string.Format(Strings.ToastLearned, Strings.ReadingName(reading)), pal.adapted);
+            }
         }
 
         void OnRoomCleared()
         {
             Run.RoomsCleared++;
+            // Ascension: the duelist grows with every room, so depth is a race, not a wall.
+            Run.Ascend();
+            World.Player.ApplyStats(false);
             float heal = Config.player.healOnRoomClear + Run.Modifiers.roomClearHealBonus;
             World.Player.Heal(heal);
             Feedback.Emit(FxType.RoomClear, World.Player.Position, Vector2.up);
             UI.Toast(string.Format(Strings.ToastRoomClear, Mathf.RoundToInt(heal)), Config.palette.uiText);
             UI.Toast(string.Format(Strings.ToastRoomEcos, MetaRules.RoomEcos(Run.RoomsCleared - 1)), Config.palette.gold);
+            UI.Toast(string.Format(Strings.ToastAscension, Run.Ascension), Config.palette.blessing);
             roomClearTimer = RoomClearDelayFrames;
         }
 
@@ -389,21 +417,16 @@ namespace Shura
             if (deathTimer > 0 && --deathTimer == 0)
             {
                 deathTimer = -1;
-                BankRun(false);
+                BankRun();
                 SetMode(Mode.GameOver);
             }
         }
 
         void AdvanceAfterRoom()
         {
-            if (Run.RoomIndex + 1 >= Run.Rooms.Count)
-            {
-                BankRun(true);
-                SetMode(Mode.Victory);
-                return;
-            }
+            // Endless: there is always a next room.
             rewardChoices.Clear();
-            rewardChoices.AddRange(Run.RollChoices(3 + Run.Modifiers.extraRewardChoices));
+            rewardChoices.AddRange(Run.RollChoices(3 + Run.Modifiers.extraRewardChoices, Run.RoomIndex + 1));
             if (rewardChoices.Count == 0)
             {
                 NextRoom();
@@ -423,7 +446,7 @@ namespace Shura
             float drone = CurrentMode == Mode.GameOver ? 0.35f : 0.55f;
             float drums = combat ? 0.8f : inRun ? 0.15f : 0f;
             float strings = inRun && flow >= 2 ? 0.55f : 0f;
-            float choir = inRun ? (flow >= 3 ? 0.6f : 0f) : (menu || CurrentMode == Mode.Victory ? 0.35f : 0f);
+            float choir = inRun ? (flow >= 3 ? 0.6f : 0f) : (menu ? 0.35f : 0f);
             Audio.SetMusicTargets(drone, drums, strings, choir);
         }
 

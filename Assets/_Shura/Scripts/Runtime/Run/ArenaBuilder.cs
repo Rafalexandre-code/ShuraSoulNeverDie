@@ -16,6 +16,9 @@ namespace Shura
         readonly List<float> seeds = new List<float>();
 
         public readonly List<Vector2> FlamePositions = new List<Vector2>();
+        /// <summary>Generated per room; destroyed with the arena to avoid leaking textures.</summary>
+        public Texture2D FloorTexture;
+        public Color FlameColor = Color.white;
 
         public void AddBrazier(Vector2 flamePos, SpriteRenderer flame, SpriteRenderer core, SpriteRenderer glow)
         {
@@ -45,29 +48,31 @@ namespace Shura
 
     public static class ArenaBuilder
     {
-        public static ArenaDecor Build(Transform parent, GameConfig config)
+        /// <summary>Builds an arena of the room's size, painted with its biome.</summary>
+        public static ArenaDecor Build(Transform parent, GameConfig config, float width, float height, Biome biome)
         {
             ArenaTuning a = config.arena;
             Palette pal = config.palette;
 
-            var floor = SpriteUtil.Make("Floor", parent, BuildFloorSprite(a, pal), Color.white, Sorting.Floor);
+            Sprite floorSprite = BuildFloorSprite(width, height, a.pixelsPerUnit, biome);
+            var floor = SpriteUtil.Make("Floor", parent, floorSprite, Color.white, Sorting.Floor);
             floor.transform.localPosition = Vector3.zero;
 
-            float hw = a.width * 0.5f;
-            float hh = a.height * 0.5f;
+            float hw = width * 0.5f;
+            float hh = height * 0.5f;
             float t = a.wallThickness;
             Sprite pixel = ShapeLibrary.Get(Shape.Pixel);
 
-            MakeRect(parent, pixel, pal.wall, new Vector2(0f, hh + t * 0.5f), new Vector2(a.width + t * 2f, t), Sorting.Floor + 2);
-            MakeRect(parent, pixel, pal.wall, new Vector2(0f, -hh - t * 0.5f), new Vector2(a.width + t * 2f, t), Sorting.Floor + 2);
-            MakeRect(parent, pixel, pal.wall, new Vector2(-hw - t * 0.5f, 0f), new Vector2(t, a.height + t * 2f), Sorting.Floor + 2);
-            MakeRect(parent, pixel, pal.wall, new Vector2(hw + t * 0.5f, 0f), new Vector2(t, a.height + t * 2f), Sorting.Floor + 2);
+            MakeRect(parent, pixel, biome.wall, new Vector2(0f, hh + t * 0.5f), new Vector2(width + t * 2f, t), Sorting.Floor + 2);
+            MakeRect(parent, pixel, biome.wall, new Vector2(0f, -hh - t * 0.5f), new Vector2(width + t * 2f, t), Sorting.Floor + 2);
+            MakeRect(parent, pixel, biome.wall, new Vector2(-hw - t * 0.5f, 0f), new Vector2(t, height + t * 2f), Sorting.Floor + 2);
+            MakeRect(parent, pixel, biome.wall, new Vector2(hw + t * 0.5f, 0f), new Vector2(t, height + t * 2f), Sorting.Floor + 2);
 
             const float edge = 0.06f;
-            MakeRect(parent, pixel, pal.wallEdge, new Vector2(0f, hh + edge * 0.5f), new Vector2(a.width, edge), Sorting.Floor + 3);
-            MakeRect(parent, pixel, pal.wallEdge, new Vector2(0f, -hh - edge * 0.5f), new Vector2(a.width, edge), Sorting.Floor + 3);
-            MakeRect(parent, pixel, pal.wallEdge, new Vector2(-hw - edge * 0.5f, 0f), new Vector2(edge, a.height), Sorting.Floor + 3);
-            MakeRect(parent, pixel, pal.wallEdge, new Vector2(hw + edge * 0.5f, 0f), new Vector2(edge, a.height), Sorting.Floor + 3);
+            MakeRect(parent, pixel, biome.wallEdge, new Vector2(0f, hh + edge * 0.5f), new Vector2(width, edge), Sorting.Floor + 3);
+            MakeRect(parent, pixel, biome.wallEdge, new Vector2(0f, -hh - edge * 0.5f), new Vector2(width, edge), Sorting.Floor + 3);
+            MakeRect(parent, pixel, biome.wallEdge, new Vector2(-hw - edge * 0.5f, 0f), new Vector2(edge, height), Sorting.Floor + 3);
+            MakeRect(parent, pixel, biome.wallEdge, new Vector2(hw + edge * 0.5f, 0f), new Vector2(edge, height), Sorting.Floor + 3);
 
             // A faint sigil in the center: the dueling ground.
             var sigil = SpriteUtil.Make("Sigil", parent, ShapeLibrary.Get(Shape.Ring), pal.gold.WithAlpha(0.06f), Sorting.Floor + 1);
@@ -75,26 +80,26 @@ namespace Shura
             var sigilInner = SpriteUtil.Make("SigilInner", parent, ShapeLibrary.Get(Shape.DiamondOutline), pal.gold.WithAlpha(0.05f), Sorting.Floor + 1);
             sigilInner.transform.localScale = new Vector3(3.2f, 3.2f, 1f);
 
-            var decor = new ArenaDecor();
+            var decor = new ArenaDecor { FloorTexture = floorSprite.texture, FlameColor = biome.flame };
             float bx = hw - 1.2f;
             float by = hh - 1.0f;
             foreach (Vector2 corner in new[] { new Vector2(-bx, by), new Vector2(bx, by), new Vector2(-bx, -by), new Vector2(bx, -by) })
             {
-                AddBrazier(parent, decor, corner, pal);
+                AddBrazier(parent, decor, corner, biome);
             }
             return decor;
         }
 
-        static void AddBrazier(Transform parent, ArenaDecor decor, Vector2 pos, Palette pal)
+        static void AddBrazier(Transform parent, ArenaDecor decor, Vector2 pos, Biome biome)
         {
             var root = new GameObject("Brazier").transform;
             root.SetParent(parent, false);
             root.localPosition = pos;
             int order = -Mathf.RoundToInt(pos.y * 20f);
 
-            var pool = SpriteUtil.Make("LightPool", root, ShapeLibrary.Get(Shape.SoftCircle), pal.gold.WithAlpha(0.07f), Sorting.Floor + 1);
+            var pool = SpriteUtil.Make("LightPool", root, ShapeLibrary.Get(Shape.SoftCircle), biome.flame.WithAlpha(0.07f), Sorting.Floor + 1);
             pool.transform.localScale = new Vector3(7f, 6f, 1f);
-            var glow = SpriteUtil.Make("Glow", root, ShapeLibrary.Get(Shape.SoftCircle), ColorUtil.Hex("#F2A541", 0.16f), Sorting.Shadow + 2);
+            var glow = SpriteUtil.Make("Glow", root, ShapeLibrary.Get(Shape.SoftCircle), biome.flame.WithAlpha(0.16f), Sorting.Shadow + 2);
             glow.transform.localPosition = new Vector3(0f, 0.35f, 0f);
             var shadow = SpriteUtil.Make("Shadow", root, ShapeLibrary.Get(Shape.SoftCircle), new Color(0f, 0f, 0f, 0.5f), Sorting.Shadow);
             shadow.transform.localPosition = new Vector3(0f, -0.25f, 0f);
@@ -103,9 +108,9 @@ namespace Shura
             bowl.transform.localScale = new Vector3(0.75f, 0.55f, 1f);
             var rim = SpriteUtil.Make("Rim", root, ShapeLibrary.Get(Shape.Ring), ColorUtil.Hex("#5A4A3A"), order + 1);
             rim.transform.localScale = new Vector3(0.72f, 0.5f, 1f);
-            var flame = SpriteUtil.Make("Flame", root, ShapeLibrary.Get(Shape.Diamond), ColorUtil.Hex("#F2A541"), order + 2);
+            var flame = SpriteUtil.Make("Flame", root, ShapeLibrary.Get(Shape.Diamond), biome.flame, order + 2);
             flame.transform.localPosition = new Vector3(0f, 0.32f, 0f);
-            var core = SpriteUtil.Make("FlameCore", root, ShapeLibrary.Get(Shape.Diamond), ColorUtil.Hex("#FFE9A8"), order + 3);
+            var core = SpriteUtil.Make("FlameCore", root, ShapeLibrary.Get(Shape.Diamond), Color.Lerp(biome.flame, Color.white, 0.6f), order + 3);
             core.transform.localPosition = new Vector3(0f, 0.27f, 0f);
 
             decor.AddBrazier(pos + new Vector2(0f, 0.5f), flame, core, glow);
@@ -118,11 +123,11 @@ namespace Shura
             sr.transform.localScale = new Vector3(size.x, size.y, 1f);
         }
 
-        static Sprite BuildFloorSprite(ArenaTuning a, Palette pal)
+        static Sprite BuildFloorSprite(float width, float height, int pixelsPerUnit, Biome biome)
         {
-            int ppu = Mathf.Max(4, a.pixelsPerUnit);
-            int w = Mathf.RoundToInt(a.width * ppu);
-            int h = Mathf.RoundToInt(a.height * ppu);
+            int ppu = Mathf.Max(4, pixelsPerUnit);
+            int w = Mathf.RoundToInt(width * ppu);
+            int h = Mathf.RoundToInt(height * ppu);
             int tile = ppu;
             var pixels = new Color32[w * h];
             for (int y = 0; y < h; y++)
@@ -134,7 +139,7 @@ namespace Shura
                     int xo = x + offset;
                     int col = xo / tile;
                     bool mortar = y % tile == 0 || xo % tile == 0;
-                    Color c = mortar ? pal.mortar : Color.Lerp(pal.floorA, pal.floorB, Hash(col, row));
+                    Color c = mortar ? biome.mortar : Color.Lerp(biome.floorA, biome.floorB, Hash(col, row));
                     float grain = 1f + (Hash(x * 7 + 3, y * 13 + 5) - 0.5f) * 0.08f;
                     // Darken toward the walls so the center reads as the focus.
                     float ex = Mathf.Abs(x / (float)w - 0.5f) * 2f;

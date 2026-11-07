@@ -13,8 +13,12 @@ namespace Shura
         /// <summary>Permanent upgrades the run started with (may be null in tests).</summary>
         public readonly MetaProgress Meta;
 
-        /// <summary>The rooms of this run, drawn from the seed.</summary>
-        public readonly List<RoomDef> Rooms;
+        /// <summary>What the enemies learn about the player during this run.</summary>
+        public readonly PlayerProfile Profile = new PlayerProfile();
+        readonly List<RoomDef> rooms = new List<RoomDef>();
+        /// <summary>Automatic growth: one level per room cleared.</summary>
+        public int Ascension;
+        public int ElitesKilled;
 
         public PlayerModifiers Modifiers { get; private set; } = new PlayerModifiers();
         /// <summary>Perfect actions in a row without taking damage.</summary>
@@ -37,7 +41,19 @@ namespace Shura
             Rng = new SeededRandom(seed);
             Flow = new FlowMeter(flow.levelThresholds, flow.maxPoints);
             Meta = meta;
-            Rooms = RoomDefs.BuildRun(Rng);
+            RecomputeModifiers();
+        }
+
+        /// <summary>Rooms are generated on demand from the seed: the run never ends.</summary>
+        public RoomDef GetRoom(int depth)
+        {
+            while (rooms.Count <= depth) rooms.Add(RoomGenerator.Generate(Seed, rooms.Count));
+            return rooms[depth];
+        }
+
+        public void Ascend()
+        {
+            Ascension++;
             RecomputeModifiers();
         }
 
@@ -77,7 +93,7 @@ namespace Shura
 
         public void Acquire(RewardDef reward)
         {
-            if (reward == null || Owns(reward.Id)) return;
+            if (reward == null || (!reward.Stackable && Owns(reward.Id))) return;
             Owned.Add(reward);
             PendingTechniques.Remove(reward.Id);
             RecomputeModifiers();
@@ -87,15 +103,19 @@ namespace Shura
         {
             var m = new PlayerModifiers();
             Meta?.ApplyTo(m);
+            m.maxHealthBonus += DifficultyRules.AscensionHealth * Ascension;
+            m.maxPostureBonus += DifficultyRules.AscensionPosture * Ascension;
+            m.damageMult *= 1f + DifficultyRules.AscensionDamage * Ascension;
             for (int i = 0; i < Owned.Count; i++) Owned[i].Apply(m);
             Modifiers = m;
         }
 
         /// <summary>
         /// Absorbed techniques are guaranteed slots (up to two) — that is the payoff for
-        /// mastering an enemy. Remaining slots are seeded random relics you don't own yet.
+        /// mastering an enemy. From depth 2 one slot is a Blessing; remaining slots are seeded
+        /// relics you don't own yet, and Blessings fill in once the relics run out.
         /// </summary>
-        public List<RewardDef> RollChoices(int count)
+        public List<RewardDef> RollChoices(int count, int depth = 0)
         {
             var choices = new List<RewardDef>();
             for (int i = 0; i < PendingTechniques.Count && choices.Count < 2; i++)
@@ -110,12 +130,22 @@ namespace Shura
                 if (!Owns(id)) pool.Add(id);
             }
 
-            while (choices.Count < count && pool.Count > 0)
+            int relicSlots = depth >= 2 ? count - 1 : count;
+            while (choices.Count < relicSlots && pool.Count > 0)
             {
                 int index = Rng.Range(0, pool.Count);
                 RewardDef r = RewardRegistry.Create(pool[index]);
                 pool.RemoveAt(index);
                 if (r != null) choices.Add(r);
+            }
+
+            var blessings = new List<string>(RewardIds.Blessings);
+            while (choices.Count < count && blessings.Count > 0)
+            {
+                int index = Rng.Range(0, blessings.Count);
+                RewardDef b = RewardRegistry.Create(blessings[index]);
+                blessings.RemoveAt(index);
+                if (b != null) choices.Add(b);
             }
             return choices;
         }

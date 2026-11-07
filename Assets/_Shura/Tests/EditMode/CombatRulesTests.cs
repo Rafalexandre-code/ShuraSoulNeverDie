@@ -106,23 +106,91 @@ namespace Shura.Tests
         }
 
         [Test]
-        public void Rooms_RunHasIntroThenSeededTiers_AllEnemiesExist()
+        public void Rooms_AreEndlessDeterministicAndFair()
         {
-            List<RoomDef> a = RoomDefs.BuildRun(new SeededRandom(5));
-            List<RoomDef> b = RoomDefs.BuildRun(new SeededRandom(5));
-            Assert.AreEqual(RoomDefs.RunLength, a.Count);
-            Assert.AreSame(RoomDefs.Intro, a[0]);
-            for (int i = 0; i < a.Count; i++) Assert.AreSame(a[i], b[i], "Same seed, same rooms");
-            Assert.AreEqual(a.Count, new HashSet<RoomDef>(a).Count, "No room repeats in a run");
+            foreach (string id in RoomGenerator.RosterIds()) Assert.IsTrue(EnemyDefs.TryGet(id, out _), "Roster has unknown enemy " + id);
+            Assert.AreEqual("ronin", RoomGenerator.Generate(1, 0).waves[0][0].id, "Depth 0 is the teaching room");
 
-            foreach (RoomDef room in RoomDefs.AllRooms())
+            for (int depth = 1; depth < 60; depth++)
             {
-                foreach (string[] wave in room.waves)
+                RoomDef a = RoomGenerator.Generate(77, depth);
+                RoomDef b = RoomGenerator.Generate(77, depth);
+                Assert.AreEqual(a.name, b.name, "Same seed and depth, same room");
+                Assert.AreEqual(a.waves.Length, b.waves.Length);
+                Assert.AreEqual(RoomGenerator.IsGuardianDepth(depth), a.guardian);
+
+                string newcomer = RoomGenerator.NewEnemyAt(depth);
+                if (newcomer != null)
                 {
-                    Assert.LessOrEqual(wave.Length, 3, room.name + ": at most 3 enemies at once");
-                    foreach (string id in wave) Assert.IsTrue(EnemyDefs.TryGet(id, out _), room.name + " references unknown enemy " + id);
+                    Assert.AreEqual(1, a.waves[0].Length, "A new enemy is met alone first");
+                    Assert.AreEqual(newcomer, a.waves[0][0].id);
                 }
+
+                bool sawGuardian = false;
+                foreach (EnemySpawn[] wave in a.waves)
+                {
+                    Assert.That(wave.Length, Is.InRange(1, 3), a.name + ": 1 to 3 enemies at once");
+                    foreach (EnemySpawn spawn in wave)
+                    {
+                        Assert.LessOrEqual(RoomGenerator.UnlockDepth(spawn.id), depth, spawn.id + " appeared before it was unlocked");
+                        sawGuardian |= spawn.elite;
+                    }
+                }
+                Assert.AreEqual(a.guardian, sawGuardian, "Guardian rooms have exactly the Guardian flag set");
             }
+        }
+
+        [Test]
+        public void Difficulty_EnemiesOutscaleAscensionButBothGrow()
+        {
+            for (int d = 1; d < 30; d++)
+            {
+                Assert.Greater(DifficultyRules.EnemyHealthMult(d), DifficultyRules.EnemyHealthMult(d - 1));
+                Assert.GreaterOrEqual(DifficultyRules.AdaptStrength(d), DifficultyRules.AdaptStrength(d - 1));
+            }
+            var run = new RunState(1, new FlowTuning());
+            run.Ascend();
+            run.Ascend();
+            Assert.AreEqual(2f * DifficultyRules.AscensionHealth, run.Modifiers.maxHealthBonus, 1e-3f);
+            Assert.AreEqual(1f + 2f * DifficultyRules.AscensionDamage, run.Modifiers.damageMult, 1e-3f);
+        }
+
+        [Test]
+        public void Profile_LearnsEarlyParriesAndMashing()
+        {
+            var profile = new PlayerProfile();
+            AdaptiveTraits cold = profile.Traits(1f);
+            Assert.AreEqual(0, cold.Active().Count, "No reading before the enemies have watched you fight");
+
+            for (int i = 0; i < 600; i++)
+            {
+                profile.Tick(SimClock.Dt, true);
+                if (i % 20 == 0) profile.OnParryPress(true);
+                if (i % 20 == 10) profile.OnAttack();
+                if (i % 20 == 15) profile.OnAttack();
+                if (i % 30 == 0) profile.OnAttack();
+            }
+            AdaptiveTraits traits = profile.Traits(1f);
+            Assert.Greater(traits.Delay, AdaptiveTraits.ActiveThreshold, "Always parrying early must be noticed");
+            Assert.Contains(ReadingId.Delay, traits.Active());
+            Assert.Greater(traits.Guard, AdaptiveTraits.ActiveThreshold, "Mashing several attacks per second must be noticed");
+
+            AdaptiveTraits weak = profile.Traits(0.15f);
+            Assert.Less(weak.Delay, traits.Delay, "Shallow depths use only part of what was learned");
+        }
+
+        [Test]
+        public void Blessings_Stack()
+        {
+            var run = new RunState(3, new FlowTuning());
+            run.Acquire(RewardRegistry.Create(RewardIds.BlessingEdge));
+            run.Acquire(RewardRegistry.Create(RewardIds.BlessingEdge));
+            Assert.AreEqual(1.08f * 1.08f, run.Modifiers.damageMult, 1e-3f);
+            run.Acquire(RewardRegistry.Create(RewardIds.HungryBlade));
+            run.Acquire(RewardRegistry.Create(RewardIds.HungryBlade));
+            Assert.AreEqual(-15f, run.Modifiers.maxHealthBonus, 1e-3f, "Relics never stack");
+            List<RewardDef> choices = run.RollChoices(3, 5);
+            Assert.AreEqual(RewardKind.Blessing, choices[choices.Count - 1].Kind, "From depth 2 one slot is a Blessing");
         }
 
         [Test]
@@ -291,6 +359,7 @@ namespace Shura.Tests
         {
             var ids = new List<string>(RewardIds.Relics);
             ids.AddRange(RewardIds.Techniques);
+            ids.AddRange(RewardIds.Blessings);
             foreach (string id in ids)
             {
                 RewardDef r = RewardRegistry.Create(id);

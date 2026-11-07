@@ -21,6 +21,8 @@ namespace Shura
         public Vector2 source;
         public bool signature;
         public bool projectile;
+        /// <summary>Damage/posture multiplier from depth (0 is treated as 1).</summary>
+        public float powerMult;
     }
 
     /// <summary>Snapshot of everything about the defender that decides how an enemy swing lands.</summary>

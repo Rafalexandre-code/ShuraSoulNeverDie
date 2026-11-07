@@ -105,10 +105,37 @@ cortado e você recupera em 7 f a tempo de aparar o contra-ataque. Só parries *
 sofrem a penalidade anti-spam, então rajadas podem ser respondidas golpe a golpe.
 | Chefe (marco 2) | — | — | — | 2 fases | — |
 
-## 5. Progressão
-Run de 6 salas: Pátio das Cinzas (ensino, fixa) → 2 salas sorteadas do nível 1 (apresentam um
-inimigo novo sozinho, depois em dupla) → 2 do nível 2 (Monge, Sombra, Carrasco) → 1 do nível 3
-(trios). Sorteio pela semente, sem repetir sala. Jogo completo: 3 biomas
+## 5. Progressão (run infinita)
+A run **não termina**: cada sala é gerada pela semente e pela profundidade.
+- **Profundidade 1** é o Pátio das Cinzas (ensino). Das profundidades 2 a 8 entra um inimigo
+  novo por sala, sempre enfrentado sozinho primeiro (Lanceiro, Kenkaku, Escudeiro, Arqueiro,
+  Monge, Sombra, Carrasco).
+- Ondas preenchidas por um orçamento que cresce com a profundidade (2 → 4 ondas, até 3
+  inimigos ao mesmo tempo); inimigos recém-liberados aparecem com mais frequência.
+- **A cada 5 salas, um Guardião**: versão maior do inimigo (×2,2 vida, ×1,6 postura, aura
+  dourada), vale +15 Ecos.
+- **Biomas** mudam a cada 5 salas (Cinzas, Musgo, Sangue, Abismo, Gelo): cor do chão, das
+  paredes e do fogo. O tamanho da arena varia por sala.
+- **Inimigos escalam**: +8% vida, +6% postura, +5% dano por profundidade, pausas menores e
+  intervalo entre ataques menor.
+- **O jogador escala**: **Ascensão** automática a cada sala (+4 vida, +3% dano, +2 postura),
+  recompensas, e **Bênçãos** (recompensas pequenas, repetíveis e sem custo; a partir da
+  profundidade 3 uma das opções é sempre uma Bênção).
+
+### IA que aprende (Leitura)
+Os inimigos observam os últimos ~12 s de combate e formam uma **leitura** do jogador. A força
+com que usam a leitura cresce com a profundidade (15% → 100% na profundidade 13):
+
+| Leitura | O que você faz | O que eles passam a fazer |
+|---|---|---|
+| ATRASO | Apara cedo demais | Seguram alguns golpes (olho violeta, lâmina tremendo); o anel espera junto |
+| DEFESA | Ataca sem parar | Defendem mais e contra-atacam após 2 defesas |
+| PRESSÃO | Espera demais | Atacam com mais frequência |
+| PERSEGUIÇÃO | Esquiva muito | Golpes acompanham você por mais tempo (sempre se comprometem 6 f antes) |
+| PERIGO | Apara com precisão | Mais golpes perigosos (que não se aparam) |
+
+A leitura nunca é escondida: aparece no HUD, é anunciada quando surge e é detalhada na tela
+de recompensa. O anel de tempo continua sempre fiel ao momento real do golpe. Jogo completo: 3 biomas
 × ~6 salas + chefe. Ritmo: sala de ensino → mistura → pico → descanso (recompensa).
 
 ## 6. Vitória, derrota, reinício

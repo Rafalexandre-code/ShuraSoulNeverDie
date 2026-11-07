@@ -50,11 +50,14 @@ Conteúdo (inimigos, salas, recompensas) fica em `Assets/_Shura/Scripts/Runtime/
 ## Verificação automática
 
 ```bash
-# Testes de lógica (36 testes)
+# Testes de lógica (39 testes)
 "C:/Program Files/Unity/Hub/Editor/6000.6.8f1/Editor/Unity.exe" -batchmode -projectPath . -runTests -testPlatform EditMode -testResults TestResults.xml
 
-# Run completa jogada por um bot (sem janela), com resumo no log
-Builds/Windows/Shura.exe -batchmode -nographics -shuraBot -shuraSeed 1 -logFile bot.log
+# Bot joga até a profundidade 15 (sem janela), com resumo no log
+Builds/Windows/Shura.exe -batchmode -nographics -shuraBot -shuraSeed 1 -shuraDepth 15 -logFile bot.log
+
+# Tour de capturas começando direto numa profundidade (ex.: sala de Guardião)
+Builds/Windows/Shura.exe -screen-fullscreen 0 -shuraShots capturas -shuraStartDepth 4
 
 # Tour de capturas de tela de todas as telas
 Builds/Windows/Shura.exe -screen-fullscreen 0 -shuraShots capturas -shuraSeed 1

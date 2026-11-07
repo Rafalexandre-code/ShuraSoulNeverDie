@@ -125,8 +125,7 @@ namespace Shura
         {
             menuIndex = 0;
             modeChangedFrame = Time.frameCount;
-            if (mode == Game.Mode.Title || mode == Game.Mode.MainMenu ||
-                mode == Game.Mode.GameOver || mode == Game.Mode.Victory)
+            if (mode == Game.Mode.Title || mode == Game.Mode.MainMenu || mode == Game.Mode.GameOver)
             {
                 hint = null;
                 popups.Clear();
@@ -246,7 +245,6 @@ namespace Shura
                     AddItem(Strings.Back, game.GoToMainMenu);
                     break;
                 case Game.Mode.GameOver:
-                case Game.Mode.Victory:
                     AddItem(Strings.NewRun, game.StartRun);
                     AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.MainMenu, game.QuitToMenu);
@@ -386,11 +384,11 @@ namespace Shura
                 case Game.Mode.Paused: DrawPause(); break;
                 case Game.Mode.Reward: DrawReward(); break;
                 case Game.Mode.GameOver: DrawEnd(Strings.DeathTitle, Strings.DeathSubtitle, Pal.danger); break;
-                case Game.Mode.Victory: DrawEnd(Strings.VictoryTitle, Strings.VictorySubtitle, Pal.gold); break;
                 case Game.Mode.Altar: DrawAltar(); break;
             }
 
-            DrawToasts();
+            // The reward screen has its own text blocks; room-clear toasts were already seen in play.
+            if (mode != Game.Mode.Reward) DrawToasts();
             if (mode == Game.Mode.Playing) DrawHint();
             DrawOverlays();
             if (fadeAlpha > 0.001f) DrawRect(FullScreen, Color.black.WithAlpha(fadeAlpha));
@@ -493,7 +491,7 @@ namespace Shura
             {
                 Label(new Rect(0, by, VW, 36), defs[menuIndex].description, bodyCenterStyle, Pal.uiText);
             }
-            Label(new Rect(0, by + 44f, VW, 30), string.Format(Strings.AltarStats, meta.runs, meta.victories, meta.bestRoom), smallStyleCenter, Pal.uiDim);
+            Label(new Rect(0, by + 44f, VW, 30), string.Format(Strings.AltarStats, meta.runs, meta.bestRoom), smallStyleCenter, Pal.uiDim);
             Label(new Rect(0, VH - 60f, VW, 32), Strings.AltarControls, smallStyleCenter, Pal.uiDim);
         }
 
@@ -564,11 +562,12 @@ namespace Shura
                 }
 
                 bool technique = r.Kind == RewardKind.Technique;
-                Color accent = technique ? Pal.gold : Pal.playerAccent;
+                bool blessing = r.Kind == RewardKind.Blessing;
+                Color accent = technique ? Pal.gold : blessing ? Pal.blessing : Pal.playerAccent;
                 DrawRect(rect, Pal.uiPanel);
                 if (selected) DrawFrame(rect, accent, 4f);
 
-                Label(new Rect(rect.x, rect.y + 24, cardW, 34), technique ? Strings.Technique : Strings.Relic, smallStyleCenter, accent);
+                Label(new Rect(rect.x, rect.y + 24, cardW, 34), technique ? Strings.Technique : blessing ? Strings.Blessing : Strings.Relic, smallStyleCenter, accent);
                 Label(new Rect(rect.x + 20, rect.y + 62, cardW - 40, 100), r.Name, cardNameStyle, Pal.uiText);
                 float y = rect.y + 150;
                 if (r.SourceEnemy != null)
@@ -582,7 +581,29 @@ namespace Shura
                 Label(new Rect(rect.x + 30, y, cardW - 60, 30), Strings.Cost, smallStyle, Pal.danger);
                 Label(new Rect(rect.x + 30, y + 32, cardW - 60, 100), r.Cost, cardBodyStyle, Pal.uiText);
             }
-            Label(new Rect(0, 820, VW, 40), Strings.RewardControls, bodyCenterStyle, Pal.uiDim);
+            DrawReading(new Rect(260f, 800f, VW - 520f, 200f));
+            Label(new Rect(0, VH - 56f, VW, 40), Strings.RewardControls, bodyCenterStyle, Pal.uiDim);
+        }
+
+        /// <summary>What the enemies have learned about you: shown between rooms so adaptation is never hidden.</summary>
+        void DrawReading(Rect r)
+        {
+            DrawRect(r, Pal.uiPanel);
+            DrawRect(new Rect(r.x, r.y, 6f, r.height), Pal.adapted);
+            Label(new Rect(r.x + 30f, r.y + 10f, r.width - 60f, 32f), Strings.ReadingTitle, smallStyle, Pal.adapted);
+            List<ReadingId> active = game.World.Adaptation.Active();
+            if (active.Count == 0)
+            {
+                Label(new Rect(r.x + 30f, r.y + 50f, r.width - 60f, 32f), Strings.ReadingNone, cardBodyStyle, Pal.uiDim);
+                return;
+            }
+            float y = r.y + 46f;
+            foreach (ReadingId id in active)
+            {
+                Label(new Rect(r.x + 30f, y, 220f, 30f), Strings.ReadingName(id), smallStyle, Pal.adapted);
+                Label(new Rect(r.x + 250f, y, r.width - 280f, 30f), Strings.ReadingText(id), cardBodyStyle, Pal.uiText);
+                y += 30f;
+            }
         }
 
         GUIStyle smallStyleCenter;
@@ -600,7 +621,8 @@ namespace Shura
                 DrawRect(panel, Pal.uiPanel);
                 string[][] rows =
                 {
-                    new[] { Strings.StatRooms, run.RoomsCleared + " / " + run.Rooms.Count },
+                    new[] { Strings.StatRooms, run.RoomsCleared.ToString() },
+                    new[] { Strings.StatRecord, game.Meta.bestRoom.ToString() },
                     new[] { Strings.StatParries, run.PerfectParries.ToString() },
                     new[] { Strings.StatDodges, run.PerfectDodges.ToString() },
                     new[] { Strings.StatCounters, run.Counters.ToString() },
@@ -699,9 +721,16 @@ namespace Shura
             RoomDef room = game.World.CurrentRoom;
             if (room != null)
             {
-                Label(new Rect(0, 30, VW, 44), string.Format(Strings.HudRoom, run.RoomIndex + 1, run.Rooms.Count, room.name), roomStyle, Pal.uiText);
+                Label(new Rect(0, 30, VW, 44), string.Format(Strings.HudRoom, run.RoomIndex + 1, room.name), roomStyle, room.guardian ? Pal.gold : Pal.uiText);
                 int wave = Mathf.Max(1, game.World.WaveIndex + 1);
                 Label(new Rect(0, 74, VW, 32), string.Format(Strings.HudWave, wave, room.waves.Length), smallStyleCenter, Pal.uiDim);
+                List<ReadingId> reading = game.World.Adaptation.Active();
+                if (reading.Count > 0)
+                {
+                    var names = new string[reading.Count];
+                    for (int i = 0; i < reading.Count; i++) names[i] = Strings.ReadingName(reading[i]);
+                    Label(new Rect(0, 102, VW, 30), string.Format(Strings.HudReading, string.Join("  ·  ", names)), smallStyleCenter, Pal.adapted);
+                }
             }
 
             DrawFlow(run.Flow);
@@ -725,7 +754,7 @@ namespace Shura
                 DrawTex(r, lit ? diamond : outline, lit ? Pal.gold : Pal.uiDim.WithAlpha(0.6f));
             }
             Bar(new Rect(fx + w - 190f, fy + 98f, 190f, 8f), flow.ProgressInLevel, Pal.gold);
-            Label(new Rect(fx, fy + 114f, w, 30f), string.Format(Strings.HudEcos, MetaRules.EcosForRun(game.Run, false)), smallRightStyle, Pal.gold.WithAlpha(0.85f));
+            Label(new Rect(fx, fy + 114f, w, 30f), string.Format(Strings.HudEcos, MetaRules.EcosForRun(game.Run)), smallRightStyle, Pal.gold.WithAlpha(0.85f));
 
             int streak = game.Run.PerfectStreak;
             if (streak >= 2)

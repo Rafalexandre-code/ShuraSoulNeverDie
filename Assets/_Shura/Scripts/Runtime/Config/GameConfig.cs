@@ -224,6 +224,8 @@ namespace Shura
         public Color danger = ColorUtil.Hex("#FF5A3C");
         public Color spark = ColorUtil.Hex("#FFE08A");
         public Color gold = ColorUtil.Hex("#F2C14E");
+        public Color adapted = ColorUtil.Hex("#B06CFF");
+        public Color blessing = ColorUtil.Hex("#9BD39B");
         public Color health = ColorUtil.Hex("#C8553D");
         public Color postureLow = ColorUtil.Hex("#E9C46A");
         public Color postureHigh = ColorUtil.Hex("#E76F51");

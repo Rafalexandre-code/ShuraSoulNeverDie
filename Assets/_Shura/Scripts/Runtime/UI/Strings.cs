@@ -43,14 +43,23 @@ namespace Shura
         public const string NotEnoughEcos = "Ecos insuficientes";
         public const string UpgradeBought = "{0}  ·  nível {1}";
         public const string AltarControls = "Cima / Baixo para escolher  ·  Enter / A para comprar  ·  Esc / B para voltar";
-        public const string AltarStats = "Runs: {0}   ·   Vitórias: {1}   ·   Recorde: {2} salas";
+        public const string AltarStats = "Runs: {0}   ·   Recorde: profundidade {1}";
         public const string ToastRoomEcos = "+{0} Ecos";
         public const string On = "Ligado";
         public const string Off = "Desligado";
         public const string ControlsReset = "Controles restaurados";
 
         public const string RewardTitle = "ESCOLHA SUA RECOMPENSA";
-        public const string RewardSubtitle = "Toda escolha tem um custo.";
+        public const string RewardSubtitle = "A próxima sala será mais difícil. Escolha bem.";
+        public const string Blessing = "BÊNÇÃO";
+        public const string ReadingTitle = "LEITURA DOS INIMIGOS";
+        public const string ReadingNone = "Os inimigos ainda estão estudando você.";
+        public const string ToastDepth = "PROFUNDIDADE {0}";
+        public const string ToastNewEnemy = "Inimigo novo: {0}";
+        public const string ToastGuardian = "Um GUARDIÃO aguarda nesta sala";
+        public const string ToastAscension = "ASCENSÃO {0}  ·  +4 vida  ·  +3% dano";
+        public const string ToastLearned = "Os inimigos aprenderam: {0}";
+        public const string PopupGuardian = "GUARDIÃO";
         public const string Technique = "TÉCNICA";
         public const string Relic = "RELÍQUIA";
         public const string Gain = "GANHO";
@@ -61,10 +70,9 @@ namespace Shura
 
         public const string DeathTitle = "A MORTE ENSINA";
         public const string DeathSubtitle = "Leia o golpe. Responda no tempo. Tente de novo.";
-        public const string VictoryTitle = "FIM DO PROTÓTIPO";
-        public const string VictorySubtitle = "Você atravessou o Portão Shura.";
 
-        public const string StatRooms = "Salas vencidas";
+        public const string StatRooms = "Profundidade alcançada";
+        public const string StatRecord = "Recorde";
         public const string StatParries = "Parries perfeitos";
         public const string StatDodges = "Esquivas perfeitas";
         public const string StatCounters = "Contra-investidas";
@@ -80,7 +88,8 @@ namespace Shura
         public const string HudPosture = "POSTURA";
         public const string HudDodge = "ESQUIVA";
         public const string HudFlow = "FLUXO";
-        public const string HudRoom = "Sala {0}/{1}  ·  {2}";
+        public const string HudRoom = "Profundidade {0}  ·  {1}";
+        public const string HudReading = "Leitura: {0}";
         public const string HudWave = "Onda {0}/{1}";
         public const string HudOwned = "TÉCNICAS E RELÍQUIAS";
         public const string HudPending = "Técnica a escolher: {0}";
@@ -107,6 +116,32 @@ namespace Shura
             "Design, programação, efeitos e áudio gerados por código: Claude (Anthropic)\n" +
             "Feito com Unity 6\n\n" +
             "Inspirações: Sekiro, Nine Sols, Dead Cells, Hades, Hollow Knight, Katana ZERO";
+
+        public static string ReadingName(ReadingId id)
+        {
+            switch (id)
+            {
+                case ReadingId.Delay: return "ATRASO";
+                case ReadingId.Guard: return "DEFESA";
+                case ReadingId.Pressure: return "PRESSÃO";
+                case ReadingId.Track: return "PERSEGUIÇÃO";
+                case ReadingId.Danger: return "PERIGO";
+                default: return string.Empty;
+            }
+        }
+
+        public static string ReadingText(ReadingId id)
+        {
+            switch (id)
+            {
+                case ReadingId.Delay: return "Você apara cedo: alguns golpes são segurados (olho violeta). Confie no anel, ele espera junto.";
+                case ReadingId.Guard: return "Você ataca sem parar: eles defendem mais e contra-atacam mais rápido.";
+                case ReadingId.Pressure: return "Você espera demais: eles atacam com mais frequência.";
+                case ReadingId.Track: return "Você esquiva muito: os golpes te seguem por mais tempo antes de se comprometer.";
+                case ReadingId.Danger: return "Seus parries são precisos: mais golpes que não se aparam.";
+                default: return string.Empty;
+            }
+        }
 
         public static string HintText(HintId hint, bool gamepad)
         {

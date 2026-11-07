@@ -65,7 +65,9 @@ namespace Shura
         public readonly List<Projectile> Projectiles = new List<Projectile>();
 
         readonly Transform root;
+        Transform arenaRoot;
         readonly List<Burst> bursts = new List<Burst>();
+        int adaptationTimer;
         readonly HashSet<HintId> hintsShown = new HashSet<HintId>();
         int waveDelay;
         bool roomActive;
@@ -80,6 +82,9 @@ namespace Shura
         public bool RoomCleared { get; private set; }
         public bool IsLastWave => CurrentRoom != null && WaveIndex >= CurrentRoom.waves.Length - 1;
         public bool PlayerInvincible { get; set; }
+        /// <summary>What the enemies currently know about the player, scaled by depth.</summary>
+        public AdaptiveTraits Adaptation { get; private set; }
+        public int Depth => CurrentRoom != null ? CurrentRoom.depth : 0;
         /// <summary>Accessibility/readability option: the shrinking "press now" ring.</summary>
         public bool ShowTimingIndicator { get; set; } = true;
 
@@ -91,10 +96,8 @@ namespace Shura
             Config = config;
             Fx = fx;
             Coordinator = new AttackCoordinator(config.enemies.attackGapFrames);
-            Bounds = new Rect(-config.arena.width * 0.5f, -config.arena.height * 0.5f, config.arena.width, config.arena.height);
-
             root = new GameObject("World").transform;
-            Decor = ArenaBuilder.Build(root, config);
+            RebuildArena(config.arena.width, config.arena.height, Biomes.All[0]);
 
             var playerObject = new GameObject("Player");
             playerObject.transform.SetParent(root, false);
@@ -139,6 +142,9 @@ namespace Shura
         {
             ClearEnemies();
             CurrentRoom = room;
+            RebuildArena(room.width, room.height, room.biome);
+            Coordinator.MinGapFrames = DifficultyRules.AttackGapFrames(Config.enemies.attackGapFrames, room.depth);
+            RefreshAdaptation();
             WaveIndex = -1;
             waveDelay = Config.enemies.firstWaveDelay;
             RoomCleared = false;
@@ -150,6 +156,8 @@ namespace Shura
         public void Tick()
         {
             if (Run == null) return;
+            Run.Profile.Tick(SimClock.Dt, ActiveEnemyCount > 0 && Player.IsAlive);
+            if (++adaptationTimer >= SimClock.TickRate) RefreshAdaptation();
             Coordinator.Tick();
             Player.Tick();
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Tick();
@@ -192,16 +200,62 @@ namespace Shura
             RoomClearedEvent?.Invoke();
         }
 
-        void SpawnWave(string[] enemyIds)
+        void SpawnWave(EnemySpawn[] spawns)
         {
-            foreach (string id in enemyIds)
+            foreach (EnemySpawn spawn in spawns)
             {
-                var go = new GameObject("Enemy_" + id);
+                var go = new GameObject("Enemy_" + spawn.id);
                 go.transform.SetParent(root, false);
                 var enemy = go.AddComponent<Enemy>();
-                enemy.Init(this, EnemyDefs.Get(id), FindSpawnPoint(), Config, Run.Rng);
+                enemy.Init(this, EnemyDefs.Get(spawn.id), FindSpawnPoint(), Config, Run.Rng, EnemyScaling.For(Depth, spawn.elite));
                 Enemies.Add(enemy);
             }
+        }
+
+        void RefreshAdaptation()
+        {
+            adaptationTimer = 0;
+            Adaptation = Run != null ? Run.Profile.Traits(DifficultyRules.AdaptStrength(Depth)) : default;
+        }
+
+        /// <summary>Each room has its own size and biome; the old arena (and its texture) is discarded.</summary>
+        void RebuildArena(float width, float height, Biome biome)
+        {
+            if (arenaRoot != null)
+            {
+                if (Decor != null && Decor.FloorTexture != null) Object.Destroy(Decor.FloorTexture);
+                Object.Destroy(arenaRoot.gameObject);
+            }
+            arenaRoot = new GameObject("Arena").transform;
+            arenaRoot.SetParent(root, false);
+            Bounds = new Rect(-width * 0.5f, -height * 0.5f, width, height);
+            Decor = ArenaBuilder.Build(arenaRoot, Config, width, height, biome);
+        }
+
+        /// <summary>
+        /// Profiles a parry press: was there a swing coming, and was the press too early to be perfect?
+        /// This is how the enemies learn the player's rhythm.
+        /// </summary>
+        public void ProfileParryPress(int perfectWindowFrames)
+        {
+            if (Run == null) return;
+            Enemy threat = null;
+            int soonest = int.MaxValue;
+            for (int i = 0; i < Enemies.Count; i++)
+            {
+                Enemy e = Enemies[i];
+                AttackDef a = e.CurrentAttack;
+                if (a == null || !a.Parryable || a.IsProjectile) continue;
+                if (Vector2.Distance(e.Position, Player.Position) > a.shape.range + a.lunge + 2f) continue;
+                int until = e.FramesUntilActive;
+                if (until >= -a.active && until < soonest)
+                {
+                    soonest = until;
+                    threat = e;
+                }
+            }
+            if (threat == null || soonest > 45) return;
+            Run.Profile.OnParryPress(soonest >= perfectWindowFrames);
         }
 
         Vector2 FindSpawnPoint()
@@ -260,6 +314,7 @@ namespace Shura
                 attack = attack,
                 source = attacker.Position,
                 signature = attacker.CurrentMove != null && attacker.CurrentMove.isSignature,
+                powerMult = attacker.PowerMult,
             };
             Player.ReceiveAttack(incoming);
             return true;
@@ -493,6 +548,7 @@ namespace Shura
                 source = p.Position - p.Direction,
                 signature = p.Signature,
                 projectile = true,
+                powerMult = p.Owner != null ? p.Owner.PowerMult : 1f,
             };
             HitOutcome outcome = Player.ReceiveAttack(incoming);
             switch (outcome)

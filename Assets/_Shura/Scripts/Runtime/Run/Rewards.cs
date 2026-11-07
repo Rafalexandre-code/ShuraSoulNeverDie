@@ -6,6 +6,8 @@ namespace Shura
     {
         Technique,
         Relic,
+        /// <summary>Small, repeatable, cost-free growth: keeps an endless run rewarding.</summary>
+        Blessing,
     }
 
     /// <summary>
@@ -49,6 +51,10 @@ namespace Shura
         public abstract string Gain { get; }
         public abstract string Cost { get; }
         public virtual string SourceEnemy => null;
+        /// <summary>Stackable rewards can be taken many times in one run.</summary>
+        public virtual bool Stackable => false;
+        /// <summary>Health restored when picked.</summary>
+        public virtual float HealOnPick => 0f;
 
         public virtual void Apply(PlayerModifiers m) { }
         public virtual void OnPerfectParry(World world, Enemy attacker) { }
@@ -58,6 +64,32 @@ namespace Shura
         public virtual void ModifyParryPosture(World world, Enemy attacker, ref float posture) { }
         public virtual void OnBlock(World world, Enemy attacker) { }
         public virtual void OnFinisher(World world, Enemy target) { }
+    }
+
+    /// <summary>A blessing is a small permanent-for-this-run boost that can stack.</summary>
+    public sealed class Blessing : RewardDef
+    {
+        readonly string id, name, gain;
+        readonly float heal;
+        readonly Action<PlayerModifiers> apply;
+
+        public Blessing(string id, string name, string gain, float heal, Action<PlayerModifiers> apply)
+        {
+            this.id = id;
+            this.name = name;
+            this.gain = gain;
+            this.heal = heal;
+            this.apply = apply;
+        }
+
+        public override string Id => id;
+        public override RewardKind Kind => RewardKind.Blessing;
+        public override string Name => name;
+        public override string Gain => gain;
+        public override string Cost => "Nenhum.";
+        public override bool Stackable => true;
+        public override float HealOnPick => heal;
+        public override void Apply(PlayerModifiers m) => apply(m);
     }
 
     /// <summary>A relic is a pure stat trade-off.</summary>

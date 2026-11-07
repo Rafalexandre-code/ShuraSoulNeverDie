@@ -80,11 +80,12 @@ namespace Shura
         public const int EcosPerPerfectParry = 1;
         public const int EcosPerCounter = 2;
         public const int EcosPerTechnique = 5;
-        public const int VictoryBonus = 40;
+        public const int EcosPerGuardian = 15;
 
-        public static int RoomEcos(int roomIndex) => 15 + 5 * roomIndex;
+        /// <summary>Deeper rooms are worth more, up to a cap so the Altar still takes many runs.</summary>
+        public static int RoomEcos(int roomIndex) => 15 + 3 * Mathf.Min(roomIndex, 25);
 
-        public static int EcosForRun(RunState run, bool victory)
+        public static int EcosForRun(RunState run)
         {
             if (run == null) return 0;
             int ecos = 0;
@@ -93,7 +94,7 @@ namespace Shura
             ecos += run.PerfectParries * EcosPerPerfectParry;
             ecos += run.Counters * EcosPerCounter;
             ecos += run.TechniquesAbsorbed * EcosPerTechnique;
-            if (victory) ecos += VictoryBonus;
+            ecos += run.ElitesKilled * EcosPerGuardian;
             return ecos;
         }
     }

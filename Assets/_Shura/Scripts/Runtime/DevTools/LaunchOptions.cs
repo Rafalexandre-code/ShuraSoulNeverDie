@@ -15,6 +15,10 @@ namespace Shura
         public string ShotDir;
         public ulong? Seed;
         public bool Headless;
+        /// <summary>Automated runs end after clearing this many rooms (the game itself is endless).</summary>
+        public int TargetDepth = 15;
+        /// <summary>Automated runs only: start deep (with matching Ascension) to inspect later content.</summary>
+        public int StartDepth;
 
         public bool Automated => Bot || ShotDir != null;
 
@@ -34,6 +38,14 @@ namespace Shura
                     case "-shuraShots":
                         if (i + 1 < args.Length) options.ShotDir = args[++i];
                         options.Bot = true;
+                        break;
+                    case "-shuraStartDepth":
+                        if (i + 1 < args.Length && int.TryParse(args[i + 1], out int start)) options.StartDepth = start;
+                        i++;
+                        break;
+                    case "-shuraDepth":
+                        if (i + 1 < args.Length && int.TryParse(args[i + 1], out int depth)) options.TargetDepth = depth;
+                        i++;
                         break;
                     case "-shuraSeed":
                         if (i + 1 < args.Length && ulong.TryParse(args[i + 1], out ulong seed)) options.Seed = seed;

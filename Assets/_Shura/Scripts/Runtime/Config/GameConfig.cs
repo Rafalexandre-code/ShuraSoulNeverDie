@@ -33,7 +33,8 @@ namespace Shura
         public float hitPostureFraction = 0.35f;
 
         [Header("Movimento")]
-        public float moveSpeed = 5.6f;
+        [Tooltip("Velocidade antes do ritmo global (ver FeelTuning.baseTempo).")]
+        public float moveSpeed = 6.4f;
         public float accelTime = 0.10f;
         public float decelTime = 0.07f;
         public float guardMoveMultiplier = 0.45f;
@@ -78,6 +79,11 @@ namespace Shura
         public int finisherImpactFrame = 9;
         public float finisherRange = 1.9f;
 
+        [Header("Golpe defletido pelo inimigo")]
+        [Tooltip("Quando o inimigo bloqueia seu golpe, sua espada quica e o combo é interrompido.")]
+        public int deflectedFrames = 18;
+        public int deflectCancelFrames = 7;
+
         [Header("Dano recebido")]
         public int hurtStunFrames = 16;
         public int hurtInvulnFrames = 40;
@@ -102,7 +108,12 @@ namespace Shura
         [Tooltip("Dano de postura que o inimigo recebe quando bloqueia um golpe seu.")]
         public float blockPostureMultiplier = 0.5f;
         public int riposteAfterBlocks = 3;
-        public int parriedFinalStepExtraRecovery = 14;
+        [Tooltip("Parry perfeito interrompe o golpe: a arma quica e o inimigo fica aberto.")]
+        public int recoilFrames = 14;
+        [Tooltip("Recuo maior quando o golpe aparado era o último do combo (janela de contra-ataque).")]
+        public int recoilFinalFrames = 28;
+        public int guardVisualFrames = 14;
+        public float teleportBehindDistance = 1.7f;
         public int counterStaggerFrames = 40;
         public float hitKnockback = 1.6f;
         public float turnDegreesPerSecond = 540f;
@@ -123,6 +134,10 @@ namespace Shura
         public float counterPoints = 2f;
         public float finisherPoints = 2f;
         [Header("Efeitos por nível")]
+        [Tooltip("Dano extra por nível de Fluxo.")]
+        public float damagePerLevel = 0.12f;
+        [Tooltip("Impacto extra (tremida, faíscas) por nível de Fluxo.")]
+        public float impactPerLevel = 0.3f;
         public float level1PostureBonus = 0.15f;
         public float level2DodgeRechargeSpeed = 1.3f;
         public float level3FinisherHeal = 10f;
@@ -166,6 +181,21 @@ namespace Shura
         public int timingApproachFrames = 36;
         [Tooltip("O anel fecha esta quantidade de frames ANTES do golpe acertar (meio da janela perfeita).")]
         public int timingCueLeadFrames = 4;
+
+        [Header("Ritmo global")]
+        [Tooltip("Velocidade do jogo no Fluxo 0. Abaixo de 1 = duelo mais pausado e legível.")]
+        public float baseTempo = 0.82f;
+        [Tooltip("Cada nível de Fluxo acelera o jogo por este valor.")]
+        public float tempoPerFlowLevel = 0.07f;
+        public float flowZoomPerLevel = 0.12f;
+
+        [Header("Choque de lâminas e câmera lenta")]
+        public int hitstopDeflected = 5;
+        public float shakeDeflected = 0.2f;
+        public float slowMoLastKillSeconds = 0.9f;
+        public float slowMoLastKillScale = 0.25f;
+        public float slowMoBreakSeconds = 0.25f;
+        public float slowMoBreakScale = 0.5f;
 
         [Header("Ambiente")]
         public float embersPerSecond = 6f;

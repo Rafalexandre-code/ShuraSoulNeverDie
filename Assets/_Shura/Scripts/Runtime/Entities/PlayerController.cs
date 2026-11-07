@@ -6,6 +6,8 @@ namespace Shura
     /// <summary>
     /// The duelist. A frame-based state machine: every action has windup/active/recovery
     /// frames, defined cancel points and an input buffer, so timing is exact and learnable.
+    /// Blades physically answer each other: a perfect parry kicks your sword up with the
+    /// impact, and an enemy guard bounces your swing back and cuts your combo.
     /// </summary>
     public sealed class PlayerController : Fighter
     {
@@ -15,6 +17,8 @@ namespace Shura
             Attack,
             Parry,
             Dodge,
+            /// <summary>Your swing was deflected by an enemy guard: blade bounced, combo cut.</summary>
+            Deflected,
             Hurt,
             GuardBroken,
             Finisher,
@@ -26,8 +30,8 @@ namespace Shura
         const float SwingReach = 72f;
         const float FinalSwingReach = 100f;
         const int FootstepFrames = 15;
-
-        int footstepTimer;
+        const int ClashFrames = 14;
+        const int FlowTrailInterval = 4;
 
         PlayerTuning t;
         FlowTuning flowTuning;
@@ -39,8 +43,15 @@ namespace Shura
         Vector2 dodgeDir;
         int parryWindow;
         int framesSinceParryPress = 9999;
+        bool lastParrySucceeded;
         int hurtInvuln;
         Enemy finisherTarget;
+        int footstepTimer;
+        int trailTimer;
+        int clashFrames;
+        float clashStrength;
+        float deflectFromAngle;
+        float deflectSide;
 
         SpriteRenderer parryArc, swingArc, aura, empowerGlow;
 
@@ -49,7 +60,7 @@ namespace Shura
         public int ComboIndex { get; private set; }
         public float DodgeCharges { get; private set; }
         public int MaxDodgeCharges { get; private set; }
-        /// <summary>Frames left on a charged strike (set by the Lâmina Paciente technique).</summary>
+        /// <summary>Frames left on an empowered strike (set by techniques).</summary>
         public int EmpoweredFrames { get; set; }
         public int HurtInvulnFrames => hurtInvuln;
         public int ParryWindowFrames => parryWindow;
@@ -64,6 +75,9 @@ namespace Shura
 
         public float PostureDealtMult =>
             Mods.postureMult * (FlowLevel >= 1 ? 1f + flowTuning.level1PostureBonus : 1f);
+
+        /// <summary>Flow makes every blow land harder.</summary>
+        public float DamageDealtMult => Mods.damageMult * (1f + flowTuning.damagePerLevel * FlowLevel);
 
         public void Init(World owner, GameConfig config)
         {
@@ -106,6 +120,7 @@ namespace Shura
             hitThisSwing.Clear();
             finisherTarget = null;
             hurtInvuln = 0;
+            clashFrames = 0;
             input?.Buffer.Clear();
             if (CurrentState != State.Dead) Enter(State.Free);
         }
@@ -135,6 +150,7 @@ namespace Shura
             if (hurtInvuln > 0) hurtInvuln--;
             if (framesSinceParryPress < 9999) framesSinceParryPress++;
             if (EmpoweredFrames > 0) EmpoweredFrames--;
+            if (clashFrames > 0) clashFrames--;
             RechargeDodge();
             RegenPosture();
 
@@ -144,11 +160,13 @@ namespace Shura
                 case State.Parry: TickParry(); break;
                 case State.Attack: TickAttack(); break;
                 case State.Dodge: TickDodge(); break;
+                case State.Deflected: TickDeflected(); break;
                 case State.Hurt: TickHurt(); break;
                 case State.GuardBroken: TickGuardBroken(); break;
                 case State.Finisher: TickFinisher(); break;
             }
             Integrate();
+            EmitFlowTrail();
         }
 
         void Enter(State state)
@@ -156,6 +174,8 @@ namespace Shura
             CurrentState = state;
             StateFrame = 0;
         }
+
+        float MoveSpeed => t.moveSpeed * Mods.moveSpeedMult;
 
         // ── States ──────────────────────────────────────────────────────────────────────
 
@@ -178,7 +198,7 @@ namespace Shura
                 StartGuard();
                 return;
             }
-            Steer(input.Move * t.moveSpeed);
+            Steer(input.Move * MoveSpeed);
 
             if (Velocity.sqrMagnitude > 6f && ++footstepTimer >= FootstepFrames)
             {
@@ -209,7 +229,7 @@ namespace Shura
                 Enter(State.Free);
                 return;
             }
-            Steer(input.Move * t.moveSpeed * t.guardMoveMultiplier);
+            Steer(input.Move * MoveSpeed * t.guardMoveMultiplier);
         }
 
         void TickAttack()
@@ -220,16 +240,18 @@ namespace Shura
 
             if (StateFrame == windup)
             {
-                world.Fx.Emit(FxType.PlayerSwing, Position, Facing);
+                world.Fx.Emit(FxType.PlayerSwing, Position, Facing, FlowLevel);
                 Squash(1.28f, 0.8f);
             }
 
             if (StateFrame >= windup && StateFrame < activeEnd)
             {
                 Position += Facing * (t.attackLunge / t.attackActive);
-                float damage = t.attackDamage * Mods.damageMult;
+                float damage = t.attackDamage * DamageDealtMult;
                 float posture = t.attackPosture * PostureDealtMult * Mods.normalAttackPostureMult;
                 world.PlayerStrike(HitShape.Arc(t.attackRange, t.attackArcDegrees), damage, posture, hitThisSwing);
+                // A deflect inside PlayerStrike ends the swing immediately.
+                if (CurrentState != State.Attack) return;
             }
 
             if (StateFrame < activeEnd) return;
@@ -259,15 +281,31 @@ namespace Shura
         {
             float prev = CombatMath.EaseOutQuad((StateFrame - 1) / (float)t.dodgeFrames);
             float now = CombatMath.EaseOutQuad(StateFrame / (float)t.dodgeFrames);
-            Position += dodgeDir * t.dodgeDistance * (now - prev);
+            Position += dodgeDir * t.dodgeDistance * Mods.dodgeDistanceMult * (now - prev);
 
             if (StateFrame % 2 == 0) world.Fx.Emit(FxType.Afterimage, Position, Facing, Radius, pal.playerAccent);
 
             if (StateFrame >= t.dodgeFrames)
             {
                 Enter(State.Free);
-                Velocity = dodgeDir * t.moveSpeed * 0.6f;
+                Velocity = dodgeDir * MoveSpeed * 0.6f;
             }
+        }
+
+        void TickDeflected()
+        {
+            Velocity = Vector2.Lerp(Velocity, Vector2.zero, CombatMath.Damp(10f, SimClock.Dt));
+            if (StateFrame >= t.deflectCancelFrames)
+            {
+                // Recover in time to parry the riposte: deflection is a warning, not a stun-lock.
+                if (TryStartDodge()) return;
+                if (input.Buffer.Consume(BufferedAction.Parry))
+                {
+                    StartParry();
+                    return;
+                }
+            }
+            if (StateFrame >= t.deflectedFrames) Enter(State.Free);
         }
 
         void TickHurt()
@@ -309,8 +347,10 @@ namespace Shura
         void StartParry()
         {
             int window = PerfectParryFrames;
-            if (framesSinceParryPress < t.parrySpamWindow) window = Mathf.Max(1, window / 2);
+            // Only a whiffed parry is punished, so a flurry can be answered blow by blow.
+            if (framesSinceParryPress < t.parrySpamWindow && !lastParrySucceeded) window = Mathf.Max(1, window / 2);
             framesSinceParryPress = 0;
+            lastParrySucceeded = false;
             parryWindow = window;
             Enter(State.Parry);
             UpdateFacing(true);
@@ -406,13 +446,34 @@ namespace Shura
             Posture.Tick(rate, t.postureRegenDelay);
         }
 
-        // ── Being attacked ──────────────────────────────────────────────────────────────
+        /// <summary>From Flow 2 the duelist leaves golden afterimages while moving.</summary>
+        void EmitFlowTrail()
+        {
+            if (FlowLevel < 2 || Velocity.sqrMagnitude < 4f) return;
+            if (++trailTimer % FlowTrailInterval != 0) return;
+            world.Fx.Emit(FxType.Afterimage, Position, Facing, Radius * 0.9f, pal.gold.WithAlpha(0.6f));
+        }
 
-        public HitOutcome ReceiveAttack(Enemy attacker, AttackDef attack)
+        // ── Blade contact ───────────────────────────────────────────────────────────────
+
+        /// <summary>An enemy guard deflected this swing: the blade bounces back and the combo ends.</summary>
+        public void OnDeflected()
+        {
+            if (CurrentState != State.Attack) return;
+            deflectFromAngle = SwingAngle();
+            deflectSide = ComboIndex % 2 == 0 ? 1f : -1f;
+            Enter(State.Deflected);
+            Velocity = -Facing * 2.5f;
+            Squash(0.82f, 1.15f);
+        }
+
+        public HitOutcome ReceiveAttack(in IncomingAttack incoming)
         {
             if (CurrentState == State.Dead) return HitOutcome.Ignored;
 
-            Vector2 toAttacker = attacker.Position - Position;
+            Enemy attacker = incoming.attacker;
+            AttackDef attack = incoming.attack;
+            Vector2 toAttacker = incoming.source - Position;
             Vector2 toDir = toAttacker.sqrMagnitude > 1e-6f ? toAttacker.normalized : Facing;
             var defender = new DefenderState
             {
@@ -428,30 +489,47 @@ namespace Shura
             };
 
             HitOutcome outcome = HitResolver.Resolve(attack, defender);
-            Vector2 contact = Position + toDir * Radius;
+            // Where the two blades meet: just in front of the guard.
+            Vector2 clashPoint = Position + toDir * (Radius + 0.45f);
 
             switch (outcome)
             {
                 case HitOutcome.PerfectParry:
                     run.PerfectParries++;
-                    world.TryMaster(attacker, SignatureAnswer.PerfectParry);
-                    world.Fx.Emit(FxType.PerfectParry, contact, toDir);
+                    lastParrySucceeded = true;
+                    clashFrames = ClashFrames;
+                    clashStrength = 1f;
+                    world.RegisterPerfect(clashPoint);
+                    world.TryMaster(attacker, SignatureAnswer.PerfectParry, incoming.signature);
+                    world.Fx.Emit(FxType.PerfectParry, clashPoint, toDir, FlowLevel);
                     Squash(0.8f, 1.2f);
-                    attacker.OnParried(attack.postureOnParried * PostureDealtMult * Mods.perfectParryPostureMult);
+                    if (!incoming.projectile)
+                    {
+                        float posture = attack.postureOnParried * PostureDealtMult * Mods.perfectParryPostureMult;
+                        for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].ModifyParryPosture(world, attacker, ref posture);
+                        attacker.OnParried(posture);
+                    }
                     world.AddFlow(flowTuning.perfectParryPoints);
                     for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].OnPerfectParry(world, attacker);
                     break;
 
                 case HitOutcome.Blocked:
-                    world.Fx.Emit(FxType.PlayerBlock, contact, toDir);
+                    clashFrames = ClashFrames;
+                    clashStrength = 0.5f;
+                    world.Fx.Emit(FxType.PlayerBlock, clashPoint, toDir);
                     Velocity = -toDir * 1.5f;
                     Squash(0.88f, 1.1f);
+                    if (!incoming.projectile)
+                    {
+                        for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].OnBlock(world, attacker);
+                    }
                     if (Posture.Add(attack.postureDamage * t.blockPostureMultiplier * Mods.blockWearMult)) GuardBreak(toDir);
                     break;
 
                 case HitOutcome.PerfectDodge:
                     run.PerfectDodges++;
-                    world.TryMaster(attacker, SignatureAnswer.PerfectDodge);
+                    if (attack.IsDangerous) world.RegisterPerfect(Position);
+                    world.TryMaster(attacker, SignatureAnswer.PerfectDodge, incoming.signature);
                     world.Fx.Emit(FxType.PerfectDodge, Position, dodgeDir);
                     if (attack.IsDangerous) world.AddFlow(flowTuning.perfectDodgePoints);
                     for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].OnPerfectDodge(world, attacker);
@@ -459,8 +537,9 @@ namespace Shura
 
                 case HitOutcome.CounterThrust:
                     run.Counters++;
-                    world.TryMaster(attacker, SignatureAnswer.CounterThrust);
-                    world.Fx.Emit(FxType.CounterThrust, contact, toDir);
+                    world.RegisterPerfect(clashPoint);
+                    world.TryMaster(attacker, SignatureAnswer.CounterThrust, incoming.signature);
+                    world.Fx.Emit(FxType.CounterThrust, clashPoint, toDir, FlowLevel);
                     attacker.OnCounterThrust(t.counterThrustPosture * PostureDealtMult);
                     world.AddFlow(flowTuning.counterPoints);
                     for (int i = 0; i < run.Owned.Count; i++) run.Owned[i].OnPerfectDodge(world, attacker);
@@ -481,6 +560,7 @@ namespace Shura
 
             world.Fx.Emit(FxType.PlayerHurt, Position, -toAttacker, damage);
             world.DropFlow(1 + Mods.extraFlowLossOnHurt);
+            run.BreakStreak();
             hurtInvuln = t.hurtInvulnFrames;
             Velocity = -toAttacker * t.hurtKnockback;
             Flash(0.08f);
@@ -531,6 +611,17 @@ namespace Shura
                     pose.snap = true;
                     pose.angle = SwingAngle();
                     break;
+                case State.Deflected:
+                {
+                    pose.snap = true;
+                    int f = StateFrame;
+                    float knocked = deflectFromAngle + deflectSide * 65f;
+                    pose.angle = f < 4
+                        ? Mathf.Lerp(deflectFromAngle, knocked, CombatMath.EaseOutCubic(f / 4f))
+                        : Mathf.Lerp(knocked, RestAngle, CombatMath.EaseOutQuad((f - 4) / (float)Mathf.Max(1, t.deflectedFrames - 4)));
+                    if (f < 4) pose.tint = Color.white;
+                    break;
+                }
                 case State.Dodge:
                     pose.angle = 165f;
                     pose.extend = -0.1f;
@@ -552,7 +643,20 @@ namespace Shura
                     pose.tint = weaponColor * 0.5f;
                     break;
             }
+
+            // The parry clash: the blade is slammed back by the enemy's sword, then settles.
+            if (clashFrames > 0 && (CurrentState == State.Parry || CurrentState == State.Free))
+            {
+                int f = ClashFrames - clashFrames;
+                float bump = Bounce(f, ClashFrames, 3);
+                pose.snap = true;
+                pose.angle = 78f + 38f * clashStrength * bump;
+                pose.extend = -0.15f * bump;
+                pose.tint = Color.Lerp(pose.tint, Color.white, bump * clashStrength);
+            }
+
             if (EmpoweredFrames > 0) pose.tint = Color.Lerp(pose.tint, pal.gold, 0.65f);
+            else if (FlowLevel >= 3) pose.tint = Color.Lerp(pose.tint, pal.gold, 0.35f);
             return pose;
         }
 
@@ -582,7 +686,7 @@ namespace Shura
             body.color = c;
             pointer.color = pal.playerAccent.WithAlpha(c.a);
 
-            float facingAngle = CombatMath.AngleDegrees(Facing);
+            float facingAngle = FacingAngle;
 
             bool showParry = CurrentState == State.Parry;
             parryArc.enabled = showParry;
@@ -602,10 +706,10 @@ namespace Shura
             if (swinging)
             {
                 float k = (StateFrame - windup) / (float)trailFrames;
-                Color trail = EmpoweredFrames > 0 ? pal.gold : Color.white;
+                Color trail = EmpoweredFrames > 0 || FlowLevel >= 3 ? pal.gold : Color.white;
                 swingArc.color = trail.WithAlpha(0.75f * (1f - k * k));
                 swingArc.transform.localRotation = Quaternion.Euler(0f, 0f, facingAngle);
-                float s = t.attackRange * 2f * (1f + 0.08f * k);
+                float s = t.attackRange * 2f * (1f + 0.08f * k + 0.06f * FlowLevel);
                 swingArc.transform.localScale = new Vector3(s, ComboIndex % 2 == 0 ? s : -s, 1f);
             }
 
@@ -613,7 +717,7 @@ namespace Shura
             aura.enabled = flow > 0 && IsAlive;
             if (aura.enabled)
             {
-                float pulse = 1f + 0.08f * Mathf.Sin(Time.unscaledTime * 6f);
+                float pulse = 1f + 0.08f * Mathf.Sin(Time.unscaledTime * (6f + flow * 2f));
                 aura.transform.localScale = Vector3.one * Radius * 2f * (1.8f + 0.5f * flow) * pulse;
                 aura.color = pal.gold.WithAlpha(0.10f + 0.07f * flow);
             }

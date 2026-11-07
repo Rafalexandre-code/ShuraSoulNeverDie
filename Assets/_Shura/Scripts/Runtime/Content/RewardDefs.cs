@@ -7,6 +7,16 @@ namespace Shura
         public const string PatientBlade = "tec_lamina_paciente";
         public const string MirrorThrust = "tec_estocada_espelhada";
         public const string PhantomStep = "tec_passo_fantasma";
+        public const string DuelistRhythm = "tec_ritmo_do_duelista";
+        public const string ExecutionerBlow = "tec_golpe_do_carrasco";
+        public const string ReflexArrow = "tec_flecha_reflexa";
+        public const string Ambush = "tec_emboscada";
+        public const string Bulwark = "tec_muralha";
+
+        public static readonly string[] Techniques =
+        {
+            PatientBlade, MirrorThrust, PhantomStep, DuelistRhythm, ExecutionerBlow, ReflexArrow, Ambush, Bulwark,
+        };
 
         public const string HungryBlade = "rel_lamina_faminta";
         public const string IronGuard = "rel_guarda_de_ferro";
@@ -32,6 +42,11 @@ namespace Shura
                 case RewardIds.PatientBlade: return new PatientBladeTechnique();
                 case RewardIds.MirrorThrust: return new MirrorThrustTechnique();
                 case RewardIds.PhantomStep: return new PhantomStepTechnique();
+                case RewardIds.DuelistRhythm: return new DuelistRhythmTechnique();
+                case RewardIds.ExecutionerBlow: return new ExecutionerBlowTechnique();
+                case RewardIds.ReflexArrow: return new ReflexArrowTechnique();
+                case RewardIds.Ambush: return new AmbushTechnique();
+                case RewardIds.Bulwark: return new BulwarkTechnique();
 
                 case RewardIds.HungryBlade:
                     return new Relic(id, "Lâmina Faminta",
@@ -139,6 +154,141 @@ namespace Shura
         public override void OnPerfectDodge(World world, Enemy attacker)
         {
             world.ScheduleBurst(world.Player.Position, 21, 1.8f, 8f, 26f);
+        }
+    }
+}
+
+namespace Shura
+{
+    /// <summary>Kenkaku: chained perfect parries hit the attacker's posture harder and harder.</summary>
+    public sealed class DuelistRhythmTechnique : RewardDef
+    {
+        const float ChainSeconds = 2f;
+        const int MaxStacks = 4;
+        const float BonusPerStack = 0.25f;
+
+        int stacks;
+        float lastParryTime = -99f;
+
+        public override string Id => RewardIds.DuelistRhythm;
+        public override RewardKind Kind => RewardKind.Technique;
+        public override string Name => "Ritmo do Duelista";
+        public override string Gain => "Cada parry perfeito em até 2 s do anterior causa +25% de postura (acumula até +100%).";
+        public override string Cost => "Bloquear desgasta 20% mais e zera o ritmo.";
+        public override string SourceEnemy => EnemyDefs.Kenkaku.displayName;
+
+        public override void Apply(PlayerModifiers m) { m.blockWearMult *= 1.2f; }
+
+        public override void ModifyParryPosture(World world, Enemy attacker, ref float posture)
+        {
+            if (world.Run.Elapsed - lastParryTime > ChainSeconds) stacks = 0;
+            posture *= 1f + BonusPerStack * stacks;
+        }
+
+        public override void OnPerfectParry(World world, Enemy attacker)
+        {
+            bool chained = world.Run.Elapsed - lastParryTime <= ChainSeconds;
+            stacks = chained ? Mathf.Min(MaxStacks, stacks + 1) : 1;
+            lastParryTime = world.Run.Elapsed;
+            if (stacks > 1) world.Fx.Popup("RITMO x" + stacks, world.Player.Position + Vector2.up * 0.9f, world.Config.palette.gold);
+        }
+
+        public override void OnBlock(World world, Enemy attacker)
+        {
+            stacks = 0;
+        }
+    }
+
+    /// <summary>Carrasco: finishers send out a shockwave that crushes nearby posture.</summary>
+    public sealed class ExecutionerBlowTechnique : RewardDef
+    {
+        public override string Id => RewardIds.ExecutionerBlow;
+        public override RewardKind Kind => RewardKind.Technique;
+        public override string Name => "Golpe do Carrasco";
+        public override string Gain => "Finalizadores soltam uma onda de choque (10 dano, 35 postura) nos inimigos próximos.";
+        public override string Cost => "Você anda 10% mais devagar.";
+        public override string SourceEnemy => EnemyDefs.Carrasco.displayName;
+
+        public override void Apply(PlayerModifiers m) { m.moveSpeedMult *= 0.9f; }
+
+        public override void OnFinisher(World world, Enemy target)
+        {
+            world.ScheduleBurst(target.Position, 1, 2.8f, 10f, 35f);
+        }
+    }
+
+    /// <summary>Arqueiro: perfect parries loose an arrow at another enemy.</summary>
+    public sealed class ReflexArrowTechnique : RewardDef
+    {
+        public override string Id => RewardIds.ReflexArrow;
+        public override RewardKind Kind => RewardKind.Technique;
+        public override string Name => "Flecha Reflexa";
+        public override string Gain => "Todo parry perfeito dispara uma flecha no inimigo mais próximo (12 dano, 16 postura).";
+        public override string Cost => "-10 de vida máxima.";
+        public override string SourceEnemy => EnemyDefs.Arqueiro.displayName;
+
+        public override void Apply(PlayerModifiers m) { m.maxHealthBonus -= 10f; }
+
+        public override void OnPerfectParry(World world, Enemy attacker)
+        {
+            Enemy target = world.FindNearestEnemy(world.Player.Position, attacker) ?? attacker;
+            Vector2 dir = target.Position - world.Player.Position;
+            if (dir.sqrMagnitude < 1e-4f) dir = world.Player.Facing;
+            world.FirePlayerArrow(world.Player.Position, dir.normalized, 12f, 16f);
+        }
+    }
+
+    /// <summary>Sombra: a perfect dodge empowers your next two strikes.</summary>
+    public sealed class AmbushTechnique : RewardDef
+    {
+        const float WindowSeconds = 1.5f;
+        const float DamageMult = 1.6f;
+
+        float activeUntil = -1f;
+        int charges;
+
+        public override string Id => RewardIds.Ambush;
+        public override RewardKind Kind => RewardKind.Technique;
+        public override string Name => "Emboscada";
+        public override string Gain => "Após uma esquiva perfeita, seus 2 próximos golpes em 1,5 s causam +60% de dano.";
+        public override string Cost => "Suas esquivas são 20% mais curtas.";
+        public override string SourceEnemy => EnemyDefs.Sombra.displayName;
+
+        public override void Apply(PlayerModifiers m) { m.dodgeDistanceMult *= 0.8f; }
+
+        public override void OnPerfectDodge(World world, Enemy attacker)
+        {
+            activeUntil = world.Run.Elapsed + WindowSeconds;
+            charges = 2;
+            world.Player.EmpoweredFrames = Mathf.Max(world.Player.EmpoweredFrames, Mathf.RoundToInt(WindowSeconds * SimClock.TickRate));
+        }
+
+        public override void ModifyAttackDamage(World world, Enemy target, ref float damage)
+        {
+            if (charges <= 0 || world.Run.Elapsed > activeUntil) return;
+            damage *= DamageMult;
+            charges--;
+            world.Fx.Popup("EMBOSCADA", target.Position + Vector2.up * 0.9f, world.Config.palette.gold);
+        }
+    }
+
+    /// <summary>Escudeiro: an ordinary block jars the attacker's posture.</summary>
+    public sealed class BulwarkTechnique : RewardDef
+    {
+        const float PostureOnBlock = 8f;
+
+        public override string Id => RewardIds.Bulwark;
+        public override RewardKind Kind => RewardKind.Technique;
+        public override string Name => "Muralha";
+        public override string Gain => "Bloquear (sem ser perfeito) causa 8 de postura em quem atacou.";
+        public override string Cost => "Janela de parry perfeito 1 frame menor.";
+        public override string SourceEnemy => EnemyDefs.Escudeiro.displayName;
+
+        public override void Apply(PlayerModifiers m) { m.perfectParryFrameBonus -= 1; }
+
+        public override void OnBlock(World world, Enemy attacker)
+        {
+            attacker.ApplyPosture(PostureOnBlock);
         }
     }
 }

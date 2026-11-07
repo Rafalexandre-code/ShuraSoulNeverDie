@@ -161,6 +161,40 @@ namespace Shura
         public static AudioClip UiMove() => Notes("ui_move", 0.06f, new[] { 1200f }, 0f, 0.012f, 0.3f);
         public static AudioClip UiConfirm() => Notes("ui_confirm", 0.18f, new[] { 880f, 1320f }, 0.05f, 0.04f, 0.4f);
 
+        /// <summary>
+        /// Steel on steel: a sharp transient, a dull body "thunk" and an inharmonic ring that
+        /// wobbles slightly. Three variants with different partials so repeats never match.
+        /// </summary>
+        public static AudioClip SwordClash(int variant)
+        {
+            float[][] sets =
+            {
+                new[] { 1180f, 1720f, 2390f, 3150f, 4470f, 6020f },
+                new[] { 980f, 1530f, 2210f, 2960f, 3880f, 5310f },
+                new[] { 1340f, 1890f, 2640f, 3420f, 5010f, 6650f },
+            };
+            float[] amps = { 1f, 0.8f, 0.65f, 0.5f, 0.35f, 0.2f };
+            float[] decays = { 0.24f, 0.18f, 0.13f, 0.09f, 0.06f, 0.04f };
+            float[] f = sets[Mathf.Abs(variant) % sets.Length];
+
+            float[] d = Buffer(0.65f);
+            float lp = 0f;
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)Rate;
+                float bend = 1f + 0.02f * Mathf.Exp(-t / 0.01f);
+                float ring = 0f;
+                for (int k = 0; k < f.Length; k++) ring += amps[k] * Sin(f[k] * bend, t) * Mathf.Exp(-t / decays[k]);
+                ring *= 1f + 0.15f * Mathf.Sin(2f * Mathf.PI * 33f * t);
+                float n = Noise();
+                lp += 0.35f * (n - lp);
+                float scrape = (n - lp) * Env(t, 0.0002f, 0.009f) * 1.6f;
+                float thunk = Sin(160f * Mathf.Exp(-t / 0.05f), t) * Env(t, 0.001f, 0.025f) * 0.8f;
+                d[i] = ring + scrape + thunk;
+            }
+            return OneShot("clash_" + variant, d, 0.95f);
+        }
+
         /// <summary>Short bright "tink": the timing ring closed, answer now.</summary>
         public static AudioClip Glint()
         {

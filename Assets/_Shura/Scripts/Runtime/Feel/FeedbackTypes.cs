@@ -33,6 +33,10 @@ namespace Shura
         /// <summary>The timing ring closed: "answer now". Magnitude 1 = dangerous (dodge), 0 = parry.</summary>
         TimingCue,
         Footstep,
+        /// <summary>The Sombra vanishing or reappearing.</summary>
+        ShadowStep,
+        /// <summary>Every 5 perfect actions in a row. Magnitude = streak length.</summary>
+        StreakMilestone,
     }
 
     public enum HintId
@@ -41,6 +45,9 @@ namespace Shura
         Parry,
         DangerThrust,
         DangerSweep,
+        DangerGrab,
+        Projectile,
+        Shadow,
         Finisher,
         Mastery,
     }

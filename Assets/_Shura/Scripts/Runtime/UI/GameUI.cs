@@ -60,7 +60,9 @@ namespace Shura
         float ghostDelay;
         float selAnim;
         int lastSel = -1;
-        GUIStyle itemLeftStyle, ecosStyle, damageStyle;
+        GUIStyle itemLeftStyle, ecosStyle, damageStyle, streakStyle;
+        int shownStreak;
+        float streakPop;
 
         Palette Pal => game.Config.palette;
 
@@ -77,12 +79,14 @@ namespace Shura
             fadeAlpha = 1f;
         }
 
-        public void DamageNumber(int value, Vector2 world)
+        /// <summary>Damage numbers grow and turn gold as Flow rises: you can see yourself getting stronger.</summary>
+        public void DamageNumber(int value, Vector2 world, int flowLevel)
         {
             if (value <= 0) return;
             if (popups.Count >= MaxPopups) popups.RemoveAt(0);
             Vector2 jitter = new Vector2(UnityEngine.Random.Range(-0.3f, 0.3f), UnityEngine.Random.Range(0f, 0.2f));
-            popups.Add(new FloatingText { text = value.ToString(), world = world + jitter, color = Color.white, life = 0.7f, small = true });
+            Color c = flowLevel >= 2 ? Color.Lerp(Color.white, Pal.gold, 0.4f + 0.2f * flowLevel) : Color.white;
+            popups.Add(new FloatingText { text = value.ToString(), world = world + jitter, color = c, life = 0.7f, small = flowLevel < 3 });
         }
 
         // ── API used by gameplay feedback ──────────────────────────────────────────────
@@ -142,6 +146,10 @@ namespace Shura
             flashAlpha = Mathf.MoveTowards(flashAlpha, 0f, dt * 3f);
             hurtAlpha = Mathf.MoveTowards(hurtAlpha, 0f, dt * 1.5f);
             fadeAlpha = Mathf.MoveTowards(fadeAlpha, 0f, dt * 2.2f);
+            int streak = game.Run != null ? game.Run.PerfectStreak : 0;
+            if (streak > shownStreak) streakPop = 1f;
+            shownStreak = streak;
+            streakPop = Mathf.MoveTowards(streakPop, 0f, dt * 4f);
             UpdateGhostHealth(dt);
             if (menuIndex != lastSel)
             {
@@ -357,6 +365,12 @@ namespace Shura
             Game.Mode mode = game.CurrentMode;
             bool inRun = mode == Game.Mode.Playing || mode == Game.Mode.Paused || mode == Game.Mode.Reward;
             DrawTex(FullScreen, vignette, new Color(1f, 1f, 1f, 0.85f));
+            if (inRun && game.Run != null && game.Run.Flow.Level >= game.Run.Flow.MaxLevel)
+            {
+                // Full Flow: the screen edges burn gold.
+                float pulse = 0.35f + 0.15f * Mathf.Sin(Time.unscaledTime * 4f);
+                DrawTex(FullScreen, vignette, Pal.gold.WithAlpha(pulse));
+            }
             if (inRun)
             {
                 DrawHud();
@@ -582,25 +596,26 @@ namespace Shura
             RunState run = game.Run;
             if (run != null)
             {
-                var panel = new Rect((VW - 720f) * 0.5f, 310f, 720f, 400f);
+                var panel = new Rect((VW - 720f) * 0.5f, 296f, 720f, 418f);
                 DrawRect(panel, Pal.uiPanel);
                 string[][] rows =
                 {
-                    new[] { Strings.StatRooms, run.RoomsCleared + " / " + RoomDefs.Prototype.Length },
+                    new[] { Strings.StatRooms, run.RoomsCleared + " / " + run.Rooms.Count },
                     new[] { Strings.StatParries, run.PerfectParries.ToString() },
                     new[] { Strings.StatDodges, run.PerfectDodges.ToString() },
                     new[] { Strings.StatCounters, run.Counters.ToString() },
                     new[] { Strings.StatFinishers, run.Finishers.ToString() },
                     new[] { Strings.StatTechniques, run.TechniquesAbsorbed.ToString() },
+                    new[] { Strings.StatBestStreak, run.BestStreak.ToString() },
                     new[] { Strings.StatTime, FormatTime(run.Elapsed) },
                     new[] { Strings.StatSeed, run.Seed.ToString() },
                 };
-                float y = panel.y + 22;
+                float y = panel.y + 14;
                 foreach (string[] row in rows)
                 {
                     Label(new Rect(panel.x + 40, y, 420, 40), row[0], bodyStyle, Pal.uiDim);
                     Label(new Rect(panel.x + 400, y, 280, 40), row[1], bodyRightStyle, Pal.uiText);
-                    y += 45;
+                    y += 44;
                 }
                 Label(new Rect(0, 716f, VW, 40f), string.Format(Strings.EcosEarned, run.EcosBanked, game.Meta.ecos), toastStyle, Pal.gold);
             }
@@ -684,7 +699,7 @@ namespace Shura
             RoomDef room = game.World.CurrentRoom;
             if (room != null)
             {
-                Label(new Rect(0, 30, VW, 44), string.Format(Strings.HudRoom, run.RoomIndex + 1, RoomDefs.Prototype.Length, room.name), roomStyle, Pal.uiText);
+                Label(new Rect(0, 30, VW, 44), string.Format(Strings.HudRoom, run.RoomIndex + 1, run.Rooms.Count, room.name), roomStyle, Pal.uiText);
                 int wave = Mathf.Max(1, game.World.WaveIndex + 1);
                 Label(new Rect(0, 74, VW, 32), string.Format(Strings.HudWave, wave, room.waves.Length), smallStyleCenter, Pal.uiDim);
             }
@@ -711,6 +726,16 @@ namespace Shura
             }
             Bar(new Rect(fx + w - 190f, fy + 98f, 190f, 8f), flow.ProgressInLevel, Pal.gold);
             Label(new Rect(fx, fy + 114f, w, 30f), string.Format(Strings.HudEcos, MetaRules.EcosForRun(game.Run, false)), smallRightStyle, Pal.gold.WithAlpha(0.85f));
+
+            int streak = game.Run.PerfectStreak;
+            if (streak >= 2)
+            {
+                // Pops on every new perfect action; brighter the longer it runs.
+                // Font-size pop (pivot-based GUI scaling misplaces under the letterbox matrix).
+                Color sc = Color.Lerp(Pal.uiText, Pal.gold, Mathf.Clamp01(streak / 10f));
+                streakStyle.fontSize = Mathf.RoundToInt(30f * (1f + 0.4f * streakPop));
+                Label(new Rect(fx, fy + 146f, w, 50f), string.Format(Strings.HudStreak, streak), streakStyle, sc);
+            }
         }
 
         void DrawOwned(RunState run)
@@ -856,6 +881,7 @@ namespace Shura
             itemLeftStyle = MakeStyle(34, TextAnchor.MiddleLeft, false);
             ecosStyle = MakeStyle(48, TextAnchor.MiddleCenter, true);
             damageStyle = MakeStyle(24, TextAnchor.MiddleCenter, true);
+            streakStyle = MakeStyle(30, TextAnchor.MiddleRight, true);
         }
 
         static GUIStyle MakeStyle(int size, TextAnchor anchor, bool bold)

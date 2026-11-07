@@ -39,6 +39,9 @@ namespace Shura
         Mode altarReturnMode = Mode.MainMenu;
         string metaPath;
         float emberTimer;
+        float tempo = 1f;
+        float slowMoTimer;
+        float slowMoScale = 1f;
         BotInput bot;
         AutoDriver autoDriver;
 
@@ -59,6 +62,10 @@ namespace Shura
         public IReadOnlyList<RewardDef> RewardChoices => rewardChoices;
         public bool ShowHitboxes { get; set; }
         public IPlayerInputSource ActiveInput => bot != null ? (IPlayerInputSource)bot : Controls;
+        /// <summary>Current game speed (base tempo raised by Flow, lowered by slow motion).</summary>
+        public float EffectiveTempo => tempo * (slowMoTimer > 0f ? slowMoScale : 1f);
+
+        int FlowLevel => Run != null ? Run.Flow.Level : 0;
 
         void Awake()
         {
@@ -124,8 +131,18 @@ namespace Shura
 
         void Simulate()
         {
-            if (bot != null && Launch.Headless) Clock.Accumulate(SimClock.Dt * HeadlessBotTicksPerFrame, 10f);
-            else Clock.Accumulate(Time.unscaledDeltaTime);
+            if (bot != null && Launch.Headless)
+            {
+                Clock.Accumulate(SimClock.Dt * HeadlessBotTicksPerFrame, 10f);
+            }
+            else
+            {
+                // The duel breathes slower at Flow 0 and accelerates with every Flow level.
+                float target = Config.feel.baseTempo + Config.feel.tempoPerFlowLevel * FlowLevel;
+                tempo = Mathf.MoveTowards(tempo, target, Time.unscaledDeltaTime * 0.5f);
+                if (slowMoTimer > 0f) slowMoTimer -= Time.unscaledDeltaTime;
+                Clock.Accumulate(Time.unscaledDeltaTime * EffectiveTempo);
+            }
 
             while (Clock.Step(out bool frozen))
             {
@@ -145,6 +162,7 @@ namespace Shura
             bool frozen = Clock.HitstopFrames > 0 || CurrentMode != Mode.Playing;
             World.Render(frozen ? 1f : Clock.Alpha, frozen ? 0f : realDt, ShowHitboxes);
             Vfx.Paused = CurrentMode == Mode.Paused;
+            CameraRig.SetZoomOffset(Run != null ? FlowLevel * Config.feel.flowZoomPerLevel : 0f);
             // Outside a run the camera frames the whole arena behind the menus.
             if (Run != null) CameraRig.Follow(World.Player.RenderPosition, World.Player.Facing, World.Bounds, realDt);
             else CameraRig.Follow(World.Bounds.center, Vector2.zero, World.Bounds, realDt);
@@ -181,7 +199,9 @@ namespace Shura
             deathTimer = -1;
             rewardChoices.Clear();
             World.BeginRun(Run, ActiveInput);
-            World.StartRoom(0);
+            World.StartRoom(Run.Rooms[0], true);
+            tempo = Config.feel.baseTempo;
+            slowMoTimer = 0f;
             Vfx.Clear();
             SetMode(Mode.Playing);
             UI.FadeFromBlack();
@@ -317,6 +337,18 @@ namespace Shura
             }
         }
 
+        /// <summary>Briefly slows the whole simulation (real-time seconds). Never stacks to slower.</summary>
+        public void SlowMo(float seconds, float scale)
+        {
+            if (Launch.Headless) return;
+            if (slowMoTimer > 0f && slowMoScale <= scale) slowMoTimer = Mathf.Max(slowMoTimer, seconds);
+            else
+            {
+                slowMoTimer = seconds;
+                slowMoScale = Mathf.Clamp(scale, 0.05f, 1f);
+            }
+        }
+
         public void DevForceGameOver()
         {
             BankRun(false);
@@ -326,7 +358,7 @@ namespace Shura
         void NextRoom()
         {
             Run.RoomIndex++;
-            World.StartRoom(Run.RoomIndex);
+            World.StartRoom(Run.Rooms[Run.RoomIndex], false);
             SetMode(Mode.Playing);
             UI.FadeFromBlack();
         }
@@ -364,7 +396,7 @@ namespace Shura
 
         void AdvanceAfterRoom()
         {
-            if (Run.RoomIndex + 1 >= RoomDefs.Prototype.Length)
+            if (Run.RoomIndex + 1 >= Run.Rooms.Count)
             {
                 BankRun(true);
                 SetMode(Mode.Victory);

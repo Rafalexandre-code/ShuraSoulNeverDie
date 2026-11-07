@@ -53,7 +53,8 @@ namespace Shura
 
             sb.Clear();
             sb.Append("FPS ").Append(fps.ToString("0")).Append("   tick ").Append(game.Clock.TickCount)
-              .Append("   hitstop ").Append(game.Clock.HitstopFrames).Append('\n');
+              .Append("   hitstop ").Append(game.Clock.HitstopFrames)
+              .Append("   ritmo ").Append(game.EffectiveTempo.ToString("0.00")).Append('\n');
             sb.Append("modo ").Append(game.CurrentMode);
             RunState run = game.Run;
             if (run != null)

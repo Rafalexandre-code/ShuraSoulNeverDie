@@ -20,6 +20,16 @@ namespace Shura
         Blade,
         Spear,
         Staff,
+        Axe,
+        Arrow,
+        /// <summary>Square sprite centered on the grip (bows are held, not swung from a hilt).</summary>
+        Bow,
+        Pentagon,
+        Octagon,
+        Capsule,
+        Shield,
+        /// <summary>Four-point sparkle used for blade-on-blade clashes.</summary>
+        Star,
     }
 
     /// <summary>
@@ -37,6 +47,15 @@ namespace Shura
         static readonly Vector2[] TriangleVerts = { new Vector2(0.95f, 0f), new Vector2(-0.7f, 0.8f), new Vector2(-0.7f, -0.8f) };
         static readonly Vector2[] DiamondVerts = { new Vector2(0.95f, 0f), new Vector2(0f, 0.95f), new Vector2(-0.95f, 0f), new Vector2(0f, -0.95f) };
         static readonly Vector2[] HexagonVerts = BuildRegularPolygon(6, 0.95f);
+        static readonly Vector2[] PentagonVerts = BuildRegularPolygon(5, 0.95f);
+        static readonly Vector2[] OctagonVerts = BuildRegularPolygon(8, 0.95f);
+
+        static float RoundedRect(Vector2 p, float halfX, float halfY, float radius)
+        {
+            Vector2 q = new Vector2(Mathf.Abs(p.x) - (halfX - radius), Mathf.Abs(p.y) - (halfY - radius));
+            Vector2 outside = new Vector2(Mathf.Max(q.x, 0f), Mathf.Max(q.y, 0f));
+            return outside.magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - radius;
+        }
 
         public static Sprite Get(Shape shape)
         {
@@ -59,6 +78,12 @@ namespace Shura
                     break;
                 case Shape.Staff:
                     sprite = RasterizeLong(StaffTexel);
+                    break;
+                case Shape.Axe:
+                    sprite = RasterizeLong(AxeTexel);
+                    break;
+                case Shape.Arrow:
+                    sprite = RasterizeLong(ArrowTexel);
                     break;
                 default:
                     sprite = Rasterize(Resolution, p => Coverage(shape, p, Resolution));
@@ -136,6 +161,24 @@ namespace Shura
             return Shade(0.62f, AaV(0.17f - av));
         }
 
+        static Color AxeTexel(float u, float v)
+        {
+            Color shaft = Shade(0.5f, u < 0.9f ? AaV(0.12f - Mathf.Abs(v)) : 0f);
+            if (u < 0.58f || u > 0.98f) return shaft;
+            // Crescent blade on one side of the haft.
+            float top = 0.95f * Mathf.Sin(Mathf.PI * (u - 0.58f) / 0.4f);
+            float head = v > 0f ? AaV(Mathf.Min(top - v, v + 0.05f)) : 0f;
+            return head > shaft.a ? Shade(v > top * 0.75f ? 1f : 0.85f, head) : shaft;
+        }
+
+        static Color ArrowTexel(float u, float v)
+        {
+            float av = Mathf.Abs(v);
+            if (u > 0.8f) return Shade(1f, AaV(0.38f * (1f - (u - 0.8f) / 0.2f) - av));     // head
+            if (u < 0.16f) return Shade(0.9f, AaV(0.32f - av) * (u > 0.03f ? 1f : 0f));    // fletching
+            return Shade(0.7f, AaV(0.07f - av));                                            // shaft
+        }
+
         static float AaV(float sdfInside) => Mathf.Clamp01(0.5f + sdfInside / LongPixelV);
         static float Smooth(float a, float b, float x) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, x));
         static Color Shade(float brightness, float alpha) => new Color(brightness, brightness, brightness, alpha);
@@ -201,6 +244,25 @@ namespace Shura
                 case Shape.Hexagon: return Aa(Polygon(p, HexagonVerts), res);
                 case Shape.Diamond: return Aa(Polygon(p, DiamondVerts), res);
                 case Shape.DiamondOutline: return Aa(Mathf.Abs(Polygon(p, DiamondVerts) + 0.12f) - 0.12f, res);
+                case Shape.Pentagon: return Aa(Polygon(p, PentagonVerts), res);
+                case Shape.Octagon: return Aa(Polygon(p, OctagonVerts), res);
+                case Shape.Capsule: return Aa(RoundedRect(p, 0.94f, 0.58f, 0.5f), res);
+                case Shape.Shield: return Aa(RoundedRect(p, 0.5f, 0.94f, 0.3f), res);
+                case Shape.Star:
+                {
+                    float ax = Mathf.Abs(p.x), ay = Mathf.Abs(p.y);
+                    float d1 = (ax / 0.97f + ay / 0.2f - 1f) * 0.18f;
+                    float d2 = (ax / 0.2f + ay / 0.97f - 1f) * 0.18f;
+                    return Aa(Mathf.Min(d1, d2), res);
+                }
+                case Shape.Bow:
+                {
+                    float len = p.magnitude;
+                    float ang = Mathf.Abs(Mathf.Atan2(p.y, p.x));
+                    float limb = ang < 70f * Mathf.Deg2Rad ? Aa(Mathf.Abs(len - 0.75f) - 0.07f, res) : 0f;
+                    float stringLine = Mathf.Abs(p.y) < 0.7f ? Aa(Mathf.Abs(p.x - 0.26f) - 0.02f, res) * 0.8f : 0f;
+                    return Mathf.Max(limb, stringLine);
+                }
                 case Shape.SoftCircle:
                 {
                     float t = 1f - Mathf.Clamp01(p.magnitude);

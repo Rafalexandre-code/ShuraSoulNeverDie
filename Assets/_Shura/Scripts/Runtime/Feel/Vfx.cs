@@ -33,7 +33,7 @@ namespace Shura
         SpriteRenderer[] renderers;
         Particle[] parts;
         int cursor;
-        Sprite pixel, pixelLeft, soft, ring, circle;
+        Sprite pixel, pixelLeft, soft, ring, circle, star;
 
         public bool Paused { get; set; }
 
@@ -51,6 +51,16 @@ namespace Shura
             soft = ShapeLibrary.Get(Shape.SoftCircle);
             ring = ShapeLibrary.Get(Shape.Ring);
             circle = ShapeLibrary.Get(Shape.Circle);
+            star = ShapeLibrary.Get(Shape.Star);
+        }
+
+        /// <summary>The flash where two blades meet: two crossed sparkles that burst and fade.</summary>
+        public void ClashStar(Vector2 pos, float size, Color color)
+        {
+            float rot = Random.Range(0f, 45f);
+            Spawn(star, pos, Vector2.zero, 0.2f, size * 0.4f, size, Color.white, color.WithAlpha(0f), 0f, false, rot);
+            Spawn(star, pos, Vector2.zero, 0.14f, size * 0.3f, size * 0.7f, Color.white, Color.white.WithAlpha(0f), 0f, false, rot + 45f);
+            Spawn(soft, pos, Vector2.zero, 0.16f, size * 0.5f, size * 1.4f, color.WithAlpha(0.8f), color.WithAlpha(0f));
         }
 
         public void Clear()

@@ -5,9 +5,42 @@ using Object = UnityEngine.Object;
 
 namespace Shura
 {
+    /// <summary>An arrow in flight. A perfect parry turns it around.</summary>
+    public sealed class Projectile
+    {
+        public Vector2 Position;
+        public Vector2 PrevPosition;
+        public Vector2 Direction;
+        public float Speed;
+        public float Radius;
+        public AttackDef Attack;
+        public Enemy Owner;
+        public bool Signature;
+        public bool Reflected;
+        public bool PassedPlayer;
+        public bool Cued;
+        public float Damage;
+        public float Posture;
+        public int Life;
+        public SpriteRenderer View;
+        public SpriteRenderer Ring;
+        public SpriteRenderer Glow;
+
+        /// <summary>Simulation frames until it reaches the player (infinite if not heading there).</summary>
+        public float FramesToImpact(PlayerController player)
+        {
+            Vector2 to = player.Position - Position;
+            float along = Vector2.Dot(to, Direction);
+            if (along <= 0f) return float.PositiveInfinity;
+            float gap = to.magnitude - player.Radius - Radius;
+            return Mathf.Max(0f, gap) / Mathf.Max(0.01f, Speed * SimClock.Dt);
+        }
+    }
+
     /// <summary>
-    /// Owns the arena, the fighters and the room/wave flow, and resolves every hit. Tick
-    /// order is fixed (player, enemies, effects, collisions, waves) so runs are reproducible.
+    /// Owns the arena, the fighters, projectiles and the room/wave flow, and resolves every
+    /// hit. Tick order is fixed (player, enemies, projectiles, effects, collisions, waves)
+    /// so runs are reproducible from their seed.
     /// </summary>
     public sealed class World
     {
@@ -20,10 +53,16 @@ namespace Shura
             public float posture;
         }
 
+        const float ArrowLength = 0.75f;
+        const int ProjectileLifeFrames = 240;
+        const float ReflectSpeedMult = 1.5f;
+        const int RingApproachFrames = 30;
+
         public readonly GameConfig Config;
         public readonly IFeedback Fx;
         public readonly AttackCoordinator Coordinator;
         public readonly List<Enemy> Enemies = new List<Enemy>();
+        public readonly List<Projectile> Projectiles = new List<Projectile>();
 
         readonly Transform root;
         readonly List<Burst> bursts = new List<Burst>();
@@ -39,6 +78,7 @@ namespace Shura
         public RoomDef CurrentRoom { get; private set; }
         public int WaveIndex { get; private set; }
         public bool RoomCleared { get; private set; }
+        public bool IsLastWave => CurrentRoom != null && WaveIndex >= CurrentRoom.waves.Length - 1;
         public bool PlayerInvincible { get; set; }
         /// <summary>Accessibility/readability option: the shrinking "press now" ring.</summary>
         public bool ShowTimingIndicator { get; set; } = true;
@@ -95,16 +135,16 @@ namespace Shura
             roomActive = false;
         }
 
-        public void StartRoom(int index)
+        public void StartRoom(RoomDef room, bool firstRoom)
         {
             ClearEnemies();
-            CurrentRoom = RoomDefs.Prototype[Mathf.Clamp(index, 0, RoomDefs.Prototype.Length - 1)];
+            CurrentRoom = room;
             WaveIndex = -1;
             waveDelay = Config.enemies.firstWaveDelay;
             RoomCleared = false;
             roomActive = true;
             Player.ResetForRoom(PlayerSpawn);
-            if (index == 0) HintOnce(HintId.Controls);
+            if (firstRoom) HintOnce(HintId.Controls);
         }
 
         public void Tick()
@@ -113,6 +153,7 @@ namespace Shura
             Coordinator.Tick();
             Player.Tick();
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Tick();
+            TickProjectiles();
             TickBursts();
             ResolveCollisions();
             RemoveDead();
@@ -147,6 +188,7 @@ namespace Shura
             RoomCleared = true;
             roomActive = false;
             Coordinator.Reset();
+            ClearProjectiles();
             RoomClearedEvent?.Invoke();
         }
 
@@ -201,6 +243,7 @@ namespace Shura
             }
             Enemies.Clear();
             bursts.Clear();
+            ClearProjectiles();
             Coordinator.Reset();
         }
 
@@ -211,7 +254,14 @@ namespace Shura
         {
             if (!Player.IsAlive) return false;
             if (!CombatMath.Overlaps(attack.shape, attacker.Position, attacker.Facing, Player.Position, Player.Radius)) return false;
-            Player.ReceiveAttack(attacker, attack);
+            var incoming = new IncomingAttack
+            {
+                attacker = attacker,
+                attack = attack,
+                source = attacker.Position,
+                signature = attacker.CurrentMove != null && attacker.CurrentMove.isSignature,
+            };
+            Player.ReceiveAttack(incoming);
             return true;
         }
 
@@ -244,14 +294,19 @@ namespace Shura
                 if (!CombatMath.Overlaps(shape, origin, direction, e.Position, e.Radius)) continue;
                 alreadyHit?.Add(e);
 
+                float finalDamage = damage;
                 float finalPosture = posture;
                 if (applyRewardHooks)
                 {
-                    for (int r = 0; r < Run.Owned.Count; r++) Run.Owned[r].ModifyAttackPosture(this, e, ref finalPosture);
+                    for (int r = 0; r < Run.Owned.Count; r++)
+                    {
+                        Run.Owned[r].ModifyAttackDamage(this, e, ref finalDamage);
+                        Run.Owned[r].ModifyAttackPosture(this, e, ref finalPosture);
+                    }
                 }
                 Vector2 hitDir = e.Position - origin;
                 hitDir = hitDir.sqrMagnitude > 1e-4f ? hitDir.normalized : direction;
-                e.ReceivePlayerHit(damage, finalPosture, hitDir, unblockable);
+                e.ReceivePlayerHit(finalDamage, finalPosture, hitDir, unblockable);
             }
         }
 
@@ -278,10 +333,13 @@ namespace Shura
 
             Run.Finishers++;
             Vector2 dir = enemy.Position - Player.Position;
-            Fx.Emit(FxType.Finisher, enemy.Position, dir.sqrMagnitude > 1e-4f ? dir.normalized : Player.Facing, enemy.Radius, enemy.Def.color);
+            // Magnitude 2 marks the last enemy of the room: the router plays the slow-motion kill.
+            bool lastOne = ActiveEnemyCount <= 1 && IsLastWave;
+            Fx.Emit(FxType.Finisher, enemy.Position, dir.sqrMagnitude > 1e-4f ? dir.normalized : Player.Facing, lastOne ? 2f : 1f, enemy.Def.color);
             bool absorb = enemy.Mastered && Run.CanAbsorb(enemy.Def.techniqueId);
             enemy.Die();
             AddFlow(Config.flow.finisherPoints);
+            for (int r = 0; r < Run.Owned.Count; r++) Run.Owned[r].OnFinisher(this, enemy);
 
             float heal = Run.Modifiers.finisherHeal + (Run.Flow.Level >= Run.Flow.MaxLevel ? Config.flow.level3FinisherHeal : 0f);
             if (heal > 0f)
@@ -298,14 +356,22 @@ namespace Shura
         }
 
         /// <summary>Marks the enemy for absorption when the player gives its signature the Perfect Answer.</summary>
-        public void TryMaster(Enemy attacker, SignatureAnswer answer)
+        public void TryMaster(Enemy attacker, SignatureAnswer answer, bool fromSignature)
         {
-            if (Run == null || attacker.Mastered || attacker.CurrentMove == null || !attacker.CurrentMove.isSignature) return;
+            if (Run == null || attacker == null || attacker.IsGone || attacker.Mastered || !fromSignature) return;
             if (attacker.Def.signatureAnswer != answer || !Run.CanAbsorb(attacker.Def.techniqueId)) return;
             attacker.MarkMastered();
             Fx.Emit(FxType.Mastered, attacker.Position, Vector2.up, 1f, Config.palette.gold);
             Fx.Popup(Strings.PopupMastered, attacker.Position + Vector2.up * 0.9f, Config.palette.gold);
             HintOnce(HintId.Mastery);
+        }
+
+        /// <summary>A perfect action extends the streak; milestones get their own fanfare.</summary>
+        public void RegisterPerfect(Vector2 where)
+        {
+            if (Run == null) return;
+            int streak = Run.RegisterPerfect();
+            if (streak >= 5 && streak % 5 == 0) Fx.Emit(FxType.StreakMilestone, where, Vector2.up, streak, Config.palette.gold);
         }
 
         public void AddFlow(float points)
@@ -327,6 +393,156 @@ namespace Shura
         public void HintOnce(HintId hint)
         {
             if (hintsShown.Add(hint)) Fx.Hint(hint);
+        }
+
+        /// <summary>The Sombra's signature: vanish and reappear behind the player.</summary>
+        public void TeleportBehindPlayer(Enemy enemy)
+        {
+            Vector2 from = enemy.Position;
+            Vector2 behind = Player.Position - Player.Facing * Config.enemies.teleportBehindDistance;
+            float r = enemy.Radius;
+            behind = new Vector2(Mathf.Clamp(behind.x, Bounds.xMin + r, Bounds.xMax - r), Mathf.Clamp(behind.y, Bounds.yMin + r, Bounds.yMax - r));
+            Fx.Emit(FxType.ShadowStep, from, Vector2.up, enemy.Radius, enemy.Def.color);
+            enemy.Teleport(behind);
+            Vector2 to = Player.Position - behind;
+            if (to.sqrMagnitude > 1e-4f) enemy.Facing = to.normalized;
+            Fx.Emit(FxType.ShadowStep, behind, Vector2.up, enemy.Radius, enemy.Def.color);
+        }
+
+        // ── Projectiles ─────────────────────────────────────────────────────────────────
+
+        public void SpawnProjectile(Enemy owner, AttackDef attack, bool signature)
+        {
+            Vector2 dir = owner.Facing;
+            Vector2 start = owner.Position + dir * (owner.Radius + 0.3f);
+            Projectile p = CreateProjectile(start, dir, attack.projectileSpeed, attack.projectileRadius, owner.Def.weaponColor);
+            p.Attack = attack;
+            p.Owner = owner;
+            p.Signature = signature;
+        }
+
+        /// <summary>A player-owned arrow (Flecha Reflexa): flies like a reflected one.</summary>
+        public void FirePlayerArrow(Vector2 origin, Vector2 direction, float damage, float posture)
+        {
+            Projectile p = CreateProjectile(origin + direction * (Player.Radius + 0.3f), direction, 16f, 0.22f, Config.palette.playerAccent);
+            p.Reflected = true;
+            p.Damage = damage;
+            p.Posture = posture;
+            Fx.Emit(FxType.EnemySwing, origin, direction, 2f);
+        }
+
+        Projectile CreateProjectile(Vector2 start, Vector2 dir, float speed, float radius, Color color)
+        {
+            var go = new GameObject("Projectile");
+            go.transform.SetParent(root, false);
+            var p = new Projectile
+            {
+                Position = start,
+                PrevPosition = start,
+                Direction = dir,
+                Speed = speed,
+                Radius = radius,
+                Life = ProjectileLifeFrames,
+                View = SpriteUtil.Make("Arrow", go.transform, ShapeLibrary.Get(Shape.Arrow), color, Sorting.Overlay - 10),
+                Ring = SpriteUtil.Make("ArrowRing", go.transform, ShapeLibrary.Get(Shape.Ring), Config.palette.playerAccent, Sorting.Overlay - 9),
+                Glow = SpriteUtil.Make("ArrowGlow", go.transform, ShapeLibrary.Get(Shape.SoftCircle), Color.white, Sorting.Overlay - 11),
+            };
+            p.Ring.enabled = false;
+            p.Glow.enabled = false;
+            Projectiles.Add(p);
+            return p;
+        }
+
+        void TickProjectiles()
+        {
+            for (int i = Projectiles.Count - 1; i >= 0; i--)
+            {
+                Projectile p = Projectiles[i];
+                p.PrevPosition = p.Position;
+                p.Position += p.Direction * p.Speed * SimClock.Dt;
+                p.Life--;
+
+                Rect outer = new Rect(Bounds.xMin - 0.5f, Bounds.yMin - 0.5f, Bounds.width + 1f, Bounds.height + 1f);
+                bool dead = p.Life <= 0 || !outer.Contains(p.Position);
+
+                if (!dead && !p.Reflected) dead = TickHostileProjectile(p);
+                else if (!dead) dead = TickFriendlyProjectile(p);
+
+                if (!dead) continue;
+                Object.Destroy(p.View.transform.parent.gameObject);
+                Projectiles.RemoveAt(i);
+            }
+        }
+
+        /// <summary>Returns true when the projectile is spent.</summary>
+        bool TickHostileProjectile(Projectile p)
+        {
+            if (p.PassedPlayer || !Player.IsAlive) return false;
+
+            if (!p.Cued && p.FramesToImpact(Player) <= Config.feel.timingCueLeadFrames)
+            {
+                p.Cued = true;
+                Fx.Emit(FxType.TimingCue, p.Position, p.Direction, 0f);
+            }
+
+            if (Vector2.Distance(p.Position, Player.Position) > Player.Radius + p.Radius) return false;
+            var incoming = new IncomingAttack
+            {
+                attacker = p.Owner,
+                attack = p.Attack,
+                source = p.Position - p.Direction,
+                signature = p.Signature,
+                projectile = true,
+            };
+            HitOutcome outcome = Player.ReceiveAttack(incoming);
+            switch (outcome)
+            {
+                case HitOutcome.PerfectParry:
+                    Reflect(p);
+                    return false;
+                case HitOutcome.PerfectDodge:
+                case HitOutcome.Ignored:
+                    p.PassedPlayer = true;
+                    return false;
+                default:
+                    return true;
+            }
+        }
+
+        bool TickFriendlyProjectile(Projectile p)
+        {
+            for (int i = 0; i < Enemies.Count; i++)
+            {
+                Enemy e = Enemies[i];
+                if (!e.CanBeHit) continue;
+                if (Vector2.Distance(p.Position, e.Position) > e.Radius + p.Radius) continue;
+                e.ReceivePlayerHit(p.Damage, p.Posture, p.Direction, true);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>A perfectly parried arrow flies back at whoever shot it.</summary>
+        void Reflect(Projectile p)
+        {
+            Enemy target = p.Owner != null && !p.Owner.IsGone ? p.Owner : FindNearestEnemy(p.Position, null);
+            Vector2 dir = target != null ? target.Position - p.Position : -p.Direction;
+            p.Direction = dir.sqrMagnitude > 1e-4f ? dir.normalized : -p.Direction;
+            p.Reflected = true;
+            p.Speed *= ReflectSpeedMult;
+            p.Damage = p.Attack.damage;
+            p.Posture = p.Attack.postureOnParried;
+            p.Life = ProjectileLifeFrames;
+            p.View.color = Config.palette.playerAccent;
+        }
+
+        void ClearProjectiles()
+        {
+            foreach (Projectile p in Projectiles)
+            {
+                if (p.View != null) Object.Destroy(p.View.transform.parent.gameObject);
+            }
+            Projectiles.Clear();
         }
 
         // ── Queries ─────────────────────────────────────────────────────────────────────
@@ -365,6 +581,22 @@ namespace Shura
                 if (!e.IsBroken) continue;
                 float dist = Vector2.Distance(from, e.Position) - e.Radius;
                 if (dist > range || dist >= bestDist) continue;
+                bestDist = dist;
+                best = e;
+            }
+            return best;
+        }
+
+        public Enemy FindNearestEnemy(Vector2 from, Enemy exclude)
+        {
+            Enemy best = null;
+            float bestDist = float.MaxValue;
+            for (int i = 0; i < Enemies.Count; i++)
+            {
+                Enemy e = Enemies[i];
+                if (e == exclude || !e.CanBeHit) continue;
+                float dist = Vector2.Distance(from, e.Position);
+                if (dist >= bestDist) continue;
                 bestDist = dist;
                 best = e;
             }
@@ -426,6 +658,41 @@ namespace Shura
             Decor.Animate(Time.unscaledTime);
             Player.Render(alpha, visualDt, showHitboxes);
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Render(alpha, visualDt, showHitboxes);
+            for (int i = 0; i < Projectiles.Count; i++) RenderProjectile(Projectiles[i], alpha);
+        }
+
+        /// <summary>Arrows carry their own "press now" ring that closes as they reach you.</summary>
+        void RenderProjectile(Projectile p, float alpha)
+        {
+            Vector2 pos = Vector2.LerpUnclamped(p.PrevPosition, p.Position, alpha);
+            Transform holder = p.View.transform.parent;
+            holder.position = new Vector3(pos.x, pos.y, 0f);
+            float angle = CombatMath.AngleDegrees(p.Direction);
+            p.View.transform.localRotation = Quaternion.Euler(0f, 0f, angle);
+            p.View.transform.localPosition = -(Vector3)(p.Direction * ArrowLength);
+            p.View.transform.localScale = new Vector3(ArrowLength, ArrowLength, 1f);
+
+            bool hostile = !p.Reflected && !p.PassedPlayer && Player.IsAlive;
+            float frames = hostile ? p.FramesToImpact(Player) : float.PositiveInfinity;
+            bool showRing = hostile && ShowTimingIndicator && frames <= RingApproachFrames + Config.feel.timingCueLeadFrames;
+            p.Ring.enabled = showRing;
+            p.Glow.enabled = showRing || p.Reflected;
+            if (p.Reflected)
+            {
+                p.Glow.color = Config.palette.playerAccent.WithAlpha(0.5f);
+                p.Glow.transform.localScale = new Vector3(0.9f, 0.9f, 1f);
+                return;
+            }
+            if (!showRing) return;
+
+            float lead = Config.feel.timingCueLeadFrames;
+            float t = Mathf.Clamp01(1f - (frames - lead) / RingApproachFrames);
+            bool now = frames <= lead;
+            float s = now ? 0.9f : Mathf.Lerp(2.6f, 0.9f, t);
+            p.Ring.transform.localScale = new Vector3(s, s, 1f);
+            p.Ring.color = now ? Color.white : Config.palette.playerAccent.WithAlpha(Mathf.Lerp(0.2f, 0.95f, t));
+            p.Glow.color = (now ? Config.palette.playerAccent : Color.white).WithAlpha(now ? 0.7f : 0.25f);
+            p.Glow.transform.localScale = new Vector3(1.4f, 1.4f, 1f);
         }
 
         public void DevKillAllEnemies()

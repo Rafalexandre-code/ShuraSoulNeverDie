@@ -91,6 +91,41 @@ namespace Shura.Tests
         }
 
         [Test]
+        public void Grab_CannotBeParriedOrBlocked_OnlyDodged()
+        {
+            AttackDef grab = new AttackDef { kind = AttackKind.Grab, windup = 30, active = 6, shape = HitShape.Arc(1.7f, 70f) };
+            DefenderState d = Facing(Vector2.right, Vector2.right);
+            d.parryWindow = true;
+            d.guarding = true;
+            Assert.AreEqual(HitOutcome.Hit, HitResolver.Resolve(grab, d));
+
+            DefenderState dodging = Facing(Vector2.right, Vector2.right);
+            dodging.dodgeIFrames = true;
+            dodging.dodgeDirection = Vector2.right;
+            Assert.AreEqual(HitOutcome.PerfectDodge, HitResolver.Resolve(grab, dodging), "Dodging into a grab is a perfect dodge, not a counter");
+        }
+
+        [Test]
+        public void Rooms_RunHasIntroThenSeededTiers_AllEnemiesExist()
+        {
+            List<RoomDef> a = RoomDefs.BuildRun(new SeededRandom(5));
+            List<RoomDef> b = RoomDefs.BuildRun(new SeededRandom(5));
+            Assert.AreEqual(RoomDefs.RunLength, a.Count);
+            Assert.AreSame(RoomDefs.Intro, a[0]);
+            for (int i = 0; i < a.Count; i++) Assert.AreSame(a[i], b[i], "Same seed, same rooms");
+            Assert.AreEqual(a.Count, new HashSet<RoomDef>(a).Count, "No room repeats in a run");
+
+            foreach (RoomDef room in RoomDefs.AllRooms())
+            {
+                foreach (string[] wave in room.waves)
+                {
+                    Assert.LessOrEqual(wave.Length, 3, room.name + ": at most 3 enemies at once");
+                    foreach (string id in wave) Assert.IsTrue(EnemyDefs.TryGet(id, out _), room.name + " references unknown enemy " + id);
+                }
+            }
+        }
+
+        [Test]
         public void HurtInvulnerability_IgnoresHits()
         {
             DefenderState d = Facing(Vector2.right, Vector2.right);
@@ -254,7 +289,8 @@ namespace Shura.Tests
         [Test]
         public void EveryReward_HasAGainAndACost()
         {
-            var ids = new List<string>(RewardIds.Relics) { RewardIds.PatientBlade, RewardIds.MirrorThrust, RewardIds.PhantomStep };
+            var ids = new List<string>(RewardIds.Relics);
+            ids.AddRange(RewardIds.Techniques);
             foreach (string id in ids)
             {
                 RewardDef r = RewardRegistry.Create(id);
@@ -267,8 +303,10 @@ namespace Shura.Tests
         [Test]
         public void EnemyContent_IsConsistent()
         {
-            foreach (EnemyDef def in new[] { EnemyDefs.Ronin, EnemyDefs.Lanceiro, EnemyDefs.Monge })
+            var techniques = new HashSet<string>();
+            foreach (EnemyDef def in EnemyDefs.All)
             {
+                Assert.IsTrue(techniques.Add(def.techniqueId), def.id + " shares a technique with another enemy");
                 int signatures = 0;
                 foreach (MoveDef m in def.moves)
                 {
@@ -279,6 +317,7 @@ namespace Shura.Tests
                         Assert.Greater(a.windup, 0, a.id);
                         Assert.Greater(a.active, 0, a.id);
                         Assert.LessOrEqual(a.trackUntil, a.windup, a.id + " must commit before the swing");
+                        if (a.IsProjectile) Assert.AreEqual(AttackKind.Normal, a.kind, a.id + " arrows must be parryable");
                     }
                 }
                 Assert.AreEqual(1, signatures, def.id + " needs exactly one signature move");

@@ -13,7 +13,13 @@ namespace Shura
         /// <summary>Permanent upgrades the run started with (may be null in tests).</summary>
         public readonly MetaProgress Meta;
 
+        /// <summary>The rooms of this run, drawn from the seed.</summary>
+        public readonly List<RoomDef> Rooms;
+
         public PlayerModifiers Modifiers { get; private set; } = new PlayerModifiers();
+        /// <summary>Perfect actions in a row without taking damage.</summary>
+        public int PerfectStreak;
+        public int BestStreak;
         public bool Banked;
         public int EcosBanked;
         public int RoomIndex;
@@ -31,7 +37,21 @@ namespace Shura
             Rng = new SeededRandom(seed);
             Flow = new FlowMeter(flow.levelThresholds, flow.maxPoints);
             Meta = meta;
+            Rooms = RoomDefs.BuildRun(Rng);
             RecomputeModifiers();
+        }
+
+        /// <summary>Returns the new streak length.</summary>
+        public int RegisterPerfect()
+        {
+            PerfectStreak++;
+            if (PerfectStreak > BestStreak) BestStreak = PerfectStreak;
+            return PerfectStreak;
+        }
+
+        public void BreakStreak()
+        {
+            PerfectStreak = 0;
         }
 
         public bool Owns(string id)

@@ -4,7 +4,9 @@ namespace Shura
 {
     /// <summary>
     /// Data-driven duelist AI. Keeps its preferred range, waits for the attack token, then
-    /// commits to a fixed, telegraphed move. Never changes how a move behaves at random.
+    /// commits to a fixed, telegraphed move. A perfect parry stops the swing (the blade
+    /// bounces and the enemy is open); when it deflects the player's swing, the player's
+    /// blade bounces instead. Never changes how a move behaves at random.
     /// </summary>
     public sealed class Enemy : Fighter
     {
@@ -13,6 +15,8 @@ namespace Shura
             Spawning,
             Engage,
             Attacking,
+            /// <summary>Blade bounced off a perfect parry: open to punishment.</summary>
+            Recoil,
             Stagger,
             Broken,
             Finishing,
@@ -21,22 +25,29 @@ namespace Shura
         }
 
         const float BarWidth = 1.1f;
+        const int TeleportFadeFrames = 10;
 
         EnemyTuning et;
         FeelTuning feel;
         Palette pal;
         SeededRandom rng;
-        SpriteRenderer timingTarget, timingApproach, timingGlow;
 
         bool stepHit;
-        bool parriedThisMove;
         int idleTimer;
         int staggerFrames;
         int strafeTimer;
         int blockStreak;
         float strafeSign = 1f;
 
+        int recoilDuration;
+        float recoilFromAngle;
+        float recoilSide;
+        bool recoilIsThrust;
+        bool resumeAfterRecoil;
+        int guardFrames;
+
         SpriteRenderer barBack, healthFill, postureFill, dangerGlyph, areaPreview, ringPreview, linePreview, seal, brokenRing;
+        SpriteRenderer timingTarget, timingApproach, timingGlow;
 
         public EnemyDef Def { get; private set; }
         public State CurrentState { get; private set; }
@@ -123,6 +134,7 @@ namespace Shura
             BeginTick();
             if (CurrentState == State.Dead) return;
             StateFrame++;
+            if (guardFrames > 0) guardFrames--;
 
             switch (CurrentState)
             {
@@ -134,6 +146,9 @@ namespace Shura
                     break;
                 case State.Attacking:
                     TickAttack();
+                    break;
+                case State.Recoil:
+                    TickRecoil();
                     break;
                 case State.Stagger:
                     Velocity = Vector2.Lerp(Velocity, Vector2.zero, 0.2f);
@@ -237,7 +252,6 @@ namespace Shura
         {
             CurrentMove = move;
             StepIndex = 0;
-            parriedThisMove = false;
             Enter(State.Attacking);
             StartStep();
         }
@@ -248,14 +262,23 @@ namespace Shura
             stepHit = false;
             AttackSerial++;
             AttackDef attack = CurrentAttack;
+
+            if (attack.teleportBehind)
+            {
+                world.TeleportBehindPlayer(this);
+                world.HintOnce(HintId.Shadow);
+            }
+
             if (attack.IsDangerous)
             {
                 world.Fx.Emit(FxType.DangerCue, Position, Facing, 1f, pal.danger);
-                world.HintOnce(attack.kind == AttackKind.Thrust ? HintId.DangerThrust : HintId.DangerSweep);
+                world.HintOnce(attack.kind == AttackKind.Thrust ? HintId.DangerThrust
+                             : attack.kind == AttackKind.Sweep ? HintId.DangerSweep
+                             : HintId.DangerGrab);
             }
             else
             {
-                world.HintOnce(HintId.Parry);
+                world.HintOnce(attack.IsProjectile ? HintId.Projectile : HintId.Parry);
             }
             Squash(0.88f, 1.1f);
             areaPreview.sprite = ShapeLibrary.Wedge(attack.shape.type == HitShapeType.Circle ? 360f : attack.shape.arcDegrees);
@@ -265,10 +288,12 @@ namespace Shura
         {
             StepFrame++;
             AttackDef attack = CurrentAttack;
-            if (StepFrame == TelegraphTiming.CueFrame(attack.windup, feel.timingCueLeadFrames))
+            // Arrows cue on their own flight; melee cues when the ring closes.
+            if (!attack.IsProjectile && StepFrame == TelegraphTiming.CueFrame(attack.windup, feel.timingCueLeadFrames))
             {
                 world.Fx.Emit(FxType.TimingCue, Position, Facing, attack.IsDangerous ? 1f : 0f);
             }
+
             Vector2 to = world.Player.Position - Position;
             if (StepFrame <= attack.trackUntil && to.sqrMagnitude > 1e-4f)
             {
@@ -279,26 +304,42 @@ namespace Shura
 
             if (StepFrame == attack.windup)
             {
-                world.Fx.Emit(FxType.EnemySwing, Position, Facing, attack.IsDangerous ? 1.5f : 1f);
+                world.Fx.Emit(FxType.EnemySwing, Position, Facing, attack.IsDangerous ? 1.5f : attack.IsProjectile ? 2f : 1f);
                 Squash(1.25f, 0.82f);
+                if (attack.IsProjectile) world.SpawnProjectile(this, attack, CurrentMove.isSignature);
             }
 
             bool active = StepFrame >= attack.windup && StepFrame < attack.windup + attack.active;
-            if (active)
+            if (active && !attack.IsProjectile)
             {
                 if (attack.lunge > 0f) Position += Facing * (attack.lunge / attack.active);
                 if (!stepHit && world.TryHitPlayer(this, attack)) stepHit = true;
-                // A perfect answer can break posture or stagger us mid-swing.
+                // A perfect answer can break posture, recoil or stagger us mid-swing.
                 if (CurrentState != State.Attacking) return;
             }
 
-            bool lastStep = StepIndex == CurrentMove.steps.Length - 1;
-            int recovery = attack.recovery + (lastStep && parriedThisMove ? et.parriedFinalStepExtraRecovery : 0);
-            if (StepFrame < attack.windup + attack.active + recovery) return;
-
-            if (!lastStep)
+            if (StepFrame < attack.windup + attack.active + attack.recovery) return;
+            if (StepIndex < CurrentMove.steps.Length - 1)
             {
                 StepIndex++;
+                StartStep();
+            }
+            else
+            {
+                EndMove();
+            }
+        }
+
+        void TickRecoil()
+        {
+            Velocity = Vector2.Lerp(Velocity, Vector2.zero, 0.2f);
+            RegenPosture();
+            if (StateFrame < recoilDuration) return;
+            if (resumeAfterRecoil && CurrentMove != null)
+            {
+                // Combos continue after the bounce: every strike of a flurry is its own clash.
+                StepIndex++;
+                Enter(State.Attacking);
                 StartStep();
             }
             else
@@ -323,6 +364,7 @@ namespace Shura
 
         // ── Reactions ───────────────────────────────────────────────────────────────────
 
+        /// <summary>Perfectly parried: the blade stops and bounces back; the swing ends.</summary>
         public void OnParried(float posture)
         {
             Squash(0.82f, 1.15f);
@@ -332,7 +374,16 @@ namespace Shura
                 BreakPosture();
                 return;
             }
-            parriedThisMove = true;
+            AttackDef attack = CurrentAttack;
+            if (attack == null) return;
+
+            recoilFromAngle = CurrentWeaponAngle;
+            recoilSide = StepIndex % 2 == 0 ? 1f : -1f;
+            recoilIsThrust = attack.shape.type == HitShapeType.Line;
+            resumeAfterRecoil = StepIndex < CurrentMove.steps.Length - 1;
+            recoilDuration = resumeAfterRecoil ? et.recoilFrames : et.recoilFinalFrames;
+            Flash(0.05f);
+            Enter(State.Recoil);
         }
 
         public void OnCounterThrust(float posture)
@@ -350,7 +401,14 @@ namespace Shura
             Enter(State.Stagger);
         }
 
-        /// <summary>Returns true if the swing connected (hit or blocked).</summary>
+        /// <summary>Posture damage from techniques (shockwaves, Muralha…).</summary>
+        public void ApplyPosture(float amount)
+        {
+            if (!CanBeHit || IsBroken) return;
+            if (Posture.Add(amount)) BreakPosture();
+        }
+
+        /// <summary>Returns true if the swing connected (hit or deflected).</summary>
         public bool ReceivePlayerHit(float damage, float posture, Vector2 hitDir, bool unblockable)
         {
             if (!CanBeHit) return false;
@@ -359,29 +417,15 @@ namespace Shura
             bool facingAttacker = Vector2.Dot(Facing, -hitDir) > 0.26f;
             if (!unblockable && CurrentState == State.Engage && facingAttacker && rng.NextFloat() < Def.blockChance)
             {
-                blockStreak++;
-                world.Fx.Emit(FxType.EnemyBlocked, contact, -hitDir);
-                Squash(0.9f, 1.08f);
-                Velocity = hitDir * et.hitKnockback * 0.6f;
-                if (Posture.Add(posture * et.blockPostureMultiplier))
-                {
-                    BreakPosture();
-                    return true;
-                }
-                // Turtling forever is not allowed: after a few blocks it punishes mashing.
-                if (blockStreak >= et.riposteAfterBlocks)
-                {
-                    blockStreak = 0;
-                    Riposte();
-                }
+                Deflect(posture, hitDir, contact);
                 return true;
             }
 
             blockStreak = 0;
             Health -= damage;
             Flash(0.07f);
-            Squash(0.8f, 1.2f);
-            if (CurrentState != State.Attacking && CurrentState != State.Broken) Velocity = hitDir * et.hitKnockback;
+            Squash(Def.superArmor ? 0.92f : 0.8f, Def.superArmor ? 1.08f : 1.2f);
+            if (!Def.superArmor && CurrentState != State.Attacking && CurrentState != State.Broken) Velocity = hitDir * et.hitKnockback;
             world.Fx.Emit(FxType.HitEnemy, contact, hitDir, damage, Def.color);
 
             if (Health <= 0f)
@@ -393,14 +437,38 @@ namespace Shura
             return true;
         }
 
+        /// <summary>The enemy guards: blades clash, the player's sword bounces off.</summary>
+        void Deflect(float posture, Vector2 hitDir, Vector2 contact)
+        {
+            blockStreak++;
+            guardFrames = et.guardVisualFrames;
+            Facing = -hitDir;
+            Squash(0.9f, 1.08f);
+            Velocity = hitDir * et.hitKnockback * 0.6f;
+            world.Fx.Emit(FxType.EnemyBlocked, contact, -hitDir);
+            world.Player.OnDeflected();
+            if (Posture.Add(posture * et.blockPostureMultiplier))
+            {
+                BreakPosture();
+                return;
+            }
+            // Turtling forever is not allowed: after a few blocks it punishes mashing.
+            if (blockStreak >= et.riposteAfterBlocks)
+            {
+                blockStreak = 0;
+                Riposte();
+            }
+        }
+
         void Riposte()
         {
             float dist = Vector2.Distance(world.Player.Position, Position);
             MoveDef fastest = null;
             foreach (MoveDef m in Def.moves)
             {
-                if (m.steps[0].IsDangerous || dist < m.minRange || dist > m.maxRange) continue;
-                if (fastest == null || m.steps[0].windup < fastest.steps[0].windup) fastest = m;
+                AttackDef first = m.steps[0];
+                if (first.IsDangerous || first.IsProjectile || first.teleportBehind || dist < m.minRange || dist > m.maxRange) continue;
+                if (fastest == null || first.windup < fastest.steps[0].windup) fastest = m;
             }
             if (fastest != null && world.Coordinator.ForceAcquire(this)) StartMove(fastest);
         }
@@ -440,7 +508,9 @@ namespace Shura
 
         // ── View ────────────────────────────────────────────────────────────────────────
 
-        float IdleAngle => Def.weapon == Shape.Spear ? 0f : Def.weapon == Shape.Staff ? 35f : -50f;
+        float IdleAngle =>
+            Def.weapon == Shape.Spear || Def.weapon == Shape.Bow ? 0f :
+            Def.weapon == Shape.Staff || Def.weapon == Shape.Axe ? 35f : -50f;
 
         protected override WeaponPose GetWeaponPose()
         {
@@ -454,12 +524,26 @@ namespace Shura
             AttackDef attack = CurrentAttack;
             switch (CurrentState)
             {
+                case State.Engage:
+                    if (guardFrames > 0)
+                    {
+                        // Guard raised across the body, kicked by the impact of the player's blade.
+                        int f = et.guardVisualFrames - guardFrames;
+                        pose.snap = true;
+                        pose.angle = 75f + 30f * Bounce(f, et.guardVisualFrames, 3);
+                        pose.tint = Color.Lerp(weaponColor, Color.white, 0.5f * Bounce(f, et.guardVisualFrames, 2));
+                    }
+                    break;
                 case State.Attacking:
                     if (attack != null)
                     {
                         pose.snap = true;
                         AttackPose(attack, idle, ref pose);
                     }
+                    break;
+                case State.Recoil:
+                    pose.snap = true;
+                    RecoilPose(idle, ref pose);
                     break;
                 case State.Broken:
                 case State.Finishing:
@@ -480,6 +564,26 @@ namespace Shura
             return pose;
         }
 
+        /// <summary>The blade is knocked back the way it came, freezes, then drifts back to guard.</summary>
+        void RecoilPose(float idle, ref WeaponPose pose)
+        {
+            int f = StateFrame;
+            float bump = Bounce(f, recoilDuration, 4);
+            if (recoilIsThrust)
+            {
+                pose.angle = 25f * bump;
+                pose.extend = Mathf.Lerp(0.2f, -0.6f, CombatMath.EaseOutCubic(Mathf.Clamp01(f / 4f))) * (0.4f + 0.6f * bump);
+            }
+            else
+            {
+                float knocked = recoilFromAngle + recoilSide * 60f;
+                pose.angle = f < 4
+                    ? Mathf.Lerp(recoilFromAngle, knocked, CombatMath.EaseOutCubic(f / 4f))
+                    : Mathf.Lerp(knocked, idle, CombatMath.EaseOutQuad((f - 4) / (float)Mathf.Max(1, recoilDuration - 4)));
+            }
+            pose.tint = Color.Lerp(weaponColor, Color.white, f < 4 ? 0.8f : 0f);
+        }
+
         /// <summary>
         /// The weapon itself is the main telegraph: it pulls back through the whole windup
         /// (anticipation), trembles while a long strike is held, then releases.
@@ -492,6 +596,15 @@ namespace Shura
             float tA = Mathf.Clamp01((StepFrame - attack.windup + 1) / (float)attack.active);
             float tR = Mathf.Clamp01((StepFrame - attack.windup - attack.active) / (float)Mathf.Max(1, attack.recovery));
             float tremble = attack.windup >= 30 && tW > 0.66f && winding ? Mathf.Sin(Time.unscaledTime * 70f) * 3f : 0f;
+
+            if (attack.IsProjectile)
+            {
+                // Draw the bow: pull back through the windup, snap forward on release.
+                pose.angle = tremble;
+                pose.extend = winding ? Mathf.Lerp(0f, -0.25f, CombatMath.EaseOutCubic(tW)) : Mathf.Lerp(0.15f, 0f, tR);
+                if (winding && tW > 0.6f) pose.tint = Color.Lerp(weaponColor, Color.white, (tW - 0.6f) * 2f);
+                return;
+            }
 
             switch (attack.shape.type)
             {
@@ -527,10 +640,11 @@ namespace Shura
         /// <summary>
         /// "Press now" indicator: a ring shrinks onto the attacker at a constant speed and
         /// closes a few frames before impact (see TelegraphTiming). Cyan = parry, red = dodge.
+        /// Arrows carry their own cue in flight.
         /// </summary>
         void RenderTimingIndicator(AttackDef attack)
         {
-            bool show = world.ShowTimingIndicator && attack != null && CurrentState == State.Attacking &&
+            bool show = world.ShowTimingIndicator && attack != null && !attack.IsProjectile && CurrentState == State.Attacking &&
                         TelegraphTiming.ApproachVisible(StepFrame, attack.windup, feel.timingCueLeadFrames, feel.timingApproachFrames);
             if (!show)
             {
@@ -571,12 +685,12 @@ namespace Shura
 
         protected override void RenderExtra(Vector2 renderPosition, float visualDt)
         {
-            RenderTimingIndicator(CurrentAttack);
-
             AttackDef attack = CurrentAttack;
+            RenderTimingIndicator(attack);
+
             float windupT = attack != null ? Mathf.Clamp01(StepFrame / (float)Mathf.Max(1, attack.windup)) : 0f;
             bool active = attack != null && StepFrame >= attack.windup && StepFrame < attack.windup + attack.active;
-            bool telegraphing = attack != null && StepFrame < attack.windup + attack.active;
+            bool telegraphing = attack != null && !attack.IsProjectile && StepFrame < attack.windup + attack.active;
 
             Color c = Def.color;
             switch (CurrentState)
@@ -587,6 +701,10 @@ namespace Shura
                 case State.Attacking:
                     // Anticipation: the body heats toward white as the swing approaches.
                     if (!active && attack != null && StepFrame < attack.windup) c = Color.Lerp(Def.color, Color.white, windupT * windupT * 0.55f);
+                    if (attack != null && attack.teleportBehind && StepFrame < TeleportFadeFrames) c.a = 0.2f + 0.8f * StepFrame / TeleportFadeFrames;
+                    break;
+                case State.Recoil:
+                    c = Color.Lerp(Def.color, pal.uiDim, 0.35f);
                     break;
                 case State.Stagger:
                     c = Color.Lerp(Def.color, pal.uiDim, 0.5f);
@@ -605,7 +723,7 @@ namespace Shura
             bool glint = attack != null && !active && windupT > 0.7f;
             pointer.color = glint ? Color.white.WithAlpha(c.a) : (Def.color * 0.85f).WithAlpha(c.a);
 
-            float rotation = CombatMath.AngleDegrees(Facing);
+            float rotation = FacingAngle;
             Color tint = attack != null && attack.IsDangerous ? pal.danger : Color.white;
             float alpha = active ? 0.6f : Mathf.Lerp(0.06f, 0.32f, windupT);
             HitShapeType shapeType = attack != null ? attack.shape.type : HitShapeType.Arc;

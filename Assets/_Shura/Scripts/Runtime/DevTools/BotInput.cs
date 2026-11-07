@@ -5,8 +5,8 @@ namespace Shura
     /// <summary>
     /// A scripted duelist used only for automated verification. It reads enemy frame data
     /// directly and gives each attack its Perfect Answer, which exercises the whole loop:
-    /// parry → posture break → finisher → absorption → reward → next room.
-    /// It is deliberately not "fun" or human-like.
+    /// parry → posture break → finisher → absorption → reward → next room, including arrows,
+    /// grabs and teleports. It is deliberately not "fun" or human-like.
     /// </summary>
     public sealed class BotInput : IPlayerInputSource
     {
@@ -14,7 +14,7 @@ namespace Shura
         const float CloseRange = 1.3f;
 
         Vector2 aim = Vector2.right;
-        Enemy lastAnswered;
+        object lastAnsweredKey;
         int lastAnsweredSerial = -1;
         int attackCooldown;
 
@@ -32,12 +32,14 @@ namespace Shura
             if (!p.IsAlive) return;
             if (attackCooldown > 0) attackCooldown--;
 
+            if (AnswerProjectile(world, p)) return;
+
             Enemy threat = null;
             int soonest = int.MaxValue;
             foreach (Enemy e in world.Enemies)
             {
                 AttackDef a = e.CurrentAttack;
-                if (a == null || !e.IsThreatening) continue;
+                if (a == null || a.IsProjectile || !e.IsThreatening) continue;
                 int until = a.windup - e.StepFrame;
                 if (until < soonest)
                 {
@@ -72,6 +74,32 @@ namespace Shura
             Approach(p, target.Position, CloseRange, !threatSoon);
         }
 
+        /// <summary>Parries the arrow about to land; returns true while one is incoming.</summary>
+        bool AnswerProjectile(World world, PlayerController p)
+        {
+            Projectile incoming = null;
+            float soonest = float.PositiveInfinity;
+            foreach (Projectile pr in world.Projectiles)
+            {
+                if (pr.Reflected || pr.PassedPlayer) continue;
+                float frames = pr.FramesToImpact(p);
+                if (frames < soonest)
+                {
+                    soonest = frames;
+                    incoming = pr;
+                }
+            }
+            if (incoming == null || soonest > 12f) return false;
+            aim = -incoming.Direction;
+            if (soonest <= AnswerLeadFrames && !ReferenceEquals(lastAnsweredKey, incoming))
+            {
+                Buffer.Press(BufferedAction.Parry, 3);
+                lastAnsweredKey = incoming;
+                lastAnsweredSerial = -1;
+            }
+            return true;
+        }
+
         /// <summary>Returns true when the threat is in reach and was handled this tick.</summary>
         bool AnswerThreat(PlayerController p, Enemy threat, int framesUntilActive)
         {
@@ -83,7 +111,7 @@ namespace Shura
 
             Vector2 dir = dist > 1e-3f ? to / dist : p.Facing;
             aim = dir;
-            bool answered = threat == lastAnswered && threat.AttackSerial == lastAnsweredSerial;
+            bool answered = ReferenceEquals(threat, lastAnsweredKey) && threat.AttackSerial == lastAnsweredSerial;
             if (answered || framesUntilActive > AnswerLeadFrames) return true;
 
             if (a.Parryable)
@@ -92,11 +120,11 @@ namespace Shura
             }
             else
             {
-                // Thrust: dodge into it (counter). Sweep: dodge through the monk.
+                // Thrust: dodge into it (counter). Sweep and grab: dodge through the attacker.
                 Move = dir;
                 Buffer.Press(BufferedAction.Dodge, 3);
             }
-            lastAnswered = threat;
+            lastAnsweredKey = threat;
             lastAnsweredSerial = threat.AttackSerial;
             return true;
         }

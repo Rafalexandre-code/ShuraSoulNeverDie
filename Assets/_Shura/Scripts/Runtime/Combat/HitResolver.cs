@@ -12,6 +12,17 @@ namespace Shura
         Ignored,
     }
 
+    /// <summary>A swing or projectile reaching the player.</summary>
+    public struct IncomingAttack
+    {
+        public Enemy attacker;
+        public AttackDef attack;
+        /// <summary>Where the blow comes from (the attacker, or just behind an arrow).</summary>
+        public Vector2 source;
+        public bool signature;
+        public bool projectile;
+    }
+
     /// <summary>Snapshot of everything about the defender that decides how an enemy swing lands.</summary>
     public struct DefenderState
     {

@@ -8,6 +8,8 @@ namespace Shura
         Sweep,
         /// <summary>Dangerous straight line: dodge INTO it for a counter, or sidestep.</summary>
         Thrust,
+        /// <summary>Dangerous grab: cannot be parried or blocked, only dodged.</summary>
+        Grab,
     }
 
     public enum HitShapeType
@@ -58,6 +60,13 @@ namespace Shura
         public HitShape shape;
         /// <summary>Distance travelled forward across the active frames.</summary>
         public float lunge;
+        /// <summary>When above zero, the swing releases a projectile (units/second) instead of hitting in melee.</summary>
+        public float projectileSpeed;
+        public float projectileRadius = 0.22f;
+        /// <summary>The attacker vanishes and reappears behind the player when the windup starts.</summary>
+        public bool teleportBehind;
+
+        public bool IsProjectile => projectileSpeed > 0f;
 
         public bool IsDangerous => kind != AttackKind.Normal;
         public bool Parryable => kind == AttackKind.Normal;

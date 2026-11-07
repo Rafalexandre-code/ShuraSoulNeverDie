@@ -26,6 +26,8 @@ namespace Shura
         Glint,
         Purchase,
         Denied,
+        /// <summary>Blade on blade; one of several variants is picked at random.</summary>
+        Clash,
     }
 
     public enum MusicLayer
@@ -49,6 +51,7 @@ namespace Shura
         readonly float[] musicTarget = new float[4];
         AudioSource[] pool;
         AudioClip[] clips;
+        AudioClip[] clashVariants;
         int next;
         GameSettings settings;
 
@@ -77,6 +80,8 @@ namespace Shura
             clips[(int)Sfx.Glint] = SfxSynth.Glint();
             clips[(int)Sfx.Purchase] = SfxSynth.Purchase();
             clips[(int)Sfx.Denied] = SfxSynth.Denied();
+            clashVariants = new[] { SfxSynth.SwordClash(0), SfxSynth.SwordClash(1), SfxSynth.SwordClash(2) };
+            clips[(int)Sfx.Clash] = clashVariants[0];
 
             pool = new AudioSource[PoolSize];
             for (int i = 0; i < PoolSize; i++)
@@ -104,7 +109,9 @@ namespace Shura
         public void Play(Sfx sfx, float volume = 1f, float pitch = 1f, float pitchVariance = 0.06f)
         {
             if (clips == null) return;
-            AudioClip clip = clips[(int)sfx];
+            AudioClip clip = sfx == Sfx.Clash && clashVariants != null
+                ? clashVariants[Random.Range(0, clashVariants.Length)]
+                : clips[(int)sfx];
             if (clip == null) return;
             AudioSource src = pool[next];
             next = (next + 1) % PoolSize;

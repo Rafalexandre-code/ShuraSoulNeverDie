@@ -33,6 +33,8 @@ namespace Shura
         public float roomClearHealBonus;
         public float startFlowPoints;
         public int extraRewardChoices;
+        public float moveSpeedMult = 1f;
+        public float dodgeDistanceMult = 1f;
     }
 
     /// <summary>
@@ -52,6 +54,10 @@ namespace Shura
         public virtual void OnPerfectParry(World world, Enemy attacker) { }
         public virtual void OnPerfectDodge(World world, Enemy attacker) { }
         public virtual void ModifyAttackPosture(World world, Enemy target, ref float posture) { }
+        public virtual void ModifyAttackDamage(World world, Enemy target, ref float damage) { }
+        public virtual void ModifyParryPosture(World world, Enemy attacker, ref float posture) { }
+        public virtual void OnBlock(World world, Enemy attacker) { }
+        public virtual void OnFinisher(World world, Enemy target) { }
     }
 
     /// <summary>A relic is a pure stat trade-off.</summary>

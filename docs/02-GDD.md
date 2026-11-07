@@ -57,6 +57,12 @@ Pilares: ver `01-Conceito.md`.
   contra-investida +2, finalizador +2). Níveis em 3/7/12 pontos. Levar dano derruba
   um nível. Efeitos: N1 +15% dano de postura; N2 esquiva recarrega 30% mais rápido;
   N3 finalizadores curam 10. Cada nível acrescenta uma camada musical.
+  Além disso, **cada nível acelera o jogo** (ritmo 0,82 no Fluxo 0 → 1,03 no Fluxo 3), dá
+  **+12% de dano**, mais hit-stop, tremida e faíscas nos seus golpes, aproxima a câmera, e a
+  partir do nível 2 você deixa rastro dourado. No nível 3 as bordas da tela queimam em dourado.
+- **Sequência perfeita:** parries perfeitos, contra-investidas e esquivas perfeitas de golpes
+  perigosos contam uma sequência; levar dano zera. A cada 5 há uma fanfarra.
+- **Câmera lenta:** ao finalizar o último inimigo da sala (0,9 s) e ao quebrar postura (0,25 s).
 - **Recompensas:** após cada sala, escolha 1 de 3 (técnicas pendentes primeiro, depois
   relíquias). Todas têm custo. Limpar uma sala cura 20 de vida.
 - **Coordenador de ataque:** só 1 inimigo ataca por vez, com intervalo mínimo de 20 f.
@@ -86,10 +92,23 @@ Pilares: ver `01-Conceito.md`.
 | Ronin Errante | 60 | 60 | Quadrado | Corte Duplo; Corte Atrasado | Corte Atrasado → parry perfeito |
 | Lanceiro | 55 | 50 | Triângulo | Cutucada; Estocada perigosa | Estocada → contra-investida |
 | Monge do Sino | 110 | 100 | Hexágono grande | Palmas (3 golpes); Varredura perigosa | Varredura → esquiva perfeita |
+| Kenkaku Veloz | 50 | 55 | Pentágono | Cortes rápidos | Tempestade (4 golpes seguidos) → parry perfeito |
+| Carrasco | 150 | 130 | Octógono, não recua | Machado lento; golpe duplo | Agarrão (perigo, só esquiva) → esquiva perfeita |
+| Arqueiro das Cinzas | 45 | 45 | Cápsula, fica longe | Chute; flechas | Flecha carregada → parry perfeito (devolve a flecha) |
+| Sombra | 50 | 55 | Losango | Corte sombrio | Some e reaparece às suas costas → parry perfeito |
+| Escudeiro | 70 | 80 | Escudo, defende 85% de frente | Golpe de escudo | Investida de escudo → parry perfeito |
+
+**Choque de lâminas:** um parry perfeito **interrompe** o golpe — a arma do inimigo quica e ele
+fica aberto (14 f; 28 f se era o último golpe do combo). Combos continuam depois do quique,
+golpe a golpe. Quando o inimigo **defende** seu golpe, é a sua espada que quica: o combo é
+cortado e você recupera em 7 f a tempo de aparar o contra-ataque. Só parries **errados**
+sofrem a penalidade anti-spam, então rajadas podem ser respondidas golpe a golpe.
 | Chefe (marco 2) | — | — | — | 2 fases | — |
 
 ## 5. Progressão
-Protótipo: 4 salas com dificuldade crescente (1 inimigo → trios). Jogo completo: 3 biomas
+Run de 6 salas: Pátio das Cinzas (ensino, fixa) → 2 salas sorteadas do nível 1 (apresentam um
+inimigo novo sozinho, depois em dupla) → 2 do nível 2 (Monge, Sombra, Carrasco) → 1 do nível 3
+(trios). Sorteio pela semente, sem repetir sala. Jogo completo: 3 biomas
 × ~6 salas + chefe. Ritmo: sala de ensino → mistura → pico → descanso (recompensa).
 
 ## 6. Vitória, derrota, reinício

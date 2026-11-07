@@ -13,6 +13,8 @@ namespace Shura
         GameSettings settings;
         float trauma;
         float punch;
+        float zoomOffset;
+        float zoomTarget;
         Vector2 focus;
         readonly float seed = 17.3f;
 
@@ -43,6 +45,12 @@ namespace Shura
             punch = Mathf.Max(punch, amount);
         }
 
+        /// <summary>Persistent zoom-in (world units of ortho size), e.g. tighter framing at high Flow.</summary>
+        public void SetZoomOffset(float amount)
+        {
+            zoomTarget = amount;
+        }
+
         public void Follow(Vector2 target, Vector2 lookDirection, Rect arena, float dt)
         {
             Vector2 wanted = Vector2.Lerp(arena.center, target + lookDirection * feel.cameraLookAhead, feel.cameraFollowWeight);
@@ -62,7 +70,8 @@ namespace Shura
 
             transform.position = new Vector3(focus.x + offset.x, focus.y + offset.y, -10f);
             transform.rotation = Quaternion.Euler(0f, 0f, angle);
-            Cam.orthographicSize = feel.cameraOrthoSize - punch * settings.shake;
+            zoomOffset = Mathf.Lerp(zoomOffset, zoomTarget, CombatMath.Damp(2f, dt));
+            Cam.orthographicSize = feel.cameraOrthoSize - zoomOffset - punch * settings.shake;
         }
 
         public Vector2 ScreenToWorld(Vector2 screen)

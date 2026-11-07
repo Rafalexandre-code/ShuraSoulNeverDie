@@ -70,6 +70,9 @@ namespace Shura
         public const string StatCounters = "Contra-investidas";
         public const string StatFinishers = "Finalizações";
         public const string StatTechniques = "Técnicas absorvidas";
+        public const string StatBestStreak = "Maior sequência perfeita";
+        public const string HudStreak = "SEQUÊNCIA  x{0}";
+        public const string ToastStreak = "SEQUÊNCIA PERFEITA x{0}!";
         public const string StatTime = "Tempo";
         public const string StatSeed = "Semente";
 
@@ -122,6 +125,13 @@ namespace Shura
                 case HintId.DangerSweep:
                     return "ANEL VERMELHO + losango = PERIGO, não dá para aparar. Varredura: quando o anel fechar, " +
                            "esquive ATRAVÉS dela ou saia do círculo.";
+                case HintId.DangerGrab:
+                    return "ANEL VERMELHO + losango = AGARRÃO: não dá para aparar nem bloquear. " +
+                           "Esquive quando o anel fechar, ou leve um golpe devastador.";
+                case HintId.Projectile:
+                    return "Flechas também se aparam: quando o anel da FLECHA fechar, um parry perfeito a devolve para o arqueiro.";
+                case HintId.Shadow:
+                    return "A SOMBRA sumiu e reapareceu às suas COSTAS! Vire-se para ela e apare quando o anel fechar.";
                 case HintId.Finisher:
                     return "Postura quebrada! Ataque perto do inimigo para FINALIZAR.";
                 case HintId.Mastery:

@@ -168,7 +168,11 @@ namespace Shura
             RunState run = game.Run;
             if (run != null)
             {
-                sb.Append(" salas=").Append(run.RoomsCleared).Append('/').Append(RoomDefs.Prototype.Length);
+                sb.Append(" salas=").Append(run.RoomsCleared).Append('/').Append(run.Rooms.Count);
+                sb.Append(" sequenciaMax=").Append(run.BestStreak);
+                sb.Append(" salasSorteadas=[");
+                for (int i = 0; i < run.Rooms.Count; i++) sb.Append(i > 0 ? ", " : string.Empty).Append(run.Rooms[i].name);
+                sb.Append(']');
                 sb.Append(" parries=").Append(run.PerfectParries);
                 sb.Append(" esquivas=").Append(run.PerfectDodges);
                 sb.Append(" contras=").Append(run.Counters);

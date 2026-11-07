@@ -51,6 +51,16 @@ namespace Shura
         float bobPhase;
 
         protected bool Flashing => flashTimer > 0f;
+        /// <summary>Weapon angle as last rendered (relative to facing): where the blade was at a clash.</summary>
+        protected float CurrentWeaponAngle => weaponAngle;
+
+        /// <summary>0 → 1 quickly, then back to 0: the shape of a blade bouncing off another.</summary>
+        protected static float Bounce(int frame, int duration, int peakFrame = 5)
+        {
+            if (frame <= 0 || duration <= 0) return 0f;
+            if (frame < peakFrame) return CombatMath.EaseOutCubic(frame / (float)peakFrame);
+            return 1f - CombatMath.EaseOutQuad((frame - peakFrame) / (float)Mathf.Max(1, duration - peakFrame));
+        }
         protected float FacingAngle => CombatMath.AngleDegrees(Facing);
 
         protected void BuildView(World owner, Shape shape, Color color, float radius)

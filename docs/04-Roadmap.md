@@ -18,6 +18,12 @@ título à vitória ou morte, com teclado e com controle; você aprova a *sensa�
 parry 7 → 9 f, Altar das Almas com Ecos e 8 melhorias com teto, armas animadas
 (antecipação legível), braseiros, brasas, vinheta, transições, números de dano.
 
+**M1.2 — confronto de espadas (feito):** 5 inimigos novos (Kenkaku, Carrasco, Arqueiro,
+Sombra, Escudeiro) com 5 técnicas; agarrão, flechas refletíveis, teletransporte; salas
+sorteadas (run de 6); choque de lâminas com quique das armas; som metálico de espada;
+ritmo global mais lento que acelera com o Fluxo; Fluxo dá dano e impacto; sequência
+perfeita; câmera lenta no último golpe.
+
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; pixel art livre escolhida + shader de paleta; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.

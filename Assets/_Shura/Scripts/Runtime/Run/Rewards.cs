@@ -30,6 +30,9 @@ namespace Shura
         public float maxHealthBonus;
         public float maxPostureBonus;
         public float finisherHeal;
+        public float roomClearHealBonus;
+        public float startFlowPoints;
+        public int extraRewardChoices;
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Shura
@@ -6,9 +7,45 @@ namespace Shura
     /// Generates the placeholder arena: a pixel-art stone floor (point filtered, 16 px per
     /// unit) and walls. The floor gives the camera motion a visible reference.
     /// </summary>
+    /// <summary>Animated arena props (braziers). Purely visual.</summary>
+    public sealed class ArenaDecor
+    {
+        readonly List<SpriteRenderer> flames = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> cores = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> glows = new List<SpriteRenderer>();
+        readonly List<float> seeds = new List<float>();
+
+        public readonly List<Vector2> FlamePositions = new List<Vector2>();
+
+        public void AddBrazier(Vector2 flamePos, SpriteRenderer flame, SpriteRenderer core, SpriteRenderer glow)
+        {
+            FlamePositions.Add(flamePos);
+            flames.Add(flame);
+            cores.Add(core);
+            glows.Add(glow);
+            seeds.Add(flames.Count * 13.7f);
+        }
+
+        public void Animate(float time)
+        {
+            for (int i = 0; i < flames.Count; i++)
+            {
+                float n = Mathf.PerlinNoise(seeds[i], time * 3.2f);
+                float m = Mathf.PerlinNoise(seeds[i] + 5f, time * 5.1f);
+                flames[i].transform.localScale = new Vector3(0.34f + 0.06f * m, 0.5f + 0.18f * n, 1f);
+                cores[i].transform.localScale = new Vector3(0.18f + 0.04f * n, 0.28f + 0.1f * m, 1f);
+                float g = 3.6f + 0.5f * n;
+                glows[i].transform.localScale = new Vector3(g, g, 1f);
+                Color c = glows[i].color;
+                c.a = 0.13f + 0.07f * n;
+                glows[i].color = c;
+            }
+        }
+    }
+
     public static class ArenaBuilder
     {
-        public static void Build(Transform parent, GameConfig config)
+        public static ArenaDecor Build(Transform parent, GameConfig config)
         {
             ArenaTuning a = config.arena;
             Palette pal = config.palette;
@@ -37,6 +74,41 @@ namespace Shura
             sigil.transform.localScale = new Vector3(5f, 5f, 1f);
             var sigilInner = SpriteUtil.Make("SigilInner", parent, ShapeLibrary.Get(Shape.DiamondOutline), pal.gold.WithAlpha(0.05f), Sorting.Floor + 1);
             sigilInner.transform.localScale = new Vector3(3.2f, 3.2f, 1f);
+
+            var decor = new ArenaDecor();
+            float bx = hw - 1.2f;
+            float by = hh - 1.0f;
+            foreach (Vector2 corner in new[] { new Vector2(-bx, by), new Vector2(bx, by), new Vector2(-bx, -by), new Vector2(bx, -by) })
+            {
+                AddBrazier(parent, decor, corner, pal);
+            }
+            return decor;
+        }
+
+        static void AddBrazier(Transform parent, ArenaDecor decor, Vector2 pos, Palette pal)
+        {
+            var root = new GameObject("Brazier").transform;
+            root.SetParent(parent, false);
+            root.localPosition = pos;
+            int order = -Mathf.RoundToInt(pos.y * 20f);
+
+            var pool = SpriteUtil.Make("LightPool", root, ShapeLibrary.Get(Shape.SoftCircle), pal.gold.WithAlpha(0.07f), Sorting.Floor + 1);
+            pool.transform.localScale = new Vector3(7f, 6f, 1f);
+            var glow = SpriteUtil.Make("Glow", root, ShapeLibrary.Get(Shape.SoftCircle), ColorUtil.Hex("#F2A541", 0.16f), Sorting.Shadow + 2);
+            glow.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+            var shadow = SpriteUtil.Make("Shadow", root, ShapeLibrary.Get(Shape.SoftCircle), new Color(0f, 0f, 0f, 0.5f), Sorting.Shadow);
+            shadow.transform.localPosition = new Vector3(0f, -0.25f, 0f);
+            shadow.transform.localScale = new Vector3(1.2f, 0.5f, 1f);
+            var bowl = SpriteUtil.Make("Bowl", root, ShapeLibrary.Get(Shape.Hexagon), ColorUtil.Hex("#2E2836"), order);
+            bowl.transform.localScale = new Vector3(0.75f, 0.55f, 1f);
+            var rim = SpriteUtil.Make("Rim", root, ShapeLibrary.Get(Shape.Ring), ColorUtil.Hex("#5A4A3A"), order + 1);
+            rim.transform.localScale = new Vector3(0.72f, 0.5f, 1f);
+            var flame = SpriteUtil.Make("Flame", root, ShapeLibrary.Get(Shape.Diamond), ColorUtil.Hex("#F2A541"), order + 2);
+            flame.transform.localPosition = new Vector3(0f, 0.32f, 0f);
+            var core = SpriteUtil.Make("FlameCore", root, ShapeLibrary.Get(Shape.Diamond), ColorUtil.Hex("#FFE9A8"), order + 3);
+            core.transform.localPosition = new Vector3(0f, 0.27f, 0f);
+
+            decor.AddBrazier(pos + new Vector2(0f, 0.5f), flame, core, glow);
         }
 
         static void MakeRect(Transform parent, Sprite pixel, Color color, Vector2 center, Vector2 size, int order)

@@ -10,7 +10,7 @@ namespace Shura
     [Serializable]
     public sealed class GameSettings
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
         const string PrefsKey = "shura.settings";
 
         public int version = CurrentVersion;
@@ -20,6 +20,7 @@ namespace Shura
         public float shake = 1f;
         public bool reduceFlashes;
         public bool fullscreen = true;
+        public bool timingIndicator = true;
         public string bindings = string.Empty;
 
         public static GameSettings Load()
@@ -55,7 +56,8 @@ namespace Shura
             sfx = Clean(sfx, defaults.sfx);
             shake = Clean(shake, defaults.shake);
             if (bindings == null) bindings = string.Empty;
-            // Future versions migrate here; for now any version is accepted after sanitizing.
+            // v2 added the timing indicator: older saves get it switched on.
+            if (version < 2) timingIndicator = true;
             version = CurrentVersion;
         }
 

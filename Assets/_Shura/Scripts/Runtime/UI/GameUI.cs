@@ -31,6 +31,7 @@ namespace Shura
             public Color color;
             public float age;
             public float life;
+            public bool small;
         }
 
         readonly List<MenuItem> items = new List<MenuItem>();
@@ -52,6 +53,14 @@ namespace Shura
         float flashAlpha;
         Color flashColor = Color.white;
         float hurtAlpha;
+        float fadeAlpha;
+        Texture2D vignette;
+        float ghostHp;
+        float lastHp;
+        float ghostDelay;
+        float selAnim;
+        int lastSel = -1;
+        GUIStyle itemLeftStyle, ecosStyle, damageStyle;
 
         Palette Pal => game.Config.palette;
 
@@ -59,6 +68,21 @@ namespace Shura
         {
             game = owner;
             white = Texture2D.whiteTexture;
+            vignette = ShapeLibrary.VignetteTexture();
+        }
+
+        /// <summary>Screen fades in from black (room transitions).</summary>
+        public void FadeFromBlack()
+        {
+            fadeAlpha = 1f;
+        }
+
+        public void DamageNumber(int value, Vector2 world)
+        {
+            if (value <= 0) return;
+            if (popups.Count >= MaxPopups) popups.RemoveAt(0);
+            Vector2 jitter = new Vector2(UnityEngine.Random.Range(-0.3f, 0.3f), UnityEngine.Random.Range(0f, 0.2f));
+            popups.Add(new FloatingText { text = value.ToString(), world = world + jitter, color = Color.white, life = 0.7f, small = true });
         }
 
         // ── API used by gameplay feedback ──────────────────────────────────────────────
@@ -97,7 +121,8 @@ namespace Shura
         {
             menuIndex = 0;
             modeChangedFrame = Time.frameCount;
-            if (mode == Game.Mode.Title || mode == Game.Mode.MainMenu)
+            if (mode == Game.Mode.Title || mode == Game.Mode.MainMenu ||
+                mode == Game.Mode.GameOver || mode == Game.Mode.Victory)
             {
                 hint = null;
                 popups.Clear();
@@ -116,6 +141,14 @@ namespace Shura
             if (game.CurrentMode == Game.Mode.Playing && hintTimer > 0f) hintTimer -= dt;
             flashAlpha = Mathf.MoveTowards(flashAlpha, 0f, dt * 3f);
             hurtAlpha = Mathf.MoveTowards(hurtAlpha, 0f, dt * 1.5f);
+            fadeAlpha = Mathf.MoveTowards(fadeAlpha, 0f, dt * 2.2f);
+            UpdateGhostHealth(dt);
+            if (menuIndex != lastSel)
+            {
+                lastSel = menuIndex;
+                selAnim = 0f;
+            }
+            selAnim = Mathf.MoveTowards(selAnim, 1f, dt * 6f);
 
             BuildMenu();
             // Ignore input on the frame the screen changed: the same press must not act twice.
@@ -142,6 +175,22 @@ namespace Shura
             }
         }
 
+        /// <summary>A white chunk lingers where health was lost, then drains: damage reads at a glance.</summary>
+        void UpdateGhostHealth(float dt)
+        {
+            PlayerController p = game.World != null ? game.World.Player : null;
+            if (p == null) return;
+            if (p.Health < lastHp) ghostDelay = 0.45f;
+            lastHp = p.Health;
+            if (p.Health >= ghostHp)
+            {
+                ghostHp = p.Health;
+                return;
+            }
+            ghostDelay -= dt;
+            if (ghostDelay <= 0f) ghostHp = Mathf.MoveTowards(ghostHp, p.Health, p.MaxHealth * 0.8f * dt);
+        }
+
         static void Age(List<FloatingText> list, float dt)
         {
             for (int i = list.Count - 1; i >= 0; i--)
@@ -159,6 +208,7 @@ namespace Shura
             {
                 case Game.Mode.MainMenu:
                     AddItem(Strings.Play, game.StartRun);
+                    AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.Settings, game.OpenSettings);
                     AddItem(Strings.Credits, game.OpenCredits);
                     AddItem(Strings.Quit, game.QuitGame);
@@ -174,6 +224,7 @@ namespace Shura
                     AddSlider(Strings.MusicVolume, () => s.music, v => s.music = v);
                     AddSlider(Strings.SfxVolume, () => s.sfx, v => s.sfx = v);
                     AddSlider(Strings.ScreenShake, () => s.shake, v => s.shake = v);
+                    AddToggle(Strings.TimingIndicator, () => s.timingIndicator, v => s.timingIndicator = v);
                     AddToggle(Strings.ReduceFlashes, () => s.reduceFlashes, v => s.reduceFlashes = v);
                     AddToggle(Strings.Fullscreen, () => s.fullscreen, v => s.fullscreen = v);
                     AddItem(Strings.ResetControls, () =>
@@ -189,7 +240,16 @@ namespace Shura
                 case Game.Mode.GameOver:
                 case Game.Mode.Victory:
                     AddItem(Strings.NewRun, game.StartRun);
+                    AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.MainMenu, game.QuitToMenu);
+                    break;
+                case Game.Mode.Altar:
+                    foreach (MetaUpgradeDef def in MetaUpgrades.All)
+                    {
+                        MetaUpgradeDef captured = def;
+                        AddItem(def.name, () => game.TryBuyUpgrade(captured));
+                    }
+                    AddItem(Strings.Back, game.CloseAltar);
                     break;
             }
             if (items.Count > 0) menuIndex = Mathf.Clamp(menuIndex, 0, items.Count - 1);
@@ -280,6 +340,7 @@ namespace Shura
                 case Game.Mode.Settings: game.CloseSettings(); break;
                 case Game.Mode.Credits: game.GoToMainMenu(); break;
                 case Game.Mode.Paused: game.Resume(); break;
+                case Game.Mode.Altar: game.CloseAltar(); break;
             }
         }
 
@@ -295,6 +356,7 @@ namespace Shura
 
             Game.Mode mode = game.CurrentMode;
             bool inRun = mode == Game.Mode.Playing || mode == Game.Mode.Paused || mode == Game.Mode.Reward;
+            DrawTex(FullScreen, vignette, new Color(1f, 1f, 1f, 0.85f));
             if (inRun)
             {
                 DrawHud();
@@ -311,11 +373,13 @@ namespace Shura
                 case Game.Mode.Reward: DrawReward(); break;
                 case Game.Mode.GameOver: DrawEnd(Strings.DeathTitle, Strings.DeathSubtitle, Pal.danger); break;
                 case Game.Mode.Victory: DrawEnd(Strings.VictoryTitle, Strings.VictorySubtitle, Pal.gold); break;
+                case Game.Mode.Altar: DrawAltar(); break;
             }
 
             DrawToasts();
             if (mode == Game.Mode.Playing) DrawHint();
             DrawOverlays();
+            if (fadeAlpha > 0.001f) DrawRect(FullScreen, Color.black.WithAlpha(fadeAlpha));
             if (Event.current.type == EventType.Repaint) lastMouse = Event.current.mousePosition;
             GUI.matrix = Matrix4x4.identity;
         }
@@ -325,6 +389,7 @@ namespace Shura
         void DrawTitle()
         {
             DrawRect(FullScreen, Pal.background.WithAlpha(0.55f));
+            DrawTitleGlow(360f);
             Label(new Rect(0, 250, VW, 220), Strings.Title, titleStyle, Pal.uiText);
             Label(new Rect(0, 480, VW, 50), Strings.Tagline, bodyCenterStyle, Pal.gold);
             float blink = 0.45f + 0.55f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 2.2f));
@@ -335,9 +400,87 @@ namespace Shura
         void DrawMainMenu()
         {
             DrawRect(FullScreen, Pal.background.WithAlpha(0.65f));
+            DrawTitleGlow(250f);
             Label(new Rect(0, 150, VW, 200), Strings.Title, titleStyle, Pal.uiText);
             DrawMenuList(470f, 72f, 640f);
             Label(new Rect(VW - 460, VH - 60, 420, 40), Strings.BuildLabel, smallRightStyle, Pal.uiDim);
+        }
+
+        void DrawTitleGlow(float centerY)
+        {
+            Texture glow = ShapeLibrary.Get(Shape.SoftCircle).texture;
+            float pulse = 0.14f + 0.05f * Mathf.Sin(Time.unscaledTime * 1.6f);
+            DrawTex(new Rect(VW * 0.5f - 520f, centerY - 260f, 1040f, 520f), glow, Pal.gold.WithAlpha(pulse));
+        }
+
+        void DrawAltar()
+        {
+            MetaProgress meta = game.Meta;
+            DrawRect(FullScreen, Pal.background.WithAlpha(0.88f));
+            Label(new Rect(0, 60, VW, 90), Strings.AltarTitle, headerStyle, Pal.gold);
+            Label(new Rect(0, 150, VW, 40), Strings.AltarSubtitle, bodyCenterStyle, Pal.uiDim);
+            Label(new Rect(0, 200, VW, 64), string.Format(Strings.EcosBalance, meta.ecos), ecosStyle, Pal.gold);
+
+            const float width = 1340f, rowH = 64f, top = 290f;
+            float x = (VW - width) * 0.5f;
+            Event e = Event.current;
+            bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
+            MetaUpgradeDef[] defs = MetaUpgrades.All;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var r = new Rect(x, top + i * rowH, width, rowH - 8f);
+                bool hover = !game.Launch.Automated && r.Contains(e.mousePosition);
+                if (hover && e.type == EventType.Repaint && mouseMoved) menuIndex = i;
+                if (hover && e.type == EventType.MouseDown && e.button == 0)
+                {
+                    menuIndex = i;
+                    e.Use();
+                    Activate(i);
+                    return;
+                }
+
+                bool selected = i == menuIndex;
+                if (selected)
+                {
+                    DrawRect(new Rect(r.x, r.y, r.width * CombatMath.EaseOutCubic(selAnim), r.height), Pal.uiText.WithAlpha(0.08f));
+                    DrawRect(new Rect(r.x, r.y, 6f, r.height), Pal.gold);
+                }
+
+                if (i >= defs.Length)
+                {
+                    Label(r, items[i].label, itemStyle, selected ? Pal.gold : Pal.uiText);
+                    continue;
+                }
+
+                MetaUpgradeDef def = defs[i];
+                int level = meta.GetLevel(def.id);
+                bool maxed = meta.IsMaxed(def);
+                Label(new Rect(r.x + 30f, r.y, 400f, r.height), def.name, itemLeftStyle, selected ? Pal.gold : Pal.uiText);
+
+                Texture pip = ShapeLibrary.Get(Shape.Diamond).texture;
+                Texture pipEmpty = ShapeLibrary.Get(Shape.DiamondOutline).texture;
+                for (int j = 0; j < def.maxLevel; j++)
+                {
+                    var pr = new Rect(r.x + 450f + j * 34f, r.y + r.height * 0.5f - 13f, 26f, 26f);
+                    DrawTex(pr, j < level ? pip : pipEmpty, j < level ? Pal.gold : Pal.uiDim.WithAlpha(0.7f));
+                }
+
+                string effect = level > 0 ? def.EffectAt(level) : "—";
+                if (!maxed) effect += "   >   " + def.EffectAt(level + 1);
+                Label(new Rect(r.x + 650f, r.y, 480f, r.height), effect, smallStyle, Pal.uiText);
+
+                string cost = maxed ? Strings.Max : string.Format(Strings.CostLabel, meta.NextCost(def));
+                Color costColor = maxed ? Pal.gold : meta.CanBuy(def) ? Pal.uiText : Pal.danger;
+                Label(new Rect(r.xMax - 230f, r.y, 200f, r.height), cost, bodyRightStyle, costColor);
+            }
+
+            float by = top + items.Count * rowH + 10f;
+            if (menuIndex < defs.Length)
+            {
+                Label(new Rect(0, by, VW, 36), defs[menuIndex].description, bodyCenterStyle, Pal.uiText);
+            }
+            Label(new Rect(0, by + 44f, VW, 30), string.Format(Strings.AltarStats, meta.runs, meta.victories, meta.bestRoom), smallStyleCenter, Pal.uiDim);
+            Label(new Rect(0, VH - 60f, VW, 32), Strings.AltarControls, smallStyleCenter, Pal.uiDim);
         }
 
         void DrawPause()
@@ -384,7 +527,9 @@ namespace Shura
             Label(new Rect(0, 200, VW, 44), Strings.RewardSubtitle, bodyCenterStyle, Pal.uiDim);
 
             IReadOnlyList<RewardDef> choices = game.RewardChoices;
-            const float cardW = 480f, cardH = 470f, gap = 40f;
+            const float cardH = 470f, gap = 40f;
+            int n = Mathf.Max(1, choices.Count);
+            float cardW = Mathf.Min(480f, (VW - 160f - gap * (n - 1)) / n);
             float startX = (VW - (choices.Count * cardW + (choices.Count - 1) * gap)) * 0.5f;
             Event e = Event.current;
             for (int i = 0; i < choices.Count; i++)
@@ -457,8 +602,9 @@ namespace Shura
                     Label(new Rect(panel.x + 400, y, 280, 40), row[1], bodyRightStyle, Pal.uiText);
                     y += 45;
                 }
+                Label(new Rect(0, 716f, VW, 40f), string.Format(Strings.EcosEarned, run.EcosBanked, game.Meta.ecos), toastStyle, Pal.gold);
             }
-            DrawMenuList(760f, 72f, 560f);
+            DrawMenuList(770f, 70f, 560f);
         }
 
         GUIStyle bodyRightStyle;
@@ -488,15 +634,17 @@ namespace Shura
                 }
 
                 bool selected = i == menuIndex;
+                float slide = selected ? CombatMath.EaseOutCubic(selAnim) : 0f;
                 if (selected)
                 {
-                    DrawRect(r, Pal.uiText.WithAlpha(0.08f));
-                    DrawRect(new Rect(r.x, r.y, 6f, r.height), Pal.gold);
+                    float hw = r.width * slide;
+                    DrawRect(new Rect(r.center.x - hw * 0.5f, r.y, hw, r.height), Pal.uiText.WithAlpha(0.08f));
+                    DrawRect(new Rect(r.x, r.y, 6f, r.height), Pal.gold.WithAlpha(slide));
                 }
                 MenuItem item = items[i];
                 string text = item.label;
                 if (item.value != null) text += selected ? "     <  " + item.value() + "  >" : "     " + item.value();
-                Label(r, text, itemStyle, selected ? Pal.gold : Pal.uiText);
+                Label(new Rect(r.x + 10f * slide, r.y, r.width, r.height), text, itemStyle, selected ? Pal.gold : Pal.uiText);
             }
         }
 
@@ -508,7 +656,14 @@ namespace Shura
 
             const float x = 48f, y = 36f, w = 460f;
             Label(new Rect(x, y, w, 28), Strings.HudHealth, smallStyle, Pal.uiDim);
-            Bar(new Rect(x, y + 30, w, 26), p.Health / p.MaxHealth, Pal.health);
+            var hpRect = new Rect(x, y + 30, w, 26);
+            Bar(hpRect, p.Health / p.MaxHealth, Pal.health);
+            float hpRatio = Mathf.Clamp01(p.Health / p.MaxHealth);
+            float ghostRatio = Mathf.Clamp01(ghostHp / p.MaxHealth);
+            if (ghostRatio > hpRatio)
+            {
+                DrawRect(new Rect(hpRect.x + hpRect.width * hpRatio, hpRect.y, hpRect.width * (ghostRatio - hpRatio), hpRect.height), Color.white.WithAlpha(0.75f));
+            }
             Label(new Rect(x, y + 30, w - 12, 26), Mathf.CeilToInt(p.Health) + " / " + Mathf.RoundToInt(p.MaxHealth), smallRightStyle, Pal.uiText);
 
             float pr = p.Posture.Ratio;
@@ -555,6 +710,7 @@ namespace Shura
                 DrawTex(r, lit ? diamond : outline, lit ? Pal.gold : Pal.uiDim.WithAlpha(0.6f));
             }
             Bar(new Rect(fx + w - 190f, fy + 98f, 190f, 8f), flow.ProgressInLevel, Pal.gold);
+            Label(new Rect(fx, fy + 114f, w, 30f), string.Format(Strings.HudEcos, MetaRules.EcosForRun(game.Run, false)), smallRightStyle, Pal.gold.WithAlpha(0.85f));
         }
 
         void DrawOwned(RunState run)
@@ -593,7 +749,7 @@ namespace Shura
                 float gx = (sp.x - offset.x) / scale;
                 float gy = (Screen.height - sp.y - offset.y) / scale;
                 float alpha = 1f - Mathf.Clamp01((t - 0.6f) / 0.4f);
-                Label(new Rect(gx - 260f, gy - 22f, 520f, 44f), p.text, popupStyle, p.color.WithAlpha(alpha));
+                Label(new Rect(gx - 260f, gy - 22f, 520f, 44f), p.text, p.small ? damageStyle : popupStyle, p.color.WithAlpha(alpha));
             }
         }
 
@@ -697,6 +853,9 @@ namespace Shura
             hintStyle = MakeStyle(27, TextAnchor.MiddleCenter, false);
             toastStyle = MakeStyle(34, TextAnchor.MiddleCenter, true);
             roomStyle = MakeStyle(30, TextAnchor.MiddleCenter, true);
+            itemLeftStyle = MakeStyle(34, TextAnchor.MiddleLeft, false);
+            ecosStyle = MakeStyle(48, TextAnchor.MiddleCenter, true);
+            damageStyle = MakeStyle(24, TextAnchor.MiddleCenter, true);
         }
 
         static GUIStyle MakeStyle(int size, TextAnchor anchor, bool bold)

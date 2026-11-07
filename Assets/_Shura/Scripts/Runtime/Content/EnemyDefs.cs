@@ -16,6 +16,9 @@ namespace Shura
         public string displayName;
         public Shape shape;
         public Color color;
+        public Shape weapon = Shape.Blade;
+        public float weaponLength = 1.2f;
+        public Color weaponColor = ColorUtil.Hex("#D8DEE9");
         public float maxHealth;
         public float maxPosture;
         public float radius;
@@ -99,6 +102,9 @@ namespace Shura
             displayName = "Lanceiro",
             shape = Shape.Triangle,
             color = ColorUtil.Hex("#9DB4C0"),
+            weapon = Shape.Spear,
+            weaponLength = 1.9f,
+            weaponColor = ColorUtil.Hex("#C9CED6"),
             maxHealth = 55f,
             maxPosture = 50f,
             radius = 0.40f,
@@ -147,6 +153,9 @@ namespace Shura
             displayName = "Monge do Sino",
             shape = Shape.Hexagon,
             color = ColorUtil.Hex("#B48EAD"),
+            weapon = Shape.Staff,
+            weaponLength = 1.7f,
+            weaponColor = ColorUtil.Hex("#B08D6A"),
             maxHealth = 110f,
             maxPosture = 100f,
             radius = 0.62f,

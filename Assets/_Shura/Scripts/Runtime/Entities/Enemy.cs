@@ -23,8 +23,10 @@ namespace Shura
         const float BarWidth = 1.1f;
 
         EnemyTuning et;
+        FeelTuning feel;
         Palette pal;
         SeededRandom rng;
+        SpriteRenderer timingTarget, timingApproach, timingGlow;
 
         bool stepHit;
         bool parriedThisMove;
@@ -70,6 +72,7 @@ namespace Shura
         {
             Def = def;
             et = config.enemies;
+            feel = config.feel;
             pal = config.palette;
             rng = random;
             Mass = def.mass;
@@ -78,6 +81,7 @@ namespace Shura
             Posture = new PostureMeter(def.maxPosture);
 
             BuildView(owner, def.shape, def.color, def.radius);
+            BuildWeapon(def.weapon, def.weaponColor, def.weaponLength);
             Teleport(spawn);
             Vector2 toPlayer = owner.Player.Position - spawn;
             if (toPlayer.sqrMagnitude > 1e-4f) Facing = toPlayer.normalized;
@@ -101,8 +105,13 @@ namespace Shura
             seal.transform.localScale = new Vector3(0.4f, 0.4f, 1f);
             brokenRing = SpriteUtil.Make("BrokenRing", transform, ShapeLibrary.Get(Shape.Ring), pal.gold, Sorting.Overlay - 2);
 
+            timingGlow = SpriteUtil.Make("TimingGlow", transform, ShapeLibrary.Get(Shape.SoftCircle), Color.white, Sorting.Overlay - 4);
+            timingTarget = SpriteUtil.Make("TimingTarget", transform, ShapeLibrary.Get(Shape.Ring), Color.white, Sorting.Overlay - 3);
+            timingApproach = SpriteUtil.Make("TimingApproach", transform, ShapeLibrary.Get(Shape.Ring), Color.white, Sorting.Overlay - 3);
+
             dangerGlyph.enabled = areaPreview.enabled = ringPreview.enabled = linePreview.enabled = false;
             seal.enabled = brokenRing.enabled = false;
+            timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
 
             strafeTimer = rng.Range(60, 140);
             Enter(State.Spawning);
@@ -256,6 +265,10 @@ namespace Shura
         {
             StepFrame++;
             AttackDef attack = CurrentAttack;
+            if (StepFrame == TelegraphTiming.CueFrame(attack.windup, feel.timingCueLeadFrames))
+            {
+                world.Fx.Emit(FxType.TimingCue, Position, Facing, attack.IsDangerous ? 1f : 0f);
+            }
             Vector2 to = world.Player.Position - Position;
             if (StepFrame <= attack.trackUntil && to.sqrMagnitude > 1e-4f)
             {
@@ -369,7 +382,7 @@ namespace Shura
             Flash(0.07f);
             Squash(0.8f, 1.2f);
             if (CurrentState != State.Attacking && CurrentState != State.Broken) Velocity = hitDir * et.hitKnockback;
-            world.Fx.Emit(FxType.HitEnemy, contact, hitDir, 1f, Def.color);
+            world.Fx.Emit(FxType.HitEnemy, contact, hitDir, damage, Def.color);
 
             if (Health <= 0f)
             {
@@ -427,8 +440,139 @@ namespace Shura
 
         // ── View ────────────────────────────────────────────────────────────────────────
 
+        float IdleAngle => Def.weapon == Shape.Spear ? 0f : Def.weapon == Shape.Staff ? 35f : -50f;
+
+        protected override WeaponPose GetWeaponPose()
+        {
+            float idle = IdleAngle;
+            var pose = new WeaponPose
+            {
+                angle = idle + 5f * Mathf.Sin(Time.unscaledTime * 1.5f + Def.radius * 10f),
+                tint = weaponColor,
+            };
+
+            AttackDef attack = CurrentAttack;
+            switch (CurrentState)
+            {
+                case State.Attacking:
+                    if (attack != null)
+                    {
+                        pose.snap = true;
+                        AttackPose(attack, idle, ref pose);
+                    }
+                    break;
+                case State.Broken:
+                case State.Finishing:
+                    pose.angle = -150f;
+                    pose.tint = weaponColor * 0.6f;
+                    break;
+                case State.Stagger:
+                    pose.angle = idle - 70f + 12f * Mathf.Sin(Time.unscaledTime * 25f);
+                    break;
+                case State.Spawning:
+                    pose.tint = weaponColor.WithAlpha(Mathf.Clamp01(StateFrame / (float)et.spawnFrames));
+                    break;
+                case State.Dying:
+                    pose.angle = -160f;
+                    pose.tint = weaponColor.WithAlpha(1f - Mathf.Clamp01(StateFrame / (float)et.dyingFrames));
+                    break;
+            }
+            return pose;
+        }
+
+        /// <summary>
+        /// The weapon itself is the main telegraph: it pulls back through the whole windup
+        /// (anticipation), trembles while a long strike is held, then releases.
+        /// </summary>
+        void AttackPose(AttackDef attack, float idle, ref WeaponPose pose)
+        {
+            float tW = Mathf.Clamp01(StepFrame / (float)Mathf.Max(1, attack.windup));
+            bool winding = StepFrame < attack.windup;
+            bool active = !winding && StepFrame < attack.windup + attack.active;
+            float tA = Mathf.Clamp01((StepFrame - attack.windup + 1) / (float)attack.active);
+            float tR = Mathf.Clamp01((StepFrame - attack.windup - attack.active) / (float)Mathf.Max(1, attack.recovery));
+            float tremble = attack.windup >= 30 && tW > 0.66f && winding ? Mathf.Sin(Time.unscaledTime * 70f) * 3f : 0f;
+
+            switch (attack.shape.type)
+            {
+                case HitShapeType.Arc:
+                {
+                    float side = StepIndex % 2 == 0 ? 1f : -1f;
+                    float start = (attack.shape.arcDegrees * 0.5f + 35f) * side;
+                    float end = -start;
+                    if (winding) pose.angle = Mathf.Lerp(idle, start, CombatMath.EaseOutCubic(tW)) + tremble;
+                    else if (active) pose.angle = Mathf.Lerp(start, end, CombatMath.EaseOutQuad(tA));
+                    else pose.angle = Mathf.Lerp(end, idle, CombatMath.EaseOutQuad(tR));
+                    break;
+                }
+                case HitShapeType.Line:
+                {
+                    pose.angle = tremble;
+                    if (winding) pose.extend = Mathf.Lerp(0f, -0.5f, CombatMath.EaseOutCubic(tW));
+                    else if (active) pose.extend = Mathf.Lerp(-0.5f, 0.8f, CombatMath.EaseOutQuad(tA));
+                    else pose.extend = Mathf.Lerp(0.8f, 0f, CombatMath.EaseOutQuad(tR));
+                    break;
+                }
+                case HitShapeType.Circle:
+                {
+                    if (winding) pose.angle = idle - 80f * CombatMath.EaseOutCubic(tW) + tremble;
+                    else if (active) pose.angle = idle - 80f + 400f * CombatMath.EaseOutQuad(tA);
+                    else pose.angle = idle + 320f + 40f * tR;
+                    break;
+                }
+            }
+            if (attack.IsDangerous && (winding || active)) pose.tint = Color.Lerp(weaponColor, pal.danger, 0.55f);
+        }
+
+        /// <summary>
+        /// "Press now" indicator: a ring shrinks onto the attacker at a constant speed and
+        /// closes a few frames before impact (see TelegraphTiming). Cyan = parry, red = dodge.
+        /// </summary>
+        void RenderTimingIndicator(AttackDef attack)
+        {
+            bool show = world.ShowTimingIndicator && attack != null && CurrentState == State.Attacking &&
+                        TelegraphTiming.ApproachVisible(StepFrame, attack.windup, feel.timingCueLeadFrames, feel.timingApproachFrames);
+            if (!show)
+            {
+                timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
+                return;
+            }
+
+            int lead = Mathf.Max(1, feel.timingCueLeadFrames);
+            int cue = TelegraphTiming.CueFrame(attack.windup, lead);
+            float t = TelegraphTiming.ApproachProgress(StepFrame, attack.windup, lead, feel.timingApproachFrames);
+            Color c = attack.IsDangerous ? pal.danger : pal.playerAccent;
+            float size = Radius * 2f * 1.55f;
+
+            timingTarget.enabled = true;
+            if (StepFrame < cue)
+            {
+                timingApproach.enabled = true;
+                timingGlow.enabled = false;
+                float s = size * Mathf.Lerp(3.4f, 1f, t);
+                timingApproach.transform.localScale = new Vector3(s, s, 1f);
+                timingApproach.color = c.WithAlpha(Mathf.Lerp(0.15f, 0.95f, t));
+                timingTarget.transform.localScale = new Vector3(size, size, 1f);
+                timingTarget.color = c.WithAlpha(0.35f);
+                return;
+            }
+
+            // Closed: the moment to answer. Bright flash that decays until the impact.
+            float k = Mathf.Clamp01((StepFrame - cue) / (float)lead);
+            timingApproach.enabled = false;
+            timingGlow.enabled = true;
+            float pulse = size * (1.18f - 0.18f * k);
+            timingTarget.transform.localScale = new Vector3(pulse, pulse, 1f);
+            timingTarget.color = Color.Lerp(Color.white, c, 0.35f + 0.4f * k);
+            float g = size * 1.9f;
+            timingGlow.transform.localScale = new Vector3(g, g, 1f);
+            timingGlow.color = c.WithAlpha(0.55f * (1f - k * 0.5f));
+        }
+
         protected override void RenderExtra(Vector2 renderPosition, float visualDt)
         {
+            RenderTimingIndicator(CurrentAttack);
+
             AttackDef attack = CurrentAttack;
             float windupT = attack != null ? Mathf.Clamp01(StepFrame / (float)Mathf.Max(1, attack.windup)) : 0f;
             bool active = attack != null && StepFrame >= attack.windup && StepFrame < attack.windup + attack.active;

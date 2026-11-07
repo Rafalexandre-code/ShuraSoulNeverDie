@@ -10,8 +10,12 @@ namespace Shura
         public readonly FlowMeter Flow;
         public readonly List<RewardDef> Owned = new List<RewardDef>();
         public readonly List<string> PendingTechniques = new List<string>();
+        /// <summary>Permanent upgrades the run started with (may be null in tests).</summary>
+        public readonly MetaProgress Meta;
 
         public PlayerModifiers Modifiers { get; private set; } = new PlayerModifiers();
+        public bool Banked;
+        public int EcosBanked;
         public int RoomIndex;
         public int RoomsCleared;
         public int PerfectParries;
@@ -21,11 +25,13 @@ namespace Shura
         public int TechniquesAbsorbed;
         public float Elapsed;
 
-        public RunState(ulong seed, FlowTuning flow)
+        public RunState(ulong seed, FlowTuning flow, MetaProgress meta = null)
         {
             Seed = seed;
             Rng = new SeededRandom(seed);
             Flow = new FlowMeter(flow.levelThresholds, flow.maxPoints);
+            Meta = meta;
+            RecomputeModifiers();
         }
 
         public bool Owns(string id)
@@ -60,6 +66,7 @@ namespace Shura
         public void RecomputeModifiers()
         {
             var m = new PlayerModifiers();
+            Meta?.ApplyTo(m);
             for (int i = 0; i < Owned.Count; i++) Owned[i].Apply(m);
             Modifiers = m;
         }

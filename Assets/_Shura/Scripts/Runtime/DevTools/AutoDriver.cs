@@ -27,6 +27,7 @@ namespace Shura
         bool skippedRoom;
         bool pauseTourDone;
         bool settingsShotDone;
+        bool altarShotDone;
         bool finished;
         Game.Mode lastMode;
 
@@ -89,7 +90,18 @@ namespace Shura
                     break;
                 case Game.Mode.GameOver:
                 case Game.Mode.Victory:
-                    if (ShotThenAct(game.CurrentMode.ToString().ToLowerInvariant(), shots ? 1.2f : 0f)) Finish("fim normal");
+                    if (ShotThenAct(game.CurrentMode.ToString().ToLowerInvariant(), shots ? 1.2f : 0f))
+                    {
+                        if (shots && !altarShotDone) game.OpenAltar();
+                        else Finish("fim normal");
+                    }
+                    break;
+                case Game.Mode.Altar:
+                    if (ShotThenAct("altar", wait))
+                    {
+                        altarShotDone = true;
+                        game.CloseAltar();
+                    }
                     break;
             }
 
@@ -166,6 +178,7 @@ namespace Shura
                 sb.Append(" vida=").Append(Mathf.CeilToInt(game.World.Player.Health));
                 sb.Append(" tempoSim=").Append(run.Elapsed.ToString("0.0")).Append('s');
                 sb.Append(" semente=").Append(run.Seed);
+                sb.Append(" ecos=").Append(run.EcosBanked).Append(" (total ").Append(game.Meta.ecos).Append(')');
                 sb.Append(" recompensas=[");
                 for (int i = 0; i < run.Owned.Count; i++) sb.Append(i > 0 ? ", " : string.Empty).Append(run.Owned[i].Name);
                 sb.Append(']');

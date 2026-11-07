@@ -16,6 +16,10 @@ namespace Shura
         SoftCircle,
         Pixel,
         PixelLeft,
+        /// <summary>Weapons are 1 unit long, pivot at the grip (left), pointing along +X.</summary>
+        Blade,
+        Spear,
+        Staff,
     }
 
     /// <summary>
@@ -47,6 +51,15 @@ namespace Shura
                 case Shape.PixelLeft:
                     sprite = Solid(new Vector2(0f, 0.5f));
                     break;
+                case Shape.Blade:
+                    sprite = RasterizeLong(BladeTexel);
+                    break;
+                case Shape.Spear:
+                    sprite = RasterizeLong(SpearTexel);
+                    break;
+                case Shape.Staff:
+                    sprite = RasterizeLong(StaffTexel);
+                    break;
                 default:
                     sprite = Rasterize(Resolution, p => Coverage(shape, p, Resolution));
                     break;
@@ -65,6 +78,116 @@ namespace Shura
             sprite = Rasterize(WedgeResolution, p => WedgeCoverage(p, half, WedgeResolution));
             Cache[key] = sprite;
             return sprite;
+        }
+
+        /// <summary>A crescent band (ring sector) used as the slash trail of a swing.</summary>
+        public static Sprite ArcBand(float degrees)
+        {
+            int deg = Mathf.Clamp(Mathf.RoundToInt(degrees), 1, 360);
+            int key = 2000 + deg;
+            if (Cache.TryGetValue(key, out Sprite sprite) && sprite != null) return sprite;
+            float half = deg * 0.5f * Mathf.Deg2Rad;
+            sprite = Rasterize(WedgeResolution, p => ArcBandCoverage(p, half, WedgeResolution));
+            Cache[key] = sprite;
+            return sprite;
+        }
+
+        static float ArcBandCoverage(Vector2 p, float halfAngle, int res)
+        {
+            float len = p.magnitude;
+            float ang = Mathf.Abs(Mathf.Atan2(p.y, p.x));
+            float band = Aa(Mathf.Abs(len - 0.82f) - 0.15f, res);
+            float edgeFade = Mathf.Clamp01((halfAngle - ang) / Mathf.Max(0.05f, halfAngle * 0.35f));
+            // Brightest at the outer rim, like the tip of the blade cutting the air.
+            float rim = Mathf.Clamp01((len - 0.67f) / 0.3f);
+            return band * edgeFade * (0.3f + 0.7f * rim * rim);
+        }
+
+        // Long sprites: u = 0..1 along the weapon, v = -1..1 across. RGB carries baked shading.
+        const int LongWidth = 128;
+        const int LongHeight = 32;
+        const float LongPixelV = 2f / LongHeight;
+
+        static Color BladeTexel(float u, float v)
+        {
+            float av = Mathf.Abs(v);
+            if (u < 0.04f) return Shade(0.55f, AaV(0.32f - av));                       // pommel
+            if (u < 0.22f) return Shade(0.4f + 0.1f * Mathf.Sin(u * 90f), AaV(0.2f - av)); // wrapped grip
+            if (u < 0.26f) return Shade(0.8f, AaV(0.75f - av));                         // guard
+            float half = 0.42f * (1f - Smooth(0.78f, 1f, u));
+            float shade = v > 0.1f ? 1f : 0.82f;                                         // bevel highlight
+            return Shade(shade, AaV(half - av));
+        }
+
+        static Color SpearTexel(float u, float v)
+        {
+            float av = Mathf.Abs(v);
+            if (u < 0.76f) return Shade(0.55f, AaV(0.13f - av));                        // shaft
+            if (u < 0.79f) return Shade(0.75f, AaV(0.3f - av));                         // binding
+            float half = 0.55f * (1f - (u - 0.79f) / 0.21f);
+            return Shade(v > 0f ? 1f : 0.85f, AaV(half - av));                          // blade tip
+        }
+
+        static Color StaffTexel(float u, float v)
+        {
+            float av = Mathf.Abs(v);
+            if (u < 0.07f || u > 0.93f) return Shade(0.95f, AaV(0.42f - av));          // weighted ends
+            if (Mathf.Abs(u - 0.5f) < 0.025f) return Shade(0.85f, AaV(0.3f - av));     // central ring
+            return Shade(0.62f, AaV(0.17f - av));
+        }
+
+        static float AaV(float sdfInside) => Mathf.Clamp01(0.5f + sdfInside / LongPixelV);
+        static float Smooth(float a, float b, float x) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, x));
+        static Color Shade(float brightness, float alpha) => new Color(brightness, brightness, brightness, alpha);
+
+        static Sprite RasterizeLong(Func<float, float, Color> texel)
+        {
+            var tex = new Texture2D(LongWidth, LongHeight, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "ShuraWeapon",
+            };
+            var pixels = new Color32[LongWidth * LongHeight];
+            for (int y = 0; y < LongHeight; y++)
+            {
+                for (int x = 0; x < LongWidth; x++)
+                {
+                    float u = (x + 0.5f) / LongWidth;
+                    float v = (y + 0.5f) / LongHeight * 2f - 1f;
+                    pixels[y * LongWidth + x] = texel(u, v);
+                }
+            }
+            tex.SetPixels32(pixels);
+            tex.Apply(false, true);
+            return Sprite.Create(tex, new Rect(0, 0, LongWidth, LongHeight), new Vector2(0f, 0.5f), LongWidth);
+        }
+
+        /// <summary>Full-screen darkening toward the corners; alpha only.</summary>
+        public static Texture2D VignetteTexture()
+        {
+            const int size = 128;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+                name = "ShuraVignette",
+            };
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x + 0.5f) / size * 2f - 1f;
+                    float dy = (y + 0.5f) / size * 2f - 1f;
+                    float d = Mathf.Sqrt(dx * dx * 0.8f + dy * dy);
+                    byte a = (byte)(Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1.35f, d)) * 255f);
+                    pixels[y * size + x] = new Color32(0, 0, 0, a);
+                }
+            }
+            tex.SetPixels32(pixels);
+            tex.Apply(false, true);
+            return tex;
         }
 
         static float Coverage(Shape shape, Vector2 p, int res)

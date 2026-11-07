@@ -54,7 +54,7 @@ namespace Shura
         public float attackLunge = 0.35f;
 
         [Header("Parry e bloqueio")]
-        public int perfectParryFrames = 7;
+        public int perfectParryFrames = 9;
         [Tooltip("Apertar de novo antes disso corta a janela perfeita pela metade (anti-spam).")]
         public int parrySpamWindow = 20;
         public float parryArcDegrees = 120f;
@@ -160,6 +160,15 @@ namespace Shura
         public float cameraLookAhead = 1.3f;
         public float zoomPunchPerfectParry = 0.25f;
         public float zoomPunchFinisher = 0.45f;
+
+        [Header("Indicador de tempo")]
+        [Tooltip("Quantos frames o anel leva para fechar. Constante para todo golpe, para o ritmo ser aprendível.")]
+        public int timingApproachFrames = 36;
+        [Tooltip("O anel fecha esta quantidade de frames ANTES do golpe acertar (meio da janela perfeita).")]
+        public int timingCueLeadFrames = 4;
+
+        [Header("Ambiente")]
+        public float embersPerSecond = 6f;
     }
 
     [Serializable]

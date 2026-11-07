@@ -28,9 +28,11 @@ muda a cada run.
 - **Sala (1–2 min):** até 3 inimigos, um ataca por vez; Fluxo sobe com ações perfeitas.
 - **Run (25–35 min no jogo completo; MVP 12–15):** salas → recompensas → chefe.
 
-## Loop secundário (meta-progressão horizontal — pós-protótipo)
-Técnicas e relíquias vistas numa run passam a poder aparecer nas próximas (desbloqueio de
-**opções**, nunca de poder bruto). Rival/Nêmesis fica como *Could*.
+## Loop secundário (Altar das Almas)
+Toda run rende **Ecos**, mesmo quando você morre. No Altar das Almas eles compram melhorias
+permanentes (vida, postura, dano, janela de parry…), cada uma **com teto**: você volta mais
+forte e vai mais longe, mas a habilidade continua decidindo a vitória. Desbloqueios
+horizontais (novas opções) e Rival/Nêmesis ficam como *Should*/*Could*.
 
 ## Gancho
 A build não mexe só em números: ela muda **como** parry, esquiva e postura funcionam, e

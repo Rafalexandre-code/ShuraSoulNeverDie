@@ -33,12 +33,15 @@ namespace Shura
         bool deathReported;
 
         public PlayerController Player { get; private set; }
+        public ArenaDecor Decor { get; private set; }
         public RunState Run { get; private set; }
         public Rect Bounds { get; private set; }
         public RoomDef CurrentRoom { get; private set; }
         public int WaveIndex { get; private set; }
         public bool RoomCleared { get; private set; }
         public bool PlayerInvincible { get; set; }
+        /// <summary>Accessibility/readability option: the shrinking "press now" ring.</summary>
+        public bool ShowTimingIndicator { get; set; } = true;
 
         public event Action RoomClearedEvent;
         public event Action PlayerDiedEvent;
@@ -51,7 +54,7 @@ namespace Shura
             Bounds = new Rect(-config.arena.width * 0.5f, -config.arena.height * 0.5f, config.arena.width, config.arena.height);
 
             root = new GameObject("World").transform;
-            ArenaBuilder.Build(root, config);
+            Decor = ArenaBuilder.Build(root, config);
 
             var playerObject = new GameObject("Player");
             playerObject.transform.SetParent(root, false);
@@ -420,6 +423,7 @@ namespace Shura
 
         public void Render(float alpha, float visualDt, bool showHitboxes)
         {
+            Decor.Animate(Time.unscaledTime);
             Player.Render(alpha, visualDt, showHitboxes);
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Render(alpha, visualDt, showHitboxes);
         }

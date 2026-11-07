@@ -65,6 +65,12 @@ namespace Shura
             return 1f - (1f - t) * (1f - t);
         }
 
+        public static float EaseOutCubic(float t)
+        {
+            t = 1f - Mathf.Clamp01(t);
+            return 1f - t * t * t;
+        }
+
         /// <summary>Frame-rate independent exponential smoothing factor.</summary>
         public static float Damp(float sharpness, float dt)
         {

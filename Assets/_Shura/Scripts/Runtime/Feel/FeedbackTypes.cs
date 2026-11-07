@@ -30,6 +30,9 @@ namespace Shura
         RoomClear,
         Burst,
         MirrorThrust,
+        /// <summary>The timing ring closed: "answer now". Magnitude 1 = dangerous (dodge), 0 = parry.</summary>
+        TimingCue,
+        Footstep,
     }
 
     public enum HintId

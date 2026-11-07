@@ -25,7 +25,13 @@ Pilares: ver `01-Conceito.md`.
 **Regras centrais**
 - **Parry direcional:** cobre um arco de 120° para onde você mira. Golpes pelas costas não
   podem ser aparados. Magnetismo leve gira a mira para o inimigo que está atacando.
-- **Parry perfeito:** primeiros 7 f após apertar. Causa dano de postura no atacante, zero
+- **Indicador de tempo:** durante o preparo de cada golpe, um anel encolhe sobre o
+  inimigo em velocidade constante (36 f) e **fecha 4 f antes do impacto**, com um "tim".
+  Apertar quando o anel fecha cai no meio da janela de parry perfeito e dentro dos frames
+  de invencibilidade da esquiva. Azul = aparar; vermelho + losango = esquivar. A própria
+  arma do inimigo recua durante o preparo (antecipação) e treme nos golpes segurados.
+  Pode ser desligado nas configurações.
+- **Parry perfeito:** primeiros 9 f após apertar (era 7; ampliado após o primeiro playtest). Causa dano de postura no atacante, zero
   desgaste no jogador. Apertar de novo em menos de 20 f reduz a janela pela metade
   (anti-spam).
 - **Bloqueio:** segurar após a janela. O golpe vira desgaste de postura no jogador.
@@ -54,6 +60,24 @@ Pilares: ver `01-Conceito.md`.
 - **Recompensas:** após cada sala, escolha 1 de 3 (técnicas pendentes primeiro, depois
   relíquias). Todas têm custo. Limpar uma sala cura 20 de vida.
 - **Coordenador de ataque:** só 1 inimigo ataca por vez, com intervalo mínimo de 20 f.
+- **Progressão permanente (Altar das Almas):** cada run rende **Ecos**, mesmo morrendo:
+  sala vencida 15 + 5 × índice da sala, finalização 3, parry perfeito 1, contra-investida 2,
+  técnica absorvida 5, vitória +40. Os Ecos compram melhorias permanentes, **todas com nível
+  máximo** para a habilidade continuar sendo o principal:
+
+  | Melhoria | Efeito por nível | Máx. | Custo inicial |
+  |---|---|---|---|
+  | Vigor | +10 vida | 5 | 25 |
+  | Postura de Aço | +12 postura | 4 | 25 |
+  | Lâmina Temperada | +8% dano | 4 | 35 |
+  | Fôlego | −8% recarga da esquiva | 3 | 30 |
+  | Meditação | +8 cura por sala | 3 | 30 |
+  | Olhar Afiado | +1 frame de parry perfeito | 2 | 60 |
+  | Despertar | começa com Fluxo (3 pts/nível) | 2 | 45 |
+  | Visão do Destino | +1 opção de recompensa | 1 | 120 |
+
+  Cada nível custa 60% a mais que o primeiro. Uma morte típica na sala 2 rende ~30–40 Ecos
+  (≈ uma melhoria barata por run no começo).
 
 ## 4. Entidades
 | Entidade | Vida | Postura | Forma | Golpes | Assinatura → Resposta Perfeita |
@@ -77,9 +101,11 @@ ensina" com estatísticas → nova run com nova semente em 1 botão.
 Protótipo atual: 3 inimigos, 4 salas, 3 técnicas, 7 relíquias.
 
 ## 8. Interface
-Telas: Título → Menu (Jogar, Configurações, Créditos, Sair) → Run (HUD) ⇄ Pausa
-(Continuar, Configurações, Recomeçar, Menu) → Recompensa → … → Morte/Vitória → Menu.
-HUD: vida, postura, cargas de esquiva, Fluxo, técnicas, sala atual.
+Telas: Título → Menu (Jogar, Altar das Almas, Configurações, Créditos, Sair) → Run (HUD) ⇄
+Pausa (Continuar, Configurações, Recomeçar, Menu) → Recompensa → … → Morte/Vitória (Ecos
+ganhos; Nova run, Altar, Menu) → Menu.
+HUD: vida (com barra "fantasma" do dano recente), postura, cargas de esquiva, Fluxo, Ecos
+da run, técnicas, sala atual. Números de dano sobre os inimigos.
 UI do protótipo é provisória (IMGUI); UI final na Fase 6.
 
 ## 9. Onboarding
@@ -108,7 +134,8 @@ dano recebido, aviso de perigo, subida de Fluxo, UI. Música em camadas: drone
 No protótipo tudo é sintetizado por código; a estrutura aceita arquivos reais depois.
 
 ## 12. Acessibilidade
-Perigo nunca só por cor (forma + som + marca no chão). Intensidade de tremida 0–100%.
+Perigo nunca só por cor (forma + som + marca no chão). Indicador de tempo liga/desliga.
+Intensidade de tremida 0–100%.
 Opção de reduzir flashes. Controles remapeáveis (persistência pronta; tela de remapear
 na Fase 6). Textos centralizados para tradução.
 
@@ -118,7 +145,8 @@ perfeito 7 f, contra-investida 10 f, finalizador 12 f, dano recebido 5 f.
 
 ## 14. Escopo (MoSCoW)
 - **Must:** combate completo, 4–5 inimigos, 1 chefe, Técnicas Absorvidas, Fluxo,
-  recompensas, telas obrigatórias, controle, remapeamento.
-- **Should:** meta-progressão horizontal, corredores entre arenas, música real em camadas.
+  recompensas, telas obrigatórias, controle, remapeamento, Altar das Almas (feito).
+- **Should:** desbloqueios horizontais (novas técnicas/relíquias no conjunto), corredores
+  entre arenas, música real em camadas.
 - **Could:** Rival/Nêmesis, segunda arma, biomas 2 e 3.
 - **Won't (agora):** metroidvania, várias armas, multiplayer.

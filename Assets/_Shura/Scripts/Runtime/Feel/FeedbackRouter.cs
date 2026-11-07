@@ -42,7 +42,18 @@ namespace Shura
                     cam.Shake(Feel.shakeHit);
                     vfx.Sparks(pos, dir, 7, Color.white, 7f);
                     vfx.Sparks(pos, dir, 4, col, 5f);
+                    vfx.Ring(pos, 0.1f, 0.6f, Color.white.WithAlpha(0.7f), 0.15f);
                     audio.Play(Sfx.Hit, 0.8f);
+                    ui.DamageNumber(Mathf.RoundToInt(magnitude), pos);
+                    break;
+
+                case FxType.TimingCue:
+                    if (!game.Settings.timingIndicator) break;
+                    audio.Play(Sfx.Glint, magnitude > 0.5f ? 0.55f : 0.45f, magnitude > 0.5f ? 0.8f : 1f, 0f);
+                    break;
+
+                case FxType.Footstep:
+                    vfx.Footstep(pos, dir);
                     break;
 
                 case FxType.EnemyBlocked:
@@ -135,6 +146,8 @@ namespace Shura
 
                 case FxType.EnemyDeath:
                     vfx.Burst(pos, 16, col, 4.5f);
+                    vfx.Rising(pos, magnitude, col, 18);
+                    vfx.Ring(pos, magnitude, magnitude * 3f, col.WithAlpha(0.6f), 0.5f);
                     audio.Play(Sfx.Death, 0.6f);
                     break;
 
@@ -174,6 +187,7 @@ namespace Shura
 
                 case FxType.Spawn:
                     vfx.Ring(pos, magnitude * 3f, magnitude * 1.2f, col.WithAlpha(0.8f), 0.6f);
+                    vfx.Rising(pos, magnitude, col, 22);
                     audio.Play(Sfx.Spawn, 0.5f);
                     break;
 

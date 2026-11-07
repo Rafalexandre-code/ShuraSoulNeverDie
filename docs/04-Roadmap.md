@@ -14,6 +14,10 @@ Objetivo: provar que aparar, quebrar postura e absorver técnicas é divertido.
 **Pronto quando:** compila sem erros; testes passam; uma run completa é jogável do
 título à vitória ou morte, com teclado e com controle; você aprova a *sensação* do parry.
 
+**M1.1 — após o primeiro playtest (feito):** indicador de tempo (anel + som), janela de
+parry 7 → 9 f, Altar das Almas com Ecos e 8 melhorias com teto, armas animadas
+(antecipação legível), braseiros, brasas, vinheta, transições, números de dano.
+
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; pixel art livre escolhida + shader de paleta; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.

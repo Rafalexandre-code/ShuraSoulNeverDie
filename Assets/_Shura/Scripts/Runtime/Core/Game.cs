@@ -22,6 +22,7 @@ namespace Shura
             Reward,
             GameOver,
             Victory,
+            Altar,
         }
 
         const int RoomClearDelayFrames = 75;
@@ -35,6 +36,9 @@ namespace Shura
         int roomClearTimer = -1;
         int deathTimer = -1;
         Mode settingsReturnMode = Mode.MainMenu;
+        Mode altarReturnMode = Mode.MainMenu;
+        string metaPath;
+        float emberTimer;
         BotInput bot;
         AutoDriver autoDriver;
 
@@ -49,6 +53,7 @@ namespace Shura
         public AudioService Audio { get; private set; }
         public GameUI UI { get; private set; }
         public FeedbackRouter Feedback { get; private set; }
+        public MetaProgress Meta { get; private set; }
         public LaunchOptions Launch { get; private set; }
         public Mode CurrentMode { get; private set; }
         public IReadOnlyList<RewardDef> RewardChoices => rewardChoices;
@@ -60,6 +65,9 @@ namespace Shura
             Launch = LaunchOptions.FromCommandLine();
             Config = config != null ? config : ScriptableObject.CreateInstance<GameConfig>();
             Settings = Launch.Automated ? new GameSettings() : GameSettings.Load();
+            // Automated runs use a separate, fresh save so they never touch the player's progress.
+            metaPath = MetaStore.DefaultPath(Launch.Automated);
+            Meta = Launch.Automated ? new MetaProgress() : MetaStore.Load(metaPath);
             QualitySettings.vSyncCount = Launch.Headless ? 0 : 1;
             Application.runInBackground = Launch.Automated;
 
@@ -111,6 +119,7 @@ namespace Shura
 
             autoDriver?.Update();
             UpdateMusic();
+            if (!Launch.Headless && CurrentMode != Mode.Paused) SpawnEmbers(Time.unscaledDeltaTime);
         }
 
         void Simulate()
@@ -163,8 +172,11 @@ namespace Shura
 
         public void StartRun()
         {
+            // Restarting mid-run still banks what was earned: progress is never thrown away.
+            if (Run != null && !Run.Banked) BankRun(false);
             ulong seed = Launch.Seed ?? (ulong)DateTime.UtcNow.Ticks;
-            Run = new RunState(seed, Config.flow);
+            Run = new RunState(seed, Config.flow, Meta);
+            if (Run.Modifiers.startFlowPoints > 0f) Run.Flow.Add(Run.Modifiers.startFlowPoints);
             roomClearTimer = -1;
             deathTimer = -1;
             rewardChoices.Clear();
@@ -172,6 +184,7 @@ namespace Shura
             World.StartRoom(0);
             Vfx.Clear();
             SetMode(Mode.Playing);
+            UI.FadeFromBlack();
         }
 
         public void Pause()
@@ -204,6 +217,7 @@ namespace Shura
 
         public void QuitToMenu()
         {
+            if (Run != null && !Run.Banked) BankRun(false);
             World.EndRun();
             Run = null;
             SetMode(Mode.MainMenu);
@@ -231,9 +245,72 @@ namespace Shura
             NextRoom();
         }
 
+        public void OpenAltar()
+        {
+            altarReturnMode = CurrentMode;
+            SetMode(Mode.Altar);
+        }
+
+        public void CloseAltar()
+        {
+            SetMode(altarReturnMode);
+        }
+
+        /// <summary>Buys the next level of an upgrade and saves immediately.</summary>
+        public bool TryBuyUpgrade(MetaUpgradeDef def)
+        {
+            if (Meta.TryBuy(def))
+            {
+                SaveMeta();
+                Audio.Play(Sfx.Purchase, 0.8f, 1f, 0f);
+                UI.Toast(string.Format(Strings.UpgradeBought, def.name, Meta.GetLevel(def.id)), Config.palette.gold);
+                UI.Flash(Config.palette.gold, 0.12f);
+                return true;
+            }
+            Audio.Play(Sfx.Denied, 0.7f, 1f, 0f);
+            if (!Meta.IsMaxed(def)) UI.Toast(Strings.NotEnoughEcos, Config.palette.danger);
+            return false;
+        }
+
+        void BankRun(bool victory)
+        {
+            if (Run == null || Run.Banked) return;
+            Run.EcosBanked = MetaRules.EcosForRun(Run, victory);
+            Run.Banked = true;
+            Meta.RecordRun(Run.EcosBanked, Run.RoomsCleared, victory);
+            SaveMeta();
+        }
+
+        void SaveMeta()
+        {
+            MetaStore.Save(Meta, metaPath);
+        }
+
+        void SpawnEmbers(float dt)
+        {
+            emberTimer += dt * Config.feel.embersPerSecond;
+            while (emberTimer >= 1f)
+            {
+                emberTimer -= 1f;
+                List<Vector2> flames = World.Decor.FlamePositions;
+                if (flames.Count > 0 && UnityEngine.Random.value < 0.55f)
+                {
+                    Vector2 p = flames[UnityEngine.Random.Range(0, flames.Count)] + UnityEngine.Random.insideUnitCircle * 0.15f;
+                    Vfx.Ember(p, ColorUtil.Hex("#F2A541"));
+                }
+                else
+                {
+                    Rect b = World.Bounds;
+                    var p = new Vector2(UnityEngine.Random.Range(b.xMin, b.xMax), UnityEngine.Random.Range(b.yMin, b.yMax));
+                    Vfx.Ember(p, Config.palette.gold.WithAlpha(0.55f));
+                }
+            }
+        }
+
         public void ApplySettings()
         {
             AudioListener.volume = Settings.master;
+            if (World != null) World.ShowTimingIndicator = Settings.timingIndicator;
             if (!Application.isEditor && !Launch.Automated)
             {
                 Screen.fullScreenMode = Settings.fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed;
@@ -242,6 +319,7 @@ namespace Shura
 
         public void DevForceGameOver()
         {
+            BankRun(false);
             SetMode(Mode.GameOver);
         }
 
@@ -250,15 +328,17 @@ namespace Shura
             Run.RoomIndex++;
             World.StartRoom(Run.RoomIndex);
             SetMode(Mode.Playing);
+            UI.FadeFromBlack();
         }
 
         void OnRoomCleared()
         {
             Run.RoomsCleared++;
-            float heal = Config.player.healOnRoomClear;
+            float heal = Config.player.healOnRoomClear + Run.Modifiers.roomClearHealBonus;
             World.Player.Heal(heal);
             Feedback.Emit(FxType.RoomClear, World.Player.Position, Vector2.up);
             UI.Toast(string.Format(Strings.ToastRoomClear, Mathf.RoundToInt(heal)), Config.palette.uiText);
+            UI.Toast(string.Format(Strings.ToastRoomEcos, MetaRules.RoomEcos(Run.RoomsCleared - 1)), Config.palette.gold);
             roomClearTimer = RoomClearDelayFrames;
         }
 
@@ -277,6 +357,7 @@ namespace Shura
             if (deathTimer > 0 && --deathTimer == 0)
             {
                 deathTimer = -1;
+                BankRun(false);
                 SetMode(Mode.GameOver);
             }
         }
@@ -285,11 +366,12 @@ namespace Shura
         {
             if (Run.RoomIndex + 1 >= RoomDefs.Prototype.Length)
             {
+                BankRun(true);
                 SetMode(Mode.Victory);
                 return;
             }
             rewardChoices.Clear();
-            rewardChoices.AddRange(Run.RollChoices(3));
+            rewardChoices.AddRange(Run.RollChoices(3 + Run.Modifiers.extraRewardChoices));
             if (rewardChoices.Count == 0)
             {
                 NextRoom();
@@ -302,7 +384,7 @@ namespace Shura
         {
             bool inRun = CurrentMode == Mode.Playing || CurrentMode == Mode.Paused || CurrentMode == Mode.Reward;
             bool menu = CurrentMode == Mode.Title || CurrentMode == Mode.MainMenu ||
-                        CurrentMode == Mode.Settings || CurrentMode == Mode.Credits;
+                        CurrentMode == Mode.Settings || CurrentMode == Mode.Credits || CurrentMode == Mode.Altar;
             int flow = Run != null ? Run.Flow.Level : 0;
             bool combat = inRun && World.ActiveEnemyCount > 0;
 

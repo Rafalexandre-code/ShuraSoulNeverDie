@@ -22,6 +22,13 @@ Design: [`docs/01-Conceito.md`](docs/01-Conceito.md) · [`docs/02-GDD.md`](docs/
 | Esquivar | Espaço / L | A |
 | Pausar | Esc | Start |
 
+**Como ler os golpes:** um anel encolhe sobre o inimigo que vai atacar. Aperte quando ele
+**fechar** (ouve-se um "tim"). Anel azul = aparar; anel vermelho com losango = esquivar.
+
+**Progresso entre runs:** cada run rende Ecos, mesmo morrendo. Gaste-os no **Altar das Almas**
+(menu principal ou tela de morte). O progresso fica em
+`%USERPROFILE%\AppData\LocalLow\Shura\Shura\progress.json`; apague o arquivo para recomeçar do zero.
+
 ## Ajustar valores sem programar
 
 Todos os números (janela de parry, dano, hit-stop, tremida, cores…) estão em
@@ -43,7 +50,7 @@ Conteúdo (inimigos, salas, recompensas) fica em `Assets/_Shura/Scripts/Runtime/
 ## Verificação automática
 
 ```bash
-# Testes de lógica (23 testes)
+# Testes de lógica (34 testes)
 "C:/Program Files/Unity/Hub/Editor/6000.6.8f1/Editor/Unity.exe" -batchmode -projectPath . -runTests -testPlatform EditMode -testResults TestResults.xml
 
 # Run completa jogada por um bot (sem janela), com resumo no log

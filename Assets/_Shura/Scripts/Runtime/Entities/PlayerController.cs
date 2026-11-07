@@ -22,6 +22,12 @@ namespace Shura
         }
 
         static readonly PlayerModifiers DefaultMods = new PlayerModifiers();
+        const float RestAngle = -55f;
+        const float SwingReach = 72f;
+        const float FinalSwingReach = 100f;
+        const int FootstepFrames = 15;
+
+        int footstepTimer;
 
         PlayerTuning t;
         FlowTuning flowTuning;
@@ -72,9 +78,10 @@ namespace Shura
 
             BuildView(owner, Shape.Circle, pal.player, t.radius);
             pointer.color = pal.playerAccent;
+            BuildWeapon(Shape.Blade, ColorUtil.Hex("#E9EEF5"), 1.15f);
 
             parryArc = SpriteUtil.Make("ParryArc", transform, ShapeLibrary.Wedge(t.parryArcDegrees), pal.playerAccent, Sorting.Ground + 10);
-            swingArc = SpriteUtil.Make("SwingArc", transform, ShapeLibrary.Wedge(t.attackArcDegrees), Color.white, Sorting.Ground + 11);
+            swingArc = SpriteUtil.Make("SlashTrail", transform, ShapeLibrary.ArcBand(SwingReach * 2f), Color.white, Sorting.Overlay - 5);
             aura = SpriteUtil.Make("FlowAura", transform, ShapeLibrary.Get(Shape.SoftCircle), pal.gold, Sorting.Shadow + 1);
             empowerGlow = SpriteUtil.Make("Empowered", transform, ShapeLibrary.Get(Shape.Ring), pal.gold, Sorting.Overlay - 1);
             parryArc.enabled = swingArc.enabled = aura.enabled = empowerGlow.enabled = false;
@@ -172,6 +179,12 @@ namespace Shura
                 return;
             }
             Steer(input.Move * t.moveSpeed);
+
+            if (Velocity.sqrMagnitude > 6f && ++footstepTimer >= FootstepFrames)
+            {
+                footstepTimer = 0;
+                world.Fx.Emit(FxType.Footstep, Position - Velocity.normalized * Radius * 0.6f, -Velocity.normalized);
+            }
         }
 
         void TickParry()
@@ -498,6 +511,66 @@ namespace Shura
 
         // ── View ────────────────────────────────────────────────────────────────────────
 
+        protected override WeaponPose GetWeaponPose()
+        {
+            var pose = new WeaponPose
+            {
+                angle = RestAngle + 4f * Mathf.Sin(Time.unscaledTime * 1.8f),
+                tint = weaponColor,
+            };
+
+            switch (CurrentState)
+            {
+                case State.Parry:
+                    bool perfect = StateFrame < parryWindow;
+                    pose.angle = perfect ? 78f : 64f;
+                    pose.extend = -0.1f;
+                    if (perfect) pose.tint = Color.Lerp(weaponColor, pal.playerAccent, 0.75f);
+                    break;
+                case State.Attack:
+                    pose.snap = true;
+                    pose.angle = SwingAngle();
+                    break;
+                case State.Dodge:
+                    pose.angle = 165f;
+                    pose.extend = -0.1f;
+                    break;
+                case State.Hurt:
+                case State.GuardBroken:
+                    pose.angle = -125f + 10f * Mathf.Sin(Time.unscaledTime * 30f);
+                    break;
+                case State.Finisher:
+                    pose.snap = true;
+                    pose.angle = 0f;
+                    pose.extend = StateFrame < t.finisherImpactFrame
+                        ? Mathf.Lerp(0f, -0.45f, StateFrame / (float)t.finisherImpactFrame)
+                        : Mathf.Lerp(0.65f, 0.1f, (StateFrame - t.finisherImpactFrame) / (float)Mathf.Max(1, t.finisherFrames - t.finisherImpactFrame));
+                    pose.tint = Color.Lerp(weaponColor, pal.gold, 0.5f);
+                    break;
+                case State.Dead:
+                    pose.angle = -150f;
+                    pose.tint = weaponColor * 0.5f;
+                    break;
+            }
+            if (EmpoweredFrames > 0) pose.tint = Color.Lerp(pose.tint, pal.gold, 0.65f);
+            return pose;
+        }
+
+        /// <summary>Combo swings alternate sides; the last one is wider.</summary>
+        float SwingAngle()
+        {
+            float side = ComboIndex % 2 == 0 ? 1f : -1f;
+            float reach = ComboIndex == t.comboLength - 1 ? FinalSwingReach : SwingReach;
+            float start = reach * side;
+            float end = -reach * side;
+            int windup = t.attackWindup;
+            int active = t.attackActive;
+            if (StateFrame < windup) return Mathf.Lerp(RestAngle, start, CombatMath.EaseOutQuad(StateFrame / (float)windup));
+            if (StateFrame < windup + active) return Mathf.Lerp(start, end, CombatMath.EaseOutQuad((StateFrame - windup + 1) / (float)active));
+            float r = (StateFrame - windup - active) / (float)Mathf.Max(1, RecoveryFrames());
+            return Mathf.Lerp(end, RestAngle, CombatMath.EaseOutQuad(Mathf.Clamp01(r)));
+        }
+
         protected override void RenderExtra(Vector2 renderPosition, float visualDt)
         {
             Color c = pal.player;
@@ -523,16 +596,17 @@ namespace Shura
             }
 
             int windup = t.attackWindup;
-            int flashFrames = t.attackActive + 2;
-            bool swinging = CurrentState == State.Attack && StateFrame >= windup && StateFrame < windup + flashFrames;
+            int trailFrames = t.attackActive + 4;
+            bool swinging = CurrentState == State.Attack && StateFrame >= windup && StateFrame < windup + trailFrames;
             swingArc.enabled = swinging;
             if (swinging)
             {
-                float k = (StateFrame - windup) / (float)flashFrames;
-                swingArc.color = new Color(1f, 1f, 1f, 0.55f * (1f - k));
+                float k = (StateFrame - windup) / (float)trailFrames;
+                Color trail = EmpoweredFrames > 0 ? pal.gold : Color.white;
+                swingArc.color = trail.WithAlpha(0.75f * (1f - k * k));
                 swingArc.transform.localRotation = Quaternion.Euler(0f, 0f, facingAngle);
-                float s = t.attackRange * 2f;
-                swingArc.transform.localScale = new Vector3(s, s, 1f);
+                float s = t.attackRange * 2f * (1f + 0.08f * k);
+                swingArc.transform.localScale = new Vector3(s, ComboIndex % 2 == 0 ? s : -s, 1f);
             }
 
             int flow = FlowLevel;

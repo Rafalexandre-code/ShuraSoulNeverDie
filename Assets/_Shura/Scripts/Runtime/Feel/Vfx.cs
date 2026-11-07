@@ -14,6 +14,8 @@ namespace Shura
         {
             public bool alive;
             public bool stretch;
+            /// <summary>Fades in and out (sine) instead of only out.</summary>
+            public bool pulse;
             public Vector2 pos;
             public Vector2 vel;
             public float life;
@@ -100,6 +102,38 @@ namespace Shura
             }
         }
 
+        public void Footstep(Vector2 pos, Vector2 dir)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                Vector2 v = dir * Random.Range(0.3f, 0.8f) + Random.insideUnitCircle * 0.3f;
+                var c = new Color(0.7f, 0.66f, 0.75f, 0.22f);
+                Spawn(soft, pos + Random.insideUnitCircle * 0.08f, v, Random.Range(0.3f, 0.5f), 0.22f, 0.5f, c, c.WithAlpha(0f), 3f);
+            }
+        }
+
+        /// <summary>Motes drifting upward: used for spawning (materialize) and dying (dissolve).</summary>
+        public void Rising(Vector2 pos, float radius, Color color, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 start = pos + Random.insideUnitCircle * radius;
+                var v = new Vector2(Random.Range(-0.3f, 0.3f), Random.Range(1.2f, 2.6f));
+                Spawn(pixel, start, v, Random.Range(0.5f, 0.9f), Random.Range(0.08f, 0.16f), 0f,
+                      Color.Lerp(color, Color.white, 0.4f), color.WithAlpha(0f), 1f);
+            }
+        }
+
+        /// <summary>Ambient ash/ember drifting through the arena.</summary>
+        public void Ember(Vector2 pos, Color color)
+        {
+            var v = new Vector2(Random.Range(-0.25f, 0.25f), Random.Range(0.25f, 0.8f));
+            float size = Random.Range(0.04f, 0.09f);
+            Color dim = Color.Lerp(color, new Color(0.5f, 0.2f, 0.1f), 0.5f);
+            Spawn(pixel, pos, v, Random.Range(2.5f, 4.5f), size, size * 0.4f, color, dim,
+                  0f, false, Random.Range(0f, 360f), Random.Range(-90f, 90f), 1f, true);
+        }
+
         public void Afterimage(Vector2 pos, float radius, Color color)
         {
             Spawn(circle, pos, Vector2.zero, 0.22f, radius * 2f, radius * 1.8f, color.WithAlpha(0.45f), color.WithAlpha(0f));
@@ -126,7 +160,7 @@ namespace Shura
         // ── Pool ────────────────────────────────────────────────────────────────────────
 
         void Spawn(Sprite sprite, Vector2 pos, Vector2 vel, float life, float size0, float size1, Color c0, Color c1,
-                   float drag = 0f, bool stretch = false, float rot = 0f, float rotVel = 0f, float aspect = 1f)
+                   float drag = 0f, bool stretch = false, float rot = 0f, float rotVel = 0f, float aspect = 1f, bool pulse = false)
         {
             int i = Alloc();
             SpriteRenderer r = renderers[i];
@@ -136,6 +170,7 @@ namespace Shura
             {
                 alive = true,
                 stretch = stretch,
+                pulse = pulse,
                 pos = pos,
                 vel = vel,
                 life = life,
@@ -206,7 +241,9 @@ namespace Shura
                 tr.rotation = Quaternion.Euler(0f, 0f, p.rot);
                 tr.localScale = new Vector3(size * p.aspect, size, 1f);
             }
-            renderers[i].color = Color.Lerp(p.c0, p.c1, t);
+            Color c = Color.Lerp(p.c0, p.c1, t);
+            if (p.pulse) c.a *= Mathf.Sin(t * Mathf.PI);
+            renderers[i].color = c;
         }
     }
 }

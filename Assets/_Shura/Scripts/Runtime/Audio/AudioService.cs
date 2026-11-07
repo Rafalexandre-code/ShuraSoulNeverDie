@@ -23,6 +23,9 @@ namespace Shura
         Chime,
         UiMove,
         UiConfirm,
+        Glint,
+        Purchase,
+        Denied,
     }
 
     public enum MusicLayer
@@ -71,6 +74,9 @@ namespace Shura
             clips[(int)Sfx.Chime] = SfxSynth.Chime();
             clips[(int)Sfx.UiMove] = SfxSynth.UiMove();
             clips[(int)Sfx.UiConfirm] = SfxSynth.UiConfirm();
+            clips[(int)Sfx.Glint] = SfxSynth.Glint();
+            clips[(int)Sfx.Purchase] = SfxSynth.Purchase();
+            clips[(int)Sfx.Denied] = SfxSynth.Denied();
 
             pool = new AudioSource[PoolSize];
             for (int i = 0; i < PoolSize; i++)

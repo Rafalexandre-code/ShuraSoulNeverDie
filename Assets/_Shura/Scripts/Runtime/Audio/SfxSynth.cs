@@ -161,6 +161,28 @@ namespace Shura
         public static AudioClip UiMove() => Notes("ui_move", 0.06f, new[] { 1200f }, 0f, 0.012f, 0.3f);
         public static AudioClip UiConfirm() => Notes("ui_confirm", 0.18f, new[] { 880f, 1320f }, 0.05f, 0.04f, 0.4f);
 
+        /// <summary>Short bright "tink": the timing ring closed, answer now.</summary>
+        public static AudioClip Glint()
+        {
+            return Partials("glint", 0.18f, new[] { 2637f, 3951f, 5274f }, new[] { 1f, 0.6f, 0.3f },
+                            new[] { 0.06f, 0.045f, 0.03f }, 0.4f, 0.002f, 0.6f);
+        }
+
+        public static AudioClip Purchase() => Notes("purchase", 0.7f, new[] { 523.25f, 659.25f, 783.99f, 1046.5f }, 0.06f, 0.25f, 0.6f);
+
+        public static AudioClip Denied()
+        {
+            float[] d = Buffer(0.28f);
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)Rate;
+                float gate = t < 0.1f || (t > 0.14f && t < 0.24f) ? 1f : 0f;
+                float square = Mathf.Sign(Sin(150f, t)) * 0.5f + Sin(150f, t) * 0.5f;
+                d[i] = square * gate * Mathf.Exp(-t / 0.3f);
+            }
+            return OneShot("denied", d, 0.35f);
+        }
+
         public static AudioClip Absorb()
         {
             float[] d = Buffer(1.3f);

@@ -30,6 +30,21 @@ namespace Shura
         public const string ReduceFlashes = "Reduzir flashes";
         public const string Fullscreen = "Tela cheia";
         public const string ResetControls = "Restaurar controles padrão";
+        public const string TimingIndicator = "Indicador de tempo";
+
+        public const string Altar = "Altar das Almas";
+        public const string AltarTitle = "ALTAR DAS ALMAS";
+        public const string AltarSubtitle = "Os ecos de cada batalha fortalecem a próxima vida. Toda melhoria tem um limite.";
+        public const string EcosBalance = "{0} Ecos";
+        public const string EcosEarned = "Ecos ganhos nesta run: +{0}   ·   Total: {1}";
+        public const string HudEcos = "ECOS +{0}";
+        public const string Max = "MÁX";
+        public const string CostLabel = "{0} Ecos";
+        public const string NotEnoughEcos = "Ecos insuficientes";
+        public const string UpgradeBought = "{0}  ·  nível {1}";
+        public const string AltarControls = "Cima / Baixo para escolher  ·  Enter / A para comprar  ·  Esc / B para voltar";
+        public const string AltarStats = "Runs: {0}   ·   Vitórias: {1}   ·   Recorde: {2} salas";
+        public const string ToastRoomEcos = "+{0} Ecos";
         public const string On = "Ligado";
         public const string Off = "Desligado";
         public const string ControlsReset = "Controles restaurados";
@@ -99,14 +114,14 @@ namespace Shura
                         ? "Analógico esq. mover  ·  Analógico dir. mirar  ·  RB atacar  ·  LB aparar/bloquear  ·  A esquivar"
                         : "WASD mover  ·  Mouse mirar  ·  Botão esq. atacar  ·  Botão dir. aparar/bloquear  ·  Espaço esquivar";
                 case HintId.Parry:
-                    return "Aperte APARAR no instante do golpe: o parry perfeito enche a postura do inimigo. " +
-                           "Segurar só bloqueia e desgasta a SUA postura.";
+                    return "Um ANEL AZUL se fecha sobre o inimigo: aperte APARAR quando ele FECHAR (ouça o \"tim\"). " +
+                           "Parry perfeito enche a postura dele; segurar só bloqueia e desgasta a sua.";
                 case HintId.DangerThrust:
-                    return "PERIGO (losango vermelho)  ·  Estocada: não dá para aparar. " +
-                           "Esquive PARA DENTRO dela no último instante para uma CONTRA-INVESTIDA.";
+                    return "ANEL VERMELHO + losango = PERIGO, não dá para aparar. Estocada: quando o anel fechar, " +
+                           "esquive PARA DENTRO dela para uma CONTRA-INVESTIDA.";
                 case HintId.DangerSweep:
-                    return "PERIGO (losango vermelho)  ·  Varredura: não dá para aparar. " +
-                           "Saia do círculo ou esquive ATRAVÉS dela no último instante.";
+                    return "ANEL VERMELHO + losango = PERIGO, não dá para aparar. Varredura: quando o anel fechar, " +
+                           "esquive ATRAVÉS dela ou saia do círculo.";
                 case HintId.Finisher:
                     return "Postura quebrada! Ataque perto do inimigo para FINALIZAR.";
                 case HintId.Mastery:

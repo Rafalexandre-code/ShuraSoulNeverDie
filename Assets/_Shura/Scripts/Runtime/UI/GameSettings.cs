@@ -27,6 +27,10 @@ namespace Shura
         public string weaponA = "katana";
         public string weaponB = "montante";
         public string bindings = string.Empty;
+        /// <summary>Name shown to the party when hosting (and in the lobby).</summary>
+        public string playerName = "Anfitrião";
+        /// <summary>Which samurai the host plays (index into PlayerController.PartyArt).</summary>
+        public int playerArt;
 
         public static GameSettings Load()
         {
@@ -67,7 +71,23 @@ namespace Shura
             if (version < 3) blood = true;
             if (!WeaponDefs.Exists(weaponA)) weaponA = "katana";
             if (!WeaponDefs.Exists(weaponB) || weaponB == weaponA) weaponB = weaponA == "montante" ? "katana" : "montante";
+            playerName = CleanName(playerName, defaults.playerName);
+            playerArt = Mathf.Clamp(playerArt, 0, PlayerController.PartyArt.Length - 1);
             version = CurrentVersion;
+        }
+
+        /// <summary>A shareable name: printable, trimmed, at most 16 characters.</summary>
+        public static string CleanName(string name, string fallback)
+        {
+            if (string.IsNullOrEmpty(name)) return fallback;
+            var sb = new System.Text.StringBuilder();
+            foreach (char c in name)
+            {
+                if (!char.IsControl(c) && c != '"' && c != '\\') sb.Append(c);
+            }
+            string clean = sb.ToString().Trim();
+            if (clean.Length > 16) clean = clean.Substring(0, 16);
+            return clean.Length == 0 ? fallback : clean;
         }
 
         static float Clean(float value, float fallback)

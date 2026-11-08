@@ -41,20 +41,12 @@ namespace Shura
         Step,
     }
 
-    public enum MusicLayer
-    {
-        Drone = 0,
-        Drums = 1,
-        Strings = 2,
-        Choir = 3,
-        /// <summary>Bass line that rides with the drums.</summary>
-        Bass = 4,
-    }
-
     /// <summary>
-    /// Pooled one-shots and music that follows combat state and Flow: by default three
-    /// Ninja Adventure tracks crossfading (calm / fight / intense); optionally "Samurai
-    /// Nights" as five synchronized layers (Settings).
+    /// Pooled one-shots and a soundtrack of two moods. "Calm" (koto, shakuhachi, piano) plays
+    /// in menus, the lobby and between waves; "Fight" (taiko, koto, guitar) in combat. Each
+    /// mood is a shuffled playlist of whole tracks that crossfade into one another, never the
+    /// same track twice in a row, and both keep playing underneath so a mood comes back where
+    /// it left off. All tracks are loudness-normalized (see Tools/music).
     ///
     /// Sound effects are real recordings (CC0 packs in Resources/Audio/Sfx, see CREDITS.md):
     /// each event draws a random variant, never the same one twice in a row, with slight pitch
@@ -65,8 +57,9 @@ namespace Shura
     public sealed class AudioService : MonoBehaviour
     {
         const int PoolSize = 24;
-        const float MusicFadeSharpness = 2.5f;
-        const int LayerCount = 5;
+        const float MusicFadeSharpness = 1.6f;
+        /// <summary>Seconds of overlap when one track of a mood hands over to the next.</summary>
+        const float TrackCrossfade = 4f;
 
         sealed class Bank
         {
@@ -78,11 +71,21 @@ namespace Shura
             public int last = -1;
         }
 
-        readonly AudioSource[] music = new AudioSource[LayerCount];
-        readonly float[] musicTarget = new float[LayerCount];
-        /// <summary>Ninja Adventure tracks: calm (exploration, menus), fight, intense (high Flow).</summary>
-        readonly AudioSource[] tracks = new AudioSource[3];
-        readonly float[] trackTarget = new float[3];
+        /// <summary>One mood: a playlist on two sources that take turns, crossfading.</summary>
+        sealed class Mood
+        {
+            public AudioClip[] clips;
+            public readonly AudioSource[] decks = new AudioSource[2];
+            public int active;
+            public int last = -1;
+            public float level;
+            public float target;
+            /// <summary>Per-deck fade inside the mood (the outgoing track fades out, the next in).</summary>
+            public readonly float[] fade = new float[2];
+        }
+
+        readonly Mood calm = new Mood();
+        readonly Mood fight = new Mood();
         AudioSource[] pool;
         Bank[] banks;
         int next;
@@ -136,40 +139,39 @@ namespace Shura
 
             // Headless test runs skip music entirely.
             if (headless) return;
-            string[] trackNames = { "calm", "fight", "intense" };
-            for (int i = 0; i < tracks.Length; i++)
+            InitMood(calm, "Calm");
+            InitMood(fight, "Fight");
+        }
+
+        void InitMood(Mood mood, string folder)
+        {
+            mood.clips = Resources.LoadAll<AudioClip>("Audio/Music/" + folder);
+            if (mood.clips == null || mood.clips.Length == 0) return;
+            Array.Sort(mood.clips, (a, b) => string.CompareOrdinal(a.name, b.name));
+            for (int i = 0; i < 2; i++)
             {
-                AudioClip clip = LoadMusic("NA/" + trackNames[i]);
-                if (clip == null) continue;
                 AudioSource src = gameObject.AddComponent<AudioSource>();
-                src.clip = clip;
-                src.loop = true;
+                src.loop = false;
                 src.volume = 0f;
                 src.playOnAwake = false;
-                src.Play();
-                tracks[i] = src;
+                mood.decks[i] = src;
             }
-            AudioClip[] loops =
-            {
-                LoadMusic("drone") ?? SfxSynth.MusicDrone(),
-                LoadMusic("drums") ?? SfxSynth.MusicDrums(),
-                LoadMusic("strings") ?? SfxSynth.MusicStrings(),
-                LoadMusic("choir") ?? SfxSynth.MusicChoir(),
-                LoadMusic("bass"),
-            };
-            // All stems are whole multiples of one 4-bar loop, so starting them together keeps them locked.
-            double start = AudioSettings.dspTime + 0.3;
-            for (int i = 0; i < loops.Length; i++)
-            {
-                if (loops[i] == null) continue;
-                AudioSource src = gameObject.AddComponent<AudioSource>();
-                src.clip = loops[i];
-                src.loop = true;
-                src.volume = 0f;
-                src.playOnAwake = false;
-                src.PlayScheduled(start);
-                music[i] = src;
-            }
+            StartTrack(mood, 0);
+        }
+
+        /// <summary>A random track of the mood, never the one that just played.</summary>
+        void StartTrack(Mood mood, int deck)
+        {
+            int n = mood.clips.Length;
+            int pick = Random.Range(0, n);
+            if (n > 1 && pick == mood.last) pick = (pick + 1 + Random.Range(0, n - 1)) % n;
+            mood.last = pick;
+            AudioSource src = mood.decks[deck];
+            src.clip = mood.clips[pick];
+            src.time = 0f;
+            src.Play();
+            mood.active = deck;
+            mood.fade[deck] = 0f;
         }
 
         void Set(Sfx sfx, AudioClip synth, string folder = null, float synthLayer = 0f)
@@ -181,11 +183,6 @@ namespace Shura
                 UsingRecordedAudio = true;
             }
             banks[(int)sfx] = new Bank { samples = samples, synth = synth, synthLayer = synthLayer };
-        }
-
-        static AudioClip LoadMusic(string name)
-        {
-            return Resources.Load<AudioClip>("Audio/Music/" + name);
         }
 
         public void Play(Sfx sfx, float volume = 1f, float pitch = 1f, float pitchVariance = 0.06f)
@@ -219,41 +216,38 @@ namespace Shura
             src.Play();
         }
 
-        public void SetMusicTargets(float drone, float drums, float strings, float choir)
+        /// <summary>How loud each mood should be (0..1); they crossfade toward these.</summary>
+        public void SetMusicMood(float calmLevel, float fightLevel)
         {
-            musicTarget[(int)MusicLayer.Drone] = drone;
-            musicTarget[(int)MusicLayer.Drums] = drums;
-            musicTarget[(int)MusicLayer.Strings] = strings;
-            musicTarget[(int)MusicLayer.Choir] = choir;
-            musicTarget[(int)MusicLayer.Bass] = drums * 0.8f;
-
-            // The same intent drives the full-length tracks: calm outside combat, the fight
-            // track in combat, the intense one once Flow brings the melody in (level 2+).
-            bool combat = drums > 0.5f;
-            bool intense = combat && strings >= 0.55f;
-            trackTarget[0] = combat ? 0f : Mathf.Max(drone, choir);
-            trackTarget[1] = combat && !intense ? 0.75f : 0f;
-            trackTarget[2] = intense ? 0.8f : 0f;
+            calm.target = calmLevel;
+            fight.target = fightLevel;
         }
-
-        bool UseTracks => !settings.samuraiNights && tracks[0] != null;
 
         void Update()
         {
             if (settings == null) return;
-            float k = CombatMath.Damp(MusicFadeSharpness, Time.unscaledDeltaTime);
-            bool useTracks = UseTracks;
-            for (int i = 0; i < music.Length; i++)
+            float dt = Time.unscaledDeltaTime;
+            TickMood(calm, dt);
+            TickMood(fight, dt);
+        }
+
+        void TickMood(Mood mood, float dt)
+        {
+            if (mood.clips == null || mood.clips.Length == 0) return;
+            mood.level = Mathf.Lerp(mood.level, mood.target, CombatMath.Damp(MusicFadeSharpness, dt));
+
+            // Near the end of the track, the other deck starts the next one and they crossfade.
+            AudioSource current = mood.decks[mood.active];
+            bool ending = current.clip != null && (!current.isPlaying || current.time >= current.clip.length - TrackCrossfade);
+            if (ending) StartTrack(mood, 1 - mood.active);
+
+            float step = dt / TrackCrossfade;
+            for (int i = 0; i < 2; i++)
             {
-                if (music[i] == null) continue;
-                float target = useTracks ? 0f : musicTarget[i];
-                music[i].volume = Mathf.Lerp(music[i].volume, target * settings.music, k);
-            }
-            for (int i = 0; i < tracks.Length; i++)
-            {
-                if (tracks[i] == null) continue;
-                float target = useTracks ? trackTarget[i] : 0f;
-                tracks[i].volume = Mathf.Lerp(tracks[i].volume, target * settings.music, k);
+                AudioSource src = mood.decks[i];
+                mood.fade[i] = Mathf.MoveTowards(mood.fade[i], i == mood.active ? 1f : 0f, step);
+                src.volume = mood.fade[i] * mood.level * settings.music;
+                if (i != mood.active && mood.fade[i] <= 0f && src.isPlaying) src.Stop();
             }
         }
     }

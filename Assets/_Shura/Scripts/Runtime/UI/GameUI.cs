@@ -179,6 +179,7 @@ namespace Shura
             if (game.Launch.Automated || Time.frameCount == modeChangedFrame) return;
 
             InputService input = game.Controls;
+            if (editingName) return;
             switch (game.CurrentMode)
             {
                 case Game.Mode.Title:
@@ -238,6 +239,19 @@ namespace Shura
             {
                 case Game.Mode.Lobby:
                     AddItem(Strings.LobbyStart, game.StartRun);
+                    items.Add(new MenuItem
+                    {
+                        label = Strings.LobbyName,
+                        value = () => editingName ? nameBuffer + (Mathf.Repeat(Time.unscaledTime, 1f) < 0.5f ? "|" : " ") : game.Settings.playerName,
+                        activate = BeginNameEdit,
+                    });
+                    items.Add(new MenuItem
+                    {
+                        label = Strings.LobbyLook,
+                        value = () => Strings.ArtName(game.Settings.playerArt),
+                        activate = () => game.CycleHostArt(1),
+                        adjust = dir => game.CycleHostArt(dir),
+                    });
                     AddItem(Strings.LobbyWeapons, game.OpenArsenal);
                     AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.LobbyClose, game.CloseLobby);
@@ -264,7 +278,6 @@ namespace Shura
                     AddSlider(Strings.ScreenShake, () => s.shake, v => s.shake = v);
                     AddToggle(Strings.TimingIndicator, () => s.timingIndicator, v => s.timingIndicator = v);
                     AddToggle(Strings.Blood, () => s.blood, v => s.blood = v);
-                    AddToggle(Strings.SamuraiNightsMusic, () => s.samuraiNights, v => s.samuraiNights = v);
                     AddToggle(Strings.ReduceFlashes, () => s.reduceFlashes, v => s.reduceFlashes = v);
                     AddToggle(Strings.Fullscreen, () => s.fullscreen, v => s.fullscreen = v);
                     AddItem(Strings.ResetControls, () =>
@@ -353,8 +366,54 @@ namespace Shura
             else if (input.Cancel) Back();
         }
 
+        // ── Host name (typed in the lobby) ─────────────────────────────────────────────
+
+        bool editingName;
+        string nameBuffer = string.Empty;
+
+        void BeginNameEdit()
+        {
+            editingName = true;
+            nameBuffer = game.Settings.playerName;
+        }
+
+        /// <summary>Keyboard text for the name field (IMGUI key events, in OnGUI).</summary>
+        void HandleNameTyping()
+        {
+            if (!editingName) return;
+            if (game.CurrentMode != Game.Mode.Lobby)
+            {
+                editingName = false;
+                return;
+            }
+            Event e = Event.current;
+            if (e.type != EventType.KeyDown) return;
+            if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
+            {
+                game.SetHostName(nameBuffer);
+                editingName = false;
+                modeChangedFrame = Time.frameCount;
+                game.Audio.Play(Sfx.UiConfirm, 0.6f, 1f, 0f);
+            }
+            else if (e.keyCode == KeyCode.Escape)
+            {
+                editingName = false;
+                modeChangedFrame = Time.frameCount;
+            }
+            else if (e.keyCode == KeyCode.Backspace)
+            {
+                if (nameBuffer.Length > 0) nameBuffer = nameBuffer.Substring(0, nameBuffer.Length - 1);
+            }
+            else if (e.character != '\0' && !char.IsControl(e.character) && nameBuffer.Length < 16)
+            {
+                nameBuffer += e.character;
+            }
+            e.Use();
+        }
+
         void HandleReward(InputService input)
         {
+            if (game.WaitingForParty) return;
             int count = game.RewardChoices.Count;
             if (count == 0) return;
             menuIndex = Mathf.Clamp(menuIndex, 0, count - 1);
@@ -460,6 +519,7 @@ namespace Shura
             offset = new Vector2((Screen.width - VW * scale) * 0.5f, (Screen.height - VH * scale) * 0.5f);
             GUI.matrix = Matrix4x4.TRS(new Vector3(offset.x, offset.y, 0f), Quaternion.identity, new Vector3(scale, scale, 1f));
 
+            HandleNameTyping();
             Game.Mode mode = game.CurrentMode;
             bool inRun = mode == Game.Mode.Playing || mode == Game.Mode.Paused || mode == Game.Mode.Reward;
             if (PaintingScreen)
@@ -601,7 +661,7 @@ namespace Shura
             var left = new Rect(80f, 250f, 640f, 780f);
             kit.PaperPanel(left);
             Heading(new Rect(left.x, left.y + 36f, left.width, 90f), Strings.LobbyTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f), 360f);
-            DrawMenuList(left.y + 170f, 78f, 520f, left.center.x, true);
+            DrawMenuList(left.y + 160f, 64f, 560f, left.center.x, true);
             Label(new Rect(left.x + 60f, left.yMax - 200f, left.width - 120f, 150f), Strings.LobbyRadminHint, cardBodyStyle, UiKit.InkSoft);
 
             var right = new Rect(780f, 60f, 1080f, 970f);
@@ -622,14 +682,15 @@ namespace Shura
             kit.Underline(new Rect(right.x + 60f, y, right.width - 120f, 16f), UiKit.Ink.WithAlpha(0.45f));
             Label(new Rect(right.x + 70f, y + 20f, 600f, 40f), Strings.LobbyPlayers + "  ·  " + game.World.Players.Count + " / " + PartyScaling.MaxPlayers, capsStyle, UiKit.Shu);
             y += 66f;
-            DrawLobbyPlayer(new Rect(right.x + 60f, y, right.width - 120f, 64f), PlayerController.PartyArt[0], string.Format(Strings.LobbyHostName, "Anfitrião"),
+            DrawLobbyPlayer(new Rect(right.x + 60f, y, right.width - 120f, 64f), PlayerController.PartyArt[game.Settings.playerArt],
+                            string.Format(Strings.LobbyHostName, game.Settings.playerName),
                             WeaponDefs.Get(game.Settings.weaponA).name + "  ·  " + WeaponDefs.Get(game.Settings.weaponB).name, -1f);
             y += 70f;
             int shown = 0;
             foreach (NetSession.Remote r in net.Remotes)
             {
                 if (!r.joined) continue;
-                DrawLobbyPlayer(new Rect(right.x + 60f, y, right.width - 120f, 64f), PlayerController.PartyArt[r.slot], r.name,
+                DrawLobbyPlayer(new Rect(right.x + 60f, y, right.width - 120f, 64f), PlayerController.PartyArt[r.art], r.name + (r.ready ? "  ✓" : ""),
                                 WeaponDefs.Get(r.weaponA).name + "  ·  " + WeaponDefs.Get(r.weaponB).name, r.rtt);
                 y += 70f;
                 shown++;
@@ -735,12 +796,27 @@ namespace Shura
             DrawMenuList(panel.yMax - 170f, 86f, 420f, panel.center.x, true);
         }
 
+        /// <summary>The host chose; every teammate chooses their own card in their browser.</summary>
+        void DrawPartyChoosing()
+        {
+            var panel = new Rect(VW * 0.5f - 520f, 300f, 1040f, 420f);
+            kit.PaperPanel(panel);
+            Heading(new Rect(panel.x, panel.y + 40f, panel.width, 90f), Strings.PartyChoosingTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f), 520f);
+            List<string> names = game.Net.ChoosingNames();
+            Label(new Rect(panel.x + 60f, panel.y + 170f, panel.width - 120f, 120f), string.Join("   ·   ", names), bodyCenterStyle, UiKit.Ink);
+            Label(new Rect(panel.x, panel.yMax - 100f, panel.width, 40f),
+                  string.Format(Strings.PartyChoosingTimer, Mathf.CeilToInt(game.PartyRewardTimeLeft)), smallStyleCenter, UiKit.InkSoft);
+        }
+
         void DrawPause()
         {
-            DimGame(1f);
+            // Online the duel goes on behind this menu: a lighter veil, and a warning.
+            bool live = game.WorldKeepsRunning;
+            DimGame(live ? 0.45f : 1f);
             var panel = new Rect(560f, 90f, 800f, 900f);
             kit.PaperPanel(panel);
-            Heading(new Rect(panel.x, panel.y + 40f, panel.width, 100f), Strings.Paused, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f));
+            Heading(new Rect(panel.x, panel.y + 40f, panel.width, 100f), live ? Strings.PausedLive : Strings.Paused, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f));
+            if (live) Label(new Rect(panel.x, panel.y + 128f, panel.width, 34f), Strings.PausedLiveHint, smallStyleCenter, UiKit.Shu);
             RoomDef room = game.World != null ? game.World.CurrentRoom : null;
             if (room != null && game.Run != null)
             {
@@ -846,6 +922,11 @@ namespace Shura
         void DrawReward()
         {
             DimGame(1.2f);
+            if (game.WaitingForParty)
+            {
+                DrawPartyChoosing();
+                return;
+            }
             Heading(new Rect(0, 50, VW, 100), Strings.RewardTitle, UiKit.PaperText, UiKit.Shu, 620f);
             Label(new Rect(0, 160, VW, 40), Strings.RewardSubtitle, bodyCenterStyle, UiKit.PaperDim);
 

@@ -76,6 +76,13 @@ Depois: os 16 novos ganharam técnicas absorvíveis (24 no total), e bombas/tali
 contar como esquiva perfeita para dominar a assinatura. Corrigido um travamento antigo das
 armadilhas quando um inimigo morria nelas durante a recarga.
 
+**M1.11 — individualidade no online (feito):** build próprio por jogador (armas, itens,
+recompensas, técnicas, Fluxo); cada um escolhe a sua recompensa no navegador; lobby no
+navegador igual ao do anfitrião (nome, aparência, armas, pronto), editável entre runs; menu Esc
+no navegador com equipamento e volume; online nada pausa; nome e aparência do anfitrião;
+placas de espinhos recolhidos que pareciam paredes viraram grades no chão; trilha nova em
+playlist (koto, shakuhachi, taiko — CC0/CC-BY) com volume normalizado e transições suaves.
+
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; shader de paleta unificando a pixel art; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.

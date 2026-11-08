@@ -78,7 +78,7 @@ function makeNav(g) {
 
 function bot(i) {
   return new Promise((resolve) => {
-    const st = { name: "Bot" + (i + 1), snaps: 0, rooms: new Set(), deaths: 0, revives: 0, minHp: 1, joined: false, wasDead: false, bytes: 0, errors: 0 };
+    const st = { name: "Bot" + (i + 1), picks: 0, inv: 0, snaps: 0, rooms: new Set(), deaths: 0, revives: 0, minHp: 1, joined: false, wasDead: false, bytes: 0, errors: 0 };
     stats.push(st);
     let ws = null, done = false;
     let myId = null, input = { t: "in", mx: 0, my: 0, ax: 1, ay: 0, p: 0, r: 0, atk: 0, par: 0, dod: 0, swp: 0 };
@@ -89,7 +89,9 @@ function bot(i) {
     ws = new WebSocket("ws://" + host + "/ws");
     ws.onopen = () => {
       const a = WEAPONS[i % WEAPONS.length], b = WEAPONS[(i + 2) % WEAPONS.length];
-      ws.send(JSON.stringify({ t: "join", name: st.name, a, b }));
+      ws.send(JSON.stringify({ t: "join", name: st.name, a, b, art: i % 8 }));
+      // Bots say they are ready right away (the host's test starts on a count anyway).
+      ws.send(JSON.stringify({ t: "ready", rd: 1 }));
     };
     ws.onerror = () => { if (st.joined) st.errors++; };
     ws.onclose = () => { if (!done) setTimeout(connect, st.joined ? 2000 : 1000); };
@@ -99,6 +101,12 @@ function bot(i) {
       try { m = JSON.parse(ev.data); } catch { st.errors++; return; }
       if (m.t === "welcome") { myId = m.id; st.joined = true; return; }
       if (m.t === "room") { steer = m.grid ? makeNav(m.grid) : null; return; }
+      // Each player picks their own reward after a room (a random card, like a hurried human).
+      if (m.t === "rewards") {
+        if ((m.list || []).length) { st.picks++; ws.send(JSON.stringify({ t: "pick", i: Math.floor(Math.random() * m.list.length) })); }
+        return;
+      }
+      if (m.t === "inv" || m.t === "picked" || m.t === "toast") { if (m.t === "inv") st.inv++; return; }
       if (m.t === "ping") { ws.send(JSON.stringify({ t: "pong", c: m.c })); return; }
       if (m.t !== "s" || myId == null) return;
       st.snaps++;
@@ -169,7 +177,7 @@ for (let i = 0; i < count; i++) {
 }
 await Promise.all(all);
 for (const s of stats) {
-  console.log(`${s.name}: entrou=${s.joined} snapshots=${s.snaps} salas=${s.rooms.size} quedas=${s.deaths} revividas=${s.revives} vidaMin=${(s.minHp * 100).toFixed(0)}% KB=${(s.bytes / 1024).toFixed(0)} erros=${s.errors}`);
+  console.log(`${s.name}: entrou=${s.joined} snapshots=${s.snaps} salas=${s.rooms.size} quedas=${s.deaths} revividas=${s.revives} recompensas=${s.picks} vidaMin=${(s.minHp * 100).toFixed(0)}% KB=${(s.bytes / 1024).toFixed(0)} erros=${s.errors}`);
 }
 const avg = stats.reduce((a, s) => a + s.snaps, 0) / stats.length / seconds;
 console.log(`média ${avg.toFixed(1)} snapshots/s por cliente; maior sala vista: ${Math.max(...stats.map((s) => s.rooms.size))}`);

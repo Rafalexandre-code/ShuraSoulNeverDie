@@ -15,9 +15,14 @@ web = os.path.join(project, "Assets", "StreamingAssets", "web")
 
 
 def fresh(path):
-    if os.path.isdir(path):
-        shutil.rmtree(path)
-    os.makedirs(path)
+    """Empties a folder but keeps Unity's .meta files (their GUIDs must not change)."""
+    if not os.path.isdir(path):
+        os.makedirs(path)
+        return
+    for root, dirs, files in os.walk(path, topdown=False):
+        for f in files:
+            if not f.endswith(".meta"):
+                os.remove(os.path.join(root, f))
 
 
 art = os.path.join(web, "art")
@@ -37,7 +42,7 @@ for cat in sorted(os.listdir(sfx_root)):
     files = sorted(f for f in os.listdir(src) if f.endswith(".ogg"))
     if not files:
         continue
-    os.makedirs(os.path.join(sfx, cat))
+    os.makedirs(os.path.join(sfx, cat), exist_ok=True)
     for f in files:
         shutil.copy2(os.path.join(src, f), os.path.join(sfx, cat, f))
     manifest[cat] = files
@@ -46,8 +51,16 @@ with open(os.path.join(sfx, "manifest.json"), "w", encoding="utf-8") as fh:
 
 music = os.path.join(web, "music")
 fresh(music)
-for f in ("calm.ogg", "fight.ogg", "intense.ogg"):
-    shutil.copy2(os.path.join(res, "Audio", "Music", "NA", f), music)
+playlists = {}
+for mood in ("Calm", "Fight"):
+    src = os.path.join(res, "Audio", "Music", mood)
+    os.makedirs(os.path.join(music, mood.lower()), exist_ok=True)
+    files = sorted(f for f in os.listdir(src) if f.endswith(".ogg"))
+    for f in files:
+        shutil.copy2(os.path.join(src, f), os.path.join(music, mood.lower(), f))
+    playlists[mood.lower()] = files
+with open(os.path.join(music, "playlists.json"), "w", encoding="utf-8") as fh:
+    json.dump(playlists, fh)
 
 fonts = os.path.join(web, "fonts")
 fresh(fonts)

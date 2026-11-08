@@ -25,6 +25,12 @@ namespace Shura
         public int dod;
         public int swp;
         public double c;
+        /// <summary>Lobby: chosen look (index into PlayerController.PartyArt), -1 = keep.</summary>
+        public int art = -1;
+        /// <summary>Reward picked, bag item to wear, or slot to empty (by message type).</summary>
+        public int i = -1;
+        /// <summary>Lobby: ready (1) or not (0); -1 = unchanged.</summary>
+        public int rd = -1;
     }
 
     /// <summary>

@@ -19,6 +19,13 @@ namespace Shura
             public SpriteRenderer glow;
         }
 
+        /// <summary>
+        /// Retracted spikes read as a grate sunk in the floor (dim, translucent), never as a
+        /// raised block: at full brightness the plate looks like a piece of wall.
+        /// </summary>
+        static readonly Color GrateIdle = new Color(0.42f, 0.36f, 0.38f, 0.5f);
+        static readonly Color GrateWarn = new Color(1f, 0.42f, 0.36f, 0.95f);
+
         static readonly Color LaneIdle = new Color(0.55f, 0.42f, 0.38f, 0.9f);
         static readonly Color LaneWarn = new Color(1f, 0.45f, 0.3f, 1f);
         static readonly Color LaneHot = new Color(1f, 0.75f, 0.45f, 1f);
@@ -46,7 +53,8 @@ namespace Shura
                     case TrapType.Spikes:
                         foreach (Vector2Int c in trap.cells)
                         {
-                            var sr = SpriteUtil.Make("Spikes", parent, spikesDown, Color.white, Sorting.Floor + 6);
+                            var sr = SpriteUtil.Make("Spikes", parent, spikesDown, GrateIdle, Sorting.Floor + 6);
+                            sr.transform.localScale = Vector3.one * 0.8f;
                             sr.transform.localPosition = layout.CellCenter(c.x, c.y);
                             v.parts.Add(sr);
                         }
@@ -119,7 +127,7 @@ namespace Shura
                         foreach (SpriteRenderer sr in v.parts)
                         {
                             sr.sprite = phase == 2 ? spikesUp : spikesDown;
-                            sr.color = flicker ? new Color(1f, 0.45f, 0.4f) : Color.white;
+                            sr.color = phase == 2 ? Color.white : flicker ? GrateWarn : GrateIdle;
                         }
                         break;
                     }

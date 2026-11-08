@@ -9,23 +9,34 @@
 <body>
 <canvas id="game"></canvas>
 
+<!-- The lobby: before joining it is the entry form; once in, it is the room (same as the host's). -->
 <section id="lobby">
   <div class="sheet">
     <img class="logo" src="ui/logo.png" alt="修羅">
     <img class="seal" src="ui/seal.png" alt="">
-    <h1>Duelo online</h1>
-    <p class="tag">Entre na sala do anfitrião e lute ao lado dele, até 8 duelistas.</p>
+    <h1 id="lobbyTitle">Duelo online</h1>
+    <p class="tag" id="lobbyTag">Entre na sala do anfitrião e lute ao lado dele, até 8 duelistas.</p>
     <label class="field">Seu nome
       <input id="name" maxlength="16" autocomplete="off" placeholder="Ronin sem nome">
     </label>
+    <p class="caps">Aparência</p>
+    <div id="skins"></div>
     <p class="caps">Escolha duas armas</p>
     <div id="weapons"></div>
+    <div id="party" hidden>
+      <p class="caps">Na sala</p>
+      <div id="partyList"></div>
+    </div>
     <button id="join" disabled>Entrar no duelo</button>
     <p id="status" class="status">Conectando…</p>
+    <div class="vol">
+      <label>Música <input type="range" class="volMusic" min="0" max="100"></label>
+      <label>Efeitos <input type="range" class="volSfx" min="0" max="100"></label>
+    </div>
     <div class="controls">
       <b>Controles</b> WASD mover · mouse mirar · botão esq. atacar · botão dir. aparar (segurar bloqueia) ·
       Espaço esquivar · Q trocar arma (no anel = Troca Perfeita) · E segurar sobre um aliado caído para reviver ·
-      controle de videogame também funciona.
+      Esc equipamento e som (o duelo continua!) · controle de videogame também funciona.
     </div>
   </div>
 </section>
@@ -52,6 +63,34 @@
   <div id="prompt"></div>
   <div id="center"></div>
   <div id="toasts"></div>
+  <div id="escHint" class="small">Esc · equipamento e som</div>
+</section>
+
+<!-- Personal reward cards after each room: only for you. -->
+<section id="rewards" hidden>
+  <h2 class="brush">Escolha a sua recompensa</h2>
+  <p class="small">Só para o seu personagem · clique ou teclas 1–3</p>
+  <div id="cards"></div>
+</section>
+
+<!-- Equipment and sound: the duel keeps going while this is open. -->
+<section id="menu" hidden>
+  <div class="sheet wide">
+    <h1>Equipamento</h1>
+    <p class="warn">O duelo continua enquanto este menu está aberto — seja rápido!</p>
+    <div id="stats" class="statline"></div>
+    <p class="caps">Vestido · clique para guardar na mochila</p>
+    <div id="equipped" class="items"></div>
+    <p class="caps">Mochila · clique para vestir</p>
+    <div id="bag" class="items"></div>
+    <p class="caps">Suas técnicas, relíquias e bênçãos</p>
+    <div id="owned"></div>
+    <div class="vol">
+      <label>Música <input type="range" class="volMusic" min="0" max="100"></label>
+      <label>Efeitos <input type="range" class="volSfx" min="0" max="100"></label>
+    </div>
+    <button id="closeMenu" class="brushBtn">Voltar ao duelo (Esc)</button>
+  </div>
 </section>
 
 <script src="client.js"></script>

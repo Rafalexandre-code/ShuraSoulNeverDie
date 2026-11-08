@@ -150,6 +150,19 @@ namespace Shura
         public const string LobbyEmpty = "Ninguém entrou ainda…";
         public const string LobbyStart = "Começar a run";
         public const string LobbyWeapons = "Escolher minhas armas";
+        public const string LobbyName = "Seu nome";
+        public const string LobbyLook = "Aparência";
+        public const string PartyChoosingTitle = "O grupo está escolhendo";
+        public const string PartyChoosingTimer = "Cada um escolhe a sua recompensa. A próxima sala abre quando todos escolherem (ou em {0} s).";
+        public const string PausedLive = "MENU";
+        public const string PausedLiveHint = "Online o duelo continua: você ainda pode ser atacado!";
+
+        static readonly string[] ArtNames =
+        {
+            "Samurai de Palha", "Samurai Escarlate", "Ninja Azul", "Monge", "Mestre", "Ninja Verde", "Caçador", "Lutador Branco",
+        };
+
+        public static string ArtName(int index) => ArtNames[((index % ArtNames.Length) + ArtNames.Length) % ArtNames.Length];
         public const string LobbyClose = "Fechar a sala";
         public const string NetJoined = "{0} entrou na sala";
         public const string NetLeft = "{0} saiu";
@@ -171,8 +184,9 @@ namespace Shura
             "SHURA  ·  Protótipo M1\n\n" +
             "Direção criativa: [seu nome aqui]\n" +
             "Design, programação e efeitos: Claude (Anthropic)  ·  Feito com Unity 6\n\n" +
-            "Arte e trilha: \"Ninja Adventure\" de Pixel-Boy e AAA (CC0)\n" +
-            "Trilha alternativa: \"Samurai Nights\" de Maik Hoffmann / majadroid (CC-BY 3.0)\n" +
+            "Arte: \"Ninja Adventure\" de Pixel-Boy e AAA (CC0)\n" +
+            "Trilha: Tozan e Yoiyami (CC0); \"Self Discipline\" de Tsorthan Grove e \"Samurai\" de TAD (CC-BY 4.0);\n" +
+            "\"Taiko Drums\" de jobro e \"Blackmoor Ninjas\" de Matthew Pablo, matthewpablo.com (CC-BY 3.0)\n" +
             "Sons: StarNinjas, EZduzziteh, Still North Media e coleções CC0 do OpenGameArt.org\n" +
             "Fontes: Kaushan Script (Impallari Type) e Spectral (Production Type), SIL OFL\n" +
             "Lista completa em CREDITS.md\n\n" +

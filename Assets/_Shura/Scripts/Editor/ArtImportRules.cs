@@ -48,8 +48,8 @@ namespace Shura.EditorTools
             bool music = assetPath.Contains("/Audio/Music/");
             importer.forceToMono = !music;
             AudioImporterSampleSettings s = importer.defaultSampleSettings;
-            // Full-length tracks stream; short effects and the synced stems load whole.
-            s.loadType = assetPath.Contains("/Music/NA/") ? UnityEngine.AudioClipLoadType.Streaming : UnityEngine.AudioClipLoadType.DecompressOnLoad;
+            // Full-length music tracks stream from disk; short effects load whole.
+            s.loadType = music ? UnityEngine.AudioClipLoadType.Streaming : UnityEngine.AudioClipLoadType.DecompressOnLoad;
             s.compressionFormat = UnityEngine.AudioCompressionFormat.Vorbis;
             s.quality = music ? 0.7f : 0.8f;
             importer.defaultSampleSettings = s;

@@ -11,6 +11,12 @@ const WEAPONS = [
   { id: "kusarigama", name: "Kusarigama", art: "weapon_AxeTool" },
   { id: "manoplas", name: "Manoplas de Ferro", art: "weapon_Hammer" },
 ];
+// The samurai a player can be (same order as the host's PlayerController.PartyArt).
+const SKINS = [
+  { art: "Samurai", name: "Samurai de Palha" }, { art: "SamuraiRed", name: "Samurai Escarlate" },
+  { art: "NinjaBlue", name: "Ninja Azul" }, { art: "Monk", name: "Monge" }, { art: "Master", name: "Mestre" },
+  { art: "NinjaGreen", name: "Ninja Verde" }, { art: "Hunter", name: "Caçador" }, { art: "FighterWhite", name: "Lutador Branco" },
+];
 const GRIP = { weapon_Lance: 0.3, weapon_Lance2: 0.3, weapon_Stick: 0.3, weapon_Club: 0.25, weapon_Hammer: 0.25, weapon_AxeTool: 0.25 };
 const DANGER = "#ff5a3c", ACCENT = "#6fc3df", GOLD = "#f2c14e";
 const VIEW_UNITS = 14;          // world units visible vertically
@@ -61,15 +67,70 @@ function emptyBottom(im) {
 const tint = document.createElement("canvas"); tint.width = 64; tint.height = 64;
 const tintCtx = tint.getContext("2d");
 
+// ── Volume (each player sets their own; remembered in this browser) ──────────────
+const VOL = { music: 0.35, sfx: 0.8 };
+try {
+  const v = JSON.parse(localStorage.getItem("shura.vol") || "null");
+  if (v && typeof v.music === "number") VOL.music = v.music;
+  if (v && typeof v.sfx === "number") VOL.sfx = v.sfx;
+} catch (e) { /* private mode */ }
+function bindVolume() {
+  for (const el of document.querySelectorAll(".volMusic")) {
+    el.value = Math.round(VOL.music * 100);
+    el.oninput = () => { VOL.music = el.value / 100; saveVolume(); };
+  }
+  for (const el of document.querySelectorAll(".volSfx")) {
+    el.value = Math.round(VOL.sfx * 100);
+    el.oninput = () => { VOL.sfx = el.value / 100; saveVolume(); };
+  }
+}
+function saveVolume() {
+  for (const el of document.querySelectorAll(".volMusic")) el.value = Math.round(VOL.music * 100);
+  for (const el of document.querySelectorAll(".volSfx")) el.value = Math.round(VOL.sfx * 100);
+  if (musicGain) musicGain.gain.value = VOL.music;
+  try { localStorage.setItem("shura.vol", JSON.stringify(VOL)); } catch (e) { /* ignore */ }
+}
+
 // ── Sound ─────────────────────────────────────────────────────────────────────────
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let audio = null, manifest = {}, buffers = {}, music = {}, musicGain = null;
+let audio = null, manifest = {}, buffers = {}, musicGain = null;
+// Two moods, each a shuffled playlist crossfading track to track (same as the host's game).
+const moods = { calm: { files: [], gain: null, level: 0, target: 0, src: null, last: -1, endsAt: 0 },
+                fight: { files: [], gain: null, level: 0, target: 0, src: null, last: -1, endsAt: 0 } };
 async function startAudio() {
   if (audio) return;
   try { audio = new AudioCtx(); } catch (e) { return; }
   try { manifest = await (await fetch("sfx/manifest.json")).json(); } catch (e) { manifest = {}; }
-  musicGain = audio.createGain(); musicGain.gain.value = 0.55; musicGain.connect(audio.destination);
-  for (const name of ["calm", "fight", "intense"]) loadMusic(name);
+  musicGain = audio.createGain(); musicGain.gain.value = VOL.music; musicGain.connect(audio.destination);
+  let lists = {};
+  try { lists = await (await fetch("music/playlists.json")).json(); } catch (e) { lists = {}; }
+  for (const k of ["calm", "fight"]) {
+    const m = moods[k];
+    m.files = lists[k] || [];
+    m.gain = audio.createGain(); m.gain.gain.value = 0; m.gain.connect(musicGain);
+    nextTrack(k);
+  }
+}
+function nextTrack(k) {
+  const m = moods[k];
+  if (!m.files.length) return;
+  let pick = Math.floor(Math.random() * m.files.length);
+  if (m.files.length > 1 && pick === m.last) pick = (pick + 1) % m.files.length;
+  m.last = pick;
+  // Streamed, not decoded whole: minutes of music would cost hundreds of MB as PCM.
+  const el = new Audio("music/" + k + "/" + m.files[pick]);
+  el.preload = "auto";
+  const node = audio.createMediaElementSource(el);
+  const fade = audio.createGain(); node.connect(fade); fade.connect(m.gain);
+  const now = audio.currentTime, X = 4;
+  fade.gain.setValueAtTime(0, now); fade.gain.linearRampToValueAtTime(1, now + X);
+  if (m.src) {
+    const old = m.src;
+    old.fade.gain.setValueAtTime(old.fade.gain.value, now); old.fade.gain.linearRampToValueAtTime(0, now + X);
+    setTimeout(() => { old.el.pause(); old.el.src = ""; }, (X + 0.2) * 1000);
+  }
+  el.play().catch(() => { /* resumes on the next user gesture */ });
+  m.src = { el, fade };
 }
 async function loadBuffer(url) {
   if (buffers[url] !== undefined) return buffers[url];
@@ -80,19 +141,13 @@ async function loadBuffer(url) {
   } catch (e) { buffers[url] = null; }
   return buffers[url];
 }
-async function loadMusic(name) {
-  const buf = await loadBuffer("music/" + name + ".ogg");
-  if (!buf) return;
-  const src = audio.createBufferSource(); src.buffer = buf; src.loop = true;
-  const g = audio.createGain(); g.gain.value = 0; src.connect(g); g.connect(musicGain); src.start();
-  music[name] = g;
-}
 function sfx(cat, volume, x, y, pitch) {
   if (!audio || !manifest[cat]) return;
   const files = manifest[cat];
   const url = "sfx/" + cat + "/" + files[(Math.random() * files.length) | 0];
   const me = myPlayer();
-  let v = volume;
+  let v = volume * VOL.sfx;
+  if (v <= 0.001) return;
   if (me && x !== undefined) v *= Math.max(0.12, 1 - Math.hypot(x - me.x, y - me.y) / 18);
   loadBuffer(url).then((buf) => {
     if (!buf) return;
@@ -105,17 +160,57 @@ function sfx(cat, volume, x, y, pitch) {
 function updateMusic(snap) {
   if (!audio) return;
   const combat = snap.cb === 1 && snap.m === "play";
-  const intense = combat && (snap.fl || 0) >= 2;
-  const target = { calm: combat ? 0 : 0.8, fight: combat && !intense ? 0.75 : 0, intense: intense ? 0.8 : 0 };
-  for (const k in music) {
-    const g = music[k].gain;
-    g.value += (target[k] - g.value) * 0.05;
+  const mine = (snap.P || []).find((p) => p[0] === S.myId);
+  const intense = combat && (mine ? mine[29] || 0 : 0) >= 2;
+  const target = { calm: combat ? 0 : 0.6, fight: combat ? (intense ? 0.8 : 0.7) : 0 };
+  for (const k in moods) {
+    const m = moods[k];
+    if (!m.gain) continue;
+    m.level += (target[k] - m.level) * 0.04;
+    m.gain.gain.value = m.level;
+    const el = m.src && m.src.el;
+    if (el && el.duration > 8 && !m.switching && (el.ended || el.duration - el.currentTime < 4)) {
+      m.switching = true; nextTrack(k); setTimeout(() => { m.switching = false; }, 6000);
+    } else if (el && el.paused && !el.ended && audio.state === "running") el.play().catch(() => {});
   }
 }
 
 // ── Lobby ─────────────────────────────────────────────────────────────────────────
 const nameInput = document.getElementById("name");
 try { nameInput.value = localStorage.getItem("shura.name") || ""; } catch (e) { /* private mode */ }
+try { S.art = Math.max(0, Math.min(SKINS.length - 1, parseInt(localStorage.getItem("shura.art") || "-1", 10))); } catch (e) { S.art = -1; }
+if (isNaN(S.art)) S.art = -1;
+try { const w = JSON.parse(localStorage.getItem("shura.weapons") || "null"); if (w && w.length === 2) S.picks = w; } catch (e) { /* ignore */ }
+const skinsBox = document.getElementById("skins");
+function renderSkins() {
+  skinsBox.innerHTML = "";
+  SKINS.forEach((sk, i) => {
+    const d = document.createElement("div");
+    d.className = "skin" + (S.art === i ? " on" : "");
+    d.title = sk.name;
+    d.style.backgroundImage = "url(art/" + sk.art + "_idle.png)";
+    d.onclick = () => { S.art = i; renderSkins(); loadoutChanged(); };
+    skinsBox.appendChild(d);
+  });
+}
+renderSkins();
+/** Once in the room, every change of name, look or weapons goes to the host at once. */
+let loadoutTimer = 0;
+function loadoutChanged() {
+  try {
+    localStorage.setItem("shura.art", String(S.art));
+    localStorage.setItem("shura.weapons", JSON.stringify(S.picks));
+  } catch (e) { /* ignore */ }
+  if (!S.joined || S.picks.length !== 2) return;
+  clearTimeout(loadoutTimer);
+  loadoutTimer = setTimeout(() => {
+    send({ t: "loadout", name: nameInput.value.trim(), a: S.picks[0], b: S.picks[1], art: S.art });
+  }, 150);
+}
+nameInput.addEventListener("input", () => {
+  try { localStorage.setItem("shura.name", nameInput.value.trim()); } catch (e) { /* ignore */ }
+  loadoutChanged();
+});
 const weaponsBox = document.getElementById("weapons");
 function renderWeapons() {
   weaponsBox.innerHTML = "";
@@ -130,19 +225,133 @@ function renderWeapons() {
       else if (S.picks.length < 2) S.picks.push(w.id);
       else S.picks[1] = w.id;
       renderWeapons();
+      loadoutChanged();
     };
     weaponsBox.appendChild(d);
   }
-  document.getElementById("join").disabled = !(S.ws && S.ws.readyState === 1 && S.picks.length === 2);
+  updateJoinButton();
+}
+function updateJoinButton() {
+  const b = document.getElementById("join");
+  if (S.joined) {
+    b.disabled = S.picks.length !== 2;
+    b.textContent = S.ready ? "Pronto! (clique para cancelar)" : "Estou pronto";
+  } else {
+    b.disabled = !(S.ws && S.ws.readyState === 1 && S.picks.length === 2);
+    b.textContent = "Entrar no duelo";
+  }
 }
 renderWeapons();
 document.getElementById("join").onclick = () => {
+  startAudio();
+  if (S.joined) {
+    S.ready = !S.ready;
+    send({ t: "ready", rd: S.ready ? 1 : 0 });
+    updateJoinButton();
+    return;
+  }
   const name = nameInput.value.trim() || "Ronin";
   try { localStorage.setItem("shura.name", name); } catch (e) { /* ignore */ }
-  send({ t: "join", name, a: S.picks[0], b: S.picks[1] });
-  startAudio();
+  send({ t: "join", name, a: S.picks[0], b: S.picks[1], art: S.art });
   setStatus("Entrando…");
 };
+bindVolume();
+
+/** Shows the room (lobby) while the host is in it; the duel otherwise. */
+function showRoom(inRoom) {
+  const lobby = document.getElementById("lobby");
+  if (lobby.hidden === !inRoom && S.roomShown === inRoom) return;
+  S.roomShown = inRoom;
+  lobby.hidden = !inRoom;
+  document.getElementById("hud").hidden = inRoom;
+  document.getElementById("party").hidden = !S.joined;
+  document.getElementById("lobbyTitle").textContent = S.joined ? "Na sala" : "Duelo online";
+  document.getElementById("lobbyTag").textContent = S.joined
+    ? "Escolha seu nome, aparência e armas. O anfitrião começa a run quando todos estiverem prontos."
+    : "Entre na sala do anfitrião e lute ao lado dele, até 8 duelistas.";
+  if (inRoom) { closeMenu(); hideRewards(); }
+  updateJoinButton();
+}
+
+let partyKey = "";
+function renderParty(snap) {
+  const P = snap.P || [];
+  const key = JSON.stringify(P.map((p) => [p[0], p[1], p[33], p[24], p[25], p[32], Math.round(p[28] / 3)]));
+  if (key === partyKey) return;
+  partyKey = key;
+  let html = "";
+  for (const p of P) {
+    const skin = SKINS[p[33]] || SKINS[0];
+    const me = p[0] === S.myId;
+    const ready = p[32] === 1;
+    const host = p[0] === 0;
+    html += '<div class="pm"><div class="face" style="background-image:url(art/' + skin.art + '_idle.png)"></div>' +
+      '<div><div class="nm">' + escapeHtml(p[1]) + (me ? " (você)" : host ? " · anfitrião" : "") + '</div><div class="wp">' +
+      escapeHtml(p[24]) + "  ·  " + escapeHtml(p[25]) + "</div></div>" +
+      '<span class="rd' + (ready ? " yes" : "") + '">' + (host ? "" : ready ? "pronto" : "escolhendo…") + "</span>" +
+      '<span class="wp">' + (host ? "" : "~" + Math.max(5, Math.round(p[28] * 16.7 - 33)) + " ms") + "</span></div>";
+  }
+  document.getElementById("partyList").innerHTML = html;
+}
+
+// ── Personal rewards ──────────────────────────────────────────────────────────────
+const KINDS = ["Técnica", "Relíquia", "Bênção", "Item"];
+const KIND_COLORS = ["#8c5e0c", "#b3261e", "#2d4f73", "#5e5146"];
+function showRewards(list) {
+  S.rewards = list;
+  const box = document.getElementById("cards");
+  box.innerHTML = "";
+  list.forEach((r, i) => {
+    const d = document.createElement("div");
+    d.className = "card";
+    d.innerHTML = '<span class="key">' + (i + 1) + '</span><div class="kind" style="color:' + KIND_COLORS[r.k] + '">' + KINDS[r.k] + "</div>" +
+      '<div class="nm">' + escapeHtml(r.n) + '</div><div class="g">' + escapeHtml(r.g) + "</div>" +
+      (r.c ? '<div class="c">Custo: ' + escapeHtml(r.c) + "</div>" : "") +
+      (r.src ? '<div class="src">Absorvida de ' + escapeHtml(r.src) + "</div>" : "");
+    d.onclick = () => pickReward(i);
+    box.appendChild(d);
+  });
+  document.getElementById("rewards").hidden = list.length === 0;
+  closeMenu();
+}
+function pickReward(i) {
+  if (!S.rewards || i < 0 || i >= S.rewards.length) return;
+  send({ t: "pick", i });
+  hideRewards();
+}
+function hideRewards() { S.rewards = null; document.getElementById("rewards").hidden = true; }
+
+// ── Equipment & sound menu (the duel keeps going) ────────────────────────────────
+function openMenu() {
+  if (!S.joined || S.roomShown) return;
+  S.menuOpen = true;
+  document.getElementById("menu").hidden = false;
+  send({ t: "inv" });
+  keys.clear(); mouse.left = mouse.right = false;
+}
+function closeMenu() { S.menuOpen = false; document.getElementById("menu").hidden = true; }
+document.getElementById("closeMenu").onclick = closeMenu;
+function renderInventory(m) {
+  const itemHtml = (it, slotName, i, equipped) => {
+    if (!it) return '<div class="item empty"><div class="sl">' + escapeHtml(slotName) + "</div>vazio</div>";
+    return '<div class="item" data-i="' + i + '" data-eq="' + (equipped ? 1 : 0) + '"><div class="sl">' + escapeHtml(slotName) + "</div>" +
+      '<div class="nm" style="color:' + it.rc + '">' + escapeHtml(it.n) + ' <span class="sl">' + escapeHtml(it.r) + "</span></div>" +
+      '<div class="g">' + escapeHtml(it.g) + "</div></div>";
+  };
+  let eq = "";
+  m.eq.forEach((it, i) => { eq += itemHtml(it, m.slots[i], i, true); });
+  let bag = "";
+  m.bag.forEach((it, i) => { bag += itemHtml(it, m.slots[it.s], i, false); });
+  document.getElementById("equipped").innerHTML = eq;
+  document.getElementById("bag").innerHTML = bag || '<div class="item empty">A mochila está vazia. Itens caem dos inimigos.</div>';
+  document.getElementById("owned").innerHTML = (m.own || []).map((o) => '<span class="k' + o[1] + '">' + escapeHtml(o[0]) + "</span>").join("") ||
+    '<span>Nada ainda: escolha recompensas ao vencer salas.</span>';
+  const st = m.st || [];
+  document.getElementById("stats").textContent = "Vida " + st[0] + "  ·  Postura " + st[1] + "  ·  Dano " + st[2] + "%  ·  Esquivas " + st[3] + "  ·  Parry " + st[4] + " frames";
+  for (const el of document.querySelectorAll("#menu .item[data-i]")) {
+    el.onclick = () => send({ t: el.dataset.eq === "1" ? "unequip" : "equip", i: parseInt(el.dataset.i, 10) });
+  }
+}
 function setStatus(t) { document.getElementById("status").textContent = t; }
 
 // ── Network ───────────────────────────────────────────────────────────────────────
@@ -152,9 +361,9 @@ function connect() {
   ws.onopen = () => { setStatus("Conectado ao anfitrião. Escolha e entre!"); renderWeapons(); };
   ws.onclose = () => {
     setStatus("Sem conexão com o anfitrião. Tentando de novo…");
-    S.joined = false;
-    document.getElementById("lobby").hidden = false;
-    document.getElementById("hud").hidden = true;
+    S.joined = false; S.ready = false;
+    closeMenu(); hideRewards();
+    showRoom(true);
     setTimeout(connect, 2000);
   };
   ws.onmessage = (ev) => {
@@ -164,10 +373,15 @@ function connect() {
       case "s": onSnapshot(m); break;
       case "room": onRoom(m); break;
       case "welcome":
-        S.myId = m.id; S.joined = true;
-        document.getElementById("lobby").hidden = true;
-        document.getElementById("hud").hidden = false;
+        S.myId = m.id; S.joined = true; S.ready = false;
+        if (typeof m.art === "number") { S.art = m.art; renderSkins(); }
+        S.roomShown = null;
+        setStatus("");
         break;
+      case "rewards": showRewards(m.list || []); break;
+      case "picked": hideRewards(); toast("Obtido: " + m.n, GOLD); break;
+      case "inv": renderInventory(m); break;
+      case "toast": toast(m.text, m.c); break;
       case "full": setStatus("A sala está cheia (8 duelistas)."); break;
       case "ping": send({ t: "pong", c: m.c }); break;
     }
@@ -194,6 +408,18 @@ function onSnapshot(m) {
   if (!S.joined && m.P) {
     const names = m.P.map((p) => p[1]).join(", ");
     setStatus(S.ws && S.ws.readyState === 1 ? "Na sala: " + names : "");
+  }
+  if (S.joined) {
+    if (S.lastMode === "lobby" && m.m !== "lobby" && S.ready) { S.ready = false; updateJoinButton(); }
+    S.lastMode = m.m;
+    // Between runs (the room, or after a defeat) everyone can change name, look and weapons.
+    const between = m.m === "lobby" || m.m === "over";
+    showRoom(between);
+    if (between) renderParty(m);
+    if (between) {
+      document.getElementById("lobbyTitle").textContent = m.m === "over" ? "A morte ensina" : "Na sala";
+    }
+    if (m.m !== "reward" && S.rewards) hideRewards();
   }
 }
 
@@ -236,6 +462,13 @@ let mouse = { x: 0, y: 0, left: false, right: false };
 addEventListener("keydown", (e) => {
   if (!S.joined) return;
   const k = e.key.toLowerCase();
+  if (k === "escape" || k === "tab") {
+    e.preventDefault();
+    if (S.menuOpen) closeMenu(); else openMenu();
+    return;
+  }
+  if (S.rewards && ["1", "2", "3", "4"].includes(k)) { pickReward(parseInt(k, 10) - 1); return; }
+  if (S.menuOpen || S.rewards || S.roomShown || document.activeElement === nameInput) return;
   if (!keys.has(k)) {
     if (k === " " || k === "l") S.input.dod++;
     if (k === "q") S.input.swp++;
@@ -249,6 +482,7 @@ addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
 addEventListener("blur", () => { keys.clear(); mouse.left = mouse.right = false; });
 canvas.addEventListener("mousemove", (e) => { const dpr = W / innerWidth; mouse.x = e.clientX * dpr; mouse.y = e.clientY * dpr; });
 canvas.addEventListener("mousedown", (e) => {
+  if (S.menuOpen || S.rewards) return;
   if (e.button === 0) { mouse.left = true; S.input.atk++; }
   if (e.button === 2) { mouse.right = true; S.input.par++; }
   if (e.button === 1) { S.input.swp++; e.preventDefault(); }
@@ -259,6 +493,10 @@ canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
 const pad = { a: false, x: false, y: false, rb: false, lb: false };
 function readInput() {
+  // In the menu or choosing a reward, this duelist stands still (the fight goes on).
+  if (S.menuOpen || S.rewards || S.roomShown) {
+    return { t: "in", mx: 0, my: 0, ax: 0, ay: 0, p: 0, r: 0, atk: S.input.atk, par: S.input.par, dod: S.input.dod, swp: S.input.swp };
+  }
   let mx = 0, my = 0, ax = 0, ay = 0, parry = mouse.right || keys.has("k"), revive = keys.has("e");
   if (keys.has("w") || keys.has("arrowup")) my += 1;
   if (keys.has("s") || keys.has("arrowdown")) my -= 1;
@@ -675,7 +913,11 @@ function drawTraps(snap, room, now) {
     if (type === 0) {
       for (let c = 0; c < cells.length; c += 2) {
         const x = cells[c], y = cells[c + 1];
-        if (dungeon) ctx.drawImage(dungeon.img, state === 2 ? 64 : 80, 16, 16, 16, sx(x - 0.5), sy(y + 0.5), PPU, PPU);
+        // Retracted spikes: a dim grate sunk in the floor (bright, it looks like a block of wall).
+        ctx.globalAlpha = state === 2 ? 1 : 0.45;
+        const g = state === 2 ? PPU : PPU * 0.8;
+        if (dungeon) ctx.drawImage(dungeon.img, state === 2 ? 64 : 80, 16, 16, 16, sx(x) - g / 2, sy(y) - g / 2, g, g);
+        ctx.globalAlpha = 1;
         if (state === 1 && Math.floor(now / 100) % 2 === 0) { ctx.fillStyle = "rgba(255,70,50,.35)"; ctx.fillRect(sx(x - 0.5), sy(y + 0.5), PPU, PPU); }
       }
     } else if (type === 1) {
@@ -866,10 +1108,11 @@ function updateHud() {
   $("room").textContent = s.room || "";
   $("wave").textContent = s.wave || "";
   let f = "";
-  for (let i = 0; i < 3; i++) f += '<b class="' + ((s.fl || 0) > i ? "on" : "") + '"></b>';
+  const fl = me ? me[29] || 0 : 0, fp = me ? me[30] || 0 : 0, st = me ? me[31] || 0 : 0;
+  for (let i = 0; i < 3; i++) f += '<b class="' + (fl > i ? "on" : "") + '"></b>';
   $("flow").innerHTML = f;
-  $("flowFill").style.width = ((s.fp || 0) * 100) + "%";
-  $("streak").textContent = (s.st || 0) >= 2 ? "SEQUÊNCIA x" + s.st : "";
+  $("flowFill").style.width = (fp * 100) + "%";
+  $("streak").textContent = st >= 2 ? "SEQUÊNCIA x" + st : "";
 
   let team = "";
   for (const p of s.P || []) {
@@ -893,10 +1136,10 @@ function updateHud() {
 
   let title = "", sub = "";
   const others = (s.P || []).length;
-  if (s.m === "lobby") { title = "Na sala"; sub = "Aguardando o anfitrião começar a run · " + others + " duelistas"; }
+  if (s.m === "lobby" || s.m === "over") { title = ""; }
   else if (s.m === "pause") { title = "Pausa"; sub = "O anfitrião pausou o duelo"; }
-  else if (s.m === "reward") { title = "Recompensa"; sub = "O anfitrião escolhe para a equipe: " + (s.rw || []).join("  ·  "); }
-  else if (s.m === "equip") { title = "Equipamento"; sub = "O anfitrião está ajustando os itens da equipe"; }
+  else if (s.m === "reward") { title = S.rewards ? "" : "Sala vencida"; sub = "Aguardando o grupo escolher as recompensas · " + others + " duelistas"; }
+  else if (s.m === "equip") { title = "Equipamento"; sub = "O anfitrião está ajustando os itens dele"; }
   else if (s.m === "over") { title = "A morte ensina"; sub = "A run acabou. Aguardando o anfitrião."; }
   else if (me && me[21] !== 1) { title = "Você caiu"; sub = "Um aliado pode te reviver ficando sobre você e segurando E"; }
   $("center").innerHTML = title ? "<h2>" + title + "</h2><p>" + escapeHtml(sub) + "</p>" : "";

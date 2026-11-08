@@ -32,8 +32,13 @@ namespace Shura
             public bool joined;
             public float rtt = 0.05f;
             public int slot;
+            /// <summary>Look picked in the lobby (index into PlayerController.PartyArt).</summary>
+            public int art;
+            public bool ready;
             public readonly NetInput input = new NetInput();
             public PlayerController player;
+            /// <summary>This player's own reward cards after a room (empty once they picked).</summary>
+            public readonly List<RewardDef> choices = new List<RewardDef>();
         }
 
         readonly Game game;
@@ -70,6 +75,7 @@ namespace Shura
         {
             game = owner;
             tap = feedbackTap;
+            game.World.RemoteItemCollected += OnRemoteItemCollected;
         }
 
         // ── Lifecycle ───────────────────────────────────────────────────────────────────
@@ -182,7 +188,7 @@ namespace Shura
             }
 
             snapTimer += dt;
-            float interval = game.CurrentMode == Game.Mode.Playing ? SnapshotInterval : IdleSnapshotInterval;
+            float interval = game.CurrentMode == Game.Mode.Playing || game.WorldKeepsRunning ? SnapshotInterval : IdleSnapshotInterval;
             if (snapTimer < interval) return;
             // Keep the remainder so frame jitter does not slow the stream below 30/s.
             snapTimer = Mathf.Min(snapTimer - interval, interval);
@@ -215,6 +221,34 @@ namespace Shura
                 case "in":
                     if (r.joined) r.input.Apply(m);
                     break;
+                case "loadout":
+                    if (r.joined) ChangeLoadout(r, m);
+                    break;
+                case "ready":
+                    if (r.joined && m.rd >= 0) r.ready = m.rd != 0;
+                    break;
+                case "pick":
+                    if (r.joined) PickReward(r, m.i);
+                    break;
+                case "equip":
+                    if (r.joined && r.player?.Build != null && m.i >= 0 && m.i < r.player.Build.Bag.Count)
+                    {
+                        r.player.Build.Equip(r.player.Build.Bag[m.i]);
+                        r.player.ApplyStats(false);
+                        SendInventory(r);
+                    }
+                    break;
+                case "unequip":
+                    if (r.joined && r.player?.Build != null && m.i >= 0 && m.i < 4)
+                    {
+                        r.player.Build.Unequip((ItemSlot)m.i);
+                        r.player.ApplyStats(false);
+                        SendInventory(r);
+                    }
+                    break;
+                case "inv":
+                    if (r.joined) SendInventory(r);
+                    break;
                 case "pong":
                     double now = Time.realtimeSinceStartupAsDouble * 1000.0;
                     r.rtt = Mathf.Clamp((float)(now - m.c) / 1000f, 0.001f, 1f);
@@ -236,24 +270,169 @@ namespace Shura
                 server.Send(r.id, "{\"t\":\"full\"}");
                 return;
             }
-            string name = (m.name ?? string.Empty).Trim();
-            if (name.Length == 0) name = "Ronin " + r.id;
-            if (name.Length > 16) name = name.Substring(0, 16);
-            r.name = name;
+            r.name = GameSettings.CleanName(m.name, "Ronin " + r.id);
             r.weaponA = WeaponDefs.Exists(m.a) ? m.a : "katana";
             r.weaponB = WeaponDefs.Exists(m.b) && m.b != r.weaponA ? m.b : (r.weaponA == "montante" ? "katana" : "montante");
             r.slot = FreeSlot();
+            r.art = m.art >= 0 && m.art < PlayerController.PartyArt.Length ? m.art : r.slot;
             r.joined = true;
-            r.player = game.World.AddPlayer(r.name, r.input, WeaponDefs.Get(r.weaponA), WeaponDefs.Get(r.weaponB), r.slot);
+            r.player = game.World.AddPlayer(r.name, r.input, WeaponDefs.Get(r.weaponA), WeaponDefs.Get(r.weaponB), r.art);
             r.player.NetId = r.id;
             game.OnPartyChanged();
 
             sb.Clear();
-            sb.Append("{\"t\":\"welcome\",\"id\":").Int(r.id).Append(",\"art\":").Str(PlayerController.PartyArt[r.slot]).Append('}');
+            sb.Append("{\"t\":\"welcome\",\"id\":").Int(r.id).Append(",\"art\":").Int(r.art).Append('}');
             server.Send(r.id, sb.ToString());
             if (roomMessage != null) server.Send(r.id, roomMessage);
             game.UI.Toast(string.Format(Strings.NetJoined, r.name), game.Config.palette.gold);
             Debug.Log("[Shura][Net] Entrou: " + r.name + " (" + r.address + ") com " + r.weaponA + "+" + r.weaponB);
+        }
+
+        /// <summary>A run starts: everyone is "choosing" again for the next time the room opens.</summary>
+        public void OnRunStarted()
+        {
+            foreach (Remote r in remotes.Values)
+            {
+                r.ready = false;
+                r.choices.Clear();
+            }
+        }
+
+        /// <summary>Name, weapons and look can change whenever no run is under way.</summary>
+        void ChangeLoadout(Remote r, NetIn m)
+        {
+            if (!string.IsNullOrEmpty(m.name)) r.name = GameSettings.CleanName(m.name, r.name);
+            if (m.art >= 0 && m.art < PlayerController.PartyArt.Length) r.art = m.art;
+            if (r.player == null) return;
+            r.player.DisplayName = r.name;
+            r.player.SetArt(r.art);
+            // Weapons change between runs: in the room, or on the "death teaches" screen.
+            if (game.Run != null && game.CurrentMode != Game.Mode.GameOver) return;
+            if (WeaponDefs.Exists(m.a)) r.weaponA = m.a;
+            if (WeaponDefs.Exists(m.b) && m.b != r.weaponA) r.weaponB = m.b;
+            if (r.weaponB == r.weaponA) r.weaponB = r.weaponA == "montante" ? "katana" : "montante";
+            r.player.SetLoadout(WeaponDefs.Get(r.weaponA), WeaponDefs.Get(r.weaponB));
+        }
+
+        // ── Personal rewards and equipment ──────────────────────────────────────────────
+
+        /// <summary>After a room: every browser player gets their own cards, from their own build.</summary>
+        public void OfferRewards(int depth)
+        {
+            foreach (Remote r in remotes.Values)
+            {
+                r.choices.Clear();
+                if (!r.joined || r.player?.Build == null) continue;
+                PlayerBuild b = r.player.Build;
+                r.choices.AddRange(b.RollChoices(3 + b.Modifiers.extraRewardChoices, depth));
+                sb.Clear();
+                sb.Append("{\"t\":\"rewards\",\"list\":[");
+                for (int i = 0; i < r.choices.Count; i++)
+                {
+                    RewardDef c = r.choices[i];
+                    if (i > 0) sb.Append(',');
+                    sb.Append("{\"n\":").Str(c.Name).Append(",\"g\":").Str(c.Gain).Append(",\"c\":").Str(c.Cost)
+                      .Append(",\"k\":").Int((int)c.Kind).Append(",\"src\":").Str(c.SourceEnemy ?? "").Append('}');
+                }
+                sb.Append("]}");
+                server.Send(r.id, sb.ToString());
+            }
+        }
+
+        /// <summary>Names of the browser players still choosing their reward.</summary>
+        public List<string> ChoosingNames()
+        {
+            var names = new List<string>();
+            foreach (Remote r in remotes.Values)
+            {
+                if (r.joined && r.choices.Count > 0) names.Add(r.name);
+            }
+            return names;
+        }
+
+        /// <summary>Time is up: whoever has not chosen takes their first card.</summary>
+        public void AutoPickRemaining()
+        {
+            foreach (Remote r in remotes.Values)
+            {
+                if (r.choices.Count > 0) PickReward(r, 0);
+            }
+        }
+
+        void PickReward(Remote r, int index)
+        {
+            if (index < 0 || index >= r.choices.Count || r.player?.Build == null) return;
+            RewardDef reward = r.choices[index];
+            r.choices.Clear();
+            r.player.Build.Acquire(reward);
+            r.player.ApplyStats(false);
+            if (reward.HealOnPick > 0f) r.player.Heal(reward.HealOnPick);
+            sb.Clear();
+            sb.Append("{\"t\":\"picked\",\"n\":").Str(reward.Name).Append('}');
+            server.Send(r.id, sb.ToString());
+            SendInventory(r);
+        }
+
+        void OnRemoteItemCollected(PlayerController who, Item item, bool equipped)
+        {
+            foreach (Remote r in remotes.Values)
+            {
+                if (r.player != who) continue;
+                sb.Clear();
+                sb.Append("{\"t\":\"toast\",\"text\":").Str((equipped ? "Equipado: " : "Na mochila: ") + item.Name + " (" + Rarities.Name(item.rarity) + ")")
+                  .Append(",\"c\":").Hex(Rarities.Color(item.rarity)).Append('}');
+                server.Send(r.id, sb.ToString());
+                SendInventory(r);
+            }
+        }
+
+        /// <summary>The player's own worn items, bag, rewards and numbers (for their equipment screen).</summary>
+        void SendInventory(Remote r)
+        {
+            PlayerBuild b = r.player?.Build;
+            if (b == null) return;
+            sb.Clear();
+            sb.Append("{\"t\":\"inv\",\"eq\":[");
+            for (int i = 0; i < b.Equipped.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                AppendItem(b.Equipped[i]);
+            }
+            sb.Append("],\"slots\":[");
+            for (int i = 0; i < b.Equipped.Length; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Str(ItemGenerator.SlotName((ItemSlot)i));
+            }
+            sb.Append("],\"bag\":[");
+            for (int i = 0; i < b.Bag.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                AppendItem(b.Bag[i]);
+            }
+            sb.Append("],\"own\":[");
+            bool first = true;
+            foreach (RewardDef o in b.Owned)
+            {
+                if (!first) sb.Append(',');
+                first = false;
+                sb.Append('[').Str(o.Name).Append(',').Int((int)o.Kind).Append(']');
+            }
+            PlayerController p = r.player;
+            sb.Append("],\"st\":[").Int(Mathf.RoundToInt(p.MaxHealth)).Append(',').Int(Mathf.RoundToInt(p.Posture.Max)).Append(',')
+              .Int(Mathf.RoundToInt(p.DamageDealtMult * 100f)).Append(',').Int(p.MaxDodgeCharges).Append(',').Int(p.PerfectParryFrames).Append("]}");
+            server.Send(r.id, sb.ToString());
+        }
+
+        void AppendItem(Item item)
+        {
+            if (item == null)
+            {
+                sb.Append("null");
+                return;
+            }
+            sb.Append("{\"n\":").Str(item.Name).Append(",\"r\":").Str(Rarities.Name(item.rarity)).Append(",\"rc\":").Hex(Rarities.Color(item.rarity))
+              .Append(",\"s\":").Int((int)item.slot).Append(",\"g\":").Str(item.Gain).Append('}');
         }
 
         int FreeSlot()
@@ -351,12 +530,34 @@ namespace Shura
             switch (game.CurrentMode)
             {
                 case Game.Mode.Playing: return "play";
+                case Game.Mode.Paused when game.WorldKeepsRunning: return "play";
+                case Game.Mode.Equipment when game.WorldKeepsRunning: return "play";
+                case Game.Mode.Settings when game.WorldKeepsRunning: return "play";
                 case Game.Mode.Paused: return "pause";
                 case Game.Mode.Reward: return "reward";
                 case Game.Mode.Equipment: return "equip";
                 case Game.Mode.GameOver: return "over";
                 default: return "lobby";
             }
+        }
+
+        /// <summary>In the lobby the host's pair is the one saved in their settings.</summary>
+        string WeaponNameOf(PlayerController p, int which)
+        {
+            if (p == game.World.Host && game.Run == null)
+            {
+                return WeaponDefs.Get(which == 0 ? game.Settings.weaponA : game.Settings.weaponB).name;
+            }
+            return which == 0 ? p.Weapon.name : p.OtherWeapon.name;
+        }
+
+        bool ReadyOf(PlayerController p)
+        {
+            foreach (Remote r in remotes.Values)
+            {
+                if (r.player == p) return r.ready;
+            }
+            return false;
         }
 
         string BuildSnapshot()
@@ -388,8 +589,12 @@ namespace Shura
                   .Num(p.MaxHealth > 0f ? p.Health / p.MaxHealth : 0f).Append(',').Num(p.Posture.Ratio).Append(',')
                   .Num(p.DodgeCharges, 2).Append(',').Int(p.MaxDodgeCharges).Append(',').Bool(p.IsAlive).Append(',')
                   .Num(w.ReviveProgress(p)).Append(',').Num(p.NetTint.a).Append(',')
-                  .Str(p.Weapon.name).Append(',').Str(p.OtherWeapon.name).Append(',').Int(Mathf.RoundToInt(p.Health)).Append(',').Int(Mathf.RoundToInt(p.MaxHealth))
-                  .Append(',').Int(p.LatencyTicks).Append(']');
+                  .Str(WeaponNameOf(p, 0)).Append(',').Str(WeaponNameOf(p, 1)).Append(',').Int(Mathf.RoundToInt(p.Health)).Append(',').Int(Mathf.RoundToInt(p.MaxHealth))
+                  .Append(',').Int(p.LatencyTicks).Append(',');
+                // Each duelist's own Flow, streak, lobby readiness and look.
+                PlayerBuild b = p.Build;
+                sb.Int(b != null ? b.Flow.Level : 0).Append(',').Num(b != null ? b.Flow.ProgressInLevel : 0f).Append(',')
+                  .Int(b != null ? b.PerfectStreak : 0).Append(',').Bool(p == w.Host || ReadyOf(p)).Append(',').Int(p.ArtIndex).Append(']');
             }
             sb.Append("],\"E\":[");
             bool first = true;

@@ -203,7 +203,8 @@ namespace Shura
             p.Input = input;
             if (Run != null)
             {
-                p.BeginRun(Run, input);
+                // Joining mid-run: a fresh build of their own (ascension and meta still apply).
+                p.BeginRun(Run, input, Run.CreateBuild());
                 p.ApplyStats(true);
                 Vector2 near = Host.IsAlive ? Host.Position : PlayerSpawn;
                 p.Teleport(Layout.NearestFloor(near + Vector2.down * 1.2f, p.Radius));
@@ -330,7 +331,8 @@ namespace Shura
             Run = run;
             hintsShown.Clear();
             deathReported = false;
-            foreach (PlayerController p in Players) p.BeginRun(run, p == Host ? input : p.Input);
+            // Every duelist gets their own build: the host the run's main one, teammates a new one.
+            foreach (PlayerController p in Players) p.BeginRun(run, p == Host ? input : p.Input, p == Host ? run.Main : run.CreateBuild());
         }
 
         public void EndRun()
@@ -767,12 +769,12 @@ namespace Shura
                 bool crit = false;
                 if (applyRewardHooks)
                 {
-                    for (int r = 0; r < Run.Effects.Count; r++)
+                    for (int r = 0; r < Player.Build.Effects.Count; r++)
                     {
-                        Run.Effects[r].ModifyAttackDamage(this, e, ref finalDamage);
-                        Run.Effects[r].ModifyAttackPosture(this, e, ref finalPosture);
+                        Player.Build.Effects[r].ModifyAttackDamage(this, e, ref finalDamage);
+                        Player.Build.Effects[r].ModifyAttackPosture(this, e, ref finalPosture);
                     }
-                    if (Run.Modifiers.critChance > 0f && Run.Rng.NextFloat() < Run.Modifiers.critChance)
+                    if (Player.Build.Modifiers.critChance > 0f && Run.Rng.NextFloat() < Player.Build.Modifiers.critChance)
                     {
                         crit = true;
                         finalDamage *= CritMult;
@@ -785,8 +787,8 @@ namespace Shura
 
                 if (crit) Fx.Emit(FxType.Crit, e.Position, hitDir, finalDamage, e.Def.bloodColor);
                 if (pull > 0f) e.Pull(Player.Position, pull);
-                if (Run.Modifiers.lifesteal > 0f) Player.Heal(finalDamage * Run.Modifiers.lifesteal);
-                for (int r = 0; r < Run.Effects.Count; r++) Run.Effects[r].OnDealtDamage(this, e, finalDamage);
+                if (Player.Build.Modifiers.lifesteal > 0f) Player.Heal(finalDamage * Player.Build.Modifiers.lifesteal);
+                for (int r = 0; r < Player.Build.Effects.Count; r++) Player.Build.Effects[r].OnDealtDamage(this, e, finalDamage);
             }
         }
 
@@ -915,19 +917,19 @@ namespace Shura
         {
             if (enemy == null || enemy.CurrentState != Enemy.State.Finishing) return;
 
-            Run.Finishers++;
+            Player.Build.Finishers++;
             if (dir.sqrMagnitude < 1e-4f) dir = Player.Facing;
             // Magnitude 2 marks the last enemy of the room: the router plays the slow-motion kill.
             bool lastOne = ActiveEnemyCount <= 1 && IsLastWave;
             Fx.Emit(FxType.Finisher, enemy.Position, dir, lastOne ? 2f : 1f, enemy.Def.bloodColor);
             Fx.Popup(Player.Weapon.finisherName.ToUpperInvariant(), enemy.Position + Vector2.up * 1f, Color.white);
             Fx.Gore(style, enemy.Position, dir, enemy.BodySprite, enemy.BodyColor, enemy.Def.bloodColor, enemy.Radius);
-            bool absorb = enemy.Mastered && Run.CanAbsorb(enemy.Def.techniqueId);
+            bool absorb = enemy.Mastered && Player.Build.CanAbsorb(enemy.Def.techniqueId);
             enemy.DieByFinisher();
             AddFlow(Config.flow.finisherPoints);
-            for (int r = 0; r < Run.Effects.Count; r++) Run.Effects[r].OnFinisher(this, enemy);
+            for (int r = 0; r < Player.Build.Effects.Count; r++) Player.Build.Effects[r].OnFinisher(this, enemy);
 
-            float heal = Run.Modifiers.finisherHeal + (Run.Flow.Level >= Run.Flow.MaxLevel ? Config.flow.level3FinisherHeal : 0f);
+            float heal = Player.Build.Modifiers.finisherHeal + (Player.Build.Flow.Level >= Player.Build.Flow.MaxLevel ? Config.flow.level3FinisherHeal : 0f);
             if (heal > 0f)
             {
                 Player.Heal(heal);
@@ -935,7 +937,7 @@ namespace Shura
             }
 
             if (!absorb) return;
-            Run.AddPendingTechnique(enemy.Def.techniqueId);
+            Player.Build.AddPendingTechnique(enemy.Def.techniqueId);
             RewardDef preview = RewardRegistry.Create(enemy.Def.techniqueId);
             Fx.Emit(FxType.TechniqueAbsorbed, enemy.Position, Player.Position - enemy.Position, 1f, Config.palette.gold);
             Fx.Toast(string.Format(Strings.ToastTechnique, preview != null ? preview.Name : enemy.Def.techniqueId), Config.palette.gold);
@@ -945,7 +947,7 @@ namespace Shura
         public void TryMaster(Enemy attacker, SignatureAnswer answer, bool fromSignature)
         {
             if (Run == null || attacker == null || attacker.IsGone || attacker.Mastered || !fromSignature) return;
-            if (attacker.Def.signatureAnswer != answer || !Run.CanAbsorb(attacker.Def.techniqueId)) return;
+            if (attacker.Def.signatureAnswer != answer || !Player.Build.CanAbsorb(attacker.Def.techniqueId)) return;
             attacker.MarkMastered();
             Fx.Emit(FxType.Mastered, attacker.Position, Vector2.up, 1f, Config.palette.gold);
             Fx.Popup(Strings.PopupMastered, attacker.Position + Vector2.up * 0.9f, Config.palette.gold);
@@ -956,7 +958,7 @@ namespace Shura
         public void RegisterPerfect(Vector2 where)
         {
             if (Run == null) return;
-            int streak = Run.RegisterPerfect();
+            int streak = Player.Build.RegisterPerfect();
             HintOnce(HintId.SwapParry);
             if (streak >= 5 && streak % 5 == 0) Fx.Emit(FxType.StreakMilestone, where, Vector2.up, streak, Config.palette.gold);
         }
@@ -964,16 +966,16 @@ namespace Shura
         public void AddFlow(float points)
         {
             if (Run == null) return;
-            int before = Run.Flow.Level;
-            int after = Run.Flow.Add(points * Run.Modifiers.flowGainMult);
+            int before = Player.Build.Flow.Level;
+            int after = Player.Build.Flow.Add(points * Player.Build.Modifiers.flowGainMult);
             if (after > before) Fx.Emit(FxType.FlowUp, Player.Position, Vector2.up, after, Config.palette.gold);
         }
 
         public void DropFlow(int levels)
         {
             if (Run == null) return;
-            int before = Run.Flow.Level;
-            int after = Run.Flow.DropLevels(levels);
+            int before = Player.Build.Flow.Level;
+            int after = Player.Build.Flow.DropLevels(levels);
             if (after < before) Fx.Emit(FxType.FlowDown, Player.Position, Vector2.down, after);
         }
 
@@ -1096,27 +1098,33 @@ namespace Shura
                 if (p.Age < 0.4f) continue;
                 PlayerController near = NearestAlivePlayer(p.Position);
                 if (near == null || Vector2.Distance(p.Position, near.Position) > PickupRadius) continue;
-                Collect(p);
+                Collect(p, near);
                 Pickups.RemoveAt(i);
             }
         }
 
-        /// <summary>Loot belongs to the party: equipped items strengthen everyone.</summary>
-        void Collect(ItemPickup p)
+        /// <summary>A teammate (not the host) picked something up: only they are told.</summary>
+        public event Action<PlayerController, Item, bool> RemoteItemCollected;
+
+        /// <summary>Loot is personal: whoever walks over it wears it (or bags it).</summary>
+        void Collect(ItemPickup p, PlayerController who)
         {
-            bool equipped = Run.AddItem(p.Item);
-            if (equipped)
+            if (who == null || who.Build == null) who = Host;
+            bool equipped = who.Build.AddItem(p.Item);
+            if (equipped) who.ApplyStats(false);
+            if (who == Host) Fx.ItemCollected(p.Item, equipped, p.Position);
+            else
             {
-                foreach (PlayerController pl in Players) pl.ApplyStats(false);
+                Fx.Emit(FxType.ItemDrop, p.Position, Vector2.up, (int)p.Item.rarity, Rarities.Color(p.Item.rarity));
+                RemoteItemCollected?.Invoke(who, p.Item, equipped);
             }
-            Fx.ItemCollected(p.Item, equipped, p.Position);
             Object.Destroy(p.Root.gameObject);
         }
 
-        /// <summary>Room cleared: nothing on the floor is ever lost.</summary>
+        /// <summary>Room cleared: nothing on the floor is ever lost (it goes to whoever is nearest).</summary>
         void CollectAllPickups()
         {
-            foreach (ItemPickup p in Pickups) Collect(p);
+            foreach (ItemPickup p in Pickups) Collect(p, NearestAlivePlayer(p.Position) ?? Host);
             Pickups.Clear();
         }
 
@@ -1154,7 +1162,15 @@ namespace Shura
         public void NotifyKill(Enemy enemy)
         {
             if (Run == null) return;
-            for (int r = 0; r < Run.Effects.Count; r++) Run.Effects[r].OnKill(this, enemy);
+            // Every duelist's own techniques hear about it (each heals or explodes for themselves).
+            PlayerController before = actor;
+            foreach (PlayerController p in Players)
+            {
+                if (p.Build == null || !p.IsAlive) continue;
+                actor = p;
+                for (int r = 0; r < p.Build.Effects.Count; r++) p.Build.Effects[r].OnKill(this, enemy);
+            }
+            actor = before;
         }
 
         /// <summary>A fan of player kunai (Leque de Kunai).</summary>

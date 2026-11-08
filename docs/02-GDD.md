@@ -230,8 +230,11 @@ Vitória: limpar a última sala (no MVP: derrotar o chefe). Derrota: vida 0 → 
 ensina" com estatísticas → nova run com nova semente em 1 botão.
 
 ### Cooperativo online (até 8)
-O anfitrião abre a sala; os amigos entram pelo navegador. Recompensas, itens e Fluxo são da
-equipe; armas são de cada um. Com mais gente: arena até +112% de área, ondas ~50% maiores por
+O anfitrião abre a sala; os amigos entram pelo navegador e veem a mesma sala (nome, aparência,
+armas, "pronto"). **Cada duelista é um personagem próprio:** armas, itens, mochila, técnicas,
+relíquias, bênçãos, Fluxo e sequência são individuais; ao vencer uma sala cada um escolhe a sua
+recompensa; itens são de quem os pega. Só a semente, as salas, a profundidade, a ascensão e os
+Ecos são do grupo. Online nada pausa: menus abertos deixam o personagem exposto. Com mais gente: arena até +112% de área, ondas ~50% maiores por
 jogador (com teto), inimigos +8% de vida por jogador (Guardião +35%), um atacante ativo por
 jogador (até 6) e ritmo de ataques mais curto. Inimigos escolhem alvo por distância e carga,
 espalhando os duelos. **Reviver:** aliado em cima do caído segurando E por 2,4 s (mais ajudantes

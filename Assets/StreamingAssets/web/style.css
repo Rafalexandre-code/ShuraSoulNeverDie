@@ -91,3 +91,62 @@ h1 { font-family: "Kaushan"; font-weight: normal; font-size: 46px; text-align: c
   #weapons { grid-template-columns: repeat(2, 1fr); }
   #me { width: 260px; } #flowBox, #team { width: 220px; }
 }
+
+/* ── Lobby (room view), rewards and menu ─────────────────────────────────────── */
+#skins { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+.skin { height: 64px; cursor: pointer; border: 2px solid rgba(30,26,23,.18); background-color: rgba(30,26,23,.06);
+  background-repeat: no-repeat; background-size: 400% 100%; background-position: 0 0; image-rendering: pixelated; }
+.skin.on { border-color: var(--shu); background-color: rgba(179,38,30,.22); }
+#partyList .pm { display: grid; grid-template-columns: 44px 1fr auto auto; gap: 12px; align-items: center; padding: 4px 0;
+  border-bottom: 1px solid rgba(30,26,23,.15); font-size: 16px; }
+#partyList .pm .face { width: 40px; height: 40px; background-repeat: no-repeat; background-size: 400% 100%; image-rendering: pixelated; }
+#partyList .pm .nm { font-family: "Kaushan"; font-size: 21px; }
+#partyList .pm .rd { font-family: "SpectralBold"; color: var(--shu); }
+#partyList .pm .rd.yes { color: #2d6a3f; }
+#partyList .pm .wp { color: var(--ink-soft); font-size: 14px; }
+.vol { display: flex; gap: 24px; justify-content: center; margin: 10px 0 0; font-family: "SpectralBold"; font-size: 14px; color: var(--ink-soft); }
+.vol input { width: 140px; vertical-align: middle; accent-color: #b3261e; }
+#escHint { position: fixed; right: 18px; bottom: 12px; opacity: .7; }
+
+#rewards { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(10,8,8,.82) 40%, rgba(10,8,8,.95)); z-index: 5; padding: 16px; }
+#rewards h2 { font: 48px "Kaushan"; margin: 0; }
+#cards { display: flex; gap: 22px; margin-top: 24px; flex-wrap: wrap; justify-content: center; }
+.card { width: min(320px, 90vw); min-height: 300px; padding: 26px 26px 22px; cursor: pointer; color: var(--ink);
+  background: url("ui/paper_tile.png"); border: 10px solid transparent; border-image: url("ui/panel_paper.png") 72 / 30px stretch;
+  transition: transform .12s; position: relative; }
+.card:hover { transform: translateY(-10px); }
+.card .kind { font: 13px "SpectralBold"; letter-spacing: .12em; text-transform: uppercase; }
+.card .nm { font: 30px "Kaushan"; margin: 4px 0 10px; }
+.card .g { font-size: 16px; white-space: pre-line; }
+.card .c { font-size: 14px; color: var(--shu); margin-top: 12px; white-space: pre-line; }
+.card .src { font-size: 13px; color: var(--ink-soft); margin-top: 10px; font-style: italic; }
+.card .key { position: absolute; right: 14px; top: 8px; font: 22px "Kaushan"; color: var(--ink-soft); }
+
+/* The menu leans on the right edge: the duel stays in sight on the left. */
+#menu { position: fixed; top: 0; right: 0; bottom: 0; width: min(620px, 100%); display: flex; align-items: flex-start; overflow: auto; padding: 12px;
+  background: linear-gradient(90deg, rgba(10,8,8,0), rgba(10,8,8,.55) 30%); z-index: 6; }
+.sheet.wide { width: 100%; padding: 26px 30px 24px; }
+.sheet.wide .items { grid-template-columns: 1fr; }
+.warn { text-align: center; color: var(--shu); font-family: "SpectralBold"; margin: 0 0 10px; }
+.statline { text-align: center; font-family: "SpectralBold"; color: var(--ink-soft); margin-bottom: 6px; }
+.items { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.item { padding: 8px 12px; cursor: pointer; border: 2px solid rgba(30,26,23,.18); background: rgba(30,26,23,.05); font-size: 14px; }
+.item:hover { background: rgba(179,38,30,.12); }
+.item .nm { font-family: "SpectralBold"; font-size: 16px; }
+.item .sl { color: var(--ink-soft); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.item .g { white-space: pre-line; color: var(--ink); }
+.item.empty { color: var(--ink-soft); cursor: default; font-style: italic; }
+#owned { display: flex; flex-wrap: wrap; gap: 6px; }
+#owned span { padding: 3px 10px; border-radius: 12px; font-size: 13px; background: rgba(30,26,23,.08); }
+#owned span.k0 { background: rgba(242,193,78,.35); }
+#owned span.k2 { background: rgba(45,79,115,.18); }
+.brushBtn { position: relative; display: block; width: 100%; margin: 18px 0 0; padding: 12px; font: 24px "Kaushan", cursive; color: var(--paper);
+  background: none; border: 0; cursor: pointer; isolation: isolate; }
+.brushBtn::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--ink);
+  -webkit-mask: url("ui/stroke_wide.png") center / 100% 100% no-repeat; mask: url("ui/stroke_wide.png") center / 100% 100% no-repeat; }
+.brushBtn:hover::before { background: var(--shu); }
+@media (max-width: 760px) {
+  #skins { grid-template-columns: repeat(4, 1fr); }
+  .items { grid-template-columns: 1fr; }
+}

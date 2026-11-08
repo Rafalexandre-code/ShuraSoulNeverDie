@@ -82,6 +82,25 @@ namespace Shura
         public LaunchOptions Launch { get; private set; }
         public Mode CurrentMode { get; private set; }
         public IReadOnlyList<RewardDef> RewardChoices => rewardChoices;
+        /// <summary>The host has picked; the room waits for teammates still choosing theirs.</summary>
+        public bool WaitingForParty => CurrentMode == Mode.Reward && hostPicked;
+        /// <summary>Seconds left before teammates who have not chosen get their first card.</summary>
+        public float PartyRewardTimeLeft => Mathf.Max(0f, RewardWaitSeconds - (Time.unscaledTime - rewardWaitStart));
+        bool hostPicked;
+        float rewardWaitStart;
+        const float RewardWaitSeconds = 40f;
+
+        /// <summary>
+        /// Online with teammates, menus never stop the duel: the host's pause, equipment and
+        /// settings sit over a world that keeps running (and can still hurt them).
+        /// </summary>
+        public bool WorldKeepsRunning =>
+            Net != null && Net.Active && Run != null && World.PartySize > 1 &&
+            (CurrentMode == Mode.Paused ||
+             (CurrentMode == Mode.Equipment && equipmentReturnMode == Mode.Paused) ||
+             (CurrentMode == Mode.Settings && settingsReturnMode == Mode.Paused));
+
+        bool Simulating => CurrentMode == Mode.Playing || WorldKeepsRunning;
         public bool ShowHitboxes { get; set; }
         public IPlayerInputSource ActiveInput => bot != null ? (IPlayerInputSource)bot : Controls;
         /// <summary>Current game speed (base tempo raised by Flow, lowered by slow motion).</summary>
@@ -126,6 +145,7 @@ namespace Shura
             if (Launch.Automated) autoDriver = new AutoDriver(this);
 
             ApplySettings();
+            ApplyHostIdentity();
             SetMode(Mode.Title);
         }
 
@@ -147,12 +167,16 @@ namespace Shura
                     if (Controls.PausePressed) Resume();
                     break;
                 case Mode.Reward:
-                    if (Controls.EquipmentPressed && !Launch.Automated) OpenEquipment();
+                    if (Controls.EquipmentPressed && !Launch.Automated && !hostPicked) OpenEquipment();
+                    if (hostPicked) TryFinishPartyRewards();
                     break;
                 case Mode.Equipment:
                     if (Controls.EquipmentPressed) CloseEquipment();
                     break;
             }
+
+            // Online, the duel goes on behind the host's menus.
+            if (WorldKeepsRunning) Simulate();
 
             Net.Update(Time.unscaledDeltaTime);
 
@@ -177,6 +201,7 @@ namespace Shura
                 Clock.Accumulate(Time.unscaledDeltaTime * EffectiveTempo);
             }
 
+            Mode startMode = CurrentMode;
             while (Clock.Step(out bool frozen))
             {
                 // Frozen ticks are hit-stop: nothing moves and the input buffer does not age.
@@ -186,16 +211,16 @@ namespace Shura
                 ActiveInput.Buffer.Age();
                 Net.AgeInputs();
                 TickTimers();
-                if (CurrentMode != Mode.Playing) break;
+                if (CurrentMode != startMode) break;
             }
         }
 
         void LateUpdate()
         {
             float realDt = Time.unscaledDeltaTime;
-            bool frozen = Clock.HitstopFrames > 0 || CurrentMode != Mode.Playing;
+            bool frozen = Clock.HitstopFrames > 0 || !Simulating;
             World.Render(frozen ? 1f : Clock.Alpha, frozen ? 0f : realDt, ShowHitboxes);
-            Vfx.Paused = CurrentMode == Mode.Paused;
+            Vfx.Paused = CurrentMode == Mode.Paused && !WorldKeepsRunning;
             CameraRig.SetZoomOffset(Run != null ? FlowLevel * Config.feel.flowZoomPerLevel : 0f);
             // Outside a run the camera frames the whole arena behind the menus.
             PlayerController focus = World.CameraFocus;
@@ -237,6 +262,8 @@ namespace Shura
             roomClearTimer = -1;
             deathTimer = -1;
             rewardChoices.Clear();
+            hostPicked = false;
+            if (Net.Active) Net.OnRunStarted();
             World.BeginRun(Run, ActiveInput);
             int startDepth = Launch.Automated ? Mathf.Max(0, Launch.StartDepth) : 0;
             for (int i = 0; i < startDepth; i++) Run.Ascend();
@@ -315,14 +342,14 @@ namespace Shura
         public void EquipItem(Item item)
         {
             Run.Equip(item);
-            foreach (PlayerController p in World.Players) p.ApplyStats(false);
+            World.Host.ApplyStats(false);
             Audio.Play(Sfx.Unsheathe, 0.5f, 1.3f, 0f);
         }
 
         public void UnequipItem(ItemSlot slot)
         {
             Run.Unequip(slot);
-            foreach (PlayerController p in World.Players) p.ApplyStats(false);
+            World.Host.ApplyStats(false);
             Audio.Play(Sfx.UiMove, 0.6f, 0.8f, 0f);
         }
 
@@ -379,20 +406,54 @@ namespace Shura
         {
             if (CurrentMode != Mode.Reward || index < 0 || index >= rewardChoices.Count) return;
             RewardDef reward = rewardChoices[index];
+            // The host's own build: teammates choose theirs in their browsers.
             Run.Acquire(reward);
-            // Rewards are the party's: every duelist gains (and pays) them.
-            foreach (PlayerController p in World.Players)
-            {
-                p.ApplyStats(false);
-                if (reward.HealOnPick > 0f) p.Heal(reward.HealOnPick);
-            }
+            World.Host.ApplyStats(false);
+            if (reward.HealOnPick > 0f) World.Host.Heal(reward.HealOnPick);
             Color c = reward.Kind == RewardKind.Technique ? Config.palette.gold
                     : reward.Kind == RewardKind.Blessing ? Config.palette.blessing
                     : Config.palette.playerAccent;
             UI.Toast(string.Format(Strings.Obtained, reward.Name), c);
             Audio.Play(Sfx.UiConfirm, 0.8f, 1f, 0f);
             rewardChoices.Clear();
+            hostPicked = true;
+            rewardWaitStart = Time.unscaledTime;
+            TryFinishPartyRewards();
+        }
+
+        /// <summary>The next room opens once every duelist has chosen (or the wait ran out).</summary>
+        void TryFinishPartyRewards()
+        {
+            if (!hostPicked) return;
+            if (Net.Active && Net.ChoosingNames().Count > 0)
+            {
+                if (PartyRewardTimeLeft > 0f) return;
+                Net.AutoPickRemaining();
+            }
+            hostPicked = false;
             NextRoom();
+        }
+
+        /// <summary>The host's name and look, as the party sees them.</summary>
+        public void ApplyHostIdentity()
+        {
+            World.Host.DisplayName = Settings.playerName;
+            World.Host.SetArt(Settings.playerArt);
+        }
+
+        public void SetHostName(string name)
+        {
+            Settings.playerName = GameSettings.CleanName(name, Settings.playerName);
+            if (!Launch.Automated) Settings.Save();
+            ApplyHostIdentity();
+        }
+
+        public void CycleHostArt(int dir)
+        {
+            int n = PlayerController.PartyArt.Length;
+            Settings.playerArt = ((Settings.playerArt + dir) % n + n) % n;
+            if (!Launch.Automated) Settings.Save();
+            ApplyHostIdentity();
         }
 
         public void OpenAltar()
@@ -556,13 +617,15 @@ namespace Shura
 
         void AdvanceAfterRoom()
         {
-            // Endless: there is always a next room.
+            // Endless: there is always a next room. Every duelist chooses their own reward.
             rewardChoices.Clear();
             rewardChoices.AddRange(Run.RollChoices(3 + Run.Modifiers.extraRewardChoices, Run.RoomIndex + 1));
+            hostPicked = false;
+            if (Net.Active) Net.OfferRewards(Run.RoomIndex + 1);
             if (rewardChoices.Count == 0)
             {
-                NextRoom();
-                return;
+                hostPicked = true;
+                rewardWaitStart = Time.unscaledTime;
             }
             SetMode(Mode.Reward);
         }
@@ -574,13 +637,10 @@ namespace Shura
                         CurrentMode == Mode.Settings || CurrentMode == Mode.Credits || CurrentMode == Mode.Altar || CurrentMode == Mode.Arsenal;
             int flow = Run != null ? Run.Flow.Level : 0;
             bool combat = inRun && World.ActiveEnemyCount > 0;
-
-            float drone = CurrentMode == Mode.GameOver ? 0.35f : 0.55f;
-            float drums = combat ? 0.8f : inRun ? 0.15f : 0f;
-            // The erhu melody enters with the first Flow level and swells with the next.
-            float strings = inRun && combat && flow >= 1 ? (flow >= 2 ? 0.6f : 0.4f) : 0f;
-            float choir = inRun ? (flow >= 3 ? 0.6f : 0f) : (menu ? 0.35f : 0f);
-            Audio.SetMusicTargets(drone, drums, strings, choir);
+            // Calm between waves and in menus; the fight mood in combat, a touch louder in high Flow.
+            float fightLevel = combat ? (flow >= 2 ? 0.8f : 0.7f) : 0f;
+            float calmLevel = combat ? 0f : CurrentMode == Mode.GameOver ? 0.45f : menu ? 0.55f : 0.6f;
+            Audio.SetMusicMood(calmLevel, fightLevel);
         }
 
         void OnApplicationFocus(bool hasFocus)

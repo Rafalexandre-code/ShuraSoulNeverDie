@@ -77,15 +77,14 @@ namespace Shura
         public int HurtInvulnFrames => hurtInvuln;
         public int ParryWindowFrames => parryWindow;
 
-        PlayerModifiers Mods => run != null ? run.Modifiers : DefaultMods;
-        int FlowLevel => run != null ? run.Flow.Level : 0;
-        /// <summary>
-        /// This duelist's two weapons. The host's pair is the run's (so the HUD and equipment
-        /// screens see it); players who joined over the network bring their own.
-        /// </summary>
+        PlayerModifiers Mods => Build != null ? Build.Modifiers : DefaultMods;
+        int FlowLevel => Build != null ? Build.Flow.Level : 0;
+        /// <summary>This duelist's own weapons, items, rewards and Flow.</summary>
+        public PlayerBuild Build { get; private set; }
+        /// <summary>This duelist's two weapons (their build's pair once a run starts).</summary>
         WeaponDef[] loadout;
         int activeWeapon;
-        public WeaponDef Weapon => loadout != null && loadout[activeWeapon] != null ? loadout[activeWeapon] : run != null ? run.CurrentWeapon : WeaponDefs.Katana;
+        public WeaponDef Weapon => loadout != null && loadout[activeWeapon] != null ? loadout[activeWeapon] : WeaponDefs.Katana;
         public WeaponDef OtherWeapon => loadout != null && loadout[1 - activeWeapon] != null ? loadout[1 - activeWeapon] : WeaponDefs.Katana;
         public string DisplayName { get; set; } = "Anfitrião";
         /// <summary>Network id (0 = host).</summary>
@@ -144,12 +143,12 @@ namespace Shura
 
         void PerfectDodgeAgainst(Enemy attacker, bool dangerous, bool signature)
         {
-            run.PerfectDodges++;
+            Build.PerfectDodges++;
             if (dangerous) world.RegisterPerfect(Position);
             world.TryMaster(attacker, SignatureAnswer.PerfectDodge, signature);
             world.Fx.Emit(FxType.PerfectDodge, Position, dodgeDir);
             if (dangerous) world.AddFlow(flowTuning.perfectDodgePoints);
-            for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnPerfectDodge(world, attacker);
+            for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnPerfectDodge(world, attacker);
         }
 
         /// <summary>Nothing lands for a moment (techniques).</summary>
@@ -202,17 +201,21 @@ namespace Shura
             parryArc.enabled = aura.enabled = empowerGlow.enabled = offhand.enabled = chain.enabled = false;
         }
 
-        public void BeginRun(RunState runState, IPlayerInputSource source)
+        public void BeginRun(RunState runState, IPlayerInputSource source, PlayerBuild build = null)
         {
             run = runState;
+            Build = build ?? runState.Main;
             input = source;
             Input = source;
-            if (!ownLoadout)
+            if (ownLoadout)
             {
-                // The host carries the run's pair.
-                loadout = run.Weapons;
-                activeWeapon = run.ActiveWeapon;
+                // A teammate brings the pair they picked in the lobby into their build.
+                Build.Weapons[0] = loadout[0];
+                Build.Weapons[1] = loadout[1];
+                Build.ActiveWeapon = 0;
             }
+            loadout = Build.Weapons;
+            activeWeapon = Build.ActiveWeapon;
             ApplyStats(true);
             DodgeCharges = MaxDodgeCharges;
             EmpoweredFrames = 0;
@@ -396,7 +399,7 @@ namespace Shura
             {
                 world.Fx.Emit(swapStrike ? FxType.SwapStrike : FxType.PlayerSwing, Position, Facing, Weapon.swingPitch, TrailColor());
                 Squash(1.28f, 0.8f);
-                if (!swapStrike) for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnSwing(world, ComboIndex, Facing);
+                if (!swapStrike) for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnSwing(world, ComboIndex, Facing);
                 if (step.style == SwingStyle.Thrust || step.style == SwingStyle.Jab)
                 {
                     world.Fx.Emit(FxType.ThrustTrail, Position, Facing, step.shape.range, TrailColor());
@@ -639,7 +642,7 @@ namespace Shura
             lastSwapSucceeded = false;
             swapWindow = window;
             activeWeapon = 1 - activeWeapon;
-            if (!ownLoadout) run.ActiveWeapon = activeWeapon;
+            if (Build != null) Build.ActiveWeapon = activeWeapon;
             ApplyWeaponVisual();
             UpdateFacing(true);
             Enter(State.Swap);
@@ -683,7 +686,7 @@ namespace Shura
             Enter(State.Dodge);
             Squash(1.35f, 0.72f);
             world.Fx.Emit(FxType.Dodge, Position, dodgeDir);
-            for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnDodge(world, Position);
+            for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnDodge(world, Position);
             return true;
         }
 
@@ -810,8 +813,8 @@ namespace Shura
                 case HitOutcome.SwapParry:
                 {
                     bool swap = outcome == HitOutcome.SwapParry;
-                    run.PerfectParries++;
-                    if (swap) run.SwapParries++;
+                    Build.PerfectParries++;
+                    if (swap) Build.SwapParries++;
                     run.Profile.OnPerfect();
                     if (swap) lastSwapSucceeded = true;
                     else lastParrySucceeded = true;
@@ -824,11 +827,11 @@ namespace Shura
                     if (!incoming.projectile)
                     {
                         float posture = attack.postureOnParried * PostureDealtMult * Mods.perfectParryPostureMult * (swap ? t.swapParryPostureMult : 1f);
-                        for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].ModifyParryPosture(world, attacker, ref posture);
+                        for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].ModifyParryPosture(world, attacker, ref posture);
                         attacker.OnParried(posture);
                     }
                     world.AddFlow(flowTuning.perfectParryPoints * (swap ? t.swapParryFlowMult : 1f));
-                    for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnPerfectParry(world, attacker);
+                    for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnPerfectParry(world, attacker);
                     if (swap)
                     {
                         Facing = toDir;
@@ -845,7 +848,7 @@ namespace Shura
                     Squash(0.88f, 1.1f);
                     if (!incoming.projectile)
                     {
-                        for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnBlock(world, attacker);
+                        for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnBlock(world, attacker);
                     }
                     if (Posture.Add(attack.postureDamage * power * t.blockPostureMultiplier * Mods.blockWearMult)) GuardBreak(toDir);
                     break;
@@ -855,14 +858,14 @@ namespace Shura
                     break;
 
                 case HitOutcome.CounterThrust:
-                    run.Counters++;
+                    Build.Counters++;
                     run.Profile.OnPerfect();
                     world.RegisterPerfect(clashPoint);
                     world.TryMaster(attacker, SignatureAnswer.CounterThrust, incoming.signature);
                     world.Fx.Emit(FxType.CounterThrust, clashPoint, toDir, FlowLevel);
                     attacker.OnCounterThrust(t.counterThrustPosture * PostureDealtMult);
                     world.AddFlow(flowTuning.counterPoints);
-                    for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnPerfectDodge(world, attacker);
+                    for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnPerfectDodge(world, attacker);
                     break;
 
                 case HitOutcome.Hit:
@@ -874,15 +877,15 @@ namespace Shura
 
         void TakeHit(AttackDef attack, Vector2 toAttacker, float power)
         {
-            bool maxFlow = run.Flow.Level >= run.Flow.MaxLevel;
+            bool maxFlow = Build.Flow.Level >= Build.Flow.MaxLevel;
             float damage = attack.damage * power * Mods.damageTakenMult * (maxFlow ? Mods.damageTakenAtMaxFlowMult : 1f);
             if (!world.PlayerInvincible) Health = Mathf.Max(0f, Health - damage);
             if (Health <= 0f)
             {
                 // A technique may refuse the fall once (Ossos Teimosos).
-                for (int i = 0; i < run.Effects.Count; i++)
+                for (int i = 0; i < Build.Effects.Count; i++)
                 {
-                    if (!run.Effects[i].OnLethalHit(world)) continue;
+                    if (!Build.Effects[i].OnLethalHit(world)) continue;
                     Health = 1f;
                     hurtInvuln = Mathf.Max(hurtInvuln, 60);
                     break;
@@ -892,7 +895,7 @@ namespace Shura
             world.Fx.Emit(FxType.PlayerHurt, Position, -toAttacker, damage);
             world.Fx.Blood(Position, -toAttacker, 6f + damage * 0.3f, ColorUtil.Hex("#8E0F1E"));
             world.DropFlow(1 + Mods.extraFlowLossOnHurt);
-            run.BreakStreak();
+            Build.BreakStreak();
             hurtInvuln = t.hurtInvulnFrames;
             Velocity = -toAttacker * t.hurtKnockback;
             Flash(0.08f);

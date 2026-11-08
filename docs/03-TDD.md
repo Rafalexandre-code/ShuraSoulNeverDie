@@ -86,10 +86,18 @@ Meta-progressão usará o mesmo esquema (arquivo próprio) no marco corresponden
   WebSocket próprio sobre `TcpListener` (porta 7777, threads de leitura/envio, fila
   `ConcurrentQueue` lida no thread principal). Serve `StreamingAssets/web` e `/arena.png`
   (a arena desenhada pelo host).
-- **Protocolo (JSON):** cliente → `join` (nome, 2 armas), `in` (eixos + contadores de toques,
-  para nenhum toque se perder), `pong`. Servidor → `welcome`, `room` (decoração, armadilhas e
-  grade de chão), `s` (estado ~30/s: jogadores, inimigos, projéteis, itens, armadilhas,
-  eventos de efeito/som), `ping`. Envio com descarte dos quadros mais velhos se o cliente atrasa.
+- **Protocolo (JSON):** cliente → `join` (nome, aparência, 2 armas), `loadout`, `ready`, `in`
+  (eixos + contadores de toques, para nenhum toque se perder), `pick` (recompensa), `equip` /
+  `unequip` / `inv` (equipamento), `pong`. Servidor → `welcome`, `room` (decoração, armadilhas e
+  grade de chão), `s` (estado ~30/s: jogadores com Fluxo/sequência/pronto/aparência próprios,
+  inimigos, projéteis, explosões, itens, armadilhas, eventos), mensagens pessoais `rewards`,
+  `picked`, `inv`, `toast`, e `ping`. Envio com descarte dos quadros mais velhos se o cliente atrasa.
+- **Build por jogador (M1.11):** `PlayerBuild` guarda armas, itens, mochila, recompensas,
+  técnicas pendentes, efeitos, modificadores, Fluxo, sequência e estatísticas de cada duelista.
+  `RunState` fica com o que é do grupo (semente, salas, ascensão, Ecos, leitura dos inimigos) e
+  expõe o build do anfitrião (`Main`) pelos atalhos antigos. Ganchos de combate usam o build de
+  quem está agindo (`World.Player.Build`). Online, pausa/equipamento/configurações do anfitrião
+  não param a simulação (`Game.WorldKeepsRunning`).
 - **Jogadores remotos** são `PlayerController` comuns com `NetInput` como fonte de input.
   `World.actor` diz quem está agindo; efeitos e sons gravados pelo `FeedbackTap` vão para os
   clientes, e no host o "feel" de jogadores remotos sai mudo.

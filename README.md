@@ -34,16 +34,25 @@ Quem hospeda roda o jogo; os outros só precisam de um navegador (Chrome, Edge, 
 
 1. Todos instalam o **Radmin VPN** e entram na mesma rede dele (nome e senha combinados).
 2. O anfitrião clica em **Jogar online (até 8)** no menu principal. Na primeira vez, o Windows
-   pergunta sobre o firewall: permita em **redes privadas** (a porta é a 7777).
+   pergunta sobre o firewall: permita em **redes privadas** (a porta é a 7777). Na sala, o
+   anfitrião troca **Seu nome** (Enter confirma) e a **Aparência** (← →).
 3. A sala mostra os links. Passe aos amigos o que começa com **http://26.** (o IP do Radmin);
    na mesma casa, o link 192.168… também serve.
-4. Cada um abre o link, escolhe nome e duas armas e clica em **Entrar no duelo**. Dá para
-   entrar com a run já em andamento.
+4. Cada um abre o link, escolhe nome, aparência e duas armas e clica em **Entrar no duelo**.
+   Daí em diante vê a mesma sala do anfitrião: quem está, com que armas, e quem está **pronto**.
+   Nome, aparência e armas podem mudar sempre que se volta à sala (ou na tela de derrota).
+   Dá para entrar com a run já em andamento.
 5. O anfitrião clica em **Começar a run**.
 
-A equipe divide recompensas, itens e Fluxo; cada um tem as próprias armas. Arenas, ondas,
-vida dos inimigos e o número de inimigos atacando ao mesmo tempo crescem com o grupo. O jogo
-compensa o ping de cada jogador no tempo do anel.
+**Cada um é um personagem diferente:** armas, itens e mochila, técnicas, relíquias, bênçãos e
+Fluxo são de cada jogador. Itens vão para quem passa por cima deles. Ao vencer uma sala, cada
+um escolhe a **própria** recompensa (cartas no navegador); a próxima sala abre quando todos
+escolheram (ou em 40 s). No navegador, **Esc** abre equipamento e volume (música e efeitos,
+lembrados no navegador). **Online o jogo nunca pausa:** quem abre um menu — inclusive o
+anfitrião — continua no mundo e pode ser atacado.
+
+Arenas, ondas, vida dos inimigos e o número de inimigos atacando ao mesmo tempo crescem com o
+grupo. O jogo compensa o ping de cada jogador no tempo do anel.
 
 **Reviver:** quem cai fica no chão marcado por um ensō. Um aliado fica em cima dele e
 **segura E** (controle: X) por ~2,4 s; dois aliados juntos revivem mais rápido. Os caídos também

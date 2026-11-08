@@ -30,10 +30,25 @@ Textos das licenças em `Licenses/`.
 
 | Faixa | Autor | Licença | Fonte | Uso |
 |---|---|---|---|---|
-| "12 - Temple", "17 - Fight", "34 - Fight" | Pixel-Boy & AAA (Ninja Adventure) | CC0 | https://pixel-boy.itch.io/ninja-adventure-asset-pack | Trilha padrão: calma / combate / Fluxo alto (`Resources/Audio/Music/NA`) |
-| Samurai Nights (loops separados) | Maik Hoffmann — majadroid (https://www.majadroid.com) | CC-BY 3.0 / CC-BY 4.0 / OGA-BY 3.0 | https://opengameart.org/content/samurai-nights | Trilha alternativa (Configurações): 5 camadas recortadas em loops exatos (`Resources/Audio/Music`) |
+Todas as faixas foram convertidas para .ogg e normalizadas em volume (loudnorm −20 LUFS, com
+entrada e saída suaves) para tocar em playlist sem picos. Pastas `Resources/Audio/Music/Calm` e
+`Resources/Audio/Music/Fight` (cópia em `StreamingAssets/web/music`).
 
-**Crédito exigido:** "Samurai Nights" by Maik Hoffmann (majadroid), licensed CC-BY.
+| Faixa | Autor | Licença | Fonte | Uso |
+|---|---|---|---|---|
+| Asianoriental1 | Tozan | CC0 | https://opengameart.org/content/asianoriental1 | Calma |
+| Oriental Somber | Tozan | CC0 | https://opengameart.org/node/155193 | Calma |
+| Yoiyami Core Theme – Deep Blue Ambient Piano | Yoiyami | CC0 | https://opengameart.org/content/yoiyami-core-theme-%E2%80%93-deep-blue-ambient-piano | Calma |
+| Self Discipline | Tsorthan Grove | CC-BY 4.0 | https://opengameart.org/content/self-discipline | Calma |
+| Samurai | TAD | CC-BY 4.0 | https://opengameart.org/content/samurai | Combate |
+| Taiko Drums (seamless loop) | jobro | CC-BY 3.0 | https://opengameart.org/content/taiko-drums-seamless-loop (original: https://freesound.org/people/jobro/sounds/112248/) | Combate |
+| Blackmoor Ninjas (versão sem vocais) | Matthew Pablo (http://www.matthewpablo.com) | CC-BY 3.0 | https://opengameart.org/content/blackmoor-ninjas-battle-theme | Combate |
+
+**Crédito exigido (CC-BY):** "Self Discipline" by Tsorthan Grove (CC BY 4.0); "Samurai" by TAD
+(CC BY 4.0); "Taiko Drums" by jobro (CC BY 3.0); "Blackmoor Ninjas" by Matthew Pablo,
+www.matthewpablo.com (CC BY 3.0). Também na tela de Créditos do jogo.
+
+As trilhas anteriores (Ninja Adventure e "Samurai Nights") saíram do jogo no M1.11.
 
 ## Efeitos sonoros
 

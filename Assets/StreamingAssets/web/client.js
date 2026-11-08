@@ -658,7 +658,27 @@ function text(t, x, y, color, life, big) {
   S.texts.push({ t, x, y, c: color || "#fff", life: life || 0.9, age: 0, big });
   trim(S.texts, MAX_TEXTS);
 }
+const LOG = [];
+let logStart = performance.now();
+function addLog(t, color) {
+  if (!t) return;
+  const last = LOG[LOG.length - 1];
+  if (last && last.t === t && performance.now() - last.at < 3000) { last.at = performance.now(); return; }
+  const s = Math.floor((performance.now() - logStart) / 1000);
+  LOG.push({ t, c: color || "#f1e8d6", at: performance.now(), stamp: String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0") });
+  if (LOG.length > 40) LOG.shift();
+  renderLog();
+}
+function renderLog() {
+  const box = document.getElementById("logLines");
+  if (!box) return;
+  box.innerHTML = LOG.slice(-8).map((e) => '<div class="' + (performance.now() - e.at > 14000 ? "old" : "") + '"><span class="t">' + e.stamp +
+    '</span><span class="d" style="background:' + e.c + '"></span><span style="color:' + e.c + '">' + escapeHtml(e.t) + "</span></div>").join("");
+  document.getElementById("log").style.display = LOG.length ? "block" : "none";
+}
 function toast(t, color) {
+  // In a run, notices are written in the log instead of crossing the screen.
+  if (S.joined && S.last && ["play", "pause", "reward", "route", "equip"].includes(S.last.m)) { addLog(t, color); return; }
   const box = document.getElementById("toasts");
   const d = document.createElement("div");
   d.textContent = t; d.style.color = color || "#f1e8d6";
@@ -1196,22 +1216,21 @@ function updateHud() {
     let d = "";
     for (let i = 0; i < me[20]; i++) d += '<span class="' + (me[19] >= i + 1 ? "" : "off") + '"></span>';
     $("dodges").innerHTML = d;
-    $("weapon").textContent = me[24];
-    $("weapon2").textContent = "‹›  " + me[25] + "  (Q)";
     $("breathFill").style.width = ((me[34] || 0) * 100) + "%";
     $("breathFill").classList.toggle("exhausted", me[35] === 1);
     $("shuraFill").style.width = ((me[36] || 0) * 100) + "%";
-    $("shuraName").textContent = me[37] > 0 ? SHURA_NAMES[me[37]] : "";
-    let g = "";
-    for (let i = 0; i < (me[40] || 0); i++) g += '<span class="' + (me[39] > i ? "" : "off") + '"></span>';
-    $("sips").innerHTML = g;
-    $("kamae").textContent = KAMAE_NAMES[me[38] || 0];
-    $("tool").textContent = (TOOL_NAMES[me[41] || 0]) + " · papéis " + (me[42] || 0);
-    const wm = me[43] || 0, parts = [];
-    for (let i = 0; i < 4; i++) if (wm & (1 << i)) parts.push(WOUND_NAMES[i]);
-    $("wounds").textContent = parts.length ? "Ferido: " + parts.join(", ") + " · bandagens " + (me[53] || 0) : (me[52] > 0 ? "CARGA " + me[52] : "");
-    $("purse").textContent = (me[54] || 0) + " Mon" + (me[55] ? "  ·  " + me[55] + " (" + me[56] + ")" : "");
-    $("purse").classList.toggle("cursed", !!me[55]);
+    $("shuraName").textContent = me[37] > 0 ? "· " + SHURA_NAMES[me[37]] : "";
+    $("kamae").textContent = KAMAE_KANJI[me[38] || 0] + "  " + KAMAE_NAMES[me[38] || 0];
+    const wm = me[43] || 0;
+    const status = [];
+    if (me[52] > 0) status.push("CARGA " + me[52]);
+    if (me[55]) status.push(me[55] + " (" + me[56] + ")");
+    $("wounds").textContent = status.join("  ·  ");
+    $("woundTag").textContent = wm ? "FERIDO" : "";
+    drawPortrait(me);
+    drawStances(me);
+    drawDoll(wm);
+    drawBelt(me);
     // Mushin: the interface fades away.
     document.getElementById("hud").classList.toggle("mushin", me[44] === 1);
   }
@@ -1285,6 +1304,190 @@ function updateHud() {
   $("center").style.display = title ? "block" : "none";
 }
 const KAMAE_NAMES = ["JŌDAN", "CHŪDAN", "GEDAN", "WAKI"];
+const KAMAE_KANJI = ["上段", "中段", "下段", "脇構"];
+// Blade angle of each guard (degrees clockwise from facing right) and where the hands hold it.
+const KAMAE_ANGLE = [-112, -18, 38, 158];
+const KAMAE_HANDS = [[0.48, 0.2], [0.66, 0.58], [0.62, 0.66], [0.34, 0.66]];
+
+// ── The HUD's pixel art (the same grids the game paints) ──────────────────────────
+const HUD = {
+  gourd: [".....ccc.....", "....cCCCc....", ".....ooo.....", "....obbbo....", "...obhbbbo...", "...obhbbbo...", "...obbbbso...", "....obbso....",
+    ".....rrr.....", "....rRrRr....", "....obbbo....", "...obhbbbo...", "..obhbbbbbo..", ".obhhbbbbbso.", ".obhbbbbbbso.", ".obbbbbbbsso.",
+    "..obbbbbsso..", "...osssssoo..", "....ooooo...."],
+  gourdFull: { o: "#3a1f0e", b: "#d9963a", h: "#f6d38a", s: "#a8601f", r: "#b3261e", R: "#e24b3b", c: "#6b4a2b", C: "#8a6a44" },
+  gourdEmpty: { o: "#211b17", b: "#5e5146", h: "#7a6c5e", s: "#3d342c", r: "#5a2a26", R: "#6e3530", c: "#6b4a2b", C: "#8a6a44" },
+  bandage: ["....oooooo....", "..oowwWWwwoo..", ".owWWwwwwWWwo.", "owWwwooooowWwo", "owWwo....owWwo", "owWwo....owWwo", "owWwwooooowWwo",
+    ".owWWwwwwWWwo.", "..oowwwwwwoorr", "....oooooo.rRr", "...........rr."],
+  bandagePal: { o: "#5e5146", w: "#e8dfcc", W: "#ffffff", r: "#b3261e", R: "#e24b3b" },
+  ofuda: ["oooooooo", "oppppppo", "oprrrrpo", "opppppPo", "oprprrpo", "oppprppo", "oprrrppo", "opppppPo", "opprrppo", "oprpprpo", "opprrppo",
+    "oppppPpo", "opppppPo", "oooooooo"],
+  ofudaPal: { o: "#8c7a5c", p: "#f1e8d6", P: "#d9ccb0", r: "#b3261e" },
+  coin: ["...oooooo...", "..oggGGggo..", ".ogGGggggso.", "ogGgoooogsso", "ogGgo..ogsso", "oggo....oggo", "oggo....oggo", "osgo....osgo",
+    "osggo..ogsgo", ".osgooooggo.", "..ossgggso..", "...oooooo..."],
+  coinPal: { o: "#5c3a0a", g: "#d9a13a", G: "#fbe29a", s: "#a8701f" },
+  bell: [".....oo.....", "....oyyo....", "....oyyo....", "...oyYyyo...", "..oyYyyyyo..", "..oyYyyyyo..", "..oyYyyyso..", ".oyYyyyysso.",
+    "oyYyyyyyysso", "oooooooooooo", ".....oo....."],
+  bellPal: { o: "#3d2a0e", y: "#c9902e", Y: "#f2c14e", s: "#8a5a1a" },
+  hook: ["..ll..ll....", ".l..ll..l...", "..ll..ll.l..", ".........l..", "..........l.", "...oo.....l.", "..oSSo....l.", ".oSo.oo..l..",
+    ".oSo..oSSo..", "..oSo.oSo...", "...oSSSo....", "....ooo....."],
+  hookPal: { o: "#2a2a30", S: "#c8c2b8", l: "#8c8597" },
+  oil: ["....cc....", "....oo....", "...oggo...", "...oggo...", "..oggGgo..", ".oyyyyyyo.", "oyYyyyyyso", "oyYyyyyyso", "oyyyyyysso",
+    ".osssssso.", "..oooooo.."],
+  oilPal: { o: "#2a1a10", c: "#8a6a44", g: "#b8c4c8", G: "#ffffff", y: "#e08a2b", Y: "#ffd27a", s: "#a8501a" },
+  doll: ["....HHHH....", "...HHHHHH...", "...HEHHEH...", "...HHHHHH...", "....HHHH....", ".....HH.....", "..AATTTTAA..", ".AAATTTTAAA.",
+    ".AA.TTTT.AA.", ".AA.TTTT.AA.", ".AA.TTTT.AA.", ".AA.TTTT.AA.", "AA..TTTT..AA", "AA..TTTT..AA", "....LLLL....", "...LL..LL...",
+    "...LL..LL...", "...LL..LL...", "...LL..LL...", "...LL..LL...", "..LLL..LLL.."],
+};
+const gridCache = {};
+function gridCanvas(key, rows, pal) {
+  if (gridCache[key]) return gridCache[key];
+  const w = Math.max(...rows.map((r) => r.length)), h = rows.length;
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) { const col = pal[row[x]]; if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); } } });
+  return (gridCache[key] = c);
+}
+function blit(canvasId, src, alpha) {
+  const cv = document.getElementById(canvasId);
+  if (!cv || !src) return;
+  const g = cv.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, cv.width, cv.height);
+  const k = Math.min(cv.width / src.width, cv.height / src.height);
+  g.globalAlpha = alpha == null ? 1 : alpha;
+  g.drawImage(src, (cv.width - src.width * k) / 2, (cv.height - src.height * k) / 2, src.width * k, src.height * k);
+  g.globalAlpha = 1;
+}
+/** A blade-up weapon image held at a grip, pointing at a GUI angle (clockwise from right). */
+function drawHeld(g, weaponArt, gx, gy, angle, px) {
+  const e = weaponArt && img("art/" + weaponArt + ".png");
+  if (!e) return;
+  const w = e.img.width * px, h = e.img.height * px;
+  g.save(); g.translate(gx, gy); g.rotate((angle + 90) * Math.PI / 180);
+  g.drawImage(e.img, -w / 2, -h * 0.85, w, h);
+  g.restore();
+}
+function drawPortrait(me) {
+  const cv = document.getElementById("portrait");
+  if (!cv) return;
+  const g = cv.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, cv.width, cv.height);
+  const art = me[2], st = me[59] || 0, moving = me[60] === 1, k = me[38] || 0;
+  const attacking = st === 1 || st === 4 || st === 9, dead = st === 10 || me[21] !== 1;
+  const sheet = dead ? "dead" : attacking ? "attack" : (moving || st === 5) ? "walk" : "idle";
+  const e = img("art/" + art + "_" + sheet + ".png"), ref = img("art/" + art + "_idle.png");
+  if (!e) return;
+  const bottom = ref ? ref.bottom : 2;
+  const px = 0.5 * cv.height / 13;
+  const size = 16 * px;
+  const x0 = (cv.width - size) / 2 + size * 0.06, y0 = cv.height - 22 - size + bottom * px + (st === 0 ? Math.sin(performance.now() / 420) * 3 : 0);
+  const row = sheet === "walk" ? Math.floor(performance.now() / (st === 5 ? 70 : 125)) % 4 : 0;
+  const col = dead ? 0 : 3;
+  let angle = attacking ? -80 + 120 * Math.abs(((performance.now() / 160) % 2) - 1) : KAMAE_ANGLE[k];
+  if (st === 2 || st === 3) angle = -60;
+  const hands = attacking ? [0.7, 0.5] : KAMAE_HANDS[k];
+  const gx = x0 + hands[0] * size, gy = y0 + hands[1] * size;
+  const blade = !dead && st !== 11;
+  const behind = k === 3 && !attacking;
+  g.fillStyle = "rgba(0,0,0,.5)"; g.beginPath(); g.ellipse(cv.width / 2, cv.height - 14, size * 0.28, size * 0.06, 0, 0, Math.PI * 2); g.fill();
+  if (blade && behind) drawHeld(g, me[14], gx, gy, angle, px);
+  if (me[45] === 1 || st === 7) g.filter = "sepia(1) saturate(6) hue-rotate(-30deg)";
+  g.drawImage(e.img, col * 16, row * 16, 16, 16, x0, y0, size, size);
+  g.filter = "none";
+  if (blade && !behind) drawHeld(g, me[14], gx, gy, angle, px);
+  if (st === 11) g.drawImage(gridCanvas("gf", HUD.gourd, HUD.gourdFull), gx - 10, y0 + size * 0.2, 26, 38);
+  cv.classList.toggle("flow", (me[29] || 0) > 0);
+  cv.classList.toggle("asura", me[45] === 1);
+}
+function drawStances(me) {
+  const cv = document.getElementById("stances");
+  if (!cv) return;
+  const g = cv.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, cv.width, cv.height);
+  const ref = img("art/" + me[2] + "_idle.png");
+  const cur = me[38] || 0, cw = cv.width / 4;
+  for (let i = 0; i < 4; i++) {
+    const on = i === cur, col = on ? "#f2c14e" : "rgba(185,172,151,.45)";
+    const x = i * cw + (cw - 44) / 2, y = 2;
+    if (on) { g.fillStyle = "rgba(242,193,78,.18)"; g.beginPath(); g.ellipse(x + 22, y + 24, 26, 24, 0, 0, Math.PI * 2); g.fill(); }
+    if (ref) {
+      // A silhouette of the duelist in the guard's colour.
+      tintCtx.clearRect(0, 0, 16, 16);
+      tintCtx.globalCompositeOperation = "source-over";
+      tintCtx.drawImage(ref.img, 48, 0, 16, 16, 0, 0, 16, 16);
+      tintCtx.globalCompositeOperation = "source-in";
+      tintCtx.fillStyle = col; tintCtx.fillRect(0, 0, 16, 16);
+      g.drawImage(tint, 0, 0, 16, 16, x, y, 44, 44);
+    }
+    const hx = x + KAMAE_HANDS[i][0] * 44, hy = y + KAMAE_HANDS[i][1] * 44, a = KAMAE_ANGLE[i] * Math.PI / 180;
+    g.strokeStyle = col; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(hx - 4 * Math.cos(a), hy - 4 * Math.sin(a)); g.lineTo(hx + 24 * Math.cos(a), hy + 24 * Math.sin(a)); g.stroke();
+    g.fillStyle = col; g.font = "bold 12px serif"; g.textAlign = "center"; g.fillText(String(i + 1), x + 22, y + 60);
+  }
+}
+function drawDoll(mask) {
+  const cv = document.getElementById("doll");
+  if (!cv) return;
+  const g = cv.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, cv.width, cv.height);
+  const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 160);
+  const regions = { H: null, T: 4, A: 1, L: 2, E: 8 };
+  for (const [ch, bit] of Object.entries(regions)) {
+    const hurt = bit != null && (mask & bit);
+    const col = hurt ? "rgba(255,90,60," + pulse + ")" : ch === "E" ? "#1a1a1f" : "rgba(185,172,151,.45)";
+    const rows = HUD.doll.map((r) => r.replace(new RegExp("[^" + ch + "]", "g"), "."));
+    const c = gridCanvas("doll" + ch + col, rows, { [ch]: col });
+    const k = Math.min(cv.width / c.width, cv.height / c.height);
+    g.drawImage(c, (cv.width - c.width * k) / 2, 0, c.width * k, c.height * k);
+  }
+}
+function weaponIcon(id, art, lit) {
+  const cv = document.getElementById(id);
+  if (!cv) return;
+  const g = cv.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, cv.width, cv.height);
+  const e = art && img("art/" + art + ".png");
+  if (!e) return;
+  const k = Math.min(cv.width / e.img.height, cv.height / e.img.width) * 0.95;
+  g.save(); g.globalAlpha = lit ? 1 : 0.55; g.translate(cv.width / 2, cv.height / 2); g.rotate(Math.PI / 2);
+  g.drawImage(e.img, -e.img.width * k / 2, -e.img.height * k / 2, e.img.width * k, e.img.height * k);
+  g.restore();
+}
+function drawBelt(me) {
+  weaponIcon("w0", me[14], true);
+  weaponIcon("w1", me[58], false);
+  $("w0n").textContent = me[24];
+  $("w1n").textContent = me[25];
+  const ch = me[52] || 0;
+  $("charge").innerHTML = ch > 0 ? "●".repeat(ch) : "";
+  // One hyōtan per sip.
+  const gv = document.getElementById("gourds");
+  if (gv) {
+    const g = gv.getContext("2d"); g.imageSmoothingEnabled = false; g.clearRect(0, 0, gv.width, gv.height);
+    const max = me[40] || 0, sips = me[39] || 0;
+    const full = gridCanvas("gf", HUD.gourd, HUD.gourdFull), empty = gridCanvas("ge", HUD.gourd, HUD.gourdEmpty);
+    for (let i = 0; i < max; i++) g.drawImage(i < sips ? full : empty, 4 + i * 34, 2, 32, 48);
+  }
+  blit("bandage", gridCanvas("band", HUD.bandage, HUD.bandagePal), (me[53] || 0) > 0 ? 1 : 0.35);
+  $("bandN").textContent = "× " + (me[53] || 0);
+  const tool = me[41] || 0;
+  let icon = null;
+  if (tool === 0) { const e = img("art/fx_shuriken.png"); if (e) { const c = document.createElement("canvas"); c.width = 16; c.height = 16; c.getContext("2d").drawImage(e.img, 0, 0, 16, 16, 0, 0, 16, 16); icon = c; } }
+  else if (tool === 1) { const e = img("art/fx_smoke.png"); if (e) { const c = document.createElement("canvas"); c.width = 32; c.height = 32; c.getContext("2d").drawImage(e.img, 64, 0, 32, 32, 0, 0, 32, 32); icon = c; } }
+  else if (tool === 2) icon = gridCanvas("bell", HUD.bell, HUD.bellPal);
+  else if (tool === 3) { const e = img("art/item_bomb.png"); icon = e ? e.img : null; }
+  else if (tool === 4) icon = gridCanvas("oil", HUD.oil, HUD.oilPal);
+  else icon = gridCanvas("hook", HUD.hook, HUD.hookPal);
+  blit("toolIcon", icon, 1);
+  blit("ofuda", gridCanvas("ofuda", HUD.ofuda, HUD.ofudaPal), (me[42] || 0) > 0 ? 1 : 0.35);
+  $("tool").textContent = TOOL_NAMES[tool] + "  · × " + (me[42] || 0);
+  blit("coin", gridCanvas("coin", HUD.coin, HUD.coinPal), 1);
+  $("purse").textContent = String(me[54] || 0);
+}
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
 
 // ── The road: route map, zones, props, offerings, light and weather ────────────────

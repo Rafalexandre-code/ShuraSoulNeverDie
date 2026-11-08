@@ -107,6 +107,13 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 | 9.1 | Ações conjuntas | 🟡 kiai em grupo, ressonância e golpe de grupo feitos (Fase 1) |
 | 9.2–9.7 | Ameaça e papéis, queda e resgate, Pacto de Sangue, presença assíncrona, PvP, lobby como lugar | ⏳ |
 
+## HUD de batalha (pedido do diretor, antes da Fase 3) — ✅
+
+- **Cartão do duelista** (canto superior esquerdo): o seu próprio personagem, grande, num medalhão de ensō, segurando a arma na pose da guarda atual (Jōdan alta, Chūdan à frente, Gedan baixa, Waki escondida atrás) — e balançando, esquivando, bebendo ou caído conforme o que você faz; as 4 guardas como figurinhas da sua silhueta (a atual acesa, com a tecla); vida, postura, fôlego e Shura; esquivas; um boneco de papel que acende em vermelho as partes feridas.
+- **Cinto** (canto inferior esquerdo): as duas armas (a da mão acesa, com a carga), uma **cabaça** por gole (cheia/vazia), bandagens, a ferramenta com o seu ícone e os papéis espirituais (ofuda), e a bolsa de Mon — cada um com a tecla ao lado.
+- **Registro** (canto inferior direito): itens coletados, inimigos novos, técnicas, recompensas, Fluxo, clima… tudo o que antes cruzava o centro da tela agora vira uma linha com horário; linhas iguais seguidas se juntam. A caixa de dicas foi para o centro, entre o cinto e o registro.
+- O mesmo HUD (retrato, guardas, boneco, cinto, registro) no navegador.
+
 ## Apresentação e acessibilidade (§10) — ⏳
 
 10.1 tabela de impacto · 10.2 câmera e finalizações em tinta · 10.3 som que informa · 10.4 música adaptativa (🟡 música abafada em Mushin/Iai já feita) · 10.5 interface diegética · 10.6 luz 2D (provável adiamento: o projeto usa Built-in RP; luz 2D exige URP) · 10.7 acessibilidade (🟡 anéis com padrão próprio por tipo) · 10.8 replay e foto.

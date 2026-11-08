@@ -105,6 +105,12 @@ namespace Shura
 
         public void Toast(string text, Color color)
         {
+            // In a run, notices are written in the log instead of crossing the screen.
+            if (LogsNotices)
+            {
+                Log(text, color);
+                return;
+            }
             toasts.Insert(0, new FloatingText { text = text, color = color, life = 2.4f });
             if (toasts.Count > MaxToasts) toasts.RemoveAt(toasts.Count - 1);
         }
@@ -544,6 +550,7 @@ namespace Shura
             {
                 DrawHud();
                 DrawPopups();
+                if (game.World.Player == null || !game.World.Player.InMushin) DrawLog();
             }
 
             switch (mode)
@@ -1115,30 +1122,8 @@ namespace Shura
                 return;
             }
 
-            const float x = 52f, y = 30f, w = 440f;
-            kit.InkPanel(new Rect(10f, 2f, 560f, 392f), 0.82f);
-
-            Label(new Rect(x, y, w, 26), Strings.HudHealth, capsStyle, UiKit.PaperDim);
-            var hpRect = new Rect(x - 8f, y + 24, w + 16f, 40);
-            float hpRatio = Mathf.Clamp01(p.Health / p.MaxHealth);
-            float ghostRatio = Mathf.Clamp01(ghostHp / p.MaxHealth);
-            kit.Bar(hpRect, hpRatio, UiKit.ShuBright, Color.black.WithAlpha(0.7f), ghostRatio, UiKit.PaperText.WithAlpha(0.8f));
-            Label(new Rect(x, y, w, 26), Mathf.CeilToInt(p.Health) + " / " + Mathf.RoundToInt(p.MaxHealth), smallRightStyle, UiKit.PaperText);
-
-            float pr = p.Posture.Ratio;
-            Color pc = Color.Lerp(Pal.postureLow, Pal.postureHigh, pr);
-            if (pr > 0.8f) pc = Color.Lerp(pc, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 14f));
-            Label(new Rect(x, y + 70, w, 26), Strings.HudPosture, capsStyle, UiKit.PaperDim);
-            kit.Bar(new Rect(x - 8f, y + 92, w + 16f, 28), pr, pc, Color.black.WithAlpha(0.7f));
-
-            Label(new Rect(x, y + 126, w, 26), Strings.HudDodge, capsStyle, UiKit.PaperDim);
-            for (int i = 0; i < p.MaxDodgeCharges; i++)
-            {
-                var r = new Rect(x + 140f + i * 40f, y + 120, 36f, 36f);
-                float fill = Mathf.Clamp01(p.DodgeCharges - i);
-                kit.Dab(r, Color.black.WithAlpha(0.6f));
-                if (fill > 0f) kit.Dab(new Rect(r.x + 3f, r.y + 3f, r.width - 6f, r.height - 6f), Pal.playerAccent.WithAlpha(fill >= 1f ? 1f : 0.35f));
-            }
+            DrawDuelistCard(p, run);
+            DrawBelt(p, run);
 
             RoomDef room = game.World.CurrentRoom;
             if (room != null)
@@ -1159,9 +1144,6 @@ namespace Shura
             }
 
             DrawFlow(run.Flow);
-            DrawWeaponsHud(run, x, y + 168f);
-            DrawKiHud(p, x, y + 234f);
-            DrawPurse(p, x, y + 346f);
             DrawParty();
         }
 
@@ -1197,13 +1179,6 @@ namespace Shura
         }
 
         // ── HUD weapons ───────────────────────────────────────────────────────────────
-
-        void DrawWeaponsHud(RunState run, float x, float y)
-        {
-            DrawWeaponArt(run.CurrentWeapon, new Rect(x - 6f, y + 4f, 70f, 30f), Color.white);
-            Label(new Rect(x + 76f, y - 4f, 400f, 40f), run.CurrentWeapon.name, weaponHudStyle, UiKit.PaperText);
-            Label(new Rect(x + 76f, y + 32f, 400f, 26f), "‹›  " + run.OtherWeapon.name + "  (" + (game.Controls.UsingGamepad ? "Y" : "Q") + ")", smallStyle, UiKit.PaperDim);
-        }
 
         // ── Arsenal ───────────────────────────────────────────────────────────────────
 
@@ -1569,10 +1544,14 @@ namespace Shura
         {
             if (string.IsNullOrEmpty(hint) || hintTimer <= 0f) return;
             float alpha = Mathf.Clamp01(hintTimer / 0.6f);
-            var r = new Rect(230f, VH - 190f, VW - 460f, 150f);
+            // Between the belt (left) and the log (right).
+            const float w = 740f;
+            float textH = hintStyle.CalcHeight(new GUIContent(hint), w - 190f);
+            float h = Mathf.Max(130f, textH + 50f);
+            var r = new Rect(VW * 0.5f - w * 0.5f - 20f, VH - h - 172f, w, h);
             kit.PaperPanel(r, alpha);
-            kit.Seal(new Rect(r.x + 44f, r.y + 39f, 72f, 72f), 0.9f * alpha);
-            Label(new Rect(r.x + 140, r.y + 22, r.width - 200, r.height - 44), hint, hintStyle, UiKit.Ink.WithAlpha(alpha));
+            kit.Seal(new Rect(r.x + 40f, r.center.y - 34f, 68f, 68f), 0.9f * alpha);
+            Label(new Rect(r.x + 130, r.y + 24, r.width - 170, r.height - 48), hint, hintStyle, UiKit.Ink.WithAlpha(alpha));
         }
 
         void DrawOverlays()
@@ -1615,7 +1594,7 @@ namespace Shura
         }
 
         GUIStyle latinTitleStyle, taglineStyle, taglineSmallStyle, cardKindStyle, cardNameLeftStyle, pickStyle, deathTitleStyle,
-                 ecosSmallStyle, ecosHudStyle, capsStyle, capsRightStyle, capsCenterStyle, weaponHudStyle, urlStyle, hintStyleCenter;
+                 ecosSmallStyle, ecosHudStyle, capsStyle, capsRightStyle, capsCenterStyle, weaponHudStyle, urlStyle, hintStyleCenter, cardKindStyleSmall;
 
         void EnsureStyles()
         {
@@ -1658,6 +1637,7 @@ namespace Shura
             weaponHudStyle = MakeStyle(32, TextAnchor.MiddleLeft, brush);
             urlStyle = MakeStyle(36, TextAnchor.MiddleLeft, bold);
             hintStyleCenter = MakeStyle(27, TextAnchor.MiddleCenter, text);
+            cardKindStyleSmall = MakeStyle(28, TextAnchor.MiddleCenter, brush);
         }
 
         static GUIStyle MakeStyle(int size, TextAnchor anchor, Font font, FontStyle fontStyle = FontStyle.Normal)

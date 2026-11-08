@@ -10,64 +10,6 @@ namespace Shura
     /// </summary>
     public sealed partial class GameUI
     {
-        static readonly string[] WoundShort = { "braço", "perna", "tronco", "olhos" };
-
-        /// <summary>The second HUD block, under the weapons. Returns false when Mushin hides the HUD.</summary>
-        void DrawKiHud(PlayerController p, float x, float y)
-        {
-            const float w = 440f;
-            Color dim = UiKit.PaperDim;
-
-            // Breath.
-            float st = p.Stamina / PlayerController.MaxStamina;
-            Color sc = p.Exhausted
-                ? Color.Lerp(Pal.danger, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 16f))
-                : Pal.breath;
-            Label(new Rect(x, y, 120f, 24f), Strings.HudBreath, capsStyle, p.Exhausted ? Pal.danger : dim);
-            kit.Bar(new Rect(x + 120f, y + 4f, w - 112f, 16f), st, sc, Color.black.WithAlpha(0.7f));
-
-            // Shura.
-            float sh = p.Build != null ? p.Build.Shura / ShuraRules.Max : 0f;
-            int level = p.ShuraLevel;
-            Color shc = p.InAsura ? Color.Lerp(Pal.shu, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 10f)) : Pal.shu;
-            Label(new Rect(x, y + 28f, 120f, 24f), Strings.HudShura, capsStyle, level > 0 ? Pal.shu : dim);
-            kit.Bar(new Rect(x + 120f, y + 32f, w - 112f, 16f), sh, shc, Color.black.WithAlpha(0.7f));
-            if (level > 0) Label(new Rect(x + 120f, y + 26f, w - 120f, 24f), ShuraRules.LevelName(level), smallRightStyle, UiKit.PaperText);
-
-            // Guard · gourd · tool · wounds.
-            float ry = y + 58f;
-            Label(new Rect(x, ry, 200f, 26f), PlayerController.KamaeName(p.Stance), capsStyle, Pal.playerAccent);
-            float gx = x + 120f;
-            int sips = p.Sips;
-            int maxSips = p.MaxSips;
-            for (int i = 0; i < maxSips; i++)
-            {
-                var r = new Rect(gx + i * 22f, ry + 3f, 18f, 18f);
-                kit.Dab(r, Color.black.WithAlpha(0.6f));
-                if (i < sips) kit.Dab(new Rect(r.x + 2f, r.y + 2f, 14f, 14f), Pal.blessing);
-            }
-            string tool = p.Build != null ? PlayerController.ToolNames[(int)p.Build.Tool] : string.Empty;
-            int papers = p.Build != null ? p.Build.SpiritPapers : 0;
-            float tx = gx + maxSips * 22f + 12f;
-            Label(new Rect(tx, ry, 400f, 26f), tool + "  ·  " + string.Format(Strings.HudPapers, papers), smallStyle, papers > 0 ? UiKit.PaperText : dim);
-
-            int mask = p.WoundMask;
-            if (mask != 0)
-            {
-                var parts = new System.Collections.Generic.List<string>();
-                for (int i = 0; i < 4; i++) if ((mask & (1 << i)) != 0) parts.Add(WoundShort[i]);
-                int bandages = p.Build != null ? p.Build.Bandages : 0;
-                Label(new Rect(x, ry + 26f, w, 26f), string.Format(Strings.HudWounds, string.Join(", ", parts), bandages), smallStyle, Pal.danger);
-            }
-            else if (p.CycleFramesLeft > 0)
-            {
-                Label(new Rect(x, ry + 26f, w, 26f), Strings.PopupCycle, smallStyle, Pal.gold);
-            }
-            else if (p.Charge > 0)
-            {
-                Label(new Rect(x, ry + 26f, w, 26f), string.Format(Strings.PopupCharge, p.Charge), smallStyle, p.Weapon.trail);
-            }
-        }
 
         /// <summary>What each deep elite carries, written over its head.</summary>
         void DrawAffixLabels()

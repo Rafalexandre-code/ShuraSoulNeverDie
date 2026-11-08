@@ -760,7 +760,9 @@ namespace Shura
                   .Bool(p.RingsHidden).Append(',').Num(p.RingScale).Append(',').Int(p.Charge).Append(',').Int(b != null ? b.Bandages : 0).Append(',')
                   // [54] Mon, [55] curse, [56] curse rooms, [57] in spores.
                   .Int(b != null ? b.Mon : 0).Append(',').Str(b != null && b.CurseRooms > 0 ? RunCurses.Name(b.Curse) : "").Append(',')
-                  .Int(b != null ? b.CurseRooms : 0).Append(',').Bool(w.InZone(ZoneKind.Spores, p.Position)).Append(']');
+                  .Int(b != null ? b.CurseRooms : 0).Append(',').Bool(w.InZone(ZoneKind.Spores, p.Position)).Append(',')
+                  // [58] the other blade's art, [59] state, [60] moving (the HUD portrait's pose).
+                  .Str(b != null ? b.OtherWeapon.art : "").Append(',').Int((int)p.CurrentState).Append(',').Bool(p.Velocity.sqrMagnitude > 0.5f).Append(']');
             }
             sb.Append("],\"E\":[");
             bool first = true;

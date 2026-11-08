@@ -44,20 +44,35 @@
 
 <section id="hud" hidden>
   <div id="me" class="ink">
-    <div class="who"><span id="myName"></span><span id="ping"></span></div>
-    <div class="caps">Vida <span id="hpText"></span></div>
-    <div class="bar"><i id="hpGhost"></i><i id="hpFill"></i></div>
-    <div class="caps">Postura</div>
-    <div class="bar thin"><i id="postFill"></i></div>
-    <div class="row"><span class="caps">Esquiva</span><span id="dodges"></span></div>
-    <div id="weapon" class="brush"></div>
-    <div id="weapon2" class="small"></div>
-    <div class="row ki"><span class="caps">Fôlego</span><div class="bar thin grow"><i id="breathFill"></i></div></div>
-    <div class="row ki"><span class="caps shu">Shura</span><div class="bar thin grow"><i id="shuraFill"></i></div><span id="shuraName" class="small"></span></div>
-    <div class="row ki"><span id="kamae" class="caps accent"></span><span id="sips"></span><span id="tool" class="small"></span></div>
-    <div id="wounds" class="small"></div>
-    <div id="purse" class="small"></div>
+    <div class="medal">
+      <canvas id="portrait" width="150" height="150"></canvas>
+      <div id="kamae" class="kamae"></div>
+      <canvas id="stances" width="200" height="66"></canvas>
+    </div>
+    <div class="vitals">
+      <div class="who"><span id="myName"></span><span id="ping"></span></div>
+      <div class="caps">Vida <span id="hpText"></span></div>
+      <div class="bar"><i id="hpGhost"></i><i id="hpFill"></i></div>
+      <div class="caps">Postura</div>
+      <div class="bar thin"><i id="postFill"></i></div>
+      <div class="duo">
+        <div><div class="caps">Fôlego</div><div class="bar thin"><i id="breathFill"></i></div></div>
+        <div><div class="caps shu">Shura <span id="shuraName"></span></div><div class="bar thin"><i id="shuraFill"></i></div></div>
+      </div>
+      <div class="row"><span class="caps">Esquiva</span><span id="dodges"></span></div>
+      <div id="wounds" class="small"></div>
+    </div>
+    <div class="dollBox"><canvas id="doll" width="48" height="84"></canvas><div id="woundTag" class="caps"></div></div>
   </div>
+  <div id="belt" class="ink">
+    <div class="slot lit"><canvas id="w0" width="100" height="44"></canvas><span id="w0n"></span><i id="charge"></i></div>
+    <div class="slot"><canvas id="w1" width="100" height="44"></canvas><span id="w1n"></span><b class="key">Q</b></div>
+    <div class="slot gourds"><canvas id="gourds" width="132" height="56"></canvas><span>Cabaça</span><b class="key">F</b></div>
+    <div class="slot"><canvas id="bandage" width="56" height="44"></canvas><span id="bandN"></span><b class="key">H</b></div>
+    <div class="slot tool"><div class="toolRow"><canvas id="toolIcon" width="56" height="56"></canvas><canvas id="ofuda" width="32" height="56"></canvas></div><span id="tool"></span><b class="key">T</b><b class="key k2">R</b></div>
+    <div class="slot mon"><canvas id="coin" width="40" height="40"></canvas><span id="purse"></span></div>
+  </div>
+  <div id="log" class="ink"><div class="caps">Registro</div><div id="logLines"></div></div>
   <div id="standoff"><div class="kanji">居合</div><div id="standoffText"></div></div>
   <div id="roomBox"><div id="room" class="brush"></div><div id="wave" class="small"></div>
     <div id="envLine" class="small"></div><div id="ruleLine" class="small dim"></div><div id="challenge" class="brush"></div></div>

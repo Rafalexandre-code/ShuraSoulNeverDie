@@ -116,7 +116,7 @@ namespace Shura
             if (w.Weather != Weather.Clear) parts.Add(Biomes.WeatherName(w.Weather));
             if (game.Run.Kalpa > 1) parts.Add("Kalpa " + KalpaRules.Numeral(game.Run.Kalpa));
             Label(new Rect(0, 132, VW, 30), string.Join("  ·  ", parts), smallStyleCenter, UiKit.PaperDim);
-            Label(new Rect(VW * 0.5f - 500f, 158, 1000f, 30), Biomes.RuleText(w.BiomeRule), smallStyleCenter, UiKit.PaperDim.WithAlpha(0.75f));
+            FitLabel(new Rect(VW * 0.5f - 320f, 158, 640f, 30), Biomes.RuleText(w.BiomeRule), smallStyleCenter, UiKit.PaperDim.WithAlpha(0.75f));
 
             if (room.challenge != ChallengeKind.None)
             {
@@ -126,22 +126,11 @@ namespace Shura
             }
             if (!string.IsNullOrEmpty(w.EncounterTitle))
             {
-                var banner = new Rect(VW * 0.5f - 560f, VH - 350f, 1120f, 110f);
+                var banner = new Rect(VW * 0.5f - 420f, 236f, 840f, 110f);
                 kit.InkPanel(banner, 0.9f);
                 Label(new Rect(banner.x, banner.y + 10f, banner.width, 44f), w.EncounterTitle, cardKindStyle, Pal.gold);
                 Label(new Rect(banner.x + 40f, banner.y + 52f, banner.width - 80f, 50f), w.EncounterText ?? "", smallStyleCenter, UiKit.PaperText);
             }
-        }
-
-        /// <summary>Purse and curse, under the Ki block.</summary>
-        void DrawPurse(PlayerController p, float x, float y)
-        {
-            PlayerBuild b = p.Build;
-            if (b == null) return;
-            string s = string.Format(Strings.HudMon, b.Mon);
-            if (b.CurseRooms > 0) s += "   ·   " + RunCurses.Name(b.Curse) + " (" + b.CurseRooms + ")";
-            if (b.Muramasa) s += "   ·   Muramasa";
-            Label(new Rect(x, y, 460f, 26f), s, smallStyle, b.CurseRooms > 0 ? ColorUtil.Hex("#B06CFF") : Pal.gold);
         }
 
         /// <summary>Names, prices and the hold ring over what can be used in an encounter.</summary>

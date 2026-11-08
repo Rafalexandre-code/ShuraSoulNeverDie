@@ -199,6 +199,9 @@ namespace Shura
         public const string ToastChallengeFailed = "Desafio perdido: a sala continua, o prêmio se foi.";
         public const string ToastChallengeDone = "Desafio cumprido! Um item raro ou melhor para cada um.";
         public const string HudMon = "{0} Mon";
+        public const string HudLog = "REGISTRO";
+        public const string HudGourd = "CABAÇA";
+        public const string HudWounded = "FERIDO";
         public const string HudAlly = "RONIN ALIADO";
         public const string ItemCard = "Item";
         public const string ToastCorrupted = "Zona corrompida: destrua a pedra-núcleo para dissipar a névoa.";

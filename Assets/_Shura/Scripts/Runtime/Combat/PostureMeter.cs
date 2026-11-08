@@ -35,6 +35,13 @@ namespace Shura
             }
         }
 
+        /// <summary>Drains pressure at once (healing auras).</summary>
+        public void Recover(float amount)
+        {
+            if (amount <= 0f) return;
+            Value = Mathf.Max(0f, Value - amount);
+        }
+
         public void Reset(float value = 0f)
         {
             Value = Mathf.Clamp(value, 0f, Max);

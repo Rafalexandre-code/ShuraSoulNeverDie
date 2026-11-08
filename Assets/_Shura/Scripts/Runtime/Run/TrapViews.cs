@@ -14,8 +14,14 @@ namespace Shura
         {
             public TrapDef trap;
             public readonly List<SpriteRenderer> parts = new List<SpriteRenderer>();
+            /// <summary>Ember plates marking the floor a fire jet sweeps.</summary>
+            public readonly List<SpriteRenderer> lane = new List<SpriteRenderer>();
             public SpriteRenderer glow;
         }
+
+        static readonly Color LaneIdle = new Color(0.55f, 0.42f, 0.38f, 0.9f);
+        static readonly Color LaneWarn = new Color(1f, 0.45f, 0.3f, 1f);
+        static readonly Color LaneHot = new Color(1f, 0.75f, 0.45f, 1f);
 
         readonly List<View> views = new List<View>();
         readonly Sprite spikesUp;
@@ -29,6 +35,7 @@ namespace Shura
             flame = PixelArt.Strip("fx_flame", 25, 30, new Vector2(0.5f, 0.15f));
             Sprite vent = PixelArt.Region("tiles_dungeon", 2, 3, 1, 1, new Vector2(0.5f, 0.5f));
             Sprite pivot = PixelArt.Region("tiles_dungeon", 2, 2, 1, 1, new Vector2(0.5f, 0.5f));
+            Sprite ember = PixelArt.Region("tiles_dungeon", 1, 1, 1, 1, new Vector2(0.5f, 0.5f));
             Sprite blade = PixelArt.Weapon("weapon_BigSword");
 
             foreach (TrapDef trap in layout.Traps)
@@ -51,6 +58,17 @@ namespace Shura
                         v.glow = SpriteUtil.Make("VentGlow", parent, ShapeLibrary.Get(Shape.SoftCircle), new Color(1f, 0.5f, 0.2f, 0f), Sorting.Shadow + 6);
                         v.glow.transform.localPosition = trap.origin;
                         v.glow.transform.localScale = Vector3.one * 1.6f;
+                        // The whole lane the flame sweeps is paved with ember plates, so the
+                        // trap reads as a trap even while it sleeps.
+                        int plates = Mathf.Max(1, Mathf.RoundToInt(trap.length));
+                        for (int i = 0; i < plates; i++)
+                        {
+                            Vector2 at = trap.origin + trap.direction * (0.6f + i * (trap.length - 0.2f) / plates);
+                            var plate = SpriteUtil.Make("EmberPlate", parent, ember, LaneIdle, Sorting.Floor + 5);
+                            plate.transform.localPosition = at;
+                            plate.transform.localScale = Vector3.one * 0.85f;
+                            v.lane.Add(plate);
+                        }
                         int n = Mathf.Max(2, Mathf.RoundToInt(trap.length / 0.75f));
                         for (int i = 0; i < n; i++)
                         {
@@ -109,6 +127,8 @@ namespace Shura
                     {
                         float warm = phase == 1 ? 0.35f + 0.25f * Mathf.Sin(time * 18f) : phase == 2 ? 0.55f : 0f;
                         v.glow.color = new Color(1f, 0.5f, 0.2f, warm);
+                        bool blink = phase == 1 && Mathf.Repeat(time * 10f, 1f) < 0.5f;
+                        foreach (SpriteRenderer plate in v.lane) plate.color = phase == 2 ? LaneHot : blink ? LaneWarn : LaneIdle;
                         for (int i = 0; i < v.parts.Count; i++)
                         {
                             SpriteRenderer f = v.parts[i];

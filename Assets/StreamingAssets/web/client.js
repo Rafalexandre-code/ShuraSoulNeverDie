@@ -20,7 +20,7 @@ const INTERP_DELAY = 45;        // ms behind the newest snapshot (smooth motion)
 const S = {
   ws: null, myId: null, joined: false, room: null, arena: null, arenaVersion: -1,
   snaps: [], last: null, picks: ["katana", "naginata"],
-  particles: [], texts: [], stains: [], rings: [], shake: 0, flash: 0, flashColor: "#fff",
+  particles: [], texts: [], stains: [], rings: [], anims: [], shake: 0, flash: 0, flashColor: "#fff",
   cam: { x: 0, y: 0 }, input: { atk: 0, par: 0, dod: 0, swp: 0 }, lastSent: 0, lastInput: "",
 };
 const canvas = document.getElementById("game");
@@ -338,6 +338,19 @@ function handleEvent(e) {
       case "FlowUp": ring(x, y, 0.4, 2.6, GOLD, 0.45); break;
       case "Burst": ring(x, y, 0.2, mag, color, 0.35); sfx("heavy", 0.5, x, y); break;
       case "Mastered": ring(x, y, 0.3, 1.6, GOLD, 0.4); break;
+      case "Explosion":
+        anim("fx_explosion", 40, 40, 9, x, y + 0.3, mag * 0.85, 0.55);
+        ring(x, y, 0.2, mag * 1.1, color, 0.3); sparks(x, y, 0, 1, 14, color);
+        sfx("heavy", 0.9, x, y, 0.7); sfx("crunch", 0.7, x, y, 0.8);
+        if (near(x, y, mag + 1.5)) S.shake = Math.max(S.shake, 0.6);
+        break;
+      case "Smoke": anim("fx_smoke", 32, 32, 6, x, y + 0.2, Math.max(0.8, mag * 1.6), 0.45); sfx("dodge", 0.4, x, y, 0.8); break;
+      case "Heal": anim("fx_aura", 25, 24, 5, x, y + 0.4, 1 + mag, 0.5, color); break;
+      case "HealPulse": ring(x, y, 0.4, mag, color, 0.6); break;
+      case "Phase": ring(x, y, 0.2, mag * 1.6, color, 0.25); sfx("dodge", 0.4, x, y, 1.5); break;
+      case "Enrage": ring(x, y, 0.3, 2.4, color, 0.45); sparks(x, y, 0, 1, 16, color); sfx("heavy", 0.7, x, y, 0.6); break;
+      case "Drain": ring(x, y, 1.0, 0.2, color, 0.35); break;
+      case "SlamImpact": ring(x, y, 0.2, mag, "#ffffff", 0.3); sfx("heavy", 0.7, x, y, 1.2); if (near(x, y, 4)) S.shake = Math.max(S.shake, 0.5); break;
     }
   } else if (kind === "pop") {
     const near = (x, y, r) => !me || Math.hypot(x - me.x, y - me.y) < r;
@@ -370,6 +383,11 @@ function blood(x, y, dx, dy, n, color) {
     S.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.3 + Math.random() * 0.3, age: 0, c: color || "#8e0f1e", blood: true, r: 0.05 + Math.random() * 0.07 });
   }
   trim(S.particles, MAX_PARTICLES);
+}
+/** A pixel-art effect strip (explosion, smoke, aura) played once. scale multiplies the frame's pixels. */
+function anim(name, fw, fh, frames, x, y, scale, life, tint) {
+  S.anims.push({ name, fw, fh, frames, x, y, scale, life, age: 0, tint });
+  trim(S.anims, 30);
 }
 function ring(x, y, r0, r1, color, life) { S.rings.push({ x, y, r0, r1, c: color || "#fff", life, age: 0 }); trim(S.rings, MAX_RINGS); }
 function star(x, y, color, size) { S.rings.push({ x, y, star: true, size: size || 1, c: color, life: 0.22, age: 0 }); trim(S.rings, MAX_RINGS); }
@@ -512,6 +530,7 @@ function draw(dt, now, real) {
   // Floor stains.
   for (const s of S.stains) circle(s.x, s.y, s.r, null, rgba(s.c, 0.55));
   drawTraps(b, room, now);
+  drawBlasts(b, now);
 
   // Telegraphs under the fighters.
   for (const e of E) {
@@ -555,6 +574,7 @@ function draw(dt, now, real) {
   things.sort((u, v) => v.y - u.y);
   for (const th of things) if (th.kind === "p" || th.kind === "e") {
     const d = th.d; const x = th.kind === "p" ? d[3] : d[2]; const y = th.kind === "p" ? d[4] : d[3];
+    if (th.kind === "e" && d[16] < 0.05) continue;
     ctx.save(); ctx.translate(sx(x), sy(y - 0.22)); ctx.scale(1, 0.4);
     ctx.fillStyle = "rgba(0,0,0,.4)"; ctx.beginPath(); ctx.arc(0, 0, PPU * 0.45, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   }
@@ -568,6 +588,7 @@ function draw(dt, now, real) {
 
   // Arrows.
   for (const r of b.R || []) {
+    if (r[6]) { drawThrown(r, now); continue; }
     const e = img("art/weapon_Arrow.png");
     const ang = Math.atan2(r[3], r[2]);
     if (r[4]) circle(r[0], r[1], 0.3, null, rgba(ACCENT, 0.4));
@@ -591,6 +612,21 @@ function draw(dt, now, real) {
     ctx.fillRect(0, 0, W, H);
     S.flash = Math.max(0, S.flash - dt * 3);
   }
+}
+
+function drawThrown(r, now) {
+  const e = img("art/" + r[6] + ".png");
+  if (r[4]) circle(r[0], r[1], 0.3, null, rgba(ACCENT, 0.4));
+  if (!e) { circle(r[0], r[1], 0.12, null, "#fff"); return; }
+  const shuriken = r[6].indexOf("shuriken") >= 0;
+  const fw = shuriken ? 16 : e.img.width, fh = shuriken ? 16 : e.img.height;
+  const ppu = shuriken ? 22 : 18;
+  const w = fw / ppu * PPU, h = fh / ppu * PPU;
+  ctx.save();
+  ctx.translate(sx(r[0]), sy(r[1]));
+  ctx.rotate(-Math.atan2(r[3], r[2]) - (shuriken ? now / 1000 * 15.7 : 0));
+  ctx.drawImage(e.img, 0, 0, fw, fh, -w / 2, -h / 2, w, h);
+  ctx.restore();
 }
 
 function drawPlayer(p) {
@@ -624,7 +660,7 @@ function drawStatue(s, room) {
     ctx.drawImage(e.img, 0, row * 16, 16, 48, sx(s[4] + 0.5) - PPU / 2, sy(s[1] + 3), PPU, PPU * 3);
     ctx.drawImage(e.img, 0, row * 16, 16, 48, sx(s[4] + s[2] - 0.5) - PPU / 2, sy(s[1] + 3), PPU, PPU * 3);
   } else {
-    ctx.drawImage(e.img, 64, row * 16, 32, 32, sx(s[0]) - PPU, sy(s[1] + 2), PPU * 2, PPU * 2);
+    ctx.drawImage(e.img, 48, row * 16, 32, 32, sx(s[0]) - PPU, sy(s[1] + 2), PPU * 2, PPU * 2);
   }
 }
 
@@ -643,6 +679,17 @@ function drawTraps(snap, room, now) {
         if (state === 1 && Math.floor(now / 100) % 2 === 0) { ctx.fillStyle = "rgba(255,70,50,.35)"; ctx.fillRect(sx(x - 0.5), sy(y + 0.5), PPU, PPU); }
       }
     } else if (type === 1) {
+      // Ember plates pave the lane the flame sweeps: dim at rest, blinking red on warning, hot when firing.
+      const plates = Math.max(1, Math.round(len));
+      const blink = state === 1 && Math.floor(now / 50) % 2 === 0;
+      for (let k = 0; k < plates; k++) {
+        const px = ox + dx * (0.6 + k * (len - 0.2) / plates), py = oy + dy * (0.6 + k * (len - 0.2) / plates);
+        const sz = PPU * 0.85;
+        ctx.globalAlpha = state === 0 ? 0.75 : 1;
+        if (dungeon) ctx.drawImage(dungeon.img, 16, 16, 16, 16, sx(px) - sz / 2, sy(py) - sz / 2, sz, sz);
+        ctx.globalAlpha = 1;
+        if (state === 2 || blink) { ctx.fillStyle = state === 2 ? "rgba(255,190,110,.35)" : "rgba(255,70,50,.4)"; ctx.fillRect(sx(px) - sz / 2, sy(py) - sz / 2, sz, sz); }
+      }
       if (dungeon) ctx.drawImage(dungeon.img, 32, 48, 16, 16, sx(ox - 0.5), sy(oy + 0.5), PPU, PPU);
       if (state >= 1) circle(ox, oy, 0.8, null, rgba("#ff8030", state === 1 ? 0.25 + 0.2 * Math.sin(now / 50) : 0.5));
       if (state === 2 && flame) {
@@ -666,6 +713,24 @@ function drawTraps(snap, room, now) {
   }
 }
 
+/** Bombs and talismans: a circle filling as the fuse burns, flickering near the end. */
+function drawBlasts(snap, now) {
+  for (const bl of snap.B || []) {
+    const [x, y, r, t, kind, color] = bl;
+    const late = t > 0.66, blink = late && Math.floor(now / 42) % 2 === 0 ? 1 : 0.6;
+    circle(x, y, r * (0.15 + 0.85 * t), null, rgba(color, (0.18 + 0.3 * t) * blink));
+    circle(x, y, r, rgba(late && blink === 1 ? "#ffffff" : color, 0.5 + 0.5 * t), null, Math.max(2, PPU * 0.06));
+    const icon = kind === 0 ? "item_bomb" : kind === 1 ? "item_scroll_fire" : null;
+    const e = icon && img("art/" + icon + ".png");
+    if (e) {
+      const bob = kind === 0 ? 0.12 * Math.abs(Math.sin(now / 100)) : 0;
+      const s = (kind === 0 ? 1.1 : 0.9) * (1 + (late ? 0.15 * blink : 0));
+      const w = e.img.width / 16 * PPU * s, h = e.img.height / 16 * PPU * s;
+      ctx.drawImage(e.img, sx(x) - w / 2, sy(y + 0.15 + bob) - h / 2, w, h);
+    }
+  }
+}
+
 function drawEnemyOverlay(e) {
   const [x, y] = [e[2], e[3]];
   if (e[29] && !e[32]) {
@@ -681,7 +746,7 @@ function drawEnemyOverlay(e) {
       circle(x, y, size * (1.18 - 0.18 * k) / 2, "#ffffff", null, Math.max(3, PPU * 0.09));
     }
   }
-  if (e[32]) return;
+  if (e[32] || e[16] < 0.05 || e[5] === 3) return;
   const top = y + e[8] + e[7] * 1.05 + 0.25;
   drawBar(x, top, 1.3, e[17], "#c8553d");
   drawBar(x, top - 0.14, 1.3, e[18], e[20] ? GOLD : "#e9a35a");
@@ -738,6 +803,28 @@ function drawEffects(dt) {
       ctx.restore();
     } else {
       circle(r.x, r.y, r.r0 + (r.r1 - r.r0) * t, rgba(r.c, 1 - t), null, Math.max(2, PPU * 0.08 * (1 - t)));
+    }
+  }
+  for (let i = S.anims.length - 1; i >= 0; i--) {
+    const an = S.anims[i];
+    an.age += dt;
+    if (an.age >= an.life) { S.anims.splice(i, 1); continue; }
+    const e = img("art/" + an.name + ".png");
+    if (!e) continue;
+    const f = Math.min(an.frames - 1, Math.floor(an.age / an.life * an.frames));
+    const w = an.fw / 16 * PPU * an.scale, h = an.fh / 16 * PPU * an.scale;
+    if (an.tint) {
+      // Tinted strips (healing aura) are drawn through the tint canvas.
+      tintCtx.clearRect(0, 0, tint.width, tint.height);
+      tintCtx.globalCompositeOperation = "source-over";
+      tintCtx.drawImage(e.img, f * an.fw, 0, an.fw, an.fh, 0, 0, an.fw, an.fh);
+      tintCtx.globalCompositeOperation = "multiply";
+      tintCtx.fillStyle = an.tint; tintCtx.fillRect(0, 0, an.fw, an.fh);
+      tintCtx.globalCompositeOperation = "destination-in";
+      tintCtx.drawImage(e.img, f * an.fw, 0, an.fw, an.fh, 0, 0, an.fw, an.fh);
+      ctx.drawImage(tint, 0, 0, an.fw, an.fh, sx(an.x) - w / 2, sy(an.y) - h / 2, w, h);
+    } else {
+      ctx.drawImage(e.img, f * an.fw, 0, an.fw, an.fh, sx(an.x) - w / 2, sy(an.y) - h / 2, w, h);
     }
   }
   ctx.textAlign = "center";

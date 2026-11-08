@@ -65,6 +65,15 @@ tamanhos variados, estátuas sólidas e armadilhas por profundidade (espinhos, j
 lâminas giratórias); inimigos e bots contornam obstáculos por um campo de caminhos na grade.
 **Pronto quando:** 8 jogadores limpam 5 salas sem travar (verificado com 7 bots de navegador).
 
+**M1.10 — bestiário (feito):** de 8 para 24 inimigos (+3 lacaios), cada um com uma mecânica
+própria: leques de kunai, bombas e talismãs no chão, postura de saque, invocação, cura em
+área, explosão ao morrer, corpo etéreo, mergulho subterrâneo, investida que atordoa na parede,
+divisão, fúria, cópias de sombra, raios de longo alcance com teleporte, roubo de vida,
+remontagem e fintas. Arte e efeitos do pacote Ninja Adventure (CC0); funciona no online.
+Todos aparecem até a profundidade 12. Correções: estátua-santuário que saía cortada ao meio;
+jatos de fogo agora têm placas de brasa no chão marcando o caminho da chama.
+**Falta:** técnicas absorvíveis para os 16 novos.
+
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; shader de paleta unificando a pixel art; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.

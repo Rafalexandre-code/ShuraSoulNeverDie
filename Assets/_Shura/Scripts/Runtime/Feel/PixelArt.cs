@@ -106,6 +106,37 @@ namespace Shura
             return s;
         }
 
+        /// <summary>A whole small image (bomb, talisman) as one centred sprite.</summary>
+        public static Sprite Image(string name, float pixelsPerUnit = PixelsPerUnit)
+        {
+            string key = name + "#image@" + pixelsPerUnit;
+            if (Sprites.TryGetValue(key, out Sprite cached)) return cached;
+            Texture2D tex = Texture(name);
+            Sprite s = tex != null
+                ? UnityEngine.Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), pixelsPerUnit, 0, SpriteMeshType.FullRect)
+                : null;
+            Sprites[key] = s;
+            return s;
+        }
+
+        /// <summary>
+        /// A thrown weapon drawn pointing along +X: shuriken sheets hold two 16 px frames (the
+        /// first is used, the projectile spins), kunai are a single image.
+        /// </summary>
+        public static Sprite ProjectileSprite(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            if (!name.Contains("shuriken")) return Image(name, 18f);
+            string key = name + "#projectile";
+            if (Sprites.TryGetValue(key, out Sprite cached)) return cached;
+            Texture2D tex = Texture(name);
+            Sprite s = tex != null
+                ? UnityEngine.Sprite.Create(tex, new Rect(0, tex.height - Cell, Cell, Cell), new Vector2(0.5f, 0.5f), 22f, 0, SpriteMeshType.FullRect)
+                : null;
+            Sprites[key] = s;
+            return s;
+        }
+
         /// <summary>A horizontal strip of animation frames of any size (effects sheets).</summary>
         public static Sprite[] Strip(string sheet, int frameW, int frameH, Vector2 pivot)
         {

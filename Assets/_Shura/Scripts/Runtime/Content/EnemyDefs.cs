@@ -40,7 +40,45 @@ namespace Shura
         public bool superArmor;
         public MoveDef[] moves;
         public SignatureAnswer signatureAnswer;
+        /// <summary>Technique absorbed by finishing it after mastering its signature (none for some).</summary>
         public string techniqueId;
+
+        // ── Bestiary traits ──────────────────────────────────────────────────────────
+        /// <summary>Fights with claws, fists or magic: no weapon drawn.</summary>
+        public bool unarmed;
+        /// <summary>Floats: traps on the floor do not touch it.</summary>
+        public bool flying;
+        /// <summary>Blades pass through it until a perfect answer (parry, counter) makes it solid for a moment.</summary>
+        public bool ethereal;
+        /// <summary>Heals this fraction of the damage it deals.</summary>
+        public float lifesteal;
+        /// <summary>Below this share of health it enters a frenzy: faster swings, shorter pauses.</summary>
+        public float enrageBelow;
+        /// <summary>Chance to flip away from a blow instead of guarding.</summary>
+        public float evadeChance;
+        /// <summary>Gets up once more after dying, unless finished or struck while it lies in pieces.</summary>
+        public bool reassembles;
+        /// <summary>Dying splits it into these (a finisher prevents it).</summary>
+        public string splitInto;
+        public int splitCount;
+        /// <summary>Explodes this long after dying, hurting players and enemies alike.</summary>
+        public float deathBlastRadius;
+        public float deathBlastDamage;
+        public int deathBlastFuse = 45;
+        /// <summary>Every few seconds it mends the allies around it.</summary>
+        public float healRadius;
+        public float healFraction;
+        /// <summary>What its summon moves call, and how many may stand at once.</summary>
+        public string summonId;
+        public int summonMax = 3;
+        /// <summary>Its summons are copies of itself that vanish when it dies.</summary>
+        public bool clones;
+        /// <summary>Teleports away when a player stays this close.</summary>
+        public float blinkRange;
+        /// <summary>Only ever appears called by another enemy (never placed in rooms).</summary>
+        public bool minion;
+        /// <summary>One line for the bestiary and the "new enemy" toast.</summary>
+        public string lore;
     }
 
     /// <summary>
@@ -96,12 +134,77 @@ namespace Shura
             return m;
         }
 
+        static AttackDef Sweep(string id, int windup, int active, int recovery, float damage, float radius)
+        {
+            return new AttackDef
+            {
+                id = id, kind = AttackKind.Sweep, windup = windup, active = active, recovery = recovery,
+                damage = damage, shape = HitShape.Circle(radius),
+            };
+        }
+
+        /// <summary>Several projectiles thrown at once in a fan; each one parries back on its own.</summary>
+        static AttackDef Fan(string id, int windup, int recovery, int track, float damage, float posture, float reflectedPosture,
+                             float speed, int count, float spread, string art)
+        {
+            AttackDef a = Shot(id, windup, recovery, track, damage, posture, reflectedPosture, speed);
+            a.projectileCount = count;
+            a.spreadDegrees = spread;
+            a.projectileArt = art;
+            return a;
+        }
+
+        /// <summary>A circle marked on the floor under the target that explodes after the fuse.</summary>
+        static AttackDef Blast(string id, int windup, int recovery, float damage, float posture, float radius, int fuse,
+                               BlastKind kind, int count = 1, float scatter = 0f)
+        {
+            return new AttackDef
+            {
+                id = id, windup = windup, active = 2, recovery = recovery, trackUntil = windup,
+                damage = damage, postureDamage = posture, shape = HitShape.Circle(radius),
+                blastRadius = radius, blastFuse = fuse, blastKind = kind, blastCount = count, blastScatter = scatter,
+            };
+        }
+
+        static AttackDef Summon(string id, int windup, int recovery, int count)
+        {
+            return new AttackDef
+            {
+                id = id, windup = windup, active = 2, recovery = recovery, trackUntil = 0,
+                shape = HitShape.Circle(0.5f), summonCount = count,
+            };
+        }
+
+        static AttackDef Stance(string id, int windup)
+        {
+            return new AttackDef
+            {
+                id = id, windup = windup, active = 1, recovery = 0, trackUntil = windup, stance = true,
+                shape = HitShape.Arc(1.0f, 90f),
+            };
+        }
+
+        static AttackDef Feint(string id, int windup)
+        {
+            return new AttackDef
+            {
+                id = id, windup = windup, active = 1, recovery = 6, trackUntil = windup, feint = true,
+                shape = HitShape.Arc(1.0f, 90f),
+            };
+        }
+
+        static AttackDef With(AttackDef a, System.Action<AttackDef> setup)
+        {
+            setup(a);
+            return a;
+        }
+
         // ── Roster ──────────────────────────────────────────────────────────────────
 
         /// <summary>The teacher: honest swings and one held strike that tests patience.</summary>
         public static readonly EnemyDef Ronin = new EnemyDef
         {
-            id = "ronin", art = "SamuraiBlue", weaponArt = "weapon_Sword", artScale = 1.0f, displayName = "Ronin Errante", shape = Shape.Square, color = ColorUtil.Hex("#C9A66B"),
+            id = "ronin", lore = "Golpes honestos e um corte segurado que testa a sua paciência.", art = "SamuraiBlue", weaponArt = "weapon_Sword", artScale = 1.0f, displayName = "Ronin Errante", shape = Shape.Square, color = ColorUtil.Hex("#C9A66B"),
             maxHealth = 60f, maxPosture = 60f, radius = 0.42f, moveSpeed = 3.2f, preferredRange = 1.6f,
             blockChance = 0.45f, postureRegenPerSecond = 9f, idleMin = 40, idleMax = 80,
             signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.PatientBlade,
@@ -118,7 +221,7 @@ namespace Shura
         /// <summary>Distance: pokes from range, and a dangerous thrust you must dodge INTO.</summary>
         public static readonly EnemyDef Lanceiro = new EnemyDef
         {
-            id = "lanceiro", art = "GladiatorBlue", weaponArt = "weapon_Lance", artScale = 1.0f, displayName = "Lanceiro", shape = Shape.Triangle, color = ColorUtil.Hex("#9DB4C0"),
+            id = "lanceiro", lore = "Cutuca de longe; a estocada vermelha se responde esquivando PARA DENTRO.", art = "GladiatorBlue", weaponArt = "weapon_Lance", artScale = 1.0f, displayName = "Lanceiro", shape = Shape.Triangle, color = ColorUtil.Hex("#9DB4C0"),
             weapon = Shape.Spear, weaponLength = 1.9f, weaponColor = ColorUtil.Hex("#C9CED6"),
             maxHealth = 55f, maxPosture = 50f, radius = 0.40f, moveSpeed = 3.0f, preferredRange = 2.8f,
             blockChance = 0.3f, postureRegenPerSecond = 8f, idleMin = 45, idleMax = 90,
@@ -134,7 +237,7 @@ namespace Shura
         /// <summary>Heavy posture pressure and a dangerous sweep you must dodge through.</summary>
         public static readonly EnemyDef Monge = new EnemyDef
         {
-            id = "monge", art = "Monk2", weaponArt = "weapon_Stick", artScale = 1.45f, displayName = "Monge do Sino", shape = Shape.Hexagon, color = ColorUtil.Hex("#B48EAD"),
+            id = "monge", lore = "Pressiona a sua postura; a varredura se atravessa com uma esquiva.", art = "Monk2", weaponArt = "weapon_Stick", artScale = 1.45f, displayName = "Monge do Sino", shape = Shape.Hexagon, color = ColorUtil.Hex("#B48EAD"),
             weapon = Shape.Staff, weaponLength = 1.7f, weaponColor = ColorUtil.Hex("#B08D6A"),
             maxHealth = 110f, maxPosture = 100f, radius = 0.62f, mass = 2.5f, moveSpeed = 2.2f, preferredRange = 1.5f,
             blockChance = 0.6f, postureRegenPerSecond = 12f, idleMin = 50, idleMax = 90,
@@ -157,7 +260,7 @@ namespace Shura
         /// <summary>Rhythm: fast flurries; its signature is four strikes to parry in a row.</summary>
         public static readonly EnemyDef Kenkaku = new EnemyDef
         {
-            id = "kenkaku", art = "NinjaRed", weaponArt = "weapon_Ninjaku", artScale = 1.0f, displayName = "Kenkaku Veloz", shape = Shape.Pentagon, color = ColorUtil.Hex("#D1495B"),
+            id = "kenkaku", lore = "Rajadas rápidas: a tempestade são quatro golpes para aparar em sequência.", art = "NinjaRed", weaponArt = "weapon_Ninjaku", artScale = 1.0f, displayName = "Kenkaku Veloz", shape = Shape.Pentagon, color = ColorUtil.Hex("#D1495B"),
             weapon = Shape.Blade, weaponLength = 1.05f, weaponColor = ColorUtil.Hex("#F0E6E8"),
             maxHealth = 50f, maxPosture = 55f, radius = 0.40f, moveSpeed = 3.9f, preferredRange = 1.5f,
             blockChance = 0.5f, postureRegenPerSecond = 11f, idleMin = 30, idleMax = 60,
@@ -178,7 +281,7 @@ namespace Shura
         /// <summary>Patience: slow and enormous, ignores knockback, and grabs (dodge only).</summary>
         public static readonly EnemyDef Carrasco = new EnemyDef
         {
-            id = "carrasco", art = "DemonRed", weaponArt = "weapon_Club", artScale = 1.65f, displayName = "Carrasco", shape = Shape.Octagon, color = ColorUtil.Hex("#7A6C5D"),
+            id = "carrasco", lore = "Lento e enorme, não recua e agarra. Contra o agarrão, só esquiva.", art = "DemonRed", weaponArt = "weapon_Club", artScale = 1.65f, displayName = "Carrasco", shape = Shape.Octagon, color = ColorUtil.Hex("#7A6C5D"),
             weapon = Shape.Axe, weaponLength = 1.9f, weaponColor = ColorUtil.Hex("#A39A90"), bloodColor = ColorUtil.Hex("#6A0A14"),
             maxHealth = 150f, maxPosture = 130f, radius = 0.72f, mass = 3.5f, moveSpeed = 1.9f, preferredRange = 1.6f,
             blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 55, idleMax = 95, superArmor = true,
@@ -198,7 +301,7 @@ namespace Shura
         /// <summary>Distance and direction: keeps away and shoots arrows that a perfect parry reflects.</summary>
         public static readonly EnemyDef Arqueiro = new EnemyDef
         {
-            id = "arqueiro", art = "Skeleton", weaponArt = "weapon_Bow", artScale = 1.0f, displayName = "Arqueiro das Cinzas", shape = Shape.Capsule, color = ColorUtil.Hex("#8AA170"),
+            id = "arqueiro", lore = "Mantém distância; um parry perfeito devolve a flecha.", art = "Skeleton", weaponArt = "weapon_Bow", artScale = 1.0f, displayName = "Arqueiro das Cinzas", shape = Shape.Capsule, color = ColorUtil.Hex("#8AA170"),
             weapon = Shape.Bow, weaponLength = 0.95f, weaponColor = ColorUtil.Hex("#B08D6A"),
             maxHealth = 45f, maxPosture = 45f, radius = 0.38f, moveSpeed = 3.0f, preferredRange = 6.0f,
             blockChance = 0.2f, postureRegenPerSecond = 8f, idleMin = 40, idleMax = 80,
@@ -214,7 +317,7 @@ namespace Shura
         /// <summary>Direction: vanishes and strikes from behind — turn and parry.</summary>
         public static readonly EnemyDef Sombra = new EnemyDef
         {
-            id = "sombra", art = "NinjaDark", weaponArt = "weapon_Sai", artScale = 1.0f, displayName = "Sombra", shape = Shape.Diamond, color = ColorUtil.Hex("#6A5FA0"),
+            id = "sombra", lore = "Some e reaparece às suas costas.", art = "NinjaDark", weaponArt = "weapon_Sai", artScale = 1.0f, displayName = "Sombra", shape = Shape.Diamond, color = ColorUtil.Hex("#6A5FA0"),
             weapon = Shape.Blade, weaponLength = 0.8f, weaponColor = ColorUtil.Hex("#C9BFF0"), bloodColor = ColorUtil.Hex("#3D1F5C"),
             maxHealth = 50f, maxPosture = 55f, radius = 0.38f, moveSpeed = 3.6f, preferredRange = 2.4f,
             blockChance = 0.35f, postureRegenPerSecond = 10f, idleMin = 45, idleMax = 85,
@@ -229,7 +332,7 @@ namespace Shura
         /// <summary>Patience: deflects almost everything from the front. Break it by parrying.</summary>
         public static readonly EnemyDef Escudeiro = new EnemyDef
         {
-            id = "escudeiro", art = "Knight", weaponArt = "weapon_Sword2", artScale = 1.15f, displayName = "Escudeiro", shape = Shape.Shield, color = ColorUtil.Hex("#4F7CAC"),
+            id = "escudeiro", lore = "Defende quase tudo de frente. Quebre a postura dele aparando.", art = "Knight", weaponArt = "weapon_Sword2", artScale = 1.15f, displayName = "Escudeiro", shape = Shape.Shield, color = ColorUtil.Hex("#4F7CAC"),
             weapon = Shape.Blade, weaponLength = 1.0f, weaponColor = ColorUtil.Hex("#D8DEE9"),
             maxHealth = 70f, maxPosture = 80f, radius = 0.5f, mass = 2f, moveSpeed = 2.6f, preferredRange = 1.7f,
             blockChance = 0.85f, postureRegenPerSecond = 9f, idleMin = 50, idleMax = 90,
@@ -242,7 +345,336 @@ namespace Shura
             },
         };
 
-        public static readonly EnemyDef[] All = { Ronin, Lanceiro, Monge, Kenkaku, Carrasco, Arqueiro, Sombra, Escudeiro };
+        // ── Bestiary: each one adds a mechanic the duel must answer ────────────────────
+
+        /// <summary>Projectile volleys: a fan of kunai to parry one by one, and flips away from blows.</summary>
+        public static readonly EnemyDef Kunoichi = new EnemyDef
+        {
+            id = "kunoichi", art = "NinjaMasked", weaponArt = "weapon_Kunai", displayName = "Kunoichi das Lâminas", color = ColorUtil.Hex("#E8E4F0"),
+            weaponLength = 0.75f, maxHealth = 48f, maxPosture = 50f, radius = 0.38f, moveSpeed = 3.8f, preferredRange = 4.5f,
+            blockChance = 0.1f, evadeChance = 0.4f, postureRegenPerSecond = 10f, idleMin = 40, idleMax = 75,
+            signatureAnswer = SignatureAnswer.PerfectParry,
+            lore = "Arremessa leques de kunai e salta para longe dos seus golpes.",
+            moves = new[]
+            {
+                Move("leque_de_kunai", 2.5f, 12f, 3, Fan("leque_de_kunai", 24, 24, 20, 8f, 10f, 14f, 12f, 3, 28f, "fx_kunai")),
+                Move("corte_rapido_k", 0f, 1.8f, 3, Arc("corte_rapido_k", 13, 3, 18, 8, 9f, 10f, 10f, 1.4f, 100f, 0.4f)),
+                Signature("chuva_de_aco", 3f, 12f, 2, Fan("chuva_de_aco", 40, 30, 34, 10f, 12f, 22f, 13f, 5, 56f, "fx_shuriken")),
+            },
+        };
+
+        /// <summary>Area denial: bombs land where you stand. Keep moving.</summary>
+        public static readonly EnemyDef Bombardeiro = new EnemyDef
+        {
+            id = "bombardeiro", art = "NinjaBomb", displayName = "Bombardeiro", color = ColorUtil.Hex("#5C7A4A"), unarmed = true,
+            maxHealth = 55f, maxPosture = 55f, radius = 0.42f, moveSpeed = 3.0f, preferredRange = 5.5f,
+            blockChance = 0.15f, postureRegenPerSecond = 9f, idleMin = 50, idleMax = 90,
+            signatureAnswer = SignatureAnswer.PerfectDodge,
+            lore = "Lança bombas no chão onde você pisa: saia do círculo antes do pavio acabar.",
+            moves = new[]
+            {
+                Move("bomba", 2.5f, 11f, 3, Blast("bomba", 26, 30, 18f, 20f, 1.5f, 55, BlastKind.Bomb)),
+                Move("chute_b", 0f, 1.8f, 3, Arc("chute_b", 14, 3, 20, 9, 8f, 10f, 10f, 1.3f, 100f, 0.4f)),
+                Signature("tapete_de_bombas", 2f, 11f, 2, Blast("tapete_de_bombas", 40, 40, 18f, 20f, 1.4f, 60, BlastKind.Bomb, 4, 2.0f)),
+            },
+        };
+
+        /// <summary>Patience: the iaijutsu stance punishes whoever strikes it. Wait, then parry the draw.</summary>
+        public static readonly EnemyDef Tengu = new EnemyDef
+        {
+            id = "tengu", art = "Tengu", weaponArt = "weapon_Katana", displayName = "Tengu Espadachim", color = ColorUtil.Hex("#C0392B"),
+            weaponLength = 1.15f, maxHealth = 70f, maxPosture = 70f, radius = 0.42f, moveSpeed = 3.4f, preferredRange = 1.9f,
+            blockChance = 0.5f, postureRegenPerSecond = 11f, idleMin = 45, idleMax = 80,
+            signatureAnswer = SignatureAnswer.PerfectParry,
+            lore = "Em postura de saque, quem o golpeia leva o contra-ataque. Espere e apare o saque.",
+            moves = new[]
+            {
+                Move("corte_do_vento", 0f, 2.3f, 3,
+                     Arc("corte_do_vento_1", 15, 4, 6, 10, 11f, 14f, 12f, 1.7f, 120f, 0.6f),
+                     Arc("corte_do_vento_2", 11, 4, 24, 6, 11f, 14f, 14f, 1.7f, 120f, 0.6f)),
+                Move("rajada", 2.5f, 5.5f, 2, Line("rajada", 26, 5, 26, 20, 14f, 16f, 18f, 1.6f, 0.8f, 3.6f)),
+                Signature("iai", 0f, 3.2f, 2, Stance("postura_iai", 80), Arc("iai", 13, 4, 30, 8, 22f, 28f, 34f, 2.2f, 140f, 1.2f)),
+            },
+        };
+
+        /// <summary>Priority target: seals the floor under you and calls will-o'-wisps.</summary>
+        public static readonly EnemyDef Onmyoji = new EnemyDef
+        {
+            id = "onmyoji", art = "SorcererBlack", displayName = "Onmyōji", color = ColorUtil.Hex("#B23A48"), unarmed = true,
+            maxHealth = 60f, maxPosture = 55f, radius = 0.4f, moveSpeed = 2.8f, preferredRange = 6f,
+            blockChance = 0.3f, postureRegenPerSecond = 9f, idleMin = 55, idleMax = 95, summonId = "hitodama", summonMax = 3,
+            signatureAnswer = SignatureAnswer.PerfectDodge,
+            lore = "Marca o chão com talismãs e invoca fogos-fátuos. Derrube-o primeiro.",
+            moves = new[]
+            {
+                Move("selo", 2f, 12f, 3, Blast("selo", 30, 26, 16f, 18f, 1.3f, 45, BlastKind.Talisman)),
+                Move("invocar", 0f, 14f, 2, Summon("invocar", 45, 30, 2)),
+                Move("palma_o", 0f, 1.7f, 2, Arc("palma_o", 14, 3, 20, 9, 8f, 12f, 12f, 1.3f, 100f, 0.3f)),
+                Signature("selo_triplo", 2f, 12f, 2, Blast("selo_triplo", 44, 34, 16f, 18f, 1.2f, 50, BlastKind.Talisman, 3, 2.2f)),
+            },
+        };
+
+        /// <summary>Support: keeps away and mends every ally near her. Reach her through the wave.</summary>
+        public static readonly EnemyDef Curandeira = new EnemyDef
+        {
+            id = "curandeira", art = "Shaman", weaponArt = "weapon_Stick", displayName = "Xamã Curandeira", color = ColorUtil.Hex("#7FB069"),
+            weapon = Shape.Staff, weaponLength = 1.3f, maxHealth = 65f, maxPosture = 60f, radius = 0.42f, moveSpeed = 3.0f, preferredRange = 6.5f,
+            blockChance = 0.4f, postureRegenPerSecond = 9f, idleMin = 60, idleMax = 100, healRadius = 6f, healFraction = 0.08f,
+            signatureAnswer = SignatureAnswer.PerfectParry,
+            lore = "Cura e restaura a postura dos aliados ao redor. Enquanto ela viver, ninguém cai.",
+            moves = new[]
+            {
+                Move("cajado", 0f, 2.2f, 3, Line("cajado", 16, 4, 20, 10, 9f, 12f, 12f, 1.9f, 0.5f, 0.3f)),
+                Signature("golpe_do_ritual", 0f, 2.4f, 1, Arc("golpe_do_ritual", 30, 5, 28, 22, 14f, 20f, 22f, 1.6f, 130f, 0.6f)),
+            },
+        };
+
+        /// <summary>A haunted lantern: when it dies it explodes, hurting enemies too. Use it.</summary>
+        public static readonly EnemyDef Lanterna = new EnemyDef
+        {
+            id = "lanterna", art = "LanternRed", displayName = "Chōchin-obake", color = ColorUtil.Hex("#E63946"), unarmed = true, flying = true,
+            maxHealth = 40f, maxPosture = 45f, radius = 0.4f, moveSpeed = 2.6f, preferredRange = 2.2f,
+            blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 45, idleMax = 80,
+            deathBlastRadius = 2.0f, deathBlastDamage = 22f, deathBlastFuse = 50,
+            signatureAnswer = SignatureAnswer.CounterThrust,
+            lore = "Lanterna assombrada: explode ao morrer e fere também os inimigos ao redor.",
+            moves = new[]
+            {
+                Move("lingua", 0f, 2.6f, 3, Line("lingua", 16, 4, 22, 10, 9f, 10f, 12f, 2.2f, 0.45f, 0.2f)),
+                Signature("baforada", 0f, 3.8f, 2, Line("baforada", 34, 8, 30, 26, 18f, 0f, 0f, 3.4f, 1.0f, 0.4f, AttackKind.Thrust)),
+            },
+        };
+
+        /// <summary>Ethereal: blades pass through it. Perfectly parry its claws to make it solid.</summary>
+        public static readonly EnemyDef Onryo = new EnemyDef
+        {
+            id = "onryo", art = "Spirit", displayName = "Onryō", color = ColorUtil.Hex("#9AD1D4"), unarmed = true, flying = true, ethereal = true,
+            bloodColor = ColorUtil.Hex("#5FA8B0"),
+            maxHealth = 45f, maxPosture = 40f, radius = 0.38f, moveSpeed = 3.3f, preferredRange = 1.6f,
+            blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 40, idleMax = 75,
+            signatureAnswer = SignatureAnswer.PerfectParry,
+            lore = "Espírito vingativo: sua lâmina o atravessa. Apare as garras para torná-lo sólido.",
+            moves = new[]
+            {
+                Move("garra", 0f, 2.0f, 3, Arc("garra", 18, 4, 20, 12, 10f, 12f, 24f, 1.5f, 110f, 0.6f)),
+                Signature("lamento", 0f, 2.2f, 2,
+                          Arc("lamento_1", 20, 4, 5, 14, 9f, 10f, 18f, 1.5f, 110f, 0.5f),
+                          Arc("lamento_2", 10, 4, 5, 6, 9f, 10f, 18f, 1.5f, 110f, 0.5f),
+                          Arc("lamento_3", 12, 4, 26, 6, 9f, 10f, 24f, 1.6f, 120f, 0.6f)),
+            },
+        };
+
+        /// <summary>Burrows under the floor and erupts beneath you: watch the circle that follows you.</summary>
+        public static readonly EnemyDef Kappa = new EnemyDef
+        {
+            id = "kappa", art = "KappaGreen", displayName = "Kappa do Lago", color = ColorUtil.Hex("#6A994E"), unarmed = true,
+            bloodColor = ColorUtil.Hex("#386641"),
+            maxHealth = 60f, maxPosture = 55f, radius = 0.42f, moveSpeed = 3.6f, preferredRange = 1.5f,
+            blockChance = 0.3f, postureRegenPerSecond = 10f, idleMin = 40, idleMax = 80,
+            signatureAnswer = SignatureAnswer.PerfectDodge,
+            lore = "Mergulha no chão e irrompe debaixo de você. O círculo que te segue é ele.",
+            moves = new[]
+            {
+                Move("mordida", 0f, 1.8f, 3,
+                     Arc("mordida_1", 13, 3, 6, 8, 8f, 10f, 10f, 1.3f, 90f, 0.6f),
+                     Arc("mordida_2", 10, 3, 22, 5, 8f, 10f, 12f, 1.3f, 90f, 0.6f)),
+                Signature("mergulho", 2f, 10f, 2, With(Sweep("mergulho", 70, 6, 30, 20f, 1.7f), a => { a.burrow = true; a.trackUntil = 58; })),
+            },
+        };
+
+        /// <summary>A charging brute: lure it into a wall or statue and it stuns itself.</summary>
+        public static readonly EnemyDef Ciclope = new EnemyDef
+        {
+            id = "ciclope", art = "Cyclope", weaponArt = "weapon_Hammer", artScale = 2.4f, displayName = "Oni Ciclope", color = ColorUtil.Hex("#C1121F"),
+            weapon = Shape.Axe, weaponLength = 1.6f, bloodColor = ColorUtil.Hex("#6A0A14"),
+            maxHealth = 160f, maxPosture = 140f, radius = 0.75f, mass = 3.5f, moveSpeed = 2.0f, preferredRange = 2.0f,
+            blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 55, idleMax = 95, superArmor = true,
+            signatureAnswer = SignatureAnswer.CounterThrust,
+            lore = "Investe pela arena. Faça-o bater numa parede ou estátua e ele fica atordoado.",
+            moves = new[]
+            {
+                Move("martelada", 0f, 2.5f, 3, Arc("martelada", 28, 5, 26, 20, 24f, 32f, 22f, 2.0f, 100f, 0.5f)),
+                Move("pisao", 0f, 2.4f, 2, Sweep("pisao", 36, 6, 32, 22f, 2.4f)),
+                Signature("investida", 3f, 12f, 3,
+                          With(Line("investida", 44, 18, 30, 34, 28f, 0f, 0f, 1.6f, 1.2f, 8f, AttackKind.Thrust), a => a.wallStun = true)),
+            },
+        };
+
+        /// <summary>Splits into two smaller slimes when it dies, unless finished.</summary>
+        public static readonly EnemyDef Lodo = new EnemyDef
+        {
+            id = "lodo", art = "Slime", displayName = "Lodo Faminto", color = ColorUtil.Hex("#8AC926"), unarmed = true,
+            bloodColor = ColorUtil.Hex("#4F772D"),
+            maxHealth = 50f, maxPosture = 40f, radius = 0.45f, moveSpeed = 2.4f, preferredRange = 1.6f,
+            blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 40, idleMax = 80, splitInto = "lodo_pequeno", splitCount = 2,
+            signatureAnswer = SignatureAnswer.PerfectDodge,
+            lore = "Divide-se em dois ao morrer. Uma finalização impede a divisão.",
+            moves = new[]
+            {
+                Move("salto", 0f, 3.2f, 3, Line("salto", 20, 6, 24, 14, 10f, 12f, 12f, 1.0f, 0.9f, 2.2f)),
+                Signature("esmagar", 0f, 2.0f, 2, Sweep("esmagar", 34, 5, 30, 16f, 1.8f)),
+            },
+        };
+
+        /// <summary>Frenzy: below half health it swings faster and stops pausing.</summary>
+        public static readonly EnemyDef Berserker = new EnemyDef
+        {
+            id = "berserker", art = "Caveman", weaponArt = "weapon_AxeTool", displayName = "Bárbaro Furioso", color = ColorUtil.Hex("#F4A261"),
+            weapon = Shape.Axe, weaponLength = 1.3f,
+            maxHealth = 95f, maxPosture = 80f, radius = 0.48f, mass = 1.6f, moveSpeed = 3.0f, preferredRange = 1.6f,
+            blockChance = 0.2f, postureRegenPerSecond = 10f, idleMin = 45, idleMax = 85, enrageBelow = 0.5f,
+            signatureAnswer = SignatureAnswer.PerfectParry,
+            lore = "Abaixo de meia vida entra em FÚRIA: golpes mais rápidos e sem pausa.",
+            moves = new[]
+            {
+                Move("golpe_duplo_b", 0f, 2.2f, 3,
+                     Arc("golpe_duplo_b1", 22, 5, 6, 16, 14f, 18f, 16f, 1.7f, 110f, 0.5f),
+                     Arc("golpe_duplo_b2", 16, 5, 26, 10, 14f, 18f, 18f, 1.7f, 110f, 0.5f)),
+                Signature("furia", 0f, 2.2f, 1,
+                          Arc("furia_1", 18, 4, 4, 12, 9f, 10f, 12f, 1.6f, 110f, 0.4f),
+                          Arc("furia_2", 10, 4, 4, 6, 9f, 10f, 12f, 1.6f, 110f, 0.4f),
+                          Arc("furia_3", 10, 4, 4, 6, 9f, 10f, 12f, 1.6f, 110f, 0.4f),
+                          Arc("furia_4", 10, 4, 4, 6, 9f, 10f, 12f, 1.6f, 110f, 0.4f),
+                          Arc("furia_5", 14, 4, 34, 8, 12f, 14f, 18f, 1.7f, 120f, 0.6f)),
+            },
+        };
+
+        /// <summary>Shadow clones: copies that strike too but fall to one blow. Find the real one.</summary>
+        public static readonly EnemyDef Raijin = new EnemyDef
+        {
+            id = "raijin", art = "NinjaThunder", weaponArt = "weapon_Katana", displayName = "Ninja do Trovão", color = ColorUtil.Hex("#FFD166"),
+            weaponLength = 1.1f, maxHealth = 60f, maxPosture = 55f, radius = 0.4f, moveSpeed = 3.9f, preferredRange = 2.2f,
+            blockChance = 0.3f, postureRegenPerSecond = 10f, idleMin = 45, idleMax = 80,
+            summonId = "raijin_sombra", summonMax = 2, clones = true,
+            signatureAnswer = SignatureAnswer.PerfectParry,
+            lore = "Cria cópias de si que também atacam, mas caem com um golpe. Ache o verdadeiro.",
+            moves = new[]
+            {
+                Move("relampago", 2f, 6f, 3, Line("relampago", 22, 4, 24, 16, 12f, 14f, 16f, 1.4f, 0.7f, 4.0f)),
+                Move("corte_r", 0f, 2.0f, 3, Arc("corte_r", 14, 4, 20, 9, 10f, 12f, 12f, 1.5f, 110f, 0.5f)),
+                Move("bunshin", 0f, 14f, 2, Summon("bunshin", 36, 20, 2)),
+                Signature("trovao", 0f, 2.6f, 2, Arc("trovao", 36, 5, 28, 30, 18f, 22f, 26f, 1.8f, 140f, 0.8f)),
+            },
+        };
+
+        /// <summary>A sentinel eye: sweeps the arena with long beams and blinks away when cornered.</summary>
+        public static readonly EnemyDef Olho = new EnemyDef
+        {
+            id = "olho", art = "Eye", displayName = "Olho Vigia", color = ColorUtil.Hex("#F1FAEE"), unarmed = true, flying = true,
+            bloodColor = ColorUtil.Hex("#A8DADC"),
+            maxHealth = 50f, maxPosture = 50f, radius = 0.42f, moveSpeed = 1.2f, preferredRange = 7.5f,
+            blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 50, idleMax = 90, blinkRange = 2.6f,
+            signatureAnswer = SignatureAnswer.PerfectDodge,
+            lore = "Dispara raios que cruzam a arena e se teleporta quando você chega perto.",
+            moves = new[]
+            {
+                Move("raio", 2f, 14f, 3, Line("raio", 48, 10, 30, 36, 18f, 0f, 0f, 11f, 0.55f, 0f, AttackKind.Sweep)),
+                Signature("raio_cruzado", 2f, 14f, 2,
+                          Line("raio_cruzado_1", 44, 8, 6, 34, 16f, 0f, 0f, 11f, 0.5f, 0f, AttackKind.Sweep),
+                          Line("raio_cruzado_2", 24, 8, 30, 14, 16f, 0f, 0f, 11f, 0.5f, 0f, AttackKind.Sweep)),
+            },
+        };
+
+        /// <summary>Lifesteal: every blow that lands heals it. Don't trade hits.</summary>
+        public static readonly EnemyDef Vampiro = new EnemyDef
+        {
+            id = "vampiro", art = "Vampire", weaponArt = "weapon_Sword", displayName = "Kyūketsuki", color = ColorUtil.Hex("#7B2CBF"),
+            weaponLength = 1.1f, bloodColor = ColorUtil.Hex("#5A0F2E"),
+            maxHealth = 70f, maxPosture = 60f, radius = 0.4f, moveSpeed = 3.4f, preferredRange = 1.7f,
+            blockChance = 0.45f, postureRegenPerSecond = 10f, idleMin = 40, idleMax = 75, lifesteal = 1.0f,
+            signatureAnswer = SignatureAnswer.PerfectDodge,
+            lore = "Cada golpe que acerta em você o cura. Não troque golpes com ele.",
+            moves = new[]
+            {
+                Move("corte_v", 0f, 2.1f, 3,
+                     Arc("corte_v1", 15, 4, 6, 10, 10f, 12f, 12f, 1.6f, 110f, 0.5f),
+                     Arc("corte_v2", 12, 4, 24, 7, 10f, 12f, 14f, 1.6f, 110f, 0.5f)),
+                Signature("mordida_v", 0f, 2.6f, 2, Arc("mordida_v", 30, 6, 32, 22, 22f, 0f, 0f, 1.5f, 70f, 1.6f, AttackKind.Grab)),
+            },
+        };
+
+        /// <summary>Gets up once more after dying: finish it, or shatter the bones before they rise.</summary>
+        public static readonly EnemyDef Esqueleto = new EnemyDef
+        {
+            id = "esqueleto", art = "SkeletonDemon", weaponArt = "weapon_BigSword", artScale = 1.1f, displayName = "Gashadokuro", color = ColorUtil.Hex("#E9E3D5"),
+            weapon = Shape.Blade, weaponLength = 1.6f, bloodColor = ColorUtil.Hex("#BFB8A8"),
+            maxHealth = 75f, maxPosture = 70f, radius = 0.44f, mass = 1.5f, moveSpeed = 2.8f, preferredRange = 1.8f,
+            blockChance = 0.35f, postureRegenPerSecond = 9f, idleMin = 45, idleMax = 85, reassembles = true,
+            signatureAnswer = SignatureAnswer.PerfectParry,
+            lore = "Remonta os ossos uma vez. Finalize-o, ou golpeie os ossos antes que se levantem.",
+            moves = new[]
+            {
+                Move("corte_pesado", 0f, 2.4f, 3, Arc("corte_pesado", 24, 5, 26, 18, 16f, 20f, 18f, 1.9f, 120f, 0.5f)),
+                Move("estocada_e", 1.2f, 3.2f, 2, Line("estocada_e", 26, 5, 26, 20, 14f, 16f, 16f, 2.4f, 0.6f, 0.8f)),
+                Signature("corte_da_cova", 0f, 2.6f, 2, Arc("corte_da_cova", 46, 5, 30, 36, 22f, 28f, 30f, 2.0f, 150f, 0.8f)),
+            },
+        };
+
+        /// <summary>Feints: some punches stop short. Parry only what really comes.</summary>
+        public static readonly EnemyDef Boxeador = new EnemyDef
+        {
+            id = "boxeador", art = "MonkeyBoxerRed", displayName = "Macaco Boxeador", color = ColorUtil.Hex("#D62828"), unarmed = true,
+            maxHealth = 60f, maxPosture = 60f, radius = 0.4f, moveSpeed = 3.7f, preferredRange = 1.4f,
+            blockChance = 0.45f, postureRegenPerSecond = 12f, idleMin = 30, idleMax = 60,
+            signatureAnswer = SignatureAnswer.PerfectParry,
+            lore = "Finge socos que não vêm. Só apare quando o anel aparecer.",
+            moves = new[]
+            {
+                Move("jab", 0f, 1.8f, 3,
+                     Arc("jab_1", 12, 3, 5, 8, 7f, 10f, 9f, 1.3f, 80f, 0.5f),
+                     Arc("jab_2", 9, 3, 20, 5, 7f, 10f, 10f, 1.3f, 80f, 0.5f)),
+                Signature("sequencia", 0f, 1.9f, 2,
+                          Arc("sequencia_1", 14, 3, 4, 9, 7f, 10f, 10f, 1.3f, 80f, 0.5f),
+                          Feint("finta_1", 16),
+                          Arc("sequencia_2", 10, 3, 4, 6, 7f, 10f, 10f, 1.3f, 80f, 0.5f),
+                          Feint("finta_2", 12),
+                          Arc("gancho", 16, 4, 28, 10, 12f, 16f, 18f, 1.5f, 120f, 0.7f)),
+            },
+        };
+
+        // ── Minions (called by others, never placed in rooms) ───────────────────────
+
+        public static readonly EnemyDef Hitodama = new EnemyDef
+        {
+            id = "hitodama", art = "Flam", artScale = 0.8f, displayName = "Hitodama", color = ColorUtil.Hex("#FF9F1C"), unarmed = true, flying = true, minion = true,
+            bloodColor = ColorUtil.Hex("#FF6B35"),
+            maxHealth = 14f, maxPosture = 14f, radius = 0.3f, moveSpeed = 4.0f, preferredRange = 1.0f,
+            blockChance = 0f, postureRegenPerSecond = 6f, idleMin = 30, idleMax = 60,
+            deathBlastRadius = 1.1f, deathBlastDamage = 10f, deathBlastFuse = 35,
+            moves = new[] { Move("chama", 0f, 1.6f, 1, Arc("chama", 18, 4, 24, 12, 7f, 8f, 10f, 1.1f, 120f, 0.8f)) },
+        };
+
+        public static readonly EnemyDef LodoPequeno = new EnemyDef
+        {
+            id = "lodo_pequeno", art = "Slime", artScale = 0.65f, displayName = "Lodo", color = ColorUtil.Hex("#8AC926"), unarmed = true, minion = true,
+            bloodColor = ColorUtil.Hex("#4F772D"),
+            maxHealth = 16f, maxPosture = 16f, radius = 0.3f, moveSpeed = 3.4f, preferredRange = 1.2f,
+            blockChance = 0f, postureRegenPerSecond = 6f, idleMin = 35, idleMax = 70,
+            moves = new[] { Move("salto_p", 0f, 2.6f, 1, Line("salto_p", 16, 5, 22, 12, 6f, 8f, 8f, 0.8f, 0.7f, 1.6f)) },
+        };
+
+        public static readonly EnemyDef RaijinSombra = new EnemyDef
+        {
+            id = "raijin_sombra", art = "NinjaThunder", weaponArt = "weapon_Katana", displayName = "Ninja do Trovão", color = ColorUtil.Hex("#FFD166"), minion = true,
+            weaponLength = 1.1f, bloodColor = ColorUtil.Hex("#FFD166"),
+            maxHealth = 1f, maxPosture = 1f, radius = 0.4f, moveSpeed = 3.9f, preferredRange = 2.0f,
+            blockChance = 0f, postureRegenPerSecond = 6f, idleMin = 50, idleMax = 90,
+            moves = new[]
+            {
+                Move("relampago_s", 2f, 6f, 2, Line("relampago_s", 22, 4, 24, 16, 6f, 8f, 16f, 1.4f, 0.7f, 4.0f)),
+                Move("corte_s", 0f, 2.0f, 3, Arc("corte_s", 14, 4, 20, 9, 5f, 6f, 12f, 1.5f, 110f, 0.5f)),
+            },
+        };
+
+        /// <summary>Every enemy that rooms can place.</summary>
+        public static readonly EnemyDef[] All =
+        {
+            Ronin, Lanceiro, Monge, Kenkaku, Carrasco, Arqueiro, Sombra, Escudeiro,
+            Kunoichi, Bombardeiro, Tengu, Onmyoji, Curandeira, Lanterna, Onryo, Kappa,
+            Ciclope, Lodo, Berserker, Raijin, Olho, Vampiro, Esqueleto, Boxeador,
+        };
+
+        public static readonly EnemyDef[] Minions = { Hitodama, LodoPequeno, RaijinSombra };
 
         static readonly Dictionary<string, EnemyDef> ById = BuildIndex();
 
@@ -256,6 +688,7 @@ namespace Shura
         {
             var index = new Dictionary<string, EnemyDef>();
             foreach (EnemyDef def in All) index[def.id] = def;
+            foreach (EnemyDef def in Minions) index[def.id] = def;
             return index;
         }
 

@@ -98,6 +98,18 @@ Meta-progressão usará o mesmo esquema (arquivo próprio) no marco corresponden
 - **Arenas:** `ArenaLayout` (grade com forma, estátuas, armadilhas, colisão por células) e
   navegação por campo de caminhos (BFS por destino, em cache) em `Steer`.
 
+## Bestiário (M1.10)
+- Mecânicas são **dados**: traços em `EnemyDef` (etéreo, voador, roubo de vida, fúria, esquiva,
+  remontagem, divisão, explosão ao morrer, aura de cura, invocação/cópias, teleporte) e flags
+  em `AttackDef` (leque de projéteis, explosão no chão, mergulho, investida com atordoamento,
+  finta, postura de saque, invocação). `Enemy` interpreta; novos inimigos são só tabelas.
+- O anel de tempo só aparece para golpes reais (`ShowsTimingRing`): fintas, posturas e
+  ataques à distância nunca mentem.
+- Inimigos nascidos no meio da luta (invocações, divisões) entram numa fila e só se juntam à
+  lista no fim do tick: nenhuma morte dentro de um laço sobre `Enemies` altera a lista.
+- `World.Blasts`: círculos com pavio (bombas, talismãs, explosão da lanterna); vão no snapshot
+  online (`B`) junto da arte dos projéteis (`R[6]`).
+
 ## Desempenho
 Pool de partículas (sprites reutilizados) e de fontes de áudio. Meta: 60 FPS estáveis.
 Até 8 jogadores e ~20 inimigos: sem culling. Online: ~45 KB/s por cliente a 30 estados/s.

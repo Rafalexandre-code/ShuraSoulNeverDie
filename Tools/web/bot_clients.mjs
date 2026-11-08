@@ -83,6 +83,7 @@ function bot(i) {
     let ws = null, done = false;
     let myId = null, input = { t: "in", mx: 0, my: 0, ax: 1, ay: 0, p: 0, r: 0, atk: 0, par: 0, dod: 0, swp: 0 };
     let lastRing = new Map(), attackCd = 0, steer = null;
+    const dodgedBlast = new Set();
     // The host may still be starting: keep trying until it answers.
     function connect() {
     ws = new WebSocket("ws://" + host + "/ws");
@@ -122,6 +123,14 @@ function bot(i) {
     function think(m, me, alive) {
       input.mx = 0; input.my = 0; input.p = 0; input.r = 0;
       if (!alive || m.m !== "play") return;
+      // Step out of bomb and talisman circles; dodge through the blast if it is about to go off.
+      for (const bl of m.B || []) {
+        const dx = me[3] - bl[0], dy = me[4] - bl[1], d = Math.hypot(dx, dy);
+        if (d > bl[2] + 0.7) continue;
+        input.mx = d > 0.01 ? dx / d : 1; input.my = d > 0.01 ? dy / d : 0;
+        if (bl[3] > 0.85 && !dodgedBlast.has(bl[0] + "," + bl[1])) { input.dod++; dodgedBlast.add(bl[0] + "," + bl[1]); }
+        return;
+      }
       // A fallen teammate nearby comes first.
       const fallen = (m.P || []).find((p) => p[0] !== myId && p[21] !== 1);
       if (fallen) {

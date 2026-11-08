@@ -49,6 +49,13 @@ namespace Shura
             return new Vector2(Mathf.Cos(r), Mathf.Sin(r));
         }
 
+        /// <summary>Unit vector at an angle in degrees (0 = +X, counter-clockwise).</summary>
+        public static Vector2 FromAngle(float degrees)
+        {
+            float r = degrees * Mathf.Deg2Rad;
+            return new Vector2(Mathf.Cos(r), Mathf.Sin(r));
+        }
+
         public static Vector2 Perpendicular(Vector2 v)
         {
             return new Vector2(-v.y, v.x);

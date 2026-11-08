@@ -137,7 +137,8 @@ namespace Shura
             }
             else
             {
-                Sprite shrine = PixelArt.Region(HouseSheet, 4, row, 2, 2, new Vector2(0.5f, 0f));
+                // The orb shrine spans columns 3–4 of the sheet (column 4 cut it in half).
+                Sprite shrine = PixelArt.Region(HouseSheet, 3, row, 2, 2, new Vector2(0.5f, 0f));
                 var s = SpriteUtil.Make("Shrine", parent, shrine, Color.white, order);
                 s.transform.localPosition = baseCenter;
                 decor.Statues.Add(new Vector4(block.xMin, block.yMin, block.width, 0));

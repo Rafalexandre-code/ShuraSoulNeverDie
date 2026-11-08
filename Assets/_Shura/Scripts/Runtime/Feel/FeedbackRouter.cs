@@ -102,6 +102,52 @@ namespace Shura
                     vfx.Line(pos, dir, magnitude, 0.35f, col, 0.16f);
                     break;
 
+                case FxType.Explosion:
+                {
+                    // The pack's explosion strip, scaled so its blast fills the marked circle.
+                    float near = game.World != null && game.World.CameraFocus != null ? Vector2.Distance(game.World.CameraFocus.Position, pos) : 0f;
+                    cam.Shake(Feel.shakeHit * Mathf.Lerp(2.2f, 0.6f, Mathf.Clamp01(near / 8f)));
+                    vfx.Animated(FxStrips.Explosion, pos + Vector2.up * 0.3f, magnitude * 0.85f, 0.55f, Color.white);
+                    vfx.Ring(pos, 0.2f, magnitude * 1.1f, col.WithAlpha(0.8f), 0.3f);
+                    vfx.Burst(pos, 16, col, 6f);
+                    vfx.Dust(pos, Vector2.up);
+                    audio.Play(Sfx.Crunch, 0.8f, 0.7f);
+                    audio.Play(Sfx.SwingHeavy, 0.6f, 0.5f);
+                    break;
+                }
+
+                case FxType.Smoke:
+                    vfx.Animated(FxStrips.Smoke, pos + Vector2.up * 0.2f, Mathf.Max(0.8f, magnitude * 1.6f), 0.45f, Color.white);
+                    audio.Play(Sfx.Dodge, 0.45f, 0.8f);
+                    break;
+
+                case FxType.Heal:
+                    vfx.Animated(FxStrips.Aura, pos + Vector2.up * 0.4f, 1f + magnitude, 0.5f, col);
+                    vfx.Rising(pos, magnitude, col, 10);
+                    break;
+
+                case FxType.HealPulse:
+                    vfx.Ring(pos, 0.4f, magnitude, col.WithAlpha(0.45f), 0.6f);
+                    audio.Play(Sfx.Chime, 0.35f, 1.3f, 0f);
+                    break;
+
+                case FxType.Phase:
+                    vfx.Afterimage(pos, magnitude, col);
+                    vfx.Rising(pos, magnitude * 0.6f, col, 6);
+                    audio.Play(Sfx.Dodge, 0.5f, 1.5f);
+                    break;
+
+                case FxType.Enrage:
+                    vfx.Ring(pos, 0.3f, 2.4f, col, 0.45f);
+                    vfx.Burst(pos, 18, col, 5f);
+                    cam.Punch(0.1f);
+                    audio.Play(Sfx.Danger, 0.8f, 0.7f);
+                    break;
+
+                case FxType.Drain:
+                    vfx.Stream(pos + Vector2.up * 0.3f, pos, 8, col);
+                    break;
+
                 case FxType.SlamImpact:
                     cam.Shake(Feel.shakeHit * 1.5f * impact);
                     vfx.Ring(pos, 0.2f, magnitude, Color.white.WithAlpha(0.7f), 0.3f);

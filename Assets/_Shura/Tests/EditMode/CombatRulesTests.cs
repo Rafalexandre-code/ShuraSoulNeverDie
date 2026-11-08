@@ -119,11 +119,11 @@ namespace Shura.Tests
                 Assert.AreEqual(a.waves.Length, b.waves.Length);
                 Assert.AreEqual(RoomGenerator.IsGuardianDepth(depth), a.guardian);
 
-                string newcomer = RoomGenerator.NewEnemyAt(depth);
-                if (newcomer != null)
+                List<string> newcomers = RoomGenerator.NewEnemiesAt(depth);
+                for (int n = 0; n < newcomers.Count; n++)
                 {
-                    Assert.AreEqual(1, a.waves[0].Length, "A new enemy is met alone first");
-                    Assert.AreEqual(newcomer, a.waves[0][0].id);
+                    Assert.AreEqual(1, a.waves[n].Length, "A new enemy is met alone first");
+                    Assert.AreEqual(newcomers[n], a.waves[n][0].id);
                 }
 
                 bool sawGuardian = false;
@@ -375,7 +375,12 @@ namespace Shura.Tests
             var techniques = new HashSet<string>();
             foreach (EnemyDef def in EnemyDefs.All)
             {
-                Assert.IsTrue(techniques.Add(def.techniqueId), def.id + " shares a technique with another enemy");
+                // Techniques are optional for the bestiary, but never shared.
+                if (def.techniqueId != null)
+                {
+                    Assert.IsTrue(techniques.Add(def.techniqueId), def.id + " shares a technique with another enemy");
+                    Assert.IsNotNull(RewardRegistry.Create(def.techniqueId), def.id + " technique");
+                }
                 int signatures = 0;
                 foreach (MoveDef m in def.moves)
                 {
@@ -390,7 +395,6 @@ namespace Shura.Tests
                     }
                 }
                 Assert.AreEqual(1, signatures, def.id + " needs exactly one signature move");
-                Assert.IsNotNull(RewardRegistry.Create(def.techniqueId), def.id + " technique");
             }
         }
     }

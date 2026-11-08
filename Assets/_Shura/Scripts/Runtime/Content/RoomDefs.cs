@@ -111,25 +111,48 @@ namespace Shura
             public string id;
             public int unlockDepth;
             public float cost;
+            /// <summary>Support enemies (healers, sentinels) never lead a Guardian room.</summary>
+            public bool guardian;
 
-            public RosterEntry(string id, int unlockDepth, float cost)
+            public RosterEntry(string id, int unlockDepth, float cost, bool guardian = true)
             {
                 this.id = id;
                 this.unlockDepth = unlockDepth;
                 this.cost = cost;
+                this.guardian = guardian;
             }
         }
 
+        /// <summary>
+        /// Two newcomers per depth from depth 1 to 11, one at 12: the whole bestiary is met
+        /// by depth 12, each one alone first.
+        /// </summary>
         static readonly RosterEntry[] Roster =
         {
             new RosterEntry("ronin", 0, 1.0f),
             new RosterEntry("lanceiro", 1, 1.2f),
+            new RosterEntry("lodo", 1, 1.1f),
             new RosterEntry("kenkaku", 2, 1.4f),
+            new RosterEntry("kunoichi", 2, 1.3f),
             new RosterEntry("escudeiro", 3, 1.4f),
+            new RosterEntry("lanterna", 3, 1.2f, false),
             new RosterEntry("arqueiro", 4, 1.3f),
+            new RosterEntry("kappa", 4, 1.4f),
             new RosterEntry("monge", 5, 2.0f),
+            new RosterEntry("bombardeiro", 5, 1.4f),
             new RosterEntry("sombra", 6, 1.8f),
+            new RosterEntry("onryo", 6, 1.6f),
             new RosterEntry("carrasco", 7, 2.5f),
+            new RosterEntry("curandeira", 7, 1.5f, false),
+            new RosterEntry("tengu", 8, 1.9f),
+            new RosterEntry("boxeador", 8, 1.6f),
+            new RosterEntry("ciclope", 9, 2.6f),
+            new RosterEntry("vampiro", 9, 1.8f),
+            new RosterEntry("onmyoji", 10, 1.9f),
+            new RosterEntry("olho", 10, 1.5f, false),
+            new RosterEntry("raijin", 11, 1.8f),
+            new RosterEntry("esqueleto", 11, 2.0f),
+            new RosterEntry("berserker", 12, 2.2f),
         };
 
         static readonly string[] Places =
@@ -151,13 +174,23 @@ namespace Shura
             return int.MaxValue;
         }
 
+        /// <summary>The first enemy introduced at this depth (null if none).</summary>
         public static string NewEnemyAt(int depth)
         {
+            List<string> all = NewEnemiesAt(depth);
+            return all.Count > 0 ? all[0] : null;
+        }
+
+        /// <summary>Every enemy introduced at this depth, in the order they are met.</summary>
+        public static List<string> NewEnemiesAt(int depth)
+        {
+            var list = new List<string>();
+            if (depth <= 0) return list;
             foreach (RosterEntry r in Roster)
             {
-                if (r.unlockDepth == depth && depth > 0) return r.id;
+                if (r.unlockDepth == depth) list.Add(r.id);
             }
-            return null;
+            return list;
         }
 
         public static IEnumerable<string> RosterIds()
@@ -184,15 +217,17 @@ namespace Shura
             int waveCount = Mathf.Clamp(2 + depth / 6, 2, 4);
             int maxPerWave = depth < 3 ? 2 : 3;
             float budget = Mathf.Min(MaxBudget, 1.4f + depth * 0.25f);
-            string newcomer = NewEnemyAt(depth);
+            List<string> newcomers = NewEnemiesAt(depth);
+            // Room for every newcomer's solo wave before the Guardian.
+            waveCount = Mathf.Max(waveCount, newcomers.Count + (guardian ? 1 : 0));
 
             var waves = new List<EnemySpawn[]>();
             for (int w = 0; w < waveCount; w++)
             {
-                if (w == 0 && newcomer != null)
+                if (w < newcomers.Count && !(guardian && w == waveCount - 1))
                 {
                     // A new enemy is always met alone first.
-                    waves.Add(new[] { new EnemySpawn(newcomer) });
+                    waves.Add(new[] { new EnemySpawn(newcomers[w]) });
                     continue;
                 }
                 if (guardian && w == waveCount - 1)
@@ -235,7 +270,7 @@ namespace Shura
             var heavy = new List<RosterEntry>();
             foreach (RosterEntry r in Unlocked(depth, float.MaxValue))
             {
-                if (r.cost >= 1.3f) heavy.Add(r);
+                if (r.cost >= 1.3f && r.guardian) heavy.Add(r);
             }
             if (heavy.Count == 0) heavy = Unlocked(depth, float.MaxValue);
             RosterEntry boss = WeightedPick(rng, heavy);

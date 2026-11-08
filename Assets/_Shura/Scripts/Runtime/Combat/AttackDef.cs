@@ -12,6 +12,15 @@ namespace Shura
         Grab,
     }
 
+    /// <summary>How a floor blast looks (and sounds).</summary>
+    public enum BlastKind
+    {
+        Bomb,
+        Talisman,
+        Fire,
+        Spirit,
+    }
+
     public enum HitShapeType
     {
         Arc,
@@ -66,7 +75,45 @@ namespace Shura
         /// <summary>The attacker vanishes and reappears behind the player when the windup starts.</summary>
         public bool teleportBehind;
 
+        // ── Bestiary mechanics ───────────────────────────────────────────────────────
+        /// <summary>Projectiles released at once, spread evenly across <see cref="spreadDegrees"/> (a fan of kunai).</summary>
+        public int projectileCount = 1;
+        public float spreadDegrees;
+        /// <summary>Sprite strip of the projectile in Resources/Art/NA (empty = arrow).</summary>
+        public string projectileArt;
+
+        /// <summary>
+        /// Instead of hitting, the release marks a circle on the floor under the target that
+        /// explodes after <see cref="blastFuse"/> frames (bombs, talismans). Leave it or dodge.
+        /// </summary>
+        public float blastRadius;
+        public int blastFuse = 50;
+        public int blastCount = 1;
+        /// <summary>Extra blasts land this far around the first one.</summary>
+        public float blastScatter;
+        public BlastKind blastKind;
+
+        /// <summary>Hidden underground through the windup, crawling toward the target; erupts on the active frames.</summary>
+        public bool burrow;
+        /// <summary>A charge that ends in a stun if the attacker slams into a wall or statue.</summary>
+        public bool wallStun;
+        /// <summary>A fake: winds up and pulls back without striking (no timing ring).</summary>
+        public bool feint;
+        /// <summary>
+        /// A drawn stance: striking the attacker during its windup is deflected and answered at
+        /// once by the next step (an iaijutsu draw). Waiting it out lets the stance end into that step.
+        /// </summary>
+        public bool stance;
+        /// <summary>The release calls minions (see EnemyDef.summonId) instead of striking.</summary>
+        public int summonCount;
+
         public bool IsProjectile => projectileSpeed > 0f;
+        public bool IsBlast => blastRadius > 0f;
+        public bool IsSummon => summonCount > 0;
+        /// <summary>The swing itself never touches anyone (stances, feints, ranged releases).</summary>
+        public bool NoMeleeHit => IsProjectile || IsBlast || IsSummon || feint || stance;
+        /// <summary>Shows the melee "answer now" ring.</summary>
+        public bool ShowsTimingRing => !NoMeleeHit;
 
         public bool IsDangerous => kind != AttackKind.Normal;
         public bool Parryable => kind == AttackKind.Normal;

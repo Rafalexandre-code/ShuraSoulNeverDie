@@ -57,6 +57,20 @@ namespace Shura
         Lightning,
         /// <summary>An item hits the floor. Magnitude = rarity tier.</summary>
         ItemDrop,
+        /// <summary>A floor blast goes off. Magnitude = radius.</summary>
+        Explosion,
+        /// <summary>A puff of smoke (burrowing, blinking, summoning, evading). Magnitude = size.</summary>
+        Smoke,
+        /// <summary>An ally mended by a healer. Magnitude = body radius.</summary>
+        Heal,
+        /// <summary>The healer's aura pulses. Magnitude = aura radius.</summary>
+        HealPulse,
+        /// <summary>A blade passes through an ethereal enemy.</summary>
+        Phase,
+        /// <summary>An enemy enters its frenzy.</summary>
+        Enrage,
+        /// <summary>Lifesteal: health flows back to the enemy. Magnitude = amount.</summary>
+        Drain,
     }
 
     public enum HintId
@@ -71,6 +85,19 @@ namespace Shura
         Finisher,
         Mastery,
         SwapParry,
+        Ethereal,
+        Healer,
+        Burrow,
+        Stance,
+        Blast,
+        Charge,
+        Enrage,
+        Lifesteal,
+        Reassemble,
+        DeathBlast,
+        Clones,
+        Summoner,
+        Split,
     }
 
     /// <summary>

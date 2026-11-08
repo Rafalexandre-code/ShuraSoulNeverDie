@@ -137,6 +137,31 @@ o chão, com pedaços do corpo conforme a arma. Opção **Sangue: Ligado/Desliga
 | Sombra | 50 | 55 | Losango | Corte sombrio | Some e reaparece às suas costas → parry perfeito |
 | Escudeiro | 70 | 80 | Escudo, defende 85% de frente | Golpe de escudo | Investida de escudo → parry perfeito |
 
+### Bestiário (M1.10): cada inimigo novo traz uma mecânica
+| Inimigo | Vida | Mecânica | Como responder |
+|---|---|---|---|
+| Kunoichi das Lâminas | 48 | Leque de 3–5 kunai/shuriken; salta para longe dos golpes | Aparar cada lâmina (devolve) e fechar a distância |
+| Bombardeiro | 55 | Bombas no chão onde você pisa (pavio visível) | Sair do círculo ou esquivar na explosão |
+| Tengu Espadachim | 70 | Postura de saque: golpeá-lo provoca contra-saque imediato | Esperar e aparar o saque |
+| Onmyōji | 60 | Talismãs que explodem no chão; invoca fogos-fátuos (até 3) | Derrubá-lo primeiro |
+| Xamã Curandeira | 65 | Aura: cura 8% e alivia a postura dos aliados a cada 2 s | Alvo prioritário; ela foge |
+| Chōchin-obake | 40 | Explode ao morrer e fere também os inimigos | Matar longe de você, perto deles |
+| Onryō | 45 | Etéreo: lâminas o atravessam | Parry perfeito o deixa sólido por 3 s |
+| Kappa do Lago | 60 | Mergulha e irrompe sob você (círculo que te segue) | Esquivar quando o anel fechar |
+| Oni Ciclope | 160 | Investida pela arena; não recua | Fazer bater em parede/estátua: fica atordoado |
+| Lodo Faminto | 50 | Divide-se em dois lodos menores ao morrer | Finalização impede a divisão |
+| Bárbaro Furioso | 95 | Fúria abaixo de 50%: golpes ~28% mais rápidos, sem pausa | Confiar no anel, que continua fiel |
+| Ninja do Trovão | 60 | Cria 2 cópias que também atacam (1 golpe as derruba) | Achar o verdadeiro: as cópias somem com ele |
+| Olho Vigia | 50 | Raios de 11 m que cruzam a arena; teleporta se você chega perto | Esquivar o raio; encurralá-lo |
+| Kyūketsuki | 70 | Cura 100% do dano que causa; mordida (agarrão) | Não trocar golpes: aparar |
+| Gashadokuro | 75 | Remonta os ossos uma vez (50% de vida) | Finalizar, ou golpear os ossos no chão |
+| Macaco Boxeador | 60 | Fintas no meio da sequência (sem anel) | Aparar só quando o anel aparece |
+
+Lacaios (nunca aparecem sozinhos): Hitodama (fogo-fátuo que explode ao morrer), Lodo pequeno,
+cópia do Ninja do Trovão. Lacaios não deixam itens. Todos os 24 inimigos aparecem até a
+profundidade 12, dois novos por sala, cada um primeiro sozinho. Os 8 originais mantêm suas
+técnicas absorvíveis; os 16 novos ainda não têm técnica própria.
+
 **Choque de lâminas:** um parry perfeito **interrompe** o golpe — a arma do inimigo quica e ele
 fica aberto (14 f; 28 f se era o último golpe do combo). Combos continuam depois do quique,
 golpe a golpe. Quando o inimigo **defende** seu golpe, é a sua espada que quica: o combo é

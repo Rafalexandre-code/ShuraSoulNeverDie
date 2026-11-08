@@ -74,7 +74,7 @@ Conteúdo (inimigos, salas, recompensas) fica em `Assets/_Shura/Scripts/Runtime/
 ## Verificação automática
 
 ```bash
-# Testes de lógica (56 testes)
+# Testes de lógica (60 testes)
 "C:/Program Files/Unity/Hub/Editor/6000.6.8f1/Editor/Unity.exe" -batchmode -projectPath . -runTests -testPlatform EditMode -testResults TestResults.xml
 
 # Bot joga até a profundidade 15 (sem janela), com resumo no log
@@ -109,6 +109,7 @@ Assets/_Shura/
   Tests/EditMode/            testes de combate, itens, arenas, escala de grupo e protocolo online
 Assets/StreamingAssets/web/  cliente do navegador (HTML/JS) + cópia da arte e dos sons
 Tools/web/                   sincronização dos assets web e bots de teste online
+Tools/art/                   importação do bestiário e efeitos do pacote Ninja Adventure
 docs/                        conceito, GDD, documento técnico, roadmap
 CREDITS.md                   autores e licenças de todos os assets de terceiros
 ```

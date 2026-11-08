@@ -33,6 +33,8 @@ namespace Shura
             public float rotVel;
             public Color c0;
             public Color c1;
+            /// <summary>Animated effects play these frames across their life.</summary>
+            public Sprite[] frames;
         }
 
         struct Decal
@@ -259,6 +261,17 @@ namespace Shura
             Spawn(circle, pos, Vector2.zero, 0.22f, radius * 2f, radius * 1.8f, color.WithAlpha(0.45f), color.WithAlpha(0f));
         }
 
+        /// <summary>
+        /// A pixel-art effect strip (explosion, smoke, aura) played once at a spot. Size multiplies
+        /// the frame's own pixel size; the colour multiplies the art (white keeps it as drawn).
+        /// </summary>
+        public void Animated(Sprite[] frames, Vector2 pos, float size, float life, Color color, Vector2 drift = default, float rot = 0f)
+        {
+            if (frames == null || frames.Length == 0) return;
+            int i = Spawn(frames[0], pos, drift, life, size, size, color, color, 0f, false, rot);
+            parts[i].frames = frames;
+        }
+
         public void Line(Vector2 origin, Vector2 dir, float length, float width, Color color, float life)
         {
             float angle = CombatMath.AngleDegrees(dir);
@@ -373,6 +386,14 @@ namespace Shura
             Color c = Color.Lerp(p.c0, p.c1, t);
             if (p.pulse) c.a *= Mathf.Sin(t * Mathf.PI);
             renderers[i].color = c;
+            if (p.frames != null)
+            {
+                Sprite[] f = p.frames;
+                renderers[i].sprite = f[Mathf.Min(f.Length - 1, Mathf.FloorToInt(t * f.Length))];
+                // Frames are drawn at their own pixel size: scale is a multiplier, not a width.
+                float k = p.size0;
+                tr.localScale = new Vector3(k, k, 1f);
+            }
         }
     }
 }

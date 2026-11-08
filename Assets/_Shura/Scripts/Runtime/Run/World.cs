@@ -45,6 +45,10 @@ namespace Shura
         public float ArtAngle;
         /// <summary>Passes through every enemy instead of stopping at the first.</summary>
         public bool Piercing;
+        /// <summary>Sprite name for browser players (empty = arrow).</summary>
+        public string Art;
+        /// <summary>Degrees per second the art turns (shuriken).</summary>
+        public float Spin;
         public readonly HashSet<Enemy> Struck = new HashSet<Enemy>();
 
         /// <summary>Simulation frames until it reaches the player (infinite if not heading there).</summary>
@@ -56,6 +60,26 @@ namespace Shura
             float gap = to.magnitude - player.Radius - Radius;
             return Mathf.Max(0f, gap) / Mathf.Max(0.01f, Speed * SimClock.Dt);
         }
+    }
+
+    /// <summary>A marked circle on the floor that explodes when its fuse runs out (bombs, talismans).</summary>
+    public sealed class EnemyBlast
+    {
+        public Vector2 Position;
+        public float Radius;
+        public int Fuse;
+        public int Age;
+        public float Damage;
+        public float Posture;
+        public BlastKind Kind;
+        public bool HitsEnemies;
+        public Enemy Owner;
+        public Color Color;
+        public Transform Root;
+        public SpriteRenderer Fill;
+        public SpriteRenderer Ring;
+        public SpriteRenderer Icon;
+        public float Progress => Fuse > 0 ? Mathf.Clamp01(Age / (float)Fuse) : 1f;
     }
 
     /// <summary>
@@ -89,6 +113,7 @@ namespace Shura
         public readonly List<Enemy> Enemies = new List<Enemy>();
         public readonly List<Projectile> Projectiles = new List<Projectile>();
         public readonly List<ItemPickup> Pickups = new List<ItemPickup>();
+        public readonly List<EnemyBlast> Blasts = new List<EnemyBlast>();
 
         readonly Transform root;
         Transform arenaRoot;
@@ -285,7 +310,7 @@ namespace Shura
         {
             get
             {
-                int count = 0;
+                int count = pendingSpawns.Count;
                 for (int i = 0; i < Enemies.Count; i++)
                 {
                     if (!Enemies[i].IsGone) count++;
@@ -354,10 +379,12 @@ namespace Shura
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Tick();
             TickProjectiles();
             TickBursts();
+            TickBlasts();
             TickTraps();
             TickPickups();
             ResolveCollisions();
             RemoveDead();
+            FlushSpawns();
             TickRevives();
             TickWaves();
             Run.Elapsed += SimClock.Dt;
@@ -445,22 +472,126 @@ namespace Shura
             roomActive = false;
             Coordinator.Reset();
             ClearProjectiles();
+            ClearBlasts();
             CollectAllPickups();
             RoomClearedEvent?.Invoke();
         }
 
         void SpawnWave(EnemySpawn[] spawns)
         {
-            foreach (EnemySpawn spawn in spawns)
+            foreach (EnemySpawn spawn in spawns) CreateEnemy(EnemyDefs.Get(spawn.id), FindSpawnPoint(), spawn.elite, null);
+        }
+
+        Enemy CreateEnemy(EnemyDef def, Vector2 at, bool elite, Enemy summoner)
+        {
+            var go = new GameObject("Enemy_" + def.id);
+            go.transform.SetParent(root, false);
+            var enemy = go.AddComponent<Enemy>();
+            EnemyScaling scaling = EnemyScaling.For(Depth, elite);
+            scaling.health *= elite ? PartyScaling.GuardianHealth(PartySize) : PartyScaling.EnemyHealth(PartySize);
+            enemy.Init(this, def, at, Config, Run.Rng, scaling, summoner);
+            Enemies.Add(enemy);
+            return enemy;
+        }
+
+        // ── Summons, splits and clones ──────────────────────────────────────────────────
+
+        struct PendingSpawn
+        {
+            public EnemyDef def;
+            public Vector2 at;
+            public Enemy summoner;
+        }
+
+        /// <summary>
+        /// Enemies born mid-fight wait here until the end of the tick, so a death inside any
+        /// loop over <see cref="Enemies"/> can safely call new ones.
+        /// </summary>
+        readonly List<PendingSpawn> pendingSpawns = new List<PendingSpawn>();
+        const int MaxEnemiesAlive = 24;
+
+        public int MinionsOf(Enemy owner)
+        {
+            int n = 0;
+            foreach (Enemy e in Enemies)
             {
-                var go = new GameObject("Enemy_" + spawn.id);
-                go.transform.SetParent(root, false);
-                var enemy = go.AddComponent<Enemy>();
-                EnemyScaling scaling = EnemyScaling.For(Depth, spawn.elite);
-                scaling.health *= spawn.elite ? PartyScaling.GuardianHealth(PartySize) : PartyScaling.EnemyHealth(PartySize);
-                enemy.Init(this, EnemyDefs.Get(spawn.id), FindSpawnPoint(), Config, Run.Rng, scaling);
-                Enemies.Add(enemy);
+                if (e.Summoner == owner && !e.IsGone) n++;
             }
+            foreach (PendingSpawn p in pendingSpawns)
+            {
+                if (p.summoner == owner) n++;
+            }
+            return n;
+        }
+
+        /// <summary>Calls minions in a ring around the caster (capped per caster and per arena).</summary>
+        public void Summon(Enemy owner, string id, int count)
+        {
+            if (string.IsNullOrEmpty(id) || !EnemyDefs.TryGet(id, out EnemyDef def)) return;
+            int room = Mathf.Min(owner.Def.summonMax - MinionsOf(owner), MaxEnemiesAlive - ActiveEnemyCount);
+            int n = Mathf.Min(count, room);
+            float start = Run.Rng.Range(0f, 360f);
+            for (int i = 0; i < n; i++)
+            {
+                Vector2 at = owner.Position + CombatMath.FromAngle(start + i * 360f / Mathf.Max(1, n)) * 1.6f;
+                pendingSpawns.Add(new PendingSpawn { def = def, at = Layout.NearestFloor(at, def.radius), summoner = owner });
+                Fx.Emit(FxType.Smoke, at, Vector2.up, def.radius, owner.Def.color);
+            }
+            if (n > 0) HintOnce(owner.Def.clones ? HintId.Clones : HintId.Summoner);
+        }
+
+        /// <summary>A dying slime becomes several small ones where it fell.</summary>
+        public void Split(Enemy from, string id, int count)
+        {
+            if (!EnemyDefs.TryGet(id, out EnemyDef def)) return;
+            int n = Mathf.Min(count, MaxEnemiesAlive - ActiveEnemyCount + 1);
+            for (int i = 0; i < n; i++)
+            {
+                Vector2 at = from.Position + CombatMath.FromAngle(90f + i * 360f / Mathf.Max(1, n)) * 0.7f;
+                pendingSpawns.Add(new PendingSpawn { def = def, at = Layout.NearestFloor(at, def.radius) });
+            }
+            if (n > 0) HintOnce(HintId.Split);
+        }
+
+        /// <summary>Shadow clones vanish when the one who cast them falls.</summary>
+        public void DispelMinionsOf(Enemy owner)
+        {
+            foreach (Enemy e in Enemies)
+            {
+                if (e.Summoner == owner) e.Dispel();
+            }
+            pendingSpawns.RemoveAll(p => p.summoner == owner);
+        }
+
+        void FlushSpawns()
+        {
+            if (pendingSpawns.Count == 0) return;
+            var batch = new List<PendingSpawn>(pendingSpawns);
+            pendingSpawns.Clear();
+            foreach (PendingSpawn p in batch)
+            {
+                if (p.summoner != null && p.summoner.IsGone && p.summoner.Def.clones) continue;
+                CreateEnemy(p.def, p.at, false, p.summoner);
+            }
+        }
+
+        /// <summary>A floor point far from every player (sentinels blinking away).</summary>
+        public Vector2 FarFloorPoint(Vector2 from, float radius)
+        {
+            Vector2 best = from;
+            float bestScore = float.MinValue;
+            for (int attempt = 0; attempt < 20; attempt++)
+            {
+                Vector2 p = Layout.RandomFloorPoint(Run.Rng, radius + 0.3f);
+                PlayerController near = NearestAlivePlayer(p);
+                float score = near != null ? Mathf.Min(Vector2.Distance(p, near.Position), 9f) : 0f;
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = p;
+                }
+            }
+            return best;
         }
 
         void RefreshAdaptation()
@@ -558,7 +689,9 @@ namespace Shura
                 if (e != null) Object.Destroy(e.gameObject);
             }
             Enemies.Clear();
+            pendingSpawns.Clear();
             bursts.Clear();
+            ClearBlasts();
             ClearProjectiles();
             ClearPickups();
             Coordinator.Reset();
@@ -585,9 +718,10 @@ namespace Shura
                     powerMult = attacker.PowerMult,
                 };
                 actor = p;
-                p.ReceiveAttack(incoming);
+                HitOutcome outcome = p.ReceiveAttack(incoming);
                 actor = null;
                 connected = true;
+                if (outcome == HitOutcome.Hit) attacker.OnDealtDamage(attack.damage * attacker.PowerMult);
             }
             return connected;
         }
@@ -668,6 +802,101 @@ namespace Shura
                 Fx.Emit(FxType.Burst, b.position, Vector2.up, b.radius, b.color);
                 Strike(b.position, Vector2.right, HitShape.Circle(b.radius), b.damage, b.posture, null, true, false);
             }
+        }
+
+        // ── Floor blasts ────────────────────────────────────────────────────────────────
+
+        public static Color BlastColor(BlastKind kind)
+        {
+            switch (kind)
+            {
+                case BlastKind.Talisman: return ColorUtil.Hex("#E63946");
+                case BlastKind.Fire: return ColorUtil.Hex("#FF9F1C");
+                case BlastKind.Spirit: return ColorUtil.Hex("#9AD1D4");
+                default: return ColorUtil.Hex("#FF6B35");
+            }
+        }
+
+        /// <summary>
+        /// Marks a circle that explodes after <paramref name="fuse"/> frames. Players inside get hurt
+        /// unless they dodge through the blast; a dying lantern's blast hurts enemies as well.
+        /// </summary>
+        public void ScheduleEnemyBlast(Enemy owner, Vector2 position, float radius, int fuse, float damage, float posture,
+                                       BlastKind kind, bool hitsEnemies)
+        {
+            var go = new GameObject("Blast");
+            go.transform.SetParent(root, false);
+            go.transform.position = position;
+            Color color = BlastColor(kind);
+            var b = new EnemyBlast
+            {
+                Position = position, Radius = radius, Fuse = Mathf.Max(1, fuse), Damage = damage, Posture = posture, Kind = kind,
+                HitsEnemies = hitsEnemies, Owner = owner, Color = color, Root = go.transform,
+                Fill = SpriteUtil.Make("Fill", go.transform, ShapeLibrary.Get(Shape.SoftCircle), color.WithAlpha(0.2f), Sorting.Ground + 3),
+                Ring = SpriteUtil.Make("Ring", go.transform, ShapeLibrary.Get(Shape.Ring), color, Sorting.Ground + 4),
+            };
+            Sprite icon = kind == BlastKind.Bomb ? PixelArt.Image("item_bomb") : kind == BlastKind.Talisman ? PixelArt.Image("item_scroll_fire") : null;
+            if (icon != null) b.Icon = SpriteUtil.Make("Icon", go.transform, icon, Color.white, Sorting.Overlay - 12);
+            b.Ring.transform.localScale = Vector3.one * radius * 2f;
+            Blasts.Add(b);
+            RenderBlast(b);
+        }
+
+        void TickBlasts()
+        {
+            for (int i = Blasts.Count - 1; i >= 0; i--)
+            {
+                EnemyBlast b = Blasts[i];
+                if (++b.Age < b.Fuse) continue;
+                Blasts.RemoveAt(i);
+                Fx.Emit(FxType.Explosion, b.Position, Vector2.up, b.Radius, b.Color);
+                foreach (PlayerController p in Players)
+                {
+                    if (!p.IsAlive || Vector2.Distance(p.Position, b.Position) > b.Radius + p.Radius * 0.6f) continue;
+                    Vector2 dir = p.Position - b.Position;
+                    actor = p;
+                    p.ReceiveHazard(b.Damage, b.Posture, dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector2.up);
+                    actor = null;
+                }
+                if (b.HitsEnemies)
+                {
+                    for (int e = 0; e < Enemies.Count; e++)
+                    {
+                        Enemy en = Enemies[e];
+                        if (en == b.Owner || !en.CanBeHit || Vector2.Distance(en.Position, b.Position) > b.Radius + en.Radius * 0.6f) continue;
+                        Vector2 dir = en.Position - b.Position;
+                        en.ReceiveHazard(b.Damage * 1.5f, b.Posture * 1.5f, dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector2.up);
+                    }
+                }
+                Object.Destroy(b.Root.gameObject);
+            }
+        }
+
+        /// <summary>The circle fills as the fuse burns; it flickers in the last third.</summary>
+        void RenderBlast(EnemyBlast b)
+        {
+            float t = b.Progress;
+            float s = b.Radius * 2f * Mathf.Lerp(0.15f, 1f, t);
+            b.Fill.transform.localScale = new Vector3(s, s, 1f);
+            bool late = t > 0.66f;
+            float flicker = late && Mathf.Repeat(Time.unscaledTime * 12f, 1f) < 0.5f ? 1f : 0.6f;
+            b.Fill.color = b.Color.WithAlpha((0.18f + 0.3f * t) * flicker);
+            b.Ring.color = Color.Lerp(b.Color, Color.white, late ? 0.5f * flicker : 0f).WithAlpha(0.5f + 0.5f * t);
+            if (b.Icon != null)
+            {
+                float bob = b.Kind == BlastKind.Bomb ? 0.12f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 10f)) : 0f;
+                b.Icon.transform.localPosition = new Vector3(0f, 0.15f + bob, 0f);
+                b.Icon.transform.localScale = Vector3.one * (b.Kind == BlastKind.Bomb ? 1.1f : 0.9f) * (1f + (late ? 0.15f * flicker : 0f));
+            }
+        }
+
+        void ClearBlasts()
+        {
+            foreach (EnemyBlast b in Blasts)
+            {
+                if (b.Root != null) Object.Destroy(b.Root.gameObject);
+            }
+            Blasts.Clear();
         }
 
         /// <summary>A blow inside a finisher: blood, a freeze and a wet cut — but no death yet.</summary>
@@ -897,12 +1126,23 @@ namespace Shura
 
         public void SpawnProjectile(Enemy owner, AttackDef attack, bool signature)
         {
-            Vector2 dir = owner.Facing;
-            Vector2 start = owner.Position + dir * (owner.Radius + 0.3f);
-            Projectile p = CreateProjectile(start, dir, attack.projectileSpeed, attack.projectileRadius, PixelArt.Arrow() != null ? Color.white : owner.Def.weaponColor);
-            p.Attack = attack;
-            p.Owner = owner;
-            p.Signature = signature;
+            int count = Mathf.Max(1, attack.projectileCount);
+            Sprite art = string.IsNullOrEmpty(attack.projectileArt) ? null : PixelArt.ProjectileSprite(attack.projectileArt);
+            for (int i = 0; i < count; i++)
+            {
+                // A fan spreads evenly across the arc, centred on where the thrower faces.
+                float offset = count == 1 ? 0f : -attack.spreadDegrees * 0.5f + attack.spreadDegrees * i / (count - 1);
+                Vector2 dir = CombatMath.FromAngle(CombatMath.AngleDegrees(owner.Facing) + offset);
+                Vector2 start = owner.Position + dir * (owner.Radius + 0.3f);
+                Projectile p = art != null
+                    ? CreateProjectile(start, dir, attack.projectileSpeed, attack.projectileRadius, Color.white, art, 1f, false)
+                    : CreateProjectile(start, dir, attack.projectileSpeed, attack.projectileRadius, PixelArt.Arrow() != null ? Color.white : owner.Def.weaponColor);
+                p.Attack = attack;
+                p.Owner = owner;
+                p.Signature = signature;
+                p.Art = attack.projectileArt;
+                p.Spin = attack.projectileArt != null && attack.projectileArt.Contains("shuriken") ? 900f : 0f;
+            }
         }
 
         /// <summary>A player-owned arrow (Flecha Reflexa): flies like a reflected one.</summary>
@@ -1146,7 +1386,7 @@ namespace Shura
 
         static bool IsSolid(Enemy e)
         {
-            return !e.IsGone && e.CurrentState != Enemy.State.Spawning;
+            return !e.IsGone && e.CurrentState != Enemy.State.Spawning && e.CurrentState != Enemy.State.Reassembling && !e.IsBurrowed;
         }
 
         static void Separate(Fighter a, Fighter b)
@@ -1185,9 +1425,11 @@ namespace Shura
                 {
                     if (p.IsAlive && TrapTouches(trap, p)) HitByTrap(trap, p, t);
                 }
-                foreach (Enemy e in Enemies)
+                // Index loop: a trap kill can split a slime (new enemies join after the tick).
+                for (int i = 0; i < Enemies.Count; i++)
                 {
-                    if (e.CanBeHit && TrapTouches(trap, e)) HitByTrap(trap, e, t);
+                    Enemy e = Enemies[i];
+                    if (e.CanBeHit && !e.Def.flying && TrapTouches(trap, e)) HitByTrap(trap, e, t);
                 }
             }
             // Cooldowns tick down (blades and flames hit repeatedly, but not every frame).
@@ -1296,6 +1538,7 @@ namespace Shura
             foreach (PlayerController p in Players) p.Render(alpha, visualDt, showHitboxes);
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Render(alpha, visualDt, showHitboxes);
             for (int i = 0; i < Projectiles.Count; i++) RenderProjectile(Projectiles[i], alpha);
+            for (int i = 0; i < Blasts.Count; i++) RenderBlast(Blasts[i]);
             trapViews?.Render(TrapTick, Time.unscaledTime);
         }
 
@@ -1306,7 +1549,7 @@ namespace Shura
             Transform holder = p.View.transform.parent;
             holder.position = new Vector3(pos.x, pos.y, 0f);
             float angle = CombatMath.AngleDegrees(p.Direction);
-            p.View.transform.localRotation = Quaternion.Euler(0f, 0f, angle + p.ArtAngle);
+            p.View.transform.localRotation = Quaternion.Euler(0f, 0f, angle + p.ArtAngle + p.Spin * Time.unscaledTime);
             p.View.transform.localPosition = p.IsArrow ? -(Vector3)(p.Direction * p.Size) : Vector3.zero;
             p.View.transform.localScale = new Vector3(p.Size, p.Size, 1f);
 

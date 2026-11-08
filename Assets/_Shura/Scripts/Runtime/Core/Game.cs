@@ -503,8 +503,12 @@ namespace Shura
         {
             Palette pal = Config.palette;
             UI.Toast(string.Format(Strings.ToastDepth, room.depth + 1), pal.uiText);
-            string newcomer = RoomGenerator.NewEnemyAt(room.depth);
-            if (newcomer != null) UI.Toast(string.Format(Strings.ToastNewEnemy, EnemyDefs.Get(newcomer).displayName), pal.danger);
+            foreach (string newcomer in RoomGenerator.NewEnemiesAt(room.depth))
+            {
+                EnemyDef def = EnemyDefs.Get(newcomer);
+                string line = string.Format(Strings.ToastNewEnemy, def.displayName);
+                UI.Toast(string.IsNullOrEmpty(def.lore) ? line : line + " — " + def.lore, pal.danger);
+            }
             if (room.guardian) UI.Toast(Strings.ToastGuardian, pal.gold);
             foreach (ReadingId reading in World.Adaptation.Active())
             {

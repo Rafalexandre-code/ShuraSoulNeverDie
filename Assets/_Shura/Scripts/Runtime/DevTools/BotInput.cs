@@ -37,6 +37,7 @@ namespace Shura
             if (attackCooldown > 0) attackCooldown--;
 
             if (AnswerProjectile(world, p)) return;
+            if (EscapeBlasts(world, p)) return;
 
             Enemy threat = null;
             int soonest = int.MaxValue;
@@ -66,7 +67,8 @@ namespace Shura
             foreach (Enemy e in world.Enemies)
             {
                 if (!e.CanBeHit) continue;
-                float d = Vector2.Distance(e.Position, p.Position);
+                // Blades pass through an unexposed spirit: go for anyone solid first.
+                float d = Vector2.Distance(e.Position, p.Position) + (e.IsIntangible ? 6f : 0f);
                 if (d < best)
                 {
                     best = d;
@@ -76,6 +78,23 @@ namespace Shura
             if (target == null) return;
             bool threatSoon = threat != null && soonest <= 14;
             Approach(p, target.Position, CloseRange, !threatSoon);
+        }
+
+        /// <summary>Walks out of a marked circle; dodges through the blast if it is about to go off.</summary>
+        bool EscapeBlasts(World world, PlayerController p)
+        {
+            foreach (EnemyBlast b in world.Blasts)
+            {
+                Vector2 from = p.Position - b.Position;
+                float d = from.magnitude;
+                if (d > b.Radius + p.Radius + 0.3f) continue;
+                Vector2 away = d > 1e-3f ? from / d : Vector2.right;
+                Move = away;
+                aim = away;
+                if (b.Fuse - b.Age <= AnswerLeadFrames) Buffer.Press(BufferedAction.Dodge, 3);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>Parries the arrow about to land; returns true while one is incoming.</summary>

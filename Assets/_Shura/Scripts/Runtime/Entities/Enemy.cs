@@ -22,10 +22,42 @@ namespace Shura
             Finishing,
             Dying,
             Dead,
+            /// <summary>Bones on the floor, rising again (Gashadokuro).</summary>
+            Reassembling,
         }
 
         const float BarWidth = 1.1f;
         const int TeleportFadeFrames = 10;
+        const int ReassembleFrames = 240;
+        const int ExposedFrames = 180;
+        const int HealPeriodFrames = 120;
+        const int CrashStunFrames = 150;
+        const int StanceCounterWindup = 12;
+        const int BlinkCooldownFrames = 240;
+
+        // Bestiary state.
+        bool reassembled;
+        bool enraged;
+        int exposedFrames;
+        int healTimer;
+        int blinkCooldown;
+        int closeFrames;
+        int dustTimer;
+
+        /// <summary>Whoever called this enemy (shadow clones vanish with them).</summary>
+        public Enemy Summoner { get; private set; }
+        public bool IsEnraged => enraged;
+        /// <summary>Ethereal and not exposed: blades pass through.</summary>
+        public bool IsIntangible => Def.ethereal && exposedFrames <= 0 && !IsBroken;
+        /// <summary>Under the floor during a burrow windup.</summary>
+        public bool IsBurrowed
+        {
+            get
+            {
+                AttackDef a = CurrentAttack;
+                return a != null && a.burrow && StepFrame < stepWindup - 2;
+            }
+        }
 
         EnemyTuning et;
         FeelTuning feel;
@@ -84,14 +116,14 @@ namespace Shura
 
         public bool CanBeHit =>
             CurrentState != State.Spawning && CurrentState != State.Finishing &&
-            CurrentState != State.Dying && CurrentState != State.Dead;
+            CurrentState != State.Dying && CurrentState != State.Dead && !IsBurrowed;
 
         public bool IsThreatening
         {
             get
             {
                 AttackDef a = CurrentAttack;
-                return a != null && StepFrame < stepWindup + a.active;
+                return a != null && !a.IsBlast && !a.IsSummon && StepFrame < stepWindup + a.active;
             }
         }
 
@@ -99,9 +131,10 @@ namespace Shura
 
         public bool IsGone => CurrentState == State.Dying || CurrentState == State.Dead;
 
-        public void Init(World owner, EnemyDef def, Vector2 spawn, GameConfig config, SeededRandom random, EnemyScaling enemyScaling)
+        public void Init(World owner, EnemyDef def, Vector2 spawn, GameConfig config, SeededRandom random, EnemyScaling enemyScaling, Enemy summoner = null)
         {
             Def = def;
+            Summoner = summoner;
             scaling = enemyScaling;
             et = config.enemies;
             feel = config.feel;
@@ -151,8 +184,11 @@ namespace Shura
             timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
 
             strafeTimer = rng.Range(60, 140);
+            healTimer = rng.Range(0, HealPeriodFrames);
             Enter(State.Spawning);
             owner.Fx.Emit(FxType.Spawn, spawn, Vector2.up, Radius, scaling.elite ? pal.gold : def.color);
+            if (def.ethereal) owner.HintOnce(HintId.Ethereal);
+            if (def.healRadius > 0f) owner.HintOnce(HintId.Healer);
             if (scaling.elite) owner.Fx.Popup(Strings.PopupGuardian + "  ·  " + def.displayName, spawn + Vector2.up * 1.4f, pal.gold);
         }
 
@@ -162,8 +198,10 @@ namespace Shura
             if (CurrentState == State.Dead) return;
             StateFrame++;
             if (guardFrames > 0) guardFrames--;
+            if (exposedFrames > 0) exposedFrames--;
             TickStatus();
             if (CurrentState == State.Dead) return;
+            TickTraits();
 
             switch (CurrentState)
             {
@@ -200,8 +238,68 @@ namespace Shura
                     Velocity = Vector2.Lerp(Velocity, Vector2.zero, 0.2f);
                     if (StateFrame >= et.dyingFrames) Enter(State.Dead);
                     break;
+                case State.Reassembling:
+                    Velocity = Vector2.Lerp(Velocity, Vector2.zero, 0.25f);
+                    if (StateFrame % 20 == 0) world.Fx.Emit(FxType.ShadowStep, Position, Vector2.up, Radius * 0.6f, Def.color);
+                    if (StateFrame >= ReassembleFrames)
+                    {
+                        Health = MaxHealth * 0.5f;
+                        Posture.Reset(0f);
+                        world.Fx.Emit(FxType.Spawn, Position, Vector2.up, Radius, Def.color);
+                        world.Fx.Popup(Strings.PopupReassembled, Position + Vector2.up * 1.2f, Def.color);
+                        EnterEngage(20);
+                    }
+                    break;
             }
             Integrate();
+        }
+
+        /// <summary>Passive traits that run whatever the enemy is doing: healing aura, blinking away.</summary>
+        void TickTraits()
+        {
+            if (CurrentState == State.Spawning || CurrentState == State.Dying || CurrentState == State.Reassembling) return;
+
+            if (Def.healRadius > 0f && ++healTimer >= HealPeriodFrames)
+            {
+                healTimer = 0;
+                bool any = false;
+                foreach (Enemy e in world.Enemies)
+                {
+                    if (e == this || e.IsGone || e.CurrentState == State.Reassembling) continue;
+                    if (Vector2.Distance(e.Position, Position) > Def.healRadius) continue;
+                    if (e.Health >= e.MaxHealth && e.Posture.Ratio <= 0f) continue;
+                    e.Mend(e.MaxHealth * Def.healFraction, 15f);
+                    world.Fx.Emit(FxType.Heal, e.Position, Vector2.up, e.Radius, Def.color);
+                    any = true;
+                }
+                if (any) world.Fx.Emit(FxType.HealPulse, Position, Vector2.up, Def.healRadius, Def.color);
+            }
+
+            if (Def.blinkRange > 0f && CurrentState == State.Engage)
+            {
+                if (blinkCooldown > 0) blinkCooldown--;
+                PlayerController near = world.NearestAlivePlayer(Position);
+                bool close = near != null && Vector2.Distance(near.Position, Position) < Def.blinkRange;
+                closeFrames = close ? closeFrames + 1 : 0;
+                if (closeFrames >= 30 && blinkCooldown == 0)
+                {
+                    closeFrames = 0;
+                    blinkCooldown = BlinkCooldownFrames;
+                    Vector2 to = world.FarFloorPoint(Position, Radius);
+                    world.Fx.Emit(FxType.Smoke, Position, Vector2.up, Radius, Def.color);
+                    Teleport(to);
+                    world.Fx.Emit(FxType.Smoke, to, Vector2.up, Radius, Def.color);
+                    idleTimer = Mathf.Max(idleTimer, 25);
+                }
+            }
+        }
+
+        /// <summary>Healed by an ally's aura: health and some posture back.</summary>
+        public void Mend(float health, float posture)
+        {
+            if (IsGone) return;
+            Health = Mathf.Min(MaxHealth, Health + health);
+            Posture.Recover(posture);
         }
 
         void Enter(State state)
@@ -253,6 +351,7 @@ namespace Shura
                 if (rng.NextFloat() < 0.5f) strafeSign = -strafeSign;
             }
             if (IsChilled) desired *= 0.55f;
+            if (enraged) desired *= 1.35f;
             Velocity = Vector2.Lerp(Velocity, desired, 0.15f);
 
             if (!player.IsAlive) return;
@@ -261,7 +360,7 @@ namespace Shura
 
         int Idle(int min, int max)
         {
-            float mult = scaling.idle * (1f - 0.45f * world.Adaptation.Pressure) * (IsChilled ? 1.4f : 1f);
+            float mult = scaling.idle * (1f - 0.45f * world.Adaptation.Pressure) * (IsChilled ? 1.4f : 1f) * (enraged ? 0.5f : 1f);
             return Mathf.Max(6, Mathf.RoundToInt(rng.Range(min, max) * mult));
         }
 
@@ -274,7 +373,16 @@ namespace Shura
                 if (a.IsDangerous) dangerous = true;
             }
             float bias = dangerous ? 1f + 1.5f * world.Adaptation.Danger : 1f;
+            if (enraged && m.isSignature) bias *= 3f;
             return Mathf.Max(1, Mathf.RoundToInt(m.weight * bias * 2f));
+        }
+
+        /// <summary>Summon moves are skipped while enough minions already stand.</summary>
+        bool Usable(MoveDef m, float dist)
+        {
+            if (dist < m.minRange || dist > m.maxRange) return false;
+            if (m.steps[0].IsSummon && (string.IsNullOrEmpty(Def.summonId) || world.MinionsOf(this) >= Def.summonMax)) return false;
+            return true;
         }
 
         void TryChooseAttack(float dist)
@@ -282,7 +390,7 @@ namespace Shura
             int total = 0;
             foreach (MoveDef m in Def.moves)
             {
-                if (dist >= m.minRange && dist <= m.maxRange) total += MoveWeight(m);
+                if (Usable(m, dist)) total += MoveWeight(m);
             }
             if (total == 0)
             {
@@ -298,7 +406,7 @@ namespace Shura
             int roll = rng.Range(0, total);
             foreach (MoveDef m in Def.moves)
             {
-                if (dist < m.minRange || dist > m.maxRange) continue;
+                if (!Usable(m, dist)) continue;
                 int w = MoveWeight(m);
                 if (roll < w)
                 {
@@ -330,6 +438,14 @@ namespace Shura
                 world.TeleportBehindPlayer(this);
                 world.HintOnce(HintId.Shadow);
             }
+            if (attack.burrow)
+            {
+                world.Fx.Emit(FxType.Smoke, Position, Vector2.up, Radius, Def.color);
+                world.HintOnce(HintId.Burrow);
+            }
+            if (attack.stance) world.HintOnce(HintId.Stance);
+            if (attack.IsBlast) world.HintOnce(HintId.Blast);
+            if (attack.wallStun) world.HintOnce(HintId.Charge);
 
             if (attack.IsDangerous)
             {
@@ -338,9 +454,13 @@ namespace Shura
                              : attack.kind == AttackKind.Sweep ? HintId.DangerSweep
                              : HintId.DangerGrab);
             }
-            else
+            else if (attack.IsProjectile)
             {
-                world.HintOnce(attack.IsProjectile ? HintId.Projectile : HintId.Parry);
+                world.HintOnce(HintId.Projectile);
+            }
+            else if (attack.ShowsTimingRing)
+            {
+                world.HintOnce(HintId.Parry);
             }
             Squash(0.88f, 1.1f);
             areaPreview.sprite = ShapeLibrary.Wedge(attack.shape.type == HitShapeType.Circle ? 360f : attack.shape.arcDegrees);
@@ -356,17 +476,21 @@ namespace Shura
             AdaptiveTraits traits = world.Adaptation;
             stepWindup = attack.windup;
             stepAdapted = false;
-            if (!attack.IsProjectile && !attack.teleportBehind && rng.NextFloat() < traits.Delay * 0.6f)
+            // A frenzy speeds up every swing; the ring still closes on the real impact.
+            if (enraged && !attack.stance && !attack.burrow) stepWindup = Mathf.Max(8, Mathf.RoundToInt(stepWindup * 0.72f));
+            if (!attack.NoMeleeHit && !attack.burrow && !attack.teleportBehind && rng.NextFloat() < traits.Delay * 0.6f)
             {
                 stepWindup += rng.Range(8, 19);
                 stepAdapted = true;
             }
             int trackBonus = Mathf.RoundToInt(6f * traits.Track);
             stepTrack = Mathf.Min(attack.trackUntil + trackBonus, Mathf.Max(attack.trackUntil, stepWindup - 6));
+            // Always commit a few frames before impact, even when a frenzy shortened the windup.
+            stepTrack = Mathf.Min(stepTrack, Mathf.Max(0, stepWindup - 4));
 
             // Online lag compensation: a browser player sees this swing late by their ping, so
             // the blow lands that much later while the ring keeps closing when they see it.
-            stepLag = !attack.IsProjectile && Target != null && Target != world.Host ? Target.LatencyTicks : 0;
+            stepLag = !attack.NoMeleeHit && Target != null && Target != world.Host ? Target.LatencyTicks : 0;
             stepWindup += stepLag;
         }
 
@@ -379,8 +503,9 @@ namespace Shura
         {
             StepFrame++;
             AttackDef attack = CurrentAttack;
-            // Arrows cue on their own flight; melee cues when the ring closes.
-            if (!attack.IsProjectile && StepFrame == TelegraphTiming.CueFrame(CueWindup, feel.timingCueLeadFrames))
+            // Arrows cue on their own flight; melee cues when the ring closes. Feints, stances
+            // and ranged releases never ring: the ring only ever means a real blow.
+            if (attack.ShowsTimingRing && StepFrame == TelegraphTiming.CueFrame(CueWindup, feel.timingCueLeadFrames))
             {
                 world.Fx.Emit(FxType.TimingCue, Position, Facing, attack.IsDangerous ? 1f : 0f);
             }
@@ -394,17 +519,33 @@ namespace Shura
             Velocity = Vector2.Lerp(Velocity, Vector2.zero, 0.25f);
             RegenPosture();
 
+            if (attack.burrow && StepFrame < stepWindup)
+            {
+                // Crawling under the floor: the danger circle follows the target until it commits.
+                if (StepFrame <= stepTrack && to.magnitude > 0.2f)
+                {
+                    Velocity = world.Layout.Steer(Position, victim.Position, Radius) * Def.moveSpeed * 1.5f;
+                }
+                if (++dustTimer % 6 == 0) world.Fx.Emit(FxType.Footstep, Position, Velocity.normalized);
+                if (StepFrame == stepWindup - 2) world.Fx.Emit(FxType.Smoke, Position, Vector2.up, Radius * 1.4f, Def.color);
+            }
+
             if (StepFrame == stepWindup)
             {
-                world.Fx.Emit(FxType.EnemySwing, Position, Facing, attack.IsDangerous ? 1.5f : attack.IsProjectile ? 2f : 1f);
-                Squash(1.25f, 0.82f);
+                if (!attack.feint && !attack.stance && !attack.IsSummon)
+                {
+                    world.Fx.Emit(FxType.EnemySwing, Position, Facing, attack.IsDangerous ? 1.5f : attack.IsProjectile ? 2f : 1f);
+                }
+                Squash(attack.feint ? 1.08f : 1.25f, attack.feint ? 0.94f : 0.82f);
                 if (attack.IsProjectile) world.SpawnProjectile(this, attack, CurrentMove.isSignature);
+                if (attack.IsBlast) ReleaseBlasts(attack, victim);
+                if (attack.IsSummon) world.Summon(this, Def.summonId, attack.summonCount);
             }
 
             bool active = StepFrame >= stepWindup && StepFrame < stepWindup + attack.active;
-            if (active && !attack.IsProjectile)
+            if (active && !attack.NoMeleeHit)
             {
-                if (attack.lunge > 0f) Position += Facing * (attack.lunge / attack.active);
+                if (attack.lunge > 0f && !Lunge(attack)) return;
                 if (!stepHit && world.TryHitPlayer(this, attack)) stepHit = true;
                 // A perfect answer can break posture, recoil or stagger us mid-swing.
                 if (CurrentState != State.Attacking) return;
@@ -419,6 +560,58 @@ namespace Shura
             else
             {
                 EndMove();
+            }
+        }
+
+        /// <summary>
+        /// Moves along the swing. A charge that meets a wall or statue ends in a crash: the
+        /// brute is stunned and open. Returns false when the swing ended here.
+        /// </summary>
+        bool Lunge(AttackDef attack)
+        {
+            Vector2 step = Facing * (attack.lunge / attack.active);
+            Vector2 next = Position + step;
+            if (attack.wallStun && !world.Layout.Clear(Position, next + Facing * Radius * 0.5f, Radius * 0.8f))
+            {
+                Crash();
+                return false;
+            }
+            Position = next;
+            return true;
+        }
+
+        void Crash()
+        {
+            world.Coordinator.Release(this);
+            CurrentMove = null;
+            Velocity = -Facing * 2f;
+            world.Fx.Emit(FxType.SlamImpact, Position + Facing * Radius, -Facing, 2.2f);
+            world.Fx.Popup(Strings.PopupStunned, Position + Vector2.up * 1.6f, pal.gold);
+            Flash(0.1f);
+            if (Posture.Add(Posture.Max * 0.35f))
+            {
+                BreakPosture();
+                return;
+            }
+            staggerFrames = CrashStunFrames;
+            Enter(State.Stagger);
+        }
+
+        /// <summary>Bombs and talismans: circles on the floor at the target (and around it) that explode later.</summary>
+        void ReleaseBlasts(AttackDef attack, PlayerController victim)
+        {
+            Vector2 center = victim.Position;
+            for (int i = 0; i < attack.blastCount; i++)
+            {
+                Vector2 at = center;
+                if (i > 0)
+                {
+                    float a = (i - 1) * (360f / Mathf.Max(1, attack.blastCount - 1)) + rng.Range(-25f, 25f);
+                    at += CombatMath.FromAngle(a) * attack.blastScatter;
+                }
+                at = world.Layout.NearestFloor(at, 0.1f);
+                world.ScheduleEnemyBlast(this, at, attack.blastRadius, attack.blastFuse + i * 6, attack.damage * PowerMult,
+                                         attack.postureDamage * PowerMult, attack.blastKind, false);
             }
         }
 
@@ -459,6 +652,7 @@ namespace Shura
         /// <summary>Perfectly parried: the blade stops and bounces back; the swing ends.</summary>
         public void OnParried(float posture)
         {
+            Expose();
             Squash(0.82f, 1.15f);
             Velocity = -Facing * 2.2f;
             if (Posture.Add(posture))
@@ -478,8 +672,17 @@ namespace Shura
             Enter(State.Recoil);
         }
 
+        /// <summary>A perfect answer pins an ethereal enemy to the world for a few seconds.</summary>
+        void Expose()
+        {
+            if (!Def.ethereal) return;
+            if (exposedFrames <= 0) world.Fx.Popup(Strings.PopupExposed, Position + Vector2.up * 1.2f, pal.gold);
+            exposedFrames = ExposedFrames;
+        }
+
         public void OnCounterThrust(float posture)
         {
+            Expose();
             world.Coordinator.Release(this);
             CurrentMove = null;
             Velocity = -Facing * 3f;
@@ -506,7 +709,46 @@ namespace Shura
             if (!CanBeHit) return StrikeResult.None;
             Vector2 contact = Position - hitDir * Radius;
 
+            // Bones on the floor: one blow scatters them for good.
+            if (CurrentState == State.Reassembling)
+            {
+                world.Fx.Emit(FxType.HitEnemy, contact, hitDir, damage, Def.bloodColor);
+                Health = 0f;
+                FinishDying();
+                return StrikeResult.Hit;
+            }
+
+            // Ethereal: the blade passes through like smoke.
+            if (IsIntangible)
+            {
+                world.Fx.Emit(FxType.Phase, contact, hitDir, Radius, Def.color);
+                world.HintOnce(HintId.Ethereal);
+                return StrikeResult.None;
+            }
+
+            // Iaijutsu: striking the stance is turned aside and answered with the draw at once.
+            AttackDef current = CurrentAttack;
+            if (current != null && current.stance && StepFrame < stepWindup && !unblockable && StepIndex < CurrentMove.steps.Length - 1)
+            {
+                Deflect(0f, hitDir, contact, false);
+                StepIndex++;
+                StartStep();
+                stepWindup = Mathf.Min(stepWindup, StanceCounterWindup + stepLag);
+                stepTrack = Mathf.Min(stepTrack, Mathf.Max(0, stepWindup - 4));
+                world.Fx.Popup(Strings.PopupStanceCounter, Position + Vector2.up * 1.3f, pal.danger);
+                return StrikeResult.Deflected;
+            }
+
             bool facingAttacker = Vector2.Dot(Facing, -hitDir) > 0.26f;
+            if (!unblockable && CurrentState == State.Engage && Def.evadeChance > 0f && rng.NextFloat() < Def.evadeChance)
+            {
+                // A backflip out of reach instead of a parry.
+                Vector2 away = (hitDir + CombatMath.Perpendicular(hitDir) * (rng.NextFloat() < 0.5f ? 0.7f : -0.7f)).normalized;
+                Velocity = away * 9f;
+                Squash(1.2f, 0.85f);
+                world.Fx.Emit(FxType.Smoke, Position, away, Radius, Def.color);
+                return StrikeResult.None;
+            }
             float blockChance = Mathf.Min(0.95f, Def.blockChance + 0.25f * world.Adaptation.Guard);
             if (!unblockable && CurrentState == State.Engage && facingAttacker && rng.NextFloat() < blockChance)
             {
@@ -526,8 +768,29 @@ namespace Shura
                 Die();
                 return StrikeResult.Hit;
             }
+            CheckEnrage();
             if (CurrentState != State.Broken && Posture.Add(posture)) BreakPosture();
             return StrikeResult.Hit;
+        }
+
+        void CheckEnrage()
+        {
+            if (enraged || Def.enrageBelow <= 0f || Health > MaxHealth * Def.enrageBelow) return;
+            enraged = true;
+            world.Fx.Emit(FxType.Enrage, Position, Vector2.up, Radius, pal.danger);
+            world.Fx.Popup(Strings.PopupEnraged, Position + Vector2.up * 1.5f, pal.danger);
+            world.HintOnce(HintId.Enrage);
+        }
+
+        /// <summary>Lifesteal: the blow that landed feeds it.</summary>
+        public void OnDealtDamage(float damage)
+        {
+            if (Def.lifesteal <= 0f || IsGone || damage <= 0f) return;
+            float heal = Mathf.Min(MaxHealth - Health, damage * Def.lifesteal);
+            if (heal <= 0.5f) return;
+            Health += heal;
+            world.Fx.Emit(FxType.Drain, Position, Vector2.up, heal, Def.bloodColor);
+            world.HintOnce(HintId.Lifesteal);
         }
 
         /// <summary>Traps: cannot be guarded, never counted as the player's blow.</summary>
@@ -597,8 +860,16 @@ namespace Shura
         }
 
         /// <summary>The enemy guards: blades clash, the player's sword bounces off.</summary>
-        void Deflect(float posture, Vector2 hitDir, Vector2 contact)
+        void Deflect(float posture, Vector2 hitDir, Vector2 contact, bool canRiposte = true)
         {
+            if (!canRiposte)
+            {
+                Facing = -hitDir;
+                Squash(0.9f, 1.08f);
+                world.Fx.Emit(FxType.EnemyBlocked, contact, -hitDir);
+                world.Player.OnDeflected();
+                return;
+            }
             blockStreak++;
             guardFrames = et.guardVisualFrames;
             Facing = -hitDir;
@@ -629,7 +900,7 @@ namespace Shura
             foreach (MoveDef m in Def.moves)
             {
                 AttackDef first = m.steps[0];
-                if (first.IsDangerous || first.IsProjectile || first.teleportBehind || dist < m.minRange || dist > m.maxRange) continue;
+                if (first.IsDangerous || first.NoMeleeHit || first.burrow || first.teleportBehind || dist < m.minRange || dist > m.maxRange) continue;
                 if (fastest == null || first.windup < fastest.steps[0].windup) fastest = m;
             }
             if (fastest != null && world.Coordinator.ForceAcquire(this)) StartMove(fastest);
@@ -637,6 +908,7 @@ namespace Shura
 
         void BreakPosture()
         {
+            Expose();
             world.Coordinator.Release(this);
             CurrentMove = null;
             Velocity = Vector2.zero;
@@ -661,18 +933,64 @@ namespace Shura
         public void Die()
         {
             if (IsGone) return;
+            if (Def.reassembles && !reassembled && !gibbed && CurrentState != State.Reassembling)
+            {
+                // The bones fall apart... and start crawling back together.
+                reassembled = true;
+                world.Coordinator.Release(this);
+                CurrentMove = null;
+                Health = 1f;
+                Velocity = Vector2.zero;
+                Enter(State.Reassembling);
+                world.Fx.Emit(FxType.EnemyDeath, Position, Facing, Radius, Def.color);
+                world.HintOnce(HintId.Reassemble);
+                return;
+            }
+            FinishDying();
+        }
+
+        /// <summary>Vanishing without a body or loot (shadow clones when their master falls).</summary>
+        public void Dispel()
+        {
+            if (IsGone) return;
+            world.Coordinator.Release(this);
+            CurrentMove = null;
+            Health = 0f;
+            gibbed = true;
+            Enter(State.Dying);
+            world.Fx.Emit(FxType.Smoke, Position, Vector2.up, Radius, Def.color);
+        }
+
+        void FinishDying()
+        {
             world.Coordinator.Release(this);
             CurrentMove = null;
             Health = 0f;
             Enter(State.Dying);
             if (scaling.elite && world.Run != null) world.Run.ElitesKilled++;
-            world.OnEnemyDied(this);
+            // Minions never carry loot (or a summoner could be farmed).
+            if (!Def.minion) world.OnEnemyDied(this);
             world.Fx.Emit(FxType.EnemyDeath, Position, Facing, Radius, Def.color);
+
+            if (Def.clones) world.DispelMinionsOf(this);
+            // A finisher ends it for good: no split.
+            if (!gibbed && !string.IsNullOrEmpty(Def.splitInto) && Def.splitCount > 0)
+            {
+                world.Split(this, Def.splitInto, Def.splitCount);
+            }
+            if (Def.deathBlastRadius > 0f)
+            {
+                world.ScheduleEnemyBlast(this, Position, Def.deathBlastRadius, Def.deathBlastFuse, Def.deathBlastDamage * PowerMult,
+                                         Def.deathBlastDamage * PowerMult, BlastKind.Fire, true);
+                world.HintOnce(HintId.DeathBlast);
+            }
         }
 
         // ── View ────────────────────────────────────────────────────────────────────────
 
         protected override bool HurtPose => CurrentState == State.Recoil || CurrentState == State.Stagger || Flashing;
+
+        protected override bool FallenPose => CurrentState == State.Reassembling || base.FallenPose;
 
         /// <summary>The strike pose snaps in just before the blow lands and holds through recovery.</summary>
         protected override bool StrikePose => CurrentState == State.Attacking && CurrentAttack != null && StepFrame >= stepWindup - 3;
@@ -767,6 +1085,27 @@ namespace Shura
             float tR = Mathf.Clamp01((f - stepWindup - attack.active) / Mathf.Max(1, attack.recovery));
             float tremble = stepWindup >= 30 && tW > 0.66f && winding ? Mathf.Sin(Time.unscaledTime * 70f) * 3f : 0f;
 
+            if (attack.stance)
+            {
+                // Hand on the hilt, blade sheathed low; it trembles harder as the draw nears.
+                pose.angle = -125f + Mathf.Sin(Time.unscaledTime * 40f) * 4f * tW;
+                pose.extend = -0.25f;
+                pose.tint = Color.Lerp(weaponColor, Color.white, tW * 0.6f);
+                return;
+            }
+            if (attack.IsSummon || attack.IsBlast)
+            {
+                // Raised toward the sky while the spell gathers.
+                pose.angle = winding ? Mathf.Lerp(idle, 95f, CombatMath.EaseOutCubic(tW)) + tremble : Mathf.Lerp(95f, idle, tR);
+                return;
+            }
+            if (attack.feint)
+            {
+                // Pulls back as for a real blow, then lets it drop: nothing comes.
+                float startF = (attack.shape.arcDegrees * 0.5f + 35f) * (StepIndex % 2 == 0 ? 1f : -1f);
+                pose.angle = winding ? Mathf.Lerp(idle, startF, CombatMath.EaseInOutSine(tW)) : Mathf.Lerp(startF, idle, CombatMath.EaseOutCubic(Mathf.Clamp01((f - stepWindup) / 6f)));
+                return;
+            }
             if (attack.IsProjectile)
             {
                 // Draw the bow: pull back through the windup, snap forward on release.
@@ -812,7 +1151,7 @@ namespace Shura
             get
             {
                 AttackDef a = CurrentAttack;
-                if (a == null || a.IsProjectile) return false;
+                if (a == null || a.NoMeleeHit || Def.unarmed) return false;
                 float f = AnimFrame(StepFrame);
                 return f >= stepWindup - 0.5f && f < stepWindup + a.active + 1.5f;
             }
@@ -849,7 +1188,7 @@ namespace Shura
         /// </summary>
         void RenderTimingIndicator(AttackDef attack)
         {
-            bool show = world.ShowTimingIndicator && attack != null && !attack.IsProjectile && CurrentState == State.Attacking &&
+            bool show = world.ShowTimingIndicator && attack != null && attack.ShowsTimingRing && CurrentState == State.Attacking &&
                         TelegraphTiming.ApproachVisible(StepFrame, CueWindup, feel.timingCueLeadFrames, feel.timingApproachFrames);
             NetRing = 0;
             if (!show)
@@ -917,7 +1256,7 @@ namespace Shura
 
             float windupT = attack != null ? Mathf.Clamp01(StepFrame / (float)Mathf.Max(1, stepWindup)) : 0f;
             bool active = attack != null && StepFrame >= stepWindup && StepFrame < stepWindup + attack.active;
-            bool telegraphing = attack != null && !attack.IsProjectile && StepFrame < stepWindup + attack.active;
+            bool telegraphing = attack != null && !attack.NoMeleeHit && StepFrame < stepWindup + attack.active;
 
             // The art keeps its own colours: states tint it, and a white silhouette on top
             // carries the hit flash, the wind-up heat and the "reading you" glow.
@@ -950,6 +1289,19 @@ namespace Shura
                     c.a = 1f - Mathf.Clamp01(StateFrame / (float)et.dyingFrames);
                     break;
             }
+            float wave = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 9f);
+            if (attack != null && attack.stance && StepFrame < stepWindup) glow = Color.white.WithAlpha(0.12f + 0.3f * windupT);
+            if (attack != null && (attack.IsSummon || attack.IsBlast) && StepFrame < stepWindup) glow = Def.color.WithAlpha(0.2f + 0.45f * windupT);
+            if (Def.ethereal && !IsGone)
+            {
+                // Translucent and cold while blades pass through; solid with a golden edge once exposed.
+                if (IsIntangible) c.a *= 0.5f;
+                else glow = pal.gold.WithAlpha(0.2f + 0.2f * wave);
+            }
+            if (enraged && !IsGone) glow = Color.Lerp(glow, pal.danger.WithAlpha(0.35f + 0.25f * wave), 0.8f);
+            if (Def.healRadius > 0f && healTimer > HealPeriodFrames - 24 && !IsGone) glow = Def.color.WithAlpha(0.5f);
+            if (Summoner != null && Summoner.Def.clones) c.a *= 0.88f;
+            if (IsBurrowed) c.a = 0f;
             if (IsChilled && !IsGone) c = Color.Lerp(c, Elements.Color(Element.Frost), 0.45f);
             if (dotTime > 0f && !IsGone) c = Color.Lerp(c, dotElement == Element.Blood ? Def.bloodColor : Elements.Color(dotElement), 0.25f + 0.15f * Mathf.Sin(Time.unscaledTime * 14f));
             // An adapted (held) strike glows violet: the enemy is reading you.
@@ -958,8 +1310,8 @@ namespace Shura
             if (gibbed) c.a = 0f;
             glow.a *= c.a;
             SetBodyLook(c, glow);
-            shadow.enabled = !gibbed;
-            weapon.enabled = !gibbed;
+            shadow.enabled = !gibbed && !IsBurrowed;
+            weapon.enabled = !gibbed && !Def.unarmed && !IsBurrowed && CurrentState != State.Reassembling;
 
             if (eliteAura.enabled)
             {
@@ -1014,7 +1366,7 @@ namespace Shura
                 dangerGlyph.transform.localScale = new Vector3(s, s * 1.25f, 1f);
             }
 
-            bool showBars = !IsGone && CurrentState != State.Spawning;
+            bool showBars = !IsGone && CurrentState != State.Spawning && CurrentState != State.Reassembling && !IsBurrowed;
             barBack.enabled = healthFill.enabled = postureFill.enabled = showBars;
             if (showBars)
             {
@@ -1028,11 +1380,16 @@ namespace Shura
             seal.enabled = Mastered && !IsGone;
             if (seal.enabled) seal.transform.localRotation = Quaternion.Euler(0f, 0f, Time.unscaledTime * 90f);
 
-            brokenRing.enabled = IsBroken;
+            bool rising = CurrentState == State.Reassembling;
+            brokenRing.enabled = IsBroken || rising;
             if (brokenRing.enabled)
             {
-                float s = Radius * 2f * (1.5f + 0.15f * Mathf.Sin(Time.unscaledTime * 10f));
+                // Bones rising: a pale ring that tightens as they come back together.
+                float s = rising
+                    ? Radius * 2f * Mathf.Lerp(2.4f, 1.1f, StateFrame / (float)ReassembleFrames)
+                    : Radius * 2f * (1.5f + 0.15f * Mathf.Sin(Time.unscaledTime * 10f));
                 brokenRing.transform.localScale = new Vector3(s, s, 1f);
+                brokenRing.color = rising ? Def.color.WithAlpha(0.7f) : pal.gold;
             }
         }
     }

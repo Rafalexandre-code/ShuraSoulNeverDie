@@ -134,6 +134,11 @@ namespace Shura
         public const string PopupDodge = "ESQUIVA PERFEITA";
         public const string PopupMastered = "DOMINADO";
         public const string PopupRevived = "DE PÉ!";
+        public const string PopupReassembled = "REMONTADO";
+        public const string PopupStunned = "ATORDOADO!";
+        public const string PopupExposed = "SÓLIDO!";
+        public const string PopupStanceCounter = "CONTRA-SAQUE!";
+        public const string PopupEnraged = "FÚRIA!";
 
         // Online
         public const string PlayOnline = "Jogar online (até 8)";
@@ -231,6 +236,32 @@ namespace Shura
                     return "Postura quebrada! Ataque perto do inimigo para FINALIZAR.";
                 case HintId.Mastery:
                     return "SELO DOURADO: você dominou o golpe-assinatura. Finalize este inimigo para ABSORVER a técnica dele.";
+                case HintId.Ethereal:
+                    return "ONRYŌ: sua lâmina o ATRAVESSA. Apare as garras dele com um parry perfeito: ele fica SÓLIDO (borda dourada) por alguns segundos.";
+                case HintId.Healer:
+                    return "XAMÃ CURANDEIRA: cura e restaura a postura dos aliados próximos. Derrube-a primeiro.";
+                case HintId.Burrow:
+                    return "O KAPPA MERGULHOU! O círculo vermelho que te segue é ele: esquive quando o anel fechar ou saia do círculo.";
+                case HintId.Stance:
+                    return "POSTURA DE SAQUE: golpear o Tengu agora provoca um contra-ataque imediato. ESPERE e apare o saque.";
+                case HintId.Blast:
+                    return "CÍRCULO NO CHÃO: vai explodir quando encher. Saia dele ou esquive no momento da explosão.";
+                case HintId.Charge:
+                    return "INVESTIDA! Desvie e deixe o Oni bater numa parede ou estátua: ele fica atordoado e aberto.";
+                case HintId.Enrage:
+                    return "FÚRIA: golpes mais rápidos e sem pausa. O anel continua fiel: confie nele.";
+                case HintId.Lifesteal:
+                    return "KYŪKETSUKI: cada golpe que acerta em você o CURA. Não troque golpes, apare.";
+                case HintId.Reassemble:
+                    return "OS OSSOS SE REMONTAM! Golpeie os ossos no chão antes que ele se levante (ou finalize-o da próxima vez).";
+                case HintId.DeathBlast:
+                    return "VAI EXPLODIR! Lanternas e fogos-fátuos explodem ao morrer: afaste-se. A explosão também fere inimigos — use isso a seu favor.";
+                case HintId.Clones:
+                    return "CÓPIAS DE SOMBRA: elas também atacam, mas caem com um golpe. Derrube o verdadeiro e todas somem.";
+                case HintId.Summoner:
+                    return "INVOCADOR: enquanto viver, chamará mais fogos-fátuos. Derrube o Onmyōji.";
+                case HintId.Split:
+                    return "O LODO SE DIVIDIU! Uma FINALIZAÇÃO impede a divisão.";
                 default:
                     return string.Empty;
             }

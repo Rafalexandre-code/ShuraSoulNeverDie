@@ -415,7 +415,15 @@ namespace Shura
                 Projectile pr = w.Projectiles[i];
                 if (i > 0) sb.Append(',');
                 sb.Append('[').Num(pr.Position.x).Append(',').Num(pr.Position.y).Append(',').Num(pr.Direction.x).Append(',').Num(pr.Direction.y).Append(',')
-                  .Bool(pr.Reflected).Append(',').Bool(pr.IsArrow).Append(']');
+                  .Bool(pr.Reflected).Append(',').Bool(pr.IsArrow).Append(',').Str(pr.Art).Append(']');
+            }
+            sb.Append("],\"B\":[");
+            for (int i = 0; i < w.Blasts.Count; i++)
+            {
+                EnemyBlast bl = w.Blasts[i];
+                if (i > 0) sb.Append(',');
+                sb.Append('[').Num(bl.Position.x).Append(',').Num(bl.Position.y).Append(',').Num(bl.Radius).Append(',')
+                  .Num(bl.Progress).Append(',').Int((int)bl.Kind).Append(',').Hex(bl.Color).Append(']');
             }
             sb.Append("],\"I\":[");
             for (int i = 0; i < w.Pickups.Count; i++)

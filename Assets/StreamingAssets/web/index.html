@@ -56,9 +56,12 @@
     <div class="row ki"><span class="caps shu">Shura</span><div class="bar thin grow"><i id="shuraFill"></i></div><span id="shuraName" class="small"></span></div>
     <div class="row ki"><span id="kamae" class="caps accent"></span><span id="sips"></span><span id="tool" class="small"></span></div>
     <div id="wounds" class="small"></div>
+    <div id="purse" class="small"></div>
   </div>
   <div id="standoff"><div class="kanji">居合</div><div id="standoffText"></div></div>
-  <div id="roomBox"><div id="room" class="brush"></div><div id="wave" class="small"></div></div>
+  <div id="roomBox"><div id="room" class="brush"></div><div id="wave" class="small"></div>
+    <div id="envLine" class="small"></div><div id="ruleLine" class="small dim"></div><div id="challenge" class="brush"></div></div>
+  <div id="encBanner" class="ink"><div id="encTitle" class="brush"></div><div id="encText" class="small"></div></div>
   <div id="flowBox" class="ink">
     <div class="caps right">Fluxo</div>
     <div id="flow"></div>
@@ -70,6 +73,14 @@
   <div id="center"></div>
   <div id="toasts"></div>
   <div id="escHint" class="small">Esc · equipamento e som</div>
+</section>
+
+<!-- The route map: everyone votes for the next door. -->
+<section id="route" hidden>
+  <h2 class="brush">Escolha o caminho</h2>
+  <p id="routeTimer" class="small"></p>
+  <div id="routeCards"></div>
+  <div id="routeAhead"></div>
 </section>
 
 <!-- Personal reward cards after each room: only for you. -->

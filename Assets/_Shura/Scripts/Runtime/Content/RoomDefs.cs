@@ -16,10 +16,67 @@ namespace Shura
         }
     }
 
+    /// <summary>The combat rule each biome changes (design doc §6.3).</summary>
+    public enum BiomeRule
+    {
+        /// <summary>Cinzas: embers make Fire last twice as long; marked eruptions.</summary>
+        Embers,
+        /// <summary>Musgo: wet floor, dodges slide 30% farther; spores hide the rings.</summary>
+        WetMoss,
+        /// <summary>Sangue: red moon, healing −50%, lifesteal +100%; pools that feed the Shura.</summary>
+        BloodMoon,
+        /// <summary>Abismo: darkness, only the lantern's radius is seen; rings within 5 m; edges.</summary>
+        Darkness,
+        /// <summary>Gelo: cold drains breath; thin ice breaks under heavy blades; frozen enemies.</summary>
+        Cold,
+        /// <summary>Bambuzal: cut bamboo falls like a trap; ninjas drop from the canopy.</summary>
+        Bamboo,
+        /// <summary>Castelo: shōji screens tear; narrow halls and ambushes.</summary>
+        Castle,
+        /// <summary>Rio Sanzu: knee-deep water, Lightning spreads, everyone wades slower.</summary>
+        River,
+        /// <summary>Yomi (depth 40+): everything is ethereal until a perfect parry.</summary>
+        Yomi,
+    }
+
+    public enum Weather
+    {
+        Clear,
+        /// <summary>Fire −50%, Lightning +50%, blood washes away.</summary>
+        Rain,
+        /// <summary>Projectiles curve; leaves show the way.</summary>
+        Wind,
+        /// <summary>Enemies only seen within 6 m.</summary>
+        Fog,
+        /// <summary>Lightning strikes the ground (with warning), drawn to steel.</summary>
+        Storm,
+        /// <summary>Footprints reveal the invisible.</summary>
+        Snow,
+        /// <summary>Shura rises 50% faster for everyone, enemies included.</summary>
+        FullMoon,
+    }
+
+    /// <summary>Every three rooms the hour moves on (§6.4).</summary>
+    public enum TimeOfDay
+    {
+        Morning,
+        Afternoon,
+        Dusk,
+        /// <summary>More yokai, fewer humans.</summary>
+        Night,
+        /// <summary>The dead are weak.</summary>
+        Dawn,
+    }
+
     /// <summary>Visual identity of a stretch of depth.</summary>
     public sealed class Biome
     {
         public string suffix;
+        public string name;
+        public BiomeRule rule;
+        /// <summary>The biome only appears from this depth on (Yomi: 40).</summary>
+        public int minDepth;
+        public Weather[] weathers;
         public Color floorA;
         public Color floorB;
         public Color mortar;
@@ -36,37 +93,107 @@ namespace Shura
         {
             new Biome
             {
-                suffix = "das Cinzas", floorA = ColorUtil.Hex("#23212C"), floorB = ColorUtil.Hex("#272432"),
+                suffix = "das Cinzas", name = "Cinzas", rule = BiomeRule.Embers, weathers = new[] { Weather.Wind, Weather.Storm, Weather.Rain }, floorA = ColorUtil.Hex("#23212C"), floorB = ColorUtil.Hex("#272432"),
                 mortar = ColorUtil.Hex("#1A1921"), wall = ColorUtil.Hex("#3D3847"), wallEdge = ColorUtil.Hex("#5A5266"),
                 flame = ColorUtil.Hex("#F2A541"),
             },
             new Biome
             {
-                suffix = "do Musgo", floorA = ColorUtil.Hex("#1F2622"), floorB = ColorUtil.Hex("#232B25"),
+                suffix = "do Musgo", name = "Musgo", rule = BiomeRule.WetMoss, weathers = new[] { Weather.Rain, Weather.Fog, Weather.Wind }, floorA = ColorUtil.Hex("#1F2622"), floorB = ColorUtil.Hex("#232B25"),
                 mortar = ColorUtil.Hex("#161C18"), wall = ColorUtil.Hex("#34433A"), wallEdge = ColorUtil.Hex("#4F6455"),
                 flame = ColorUtil.Hex("#B8D46A"),
             },
             new Biome
             {
-                suffix = "do Sangue", floorA = ColorUtil.Hex("#2A1C1E"), floorB = ColorUtil.Hex("#2F2023"),
+                suffix = "do Sangue", name = "Sangue", rule = BiomeRule.BloodMoon, weathers = new[] { Weather.FullMoon, Weather.Fog, Weather.Storm }, floorA = ColorUtil.Hex("#2A1C1E"), floorB = ColorUtil.Hex("#2F2023"),
                 mortar = ColorUtil.Hex("#1E1416"), wall = ColorUtil.Hex("#4A2B2E"), wallEdge = ColorUtil.Hex("#6E3A3F"),
                 flame = ColorUtil.Hex("#FF6B4A"),
             },
             new Biome
             {
-                suffix = "do Abismo", floorA = ColorUtil.Hex("#1E1C2E"), floorB = ColorUtil.Hex("#232038"),
+                suffix = "do Abismo", name = "Abismo", rule = BiomeRule.Darkness, weathers = new[] { Weather.Fog, Weather.Wind, Weather.Storm }, floorA = ColorUtil.Hex("#1E1C2E"), floorB = ColorUtil.Hex("#232038"),
                 mortar = ColorUtil.Hex("#151424"), wall = ColorUtil.Hex("#362F55"), wallEdge = ColorUtil.Hex("#54497D"),
                 flame = ColorUtil.Hex("#A58BFF"),
             },
             new Biome
             {
-                suffix = "do Gelo", floorA = ColorUtil.Hex("#1E2630"), floorB = ColorUtil.Hex("#222B37"),
+                suffix = "do Gelo", name = "Gelo", rule = BiomeRule.Cold, weathers = new[] { Weather.Snow, Weather.Wind, Weather.Fog },
+                floorA = ColorUtil.Hex("#1E2630"), floorB = ColorUtil.Hex("#222B37"),
                 mortar = ColorUtil.Hex("#161D25"), wall = ColorUtil.Hex("#36475A"), wallEdge = ColorUtil.Hex("#557089"),
                 flame = ColorUtil.Hex("#8FD3FF"),
             },
+            new Biome
+            {
+                suffix = "do Bambuzal", name = "Bambuzal", rule = BiomeRule.Bamboo, weathers = new[] { Weather.Wind, Weather.Rain, Weather.Fog },
+                floorA = ColorUtil.Hex("#1F2A1E"), floorB = ColorUtil.Hex("#243022"),
+                mortar = ColorUtil.Hex("#151D14"), wall = ColorUtil.Hex("#38502F"), wallEdge = ColorUtil.Hex("#557A45"),
+                flame = ColorUtil.Hex("#D8F28A"),
+            },
+            new Biome
+            {
+                suffix = "do Castelo", name = "Castelo", rule = BiomeRule.Castle, weathers = new[] { Weather.Rain, Weather.Storm, Weather.FullMoon },
+                floorA = ColorUtil.Hex("#2B2219"), floorB = ColorUtil.Hex("#30261C"),
+                mortar = ColorUtil.Hex("#1D1711"), wall = ColorUtil.Hex("#4B3A28"), wallEdge = ColorUtil.Hex("#6E5539"),
+                flame = ColorUtil.Hex("#FFC46B"),
+            },
+            new Biome
+            {
+                suffix = "do Rio Sanzu", name = "Rio Sanzu", rule = BiomeRule.River, weathers = new[] { Weather.Fog, Weather.Rain, Weather.Storm },
+                floorA = ColorUtil.Hex("#18242A"), floorB = ColorUtil.Hex("#1C2A31"),
+                mortar = ColorUtil.Hex("#10191D"), wall = ColorUtil.Hex("#2D4650"), wallEdge = ColorUtil.Hex("#43656F"),
+                flame = ColorUtil.Hex("#7FE0D8"),
+            },
+            new Biome
+            {
+                suffix = "de Yomi", name = "Yomi", rule = BiomeRule.Yomi, minDepth = 40, weathers = new[] { Weather.Fog, Weather.FullMoon, Weather.Snow },
+                floorA = ColorUtil.Hex("#201E24"), floorB = ColorUtil.Hex("#25222A"),
+                mortar = ColorUtil.Hex("#141217"), wall = ColorUtil.Hex("#3B3644"), wallEdge = ColorUtil.Hex("#5C5468"),
+                flame = ColorUtil.Hex("#C9B6FF"),
+            },
         };
 
-        public static Biome ForDepth(int depth) => All[(depth / RoomsPerBiome) % All.Length];
+        /// <summary>Five rooms per biome; nine biomes in a cycle (Yomi waits for depth 40).</summary>
+        public static Biome ForDepth(int depth)
+        {
+            int i = (depth / RoomsPerBiome) % All.Length;
+            Biome b = All[i];
+            return depth >= b.minDepth ? b : All[(i + 1) % All.Length];
+        }
+
+        static readonly string[] RuleTexts =
+        {
+            "Brasas no chão: o Fogo dura o dobro. Erupções marcadas.",
+            "Chão molhado: a esquiva desliza 30% mais longe. Esporos escondem os anéis.",
+            "Lua vermelha: cura −50%, roubo de vida +100%. Poças alimentam o Shura.",
+            "Escuridão: só o raio da sua luz; anéis só a 5 m. Cuidado com as bordas.",
+            "Frio: o fôlego volta devagar. Gelo fino quebra sob lâminas pesadas; inimigos congelados despertam.",
+            "Bambus cortados caem como armadilhas. Ninjas descem das copas.",
+            "Portas de shōji rasgam com um golpe. Corredores estreitos, emboscadas.",
+            "Água até o joelho: todos andam mais devagar e o Raio se espalha.",
+            "Mundo dos mortos: tudo é etéreo até um parry perfeito.",
+        };
+
+        public static string RuleText(BiomeRule r) => RuleTexts[(int)r];
+
+        static readonly string[] WeatherNames = { "Céu limpo", "Chuva", "Vento forte", "Neblina", "Tempestade", "Neve", "Lua cheia" };
+        static readonly string[] WeatherTexts =
+        {
+            "",
+            "Fogo −50%, Raio +50%, o sangue é lavado.",
+            "Projéteis fazem curva; as folhas mostram a direção.",
+            "Inimigos só aparecem a 6 m.",
+            "Raios caem com aviso e procuram o aço.",
+            "Pegadas revelam os invisíveis.",
+            "O Shura sobe 50% mais rápido para todos, inimigos inclusive.",
+        };
+        static readonly string[] TimeNames = { "Manhã", "Tarde", "Crepúsculo", "Noite", "Aurora" };
+
+        public static string WeatherName(Weather w) => WeatherNames[(int)w];
+        public static string WeatherText(Weather w) => WeatherTexts[(int)w];
+        public static string TimeName(TimeOfDay t) => TimeNames[(int)t];
+
+        /// <summary>The hour moves on every three rooms.</summary>
+        public static TimeOfDay TimeAt(int depth) => (TimeOfDay)((Mathf.Max(0, depth) / 3) % 5);
     }
 
     public sealed class RoomDef
@@ -84,6 +211,30 @@ namespace Shura
         public readonly ulong layoutSeed;
         /// <summary>The room opens with an Iai standoff against the first wave's leader.</summary>
         public bool standoff;
+        /// <summary>The door it came through on the route map.</summary>
+        public RoomKind kind = RoomKind.Combat;
+        public RewardHint hint;
+        public ChallengeKind challenge;
+        public int eventId = -1;
+        public Weather weather;
+        public TimeOfDay time;
+        /// <summary>A Corrupted Zone: purple mist around a core stone (§6.3).</summary>
+        public bool corrupted;
+        /// <summary>Everything the door decided (kind, weather, hour, standoff…), for scaled copies of the room.</summary>
+        public void CopyRoadFrom(RoomDef o)
+        {
+            standoff = o.standoff;
+            kind = o.kind;
+            hint = o.hint;
+            challenge = o.challenge;
+            eventId = o.eventId;
+            weather = o.weather;
+            time = o.time;
+            corrupted = o.corrupted;
+        }
+
+        /// <summary>Encounter rooms (shrine, merchant, event…) have no waves: their doors decide.</summary>
+        public bool IsEncounter => RouteMap.IsEncounter(kind);
 
         public RoomDef(string name, int depth, Biome biome, float width, float height, bool guardian, EnemySpawn[][] waves,
                        ArenaShape shape = ArenaShape.Hall, ulong layoutSeed = 0)
@@ -209,11 +360,40 @@ namespace Shura
             });
         }
 
-        public static RoomDef Generate(ulong runSeed, int depth)
-        {
-            if (depth <= 0) return Intro();
+        public static RoomDef Generate(ulong runSeed, int depth) => Generate(runSeed, depth, RouteMap.Default(runSeed, depth));
 
-            var rng = new SeededRandom(Mix(runSeed, depth));
+        /// <summary>The room behind one door of the route map.</summary>
+        public static RoomDef Generate(ulong runSeed, int depth, RouteNode node)
+        {
+            RoomDef room = depth <= 0 ? Intro() : GenerateCore(runSeed, depth, node);
+            room.kind = depth <= 0 ? RoomKind.Combat : node.kind;
+            room.hint = node.hint;
+            room.challenge = node.challenge;
+            room.eventId = node.eventId;
+            room.time = Biomes.TimeAt(depth);
+            var env = new SeededRandom(Mix(runSeed, depth + 3000 + node.index * 17));
+            room.weather = depth < 2 || env.NextFloat() < 0.45f ? Weather.Clear : room.biome.weathers[env.Range(0, room.biome.weathers.Length)];
+            // The full moon only rises at night.
+            if (room.weather == Weather.FullMoon && room.time != TimeOfDay.Night) room.weather = Weather.Clear;
+            bool fight = !room.IsEncounter;
+            room.corrupted = fight && !room.guardian && depth >= 6 && env.NextFloat() < 0.15f;
+            if (room.kind == RoomKind.Duel) room.standoff = true;
+            if (!fight) room.standoff = false;
+            return room;
+        }
+
+        static RoomDef Encounter(ulong runSeed, int depth, RouteNode node)
+        {
+            Biome biome = Biomes.ForDepth(depth);
+            string name = RouteMap.KindName(node.kind) + " " + biome.suffix;
+            var room = new RoomDef(name, depth, biome, 20f, 12f, false, new EnemySpawn[0][], ArenaShape.Hall, Mix(runSeed, depth + 1000));
+            return room;
+        }
+
+        static RoomDef GenerateCore(ulong runSeed, int depth, RouteNode node)
+        {
+            if (RouteMap.IsEncounter(node.kind)) return Encounter(runSeed, depth, node);
+            var rng = new SeededRandom(Mix(runSeed, depth + node.index * 101));
             Biome biome = Biomes.ForDepth(depth);
             bool guardian = IsGuardianDepth(depth);
             int waveCount = Mathf.Clamp(2 + depth / 6, 2, 4);
@@ -224,6 +404,14 @@ namespace Shura
             waveCount = Mathf.Max(waveCount, newcomers.Count + (guardian ? 1 : 0));
 
             var waves = new List<EnemySpawn[]>();
+            if (node.kind == RoomKind.Duel)
+            {
+                // One against one: the newcomer if there is one, otherwise a heavy fighter.
+                string duelist = newcomers.Count > 0 ? newcomers[0] : GuardianWave(rng, depth)[0].id;
+                waves.Add(new[] { new EnemySpawn(duelist) });
+                waveCount = 0;
+            }
+            if (node.kind == RoomKind.Dispute) waveCount = Mathf.Max(newcomers.Count + 1, waveCount - 1);
             for (int w = 0; w < waveCount; w++)
             {
                 if (w < newcomers.Count && !(guardian && w == waveCount - 1))
@@ -237,32 +425,79 @@ namespace Shura
                     waves.Add(GuardianWave(rng, depth));
                     continue;
                 }
-                waves.Add(FillWave(rng, depth, budget * (0.8f + 0.2f * w), maxPerWave));
+                if (node.kind == RoomKind.Dispute)
+                {
+                    // Two factions: one wave of yokai and one of humans arrive together.
+                    var both = new List<EnemySpawn>(FillWave(rng, depth, budget * 0.75f, 2, Faction.Yokai));
+                    both.AddRange(FillWave(rng, depth, budget * 0.75f, 2, Faction.Human));
+                    waves.Add(both.ToArray());
+                    continue;
+                }
+                waves.Add(FillWave(rng, depth, budget * (0.8f + 0.2f * w), maxPerWave, Faction.Any, Biomes.TimeAt(depth), biome.rule));
             }
 
             // Stepping by 7 through 12 places (coprime) never repeats a name within 12 rooms.
             int place = (int)((runSeed % (ulong)Places.Length + (ulong)depth * 7UL) % (ulong)Places.Length);
-            string name = guardian ? "Covil do Guardião " + biome.suffix : Places[place] + " " + biome.suffix;
+            string name = guardian ? "Covil do Guardião " + biome.suffix
+                        : node.kind == RoomKind.Duel ? "Duelo " + biome.suffix
+                        : node.kind == RoomKind.Dispute ? "Disputa " + biome.suffix
+                        : Places[place] + " " + biome.suffix;
             // Bigger arenas than the first prototype, each with its own outline and traps.
             float width = rng.Range(22, 30);
             float height = rng.Range(12, 17);
             ArenaShape shape = guardian ? (rng.NextFloat() < 0.5f ? ArenaShape.Courtyard : ArenaShape.Octagon)
                                         : (ArenaShape)rng.Range(0, 5);
+            // The castle: narrow halls.
+            if (biome.rule == BiomeRule.Castle && !guardian) height = Mathf.Min(height, 12f);
+            if (node.kind == RoomKind.Duel)
+            {
+                width = 20f;
+                height = 12f;
+                shape = ArenaShape.Octagon;
+            }
             var room = new RoomDef(name, depth, biome, width, height, guardian, waves.ToArray(), shape, Mix(runSeed, depth + 1000));
             // One room in five (from depth 2) opens with a standoff.
-            room.standoff = !guardian && depth >= 2 && new SeededRandom(Mix(runSeed, depth + 2000)).NextFloat() < 0.2f;
+            room.standoff = !guardian && node.kind != RoomKind.Dispute && depth >= 2 && new SeededRandom(Mix(runSeed, depth + 2000)).NextFloat() < 0.2f;
             return room;
         }
 
-        static EnemySpawn[] FillWave(SeededRandom rng, int depth, float budget, int maxCount)
+        public enum Faction
+        {
+            Any,
+            Human,
+            Yokai,
+        }
+
+        /// <summary>Spirits, beasts and demons (the night brings more of them; corruption feeds them).</summary>
+        public static bool IsYokai(string id)
+        {
+            switch (id)
+            {
+                case "lanterna": case "onryo": case "kappa": case "tengu": case "ciclope": case "lodo": case "olho":
+                case "vampiro": case "esqueleto": case "boxeador": case "raijin": case "hitodama": case "lodo_pequeno":
+                case "raijin_sombra": case "berserker":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>The dead: weak at dawn.</summary>
+        public static bool IsUndead(string id) => id == "onryo" || id == "esqueleto" || id == "vampiro" || id == "hitodama";
+
+        static bool IsNinja(string id) => id == "kunoichi" || id == "sombra" || id == "bombardeiro";
+
+        static EnemySpawn[] FillWave(SeededRandom rng, int depth, float budget, int maxCount, Faction faction = Faction.Any,
+                                     TimeOfDay time = TimeOfDay.Morning, BiomeRule rule = BiomeRule.Embers)
         {
             var wave = new List<EnemySpawn>();
             float remaining = budget;
             while (wave.Count < maxCount)
             {
                 List<RosterEntry> options = Unlocked(depth, wave.Count == 0 ? float.MaxValue : remaining);
+                if (faction != Faction.Any) options.RemoveAll(r => IsYokai(r.id) != (faction == Faction.Yokai));
                 if (options.Count == 0) break;
-                RosterEntry pick = WeightedPick(rng, options);
+                RosterEntry pick = WeightedPick(rng, options, time, rule);
                 wave.Add(new EnemySpawn(pick.id));
                 remaining -= pick.cost;
                 if (remaining <= 0f) break;
@@ -295,21 +530,33 @@ namespace Shura
             return list;
         }
 
-        /// <summary>Recently unlocked enemies show up more often, so the roster keeps rotating.</summary>
-        static RosterEntry WeightedPick(SeededRandom rng, List<RosterEntry> options)
+        /// <summary>
+        /// Recently unlocked enemies show up more often, so the roster keeps rotating. Night
+        /// favours yokai, the bamboo grove its ninjas, the Sanzu its kappas.
+        /// </summary>
+        static RosterEntry WeightedPick(SeededRandom rng, List<RosterEntry> options, TimeOfDay time = TimeOfDay.Morning, BiomeRule rule = BiomeRule.Embers)
         {
             float total = 0f;
-            foreach (RosterEntry r in options) total += 1f + 0.3f * r.unlockDepth;
+            foreach (RosterEntry r in options) total += Weight(r, time, rule);
             float roll = rng.Range(0f, total);
             foreach (RosterEntry r in options)
             {
-                roll -= 1f + 0.3f * r.unlockDepth;
+                roll -= Weight(r, time, rule);
                 if (roll <= 0f) return r;
             }
             return options[options.Count - 1];
         }
 
-        static ulong Mix(ulong seed, int depth)
+        static float Weight(RosterEntry r, TimeOfDay time, BiomeRule rule)
+        {
+            float w = 1f + 0.3f * r.unlockDepth;
+            if (time == TimeOfDay.Night) w *= IsYokai(r.id) ? 2f : 0.5f;
+            if (rule == BiomeRule.Bamboo && IsNinja(r.id)) w *= 2.5f;
+            if (rule == BiomeRule.River && r.id == "kappa") w *= 3f;
+            return w;
+        }
+
+        public static ulong Mix(ulong seed, int depth)
         {
             unchecked
             {

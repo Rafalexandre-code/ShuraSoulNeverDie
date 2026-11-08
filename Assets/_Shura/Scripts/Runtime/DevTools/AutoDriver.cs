@@ -85,6 +85,13 @@ namespace Shura
                 case Game.Mode.Arsenal:
                     if (ShotThenAct("arsenal", wait)) game.StartRun();
                     break;
+                case Game.Mode.Route:
+                    if (ShotThenAct("route", wait) && game.RouteOptions.Count > 0)
+                    {
+                        // Walk every kind of door over a run: rotate through the options.
+                        game.VoteRoute(-1, routePick++ % game.RouteOptions.Count);
+                    }
+                    break;
                 case Game.Mode.Reward:
                     if (ShotThenAct("reward", wait))
                     {
@@ -171,6 +178,18 @@ namespace Shura
 
         float nextBeat = 20f;
 
+        static string DescribeOfferings(World w, PlayerController p)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (Offering o in w.Offerings)
+            {
+                sb.Append(o.Title).Append('@').Append(o.Position).Append(o.AvailableTo(p) ? "" : "(x)").Append(o.Spent ? "(gasto)" : "")
+                  .Append(" p=").Append(o.MaxProgress.ToString("0.0")).Append("; ");
+            }
+            return sb.ToString();
+        }
+        int routePick;
+
         void UpdatePlaying()
         {
             if (shots) UpdateBursts();
@@ -196,7 +215,8 @@ namespace Shura
                     }
                     Debug.Log("[Shura][Auto] pulso t=" + elapsed.ToString("0") + "s sala=" + (game.Run.RoomIndex + 1) + " onda=" + w.WaveIndex +
                               " jogador=" + p.CurrentState + " vida=" + p.Health.ToString("0") + " folego=" + p.Stamina.ToString("0") +
-                              " iai=" + w.Standoff.Active + " inimigos=[" + sb + "]");
+                              " iai=" + w.Standoff.Active + " inimigos=[" + sb + "]" + " tipo=" + w.CurrentRoom.kind + " ativos=" + w.ActiveEnemyCount +
+                              " pos=" + p.Position + " ofertas=[" + DescribeOfferings(w, p) + "]");
                 }
                 return;
             }
@@ -258,6 +278,7 @@ namespace Shura
             if (run != null)
             {
                 sb.Append(" profundidade=").Append(run.RoomsCleared);
+                sb.Append(" morte=[").Append(game.World.Host.LastHurtBy).Append(']');
                 sb.Append(" ascensao=").Append(run.Ascension);
                 sb.Append(" guardioes=").Append(run.ElitesKilled);
                 sb.Append(" sequenciaMax=").Append(run.BestStreak);

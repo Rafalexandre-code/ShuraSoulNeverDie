@@ -146,6 +146,16 @@ namespace Shura
         InnerAsura,
         GroupBlow,
         EliteAffixes,
+        Route,
+        Encounter,
+        Biome,
+        Weather,
+        Corruption,
+        Arena,
+        Challenge,
+        Dispute,
+        Ally,
+        Kalpa,
     }
 
     /// <summary>

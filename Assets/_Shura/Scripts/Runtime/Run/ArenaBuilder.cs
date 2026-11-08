@@ -16,6 +16,9 @@ namespace Shura
         public readonly List<Vector2> Lanterns = new List<Vector2>();
         /// <summary>Statues: block in cells and which art (0 small shrine, 1 great lion).</summary>
         public readonly List<Vector4> Statues = new List<Vector4>();
+        /// <summary>The sprites of each statue and lantern, so a blow can break them (§6.5).</summary>
+        public readonly List<List<GameObject>> StatueViews = new List<List<GameObject>>();
+        public readonly List<GameObject> LanternViews = new List<GameObject>();
         /// <summary>Generated per room; destroyed with the arena to avoid leaking textures.</summary>
         public Texture2D FloorTexture;
         public Color FlameColor = Color.white;
@@ -39,6 +42,7 @@ namespace Shura
         {
             for (int i = 0; i < flames.Count; i++)
             {
+                if (glows[i] == null) continue;
                 float n = Mathf.PerlinNoise(seeds[i], time * 3.2f);
                 Sprite[] frames = flameFrames[i];
                 if (frames != null && frames.Length > 0)
@@ -90,6 +94,14 @@ namespace Shura
                     return new Style { floor = new RectInt(12, 13, 1, 1), frame = new Vector2Int(0, 6), tint = new Color(0.6f, 0.55f, 0.92f) };
                 case "do Gelo":
                     return new Style { floor = new RectInt(15, 0, 4, 4), frame = new Vector2Int(0, 0), tint = new Color(0.66f, 0.8f, 0.98f) };
+                case "do Bambuzal":
+                    return new Style { floor = new RectInt(15, 6, 4, 4), frame = new Vector2Int(5, 6), tint = new Color(0.72f, 0.95f, 0.62f), moss = true };
+                case "do Castelo":
+                    return new Style { floor = new RectInt(0, 12, 4, 4), frame = new Vector2Int(5, 0), tint = new Color(0.82f, 0.62f, 0.45f) };
+                case "do Rio Sanzu":
+                    return new Style { floor = new RectInt(12, 13, 1, 1), frame = new Vector2Int(0, 6), tint = new Color(0.45f, 0.78f, 0.86f) };
+                case "de Yomi":
+                    return new Style { floor = new RectInt(15, 0, 4, 4), frame = new Vector2Int(0, 6), tint = new Color(0.62f, 0.58f, 0.72f) };
                 default:
                     return new Style { floor = new RectInt(12, 13, 1, 1), frame = new Vector2Int(0, 6), tint = new Color(0.85f, 0.82f, 0.86f) };
             }
@@ -134,6 +146,7 @@ namespace Shura
                 var right = SpriteUtil.Make("Column", parent, column, Color.white, order);
                 right.transform.localPosition = layout.Origin + new Vector2(block.xMax - 0.5f, block.yMin);
                 decor.Statues.Add(new Vector4(block.xMin, block.yMin, block.width, 1));
+                decor.StatueViews.Add(new List<GameObject> { s.gameObject, left.gameObject, right.gameObject });
             }
             else
             {
@@ -142,6 +155,7 @@ namespace Shura
                 var s = SpriteUtil.Make("Shrine", parent, shrine, Color.white, order);
                 s.transform.localPosition = baseCenter;
                 decor.Statues.Add(new Vector4(block.xMin, block.yMin, block.width, 0));
+                decor.StatueViews.Add(new List<GameObject> { s.gameObject });
             }
         }
 
@@ -168,6 +182,7 @@ namespace Shura
             paper.transform.localScale = new Vector3(0.7f, 0.9f, 1f);
 
             decor.Lanterns.Add(pos);
+            decor.LanternViews.Add(root.gameObject);
             decor.AddBrazier(pos + new Vector2(0f, 1.2f), body, null, glow);
         }
 

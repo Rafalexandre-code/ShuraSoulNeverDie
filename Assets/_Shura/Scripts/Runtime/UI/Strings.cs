@@ -184,6 +184,30 @@ namespace Shura
         public const string PopupResonance = "RESSONÂNCIA ×{0}";
         public const string PopupMissed = "errou";
         public const string PopupIai = "IAI!";
+        // The road (design doc §6)
+        public const string PopupNoMon = "faltam Mon ({0})";
+        public const string ToastKalpa = "KALPA {0}: {1}";
+        public const string PopupIceBroke = "O GELO CEDEU";
+        public const string PopupShojiTorn = "rasgou";
+        public const string PopupOilSpill = "ÓLEO EM CHAMAS";
+        public const string PopupTimber = "BAMBU CAINDO!";
+        public const string PopupStatueBroke = "A ESTÁTUA RUIU";
+        public const string ToastCorruptionCleansed = "A pedra-núcleo partiu: a névoa corrompida se desfaz.";
+        public const string PopupThawed = "DESPERTOU";
+        public const string PopupEnemyMushin = "MUSHIN INIMIGO";
+        public const string PopupInherited = "HERDOU A FORÇA";
+        public const string ToastChallengeFailed = "Desafio perdido: a sala continua, o prêmio se foi.";
+        public const string ToastChallengeDone = "Desafio cumprido! Um item raro ou melhor para cada um.";
+        public const string HudMon = "{0} Mon";
+        public const string HudAlly = "RONIN ALIADO";
+        public const string ItemCard = "Item";
+        public const string ToastCorrupted = "Zona corrompida: destrua a pedra-núcleo para dissipar a névoa.";
+        public const string RouteTitle = "Escolha o caminho";
+        public const string RouteVotes = "Cada um vota com um clique; empate, decide o anfitrião ({0} s).";
+        public const string RouteSolo = "Setas ou mouse para escolher · Enter para seguir";
+        public const string HudChallenge = "DESAFIO: {0}";
+        public const string HudChallengeFailed = "DESAFIO PERDIDO";
+        public const string HudHold = "segure E";
         public const string ToastGroupKiai = "KIAI DO GRUPO! Todas as posturas se quebram.";
         public const string ToastInnerAsura = "O Asura Interior de {0} desperta. Só {0} pode vencê-lo.";
 
@@ -374,6 +398,28 @@ namespace Shura
                     return "O ASURA INTERIOR: só você pode vencê-lo. Ele luta com as suas armas.";
                 case HintId.GroupBlow:
                     return "GOLPE DO GRUPO (anel duplo): só dois duelistas aparando juntos seguram.";
+                case HintId.Route:
+                    return "O MAPA: escolha a próxima porta. Cada símbolo diz o que espera atrás dela — combate, duelo, desafio, santuário, mercador, ferreiro, evento, tesouro.";
+                case HintId.Encounter:
+                    return gamepad
+                        ? "Fique sobre um objeto e segure X para usar. Todos sobre o torii (à direita) para seguir."
+                        : "Fique sobre um objeto e segure E para usar. Todos sobre o torii (à direita) para seguir.";
+                case HintId.Biome:
+                    return "CADA BIOMA MUDA UMA REGRA. Leia a linha abaixo do nome da sala.";
+                case HintId.Weather:
+                    return "CLIMA: chuva apaga o fogo e fortalece o raio; vento curva projéteis; neblina esconde; tempestade derruba raios; lua cheia acende o Shura de todos.";
+                case HintId.Corruption:
+                    return "ZONA CORROMPIDA: a névoa roxa drena seu fôlego e fortalece os yokai. Destrua a pedra-núcleo.";
+                case HintId.Arena:
+                    return "A ARENA QUEBRA: bambus caem sobre os inimigos, shōji rasgam, estátuas racham após 3 golpes fortes, lanternas derramam óleo em chamas.";
+                case HintId.Challenge:
+                    return "DESAFIO: cumpra a condição até o fim da sala para ganhar um item raro ou melhor.";
+                case HintId.Dispute:
+                    return "DISPUTA: yokai e humanos já estão se matando. Deixe que se enfraqueçam — ou aproveite.";
+                case HintId.Ally:
+                    return "O RONIN luta ao seu lado por algumas salas. Seus golpes não o ferem.";
+                case HintId.Kalpa:
+                    return "KALPA: a cada 25 salas, um ciclo novo com uma regra permanente. Os números sobem menos — as regras é que apertam.";
                 case HintId.EliteAffixes:
                     return "AFIXOS DE ELITE: os Guardiões profundos carregam marcas — vingativo, espelhado, possuído, gêmeo, velado, ancestral. Leia o nome antes de golpear.";
                 default:

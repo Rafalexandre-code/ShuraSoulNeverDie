@@ -48,7 +48,7 @@ namespace Shura
         public Enemy Summoner { get; private set; }
         public bool IsEnraged => enraged;
         /// <summary>Ethereal and not exposed: blades pass through.</summary>
-        public bool IsIntangible => Def.ethereal && exposedFrames <= 0 && !IsBroken;
+        public bool IsIntangible => (Def.ethereal || world.AllEthereal) && !IsAlly && exposedFrames <= 0 && !IsBroken;
         /// <summary>Under the floor during a burrow windup.</summary>
         public bool IsBurrowed
         {
@@ -124,7 +124,7 @@ namespace Shura
         public Sprite BodySprite => body.sprite;
         public Color BodyColor => Def.color;
         /// <summary>Damage multiplier from depth and Guardian status.</summary>
-        public float PowerMult => scaling.damage;
+        public float PowerMult => scaling.damage * KalpaPowerMult;
         /// <summary>Frames until the current swing becomes active (adaptive holds included).</summary>
         public int FramesUntilActive => CurrentAttack != null ? stepWindup - StepFrame : int.MaxValue;
 
@@ -228,6 +228,7 @@ namespace Shura
             if (CurrentState == State.Dead) return;
             TickKi();
             if (CurrentState == State.Dead) return;
+            TickRoad();
             TickTraits();
 
             switch (CurrentState)
@@ -355,6 +356,7 @@ namespace Shura
         void TickEngage()
         {
             if (TickConfused()) return;
+            if (IsAlly && TickAllyIdle()) return;
             if (Target == null || !Target.IsAlive || --retargetTimer <= 0)
             {
                 Target = world.ChooseTarget(this);
@@ -385,6 +387,7 @@ namespace Shura
             }
             if (IsChilled) desired *= 0.55f;
             if (enraged) desired *= 1.35f;
+            desired *= world.MoveMultWorld;
             Velocity = Vector2.Lerp(Velocity, desired, 0.15f);
 
             if (!player.IsAlive && !brawling) return;
@@ -527,6 +530,7 @@ namespace Shura
             // A frenzy speeds up every swing; the ring still closes on the real impact.
             if (enraged && !attack.stance && !attack.burrow) stepWindup = Mathf.Max(8, Mathf.RoundToInt(stepWindup * 0.72f));
             if (ArmWound) stepWindup = Mathf.RoundToInt(stepWindup * 1.2f);
+            stepWindup = KalpaWindup(stepWindup);
             bool hiddenBlade = Target != null && Target.Stance == Kamae.Waki;
             if (!hiddenBlade && !attack.NoMeleeHit && !attack.burrow && !attack.teleportBehind && rng.NextFloat() < traits.Delay * 0.6f * world.AdaptationSpeed)
             {
@@ -693,7 +697,7 @@ namespace Shura
         {
             world.Coordinator.Release(this);
             CurrentMove = null;
-            EnterEngage(Idle(Def.idleMin, Def.idleMax));
+            EnterEngage(NextIdle(Idle(Def.idleMin, Def.idleMax)));
         }
 
         void RegenPosture()
@@ -708,6 +712,7 @@ namespace Shura
         /// <summary>Perfectly parried: the blade stops and bounces back; the swing ends.</summary>
         public void OnParried(float posture)
         {
+            LoseKalpaFlow();
             Expose();
             Squash(0.82f, 1.15f);
             Velocity = -Facing * 2.2f;
@@ -762,6 +767,7 @@ namespace Shura
         /// <summary>Posture damage and wounds from a player strike. Reports whether it bit or was deflected.</summary>
         public StrikeResult ReceivePlayerHit(float damage, float posture, Vector2 hitDir, bool unblockable)
         {
+            Thaw();
             if (!CanBeHit) return StrikeResult.None;
             Vector2 contact = Position - hitDir * Radius;
 
@@ -870,6 +876,8 @@ namespace Shura
         public void ApplyDot(float damagePerSecond, float seconds, Element element)
         {
             if (!CanBeHit) return;
+            // Embers make fire last longer; rain puts it out sooner.
+            if (element == Element.Fire) seconds *= world.FireDotMult;
             dotDps = Mathf.Max(dotDps, damagePerSecond);
             dotTime = Mathf.Max(dotTime, seconds);
             dotElement = element;
@@ -1288,7 +1296,7 @@ namespace Shura
             // What this computer's duelist sees: nothing in Mushin, Frenzy, or with wounded eyes.
             PlayerController viewer = world.Host;
             bool veiled = Veiled && Vector2.Distance(viewer.Position, Position) > 3f;
-            if (!world.ShowTimingIndicator || viewer.RingsHidden || veiled)
+            if (!world.ShowTimingIndicator || viewer.RingsHidden || veiled || !world.RingVisibleTo(viewer.Position, Position))
             {
                 timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
                 if (timingInner != null) timingInner.enabled = false;
@@ -1414,10 +1422,19 @@ namespace Shura
             float wave = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 9f);
             if (attack != null && attack.stance && StepFrame < stepWindup) glow = Color.white.WithAlpha(0.12f + 0.3f * windupT);
             if (attack != null && (attack.IsSummon || attack.IsBlast) && StepFrame < stepWindup) glow = Def.color.WithAlpha(0.2f + 0.45f * windupT);
-            if (Def.ethereal && !IsGone)
+            if (IsAlly && !IsGone) glow = pal.gold.WithAlpha(0.18f);
+            if (Frozen && !IsGone) c = Color.Lerp(c, Elements.Color(Element.Frost), 0.7f);
+            if (InKalpaMushin && !IsGone) glow = pal.danger.WithAlpha(0.3f + 0.2f * wave);
+            // Fog: enemies fade out beyond a few metres (snow footprints keep the invisible in sight).
+            if (world.FogRange > 0f && !IsGone)
+            {
+                float d = Vector2.Distance(world.Host.Position, Position);
+                c.a *= Mathf.Clamp01(1f - (d - world.FogRange) / 2f);
+            }
+            if ((Def.ethereal || world.AllEthereal) && !IsGone)
             {
                 // Translucent and cold while blades pass through; solid with a golden edge once exposed.
-                if (IsIntangible) c.a *= 0.5f;
+                if (IsIntangible) c.a *= world.Weather == Weather.Snow ? 0.85f : 0.5f;
                 else glow = pal.gold.WithAlpha(0.2f + 0.2f * wave);
             }
             if (enraged && !IsGone) glow = Color.Lerp(glow, pal.danger.WithAlpha(0.35f + 0.25f * wave), 0.8f);

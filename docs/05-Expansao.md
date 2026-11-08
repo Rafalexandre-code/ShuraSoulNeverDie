@@ -28,17 +28,39 @@ Legenda: ✅ feito · 🟡 parcial (ver nota) · ⏳ pendente (fase indicada) ·
 
 Também: HUD do anfitrião e do navegador mostram fôlego, Shura, kamae, cabaça, ferramenta/papéis, ferimentos e carga; o navegador desenha os novos anéis, selos, afixos, a linha dourada e o impasse.
 
-## Fase 2 — Estrutura da run e mundo (§6) — ⏳
+## Fase 2 — Estrutura da run e mundo (§6) — ✅ concluída
 
-| § | Item | Estado |
-|---|---|---|
-| 6.1 | Mapa de rotas | ⏳ |
-| 6.2 | Tipos de sala (duelo, desafio, disputa, santuário, mercador, ferreiro, evento, tesouro maldito, covil do rival) | ⏳ |
-| 6.3 | Biomas com regras próprias + 4 biomas novos | ⏳ |
-| 6.4 | Hora do dia e clima | ⏳ |
-| 6.5 | Arenas destrutíveis | ⏳ |
-| 6.6 | Kalpas | ⏳ |
-| 6.7 | Eventos narrativos | ⏳ |
+| § | Item | Estado | Notas de implementação |
+|---|---|---|---|
+| 6.1 | Mapa de rotas | ✅ | Entre salas, um pergaminho mostra 2–3 portas com símbolo (kanji), tipo e recompensa, e mais 2 camadas à frente (3 salas reveladas). Portas ligam-se às da camada seguinte a no máximo uma coluna: toda porta leva adiante e toda porta é alcançável (testado). Online, cada um vota (clique ou 1–3, 25 s); empate decide o anfitrião. A "Visão do Destino" (+1 sala) entra com as relíquias novas da Fase 3. |
+| 6.2 | Combate | ✅ | O símbolo da porta muda a recompensa: Relíquia (só relíquias), Bênção, Item (um item entre as cartas). |
+| 6.2 | Duelo | ✅ | Um contra um (também online: o inimigo não ganha escolta, só vida), arena octogonal, começa em impasse Iai. A técnica do inimigo é garantida. "Nível II" depende dos níveis de técnica (Fase 3). |
+| 6.2 | Desafio | ✅ | Só aparar (esquivar perde), Sem tomar dano, ou 45 s. Cumprido: item raro ou melhor para cada um. Faixa no HUD mostra o estado. |
+| 6.2 | Disputa | ✅ | Yokai × humanos já brigando entre si; recompensa: escolha dupla (duas cartas de quatro, para cada jogador). |
+| 6.2 | Santuário | ✅ | Cura 25% ao entrar; Meditar (−20 Shura, fôlego cheio), Tratar ferimentos (+1 bandagem), Purificar maldição, Guarda padrão (a kamae com que cada sala começa). |
+| 6.2 | Mercador | ✅ | **Mon** (moeda da run, por jogador): abates (3, elite 12) e salas (8 + prof./2). Vende 3 itens (cada jogador compra a sua cópia), bandagem, papéis, gole extra permanente. |
+| 6.2 | Ferreiro errante | 🟡 | Fundir (2 itens → raridade acima), Gravar (atributos novos no melhor item), Afiar (+6% dano). "Consertar corrompidos" chega com os itens corrompidos (Fase 3). |
+| 6.2 | Evento | ✅ | 8 eventos (6.7). |
+| 6.2 | Tesouro amaldiçoado | ✅ | Item épico ou melhor + maldição de 3 salas (Sem cura, Frágil, Desajeitado, Inquieto). |
+| 6.2 | Covil do Rival | ⏳ | Depende do sistema Nêmesis (Fase 5). |
+| 6.2 | Guardião / Senhor do Bioma | 🟡 | Guardião como antes; os chefes de bioma são da Fase 5. |
+| 6.3 | Cinzas | ✅ | Fogo dura 2×; erupções marcadas no chão (aviso + explosão que fere todos). |
+| 6.3 | Musgo | ✅ | Esquiva 30% mais longa; nuvens de esporos: dentro delas você não vê os anéis. |
+| 6.3 | Sangue | ✅ | Cura −50%, roubo de vida dobrado; poças que enchem o Shura. |
+| 6.3 | Abismo | ✅ | Escuridão (só o raio de 5,5 m em volta de você), anéis só a 5 m, bordas/fossos onde inimigos empurrados caem. |
+| 6.3 | Gelo | ✅ | Fôlego volta 40% mais devagar; gelo fino quebra sob a Montante (e o Kanabō quando existir); 35% dos inimigos nascem congelados e despertam quando você chega perto. |
+| 6.3 | Bambuzal (novo) | ✅ | Touceiras de bambu: um golpe derruba o bambu na direção do corte, ferindo e atordoando inimigos na linha. Kunoichi e Sombras descem das copas ao lado de você. |
+| 6.3 | Castelo (novo) | 🟡 | Biombos de shōji que bloqueiam e rasgam com um golpe; salas mais estreitas. **Falta:** silhuetas atrás do papel e ataque através dele. |
+| 6.3 | Rio Sanzu (novo) | 🟡 | Todos andam 10% mais devagar, Raio +50%, mais kappas. **Falta:** "passos fazem barulho" e os afogados (inimigos novos, Fase 5). |
+| 6.3 | Yomi (novo, prof. 40+) | 🟡 | Tudo é etéreo até um parry perfeito. **Falta:** rivais mortos voltando (Nêmesis, Fase 5). |
+| 6.3 | Zona corrompida | ✅ | 15% das salas de combate (prof. 6+): névoa roxa que drena o fôlego e fortalece yokai, até você quebrar a pedra-núcleo. |
+| 6.4 | Hora do dia | ✅ | Manhã → tarde → crepúsculo → noite → aurora a cada 3 salas, com tinta na tela. Noite: mais yokai, menos humanos. Aurora: os mortos nascem com −25% de vida. |
+| 6.4 | Clima | ✅ | Chuva (fogo −50%, raio +50%), vento (projéteis fazem curva, folhas mostram a direção), neblina (inimigos somem além de 6 m), tempestade (raios marcados que preferem quem usa aço), neve (invisíveis ficam visíveis), lua cheia (só à noite: Shura +50% para todos, inimigos +10% de dano). 🟡 O sangue lavado pela chuva é só visual da chuva. |
+| 6.5 | Arenas destrutíveis | 🟡 | Shōji rasgam, bambus caem, lanternas derrubadas espalham óleo em chamas, estátuas racham após 3 golpes fortes e deixam de bloquear. **Falta:** estandartes cortados (são pintados na imagem da arena). |
+| 6.6 | Kalpas | ✅ | A cada 25 salas, o Portão do Shuradō: escolha 1 de 3 regras permanentes (Lâminas Trocadas, Fluxo Inimigo, Herança dos Mortos, Marcas Antigas, Golpes Ligeiros, Guardiões Gêmeos); do Kalpa V em diante, duas por portão. Depois da prof. 25 os números sobem 40% mais devagar. O "Ashura mais forte" é da Fase 5. |
+| 6.7 | Eventos | ✅ | Monge Mendigo, Kitsune Disfarçada (chá ou duelo com a raposa — inimigo novo), Jizō, Ronin Ferido (vira **aliado** por 3 salas ou te dá a técnica), Dados Chō-han, Onsen, Lâmina de Muramasa, Duelo de Honra (sem técnicas e sem itens). O **Karma** já é contado para a Fase 4. |
+
+Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o navegador recebe tudo (mapa e votação, zonas, objetos, escuridão, neblina, clima, Mon e maldição) e usa os objetos dos encontros com E. Correções feitas no caminho: salas escaladas para o grupo perdiam o tipo e o impasse (bug também da Fase 1); um grupo que caía no instante da vitória não leva mais "fim de jogo" na sala seguinte.
 
 ## Fase 3 — Armas, técnicas e builds (§4) — ⏳
 
@@ -63,6 +85,7 @@ Também: HUD do anfitrião e do navegador mostram fôlego, Shura, kamae, cabaça
 | 7.2 | Moedas (Mon, Aço Celeste, Fragmentos, Pétalas) | ⏳ |
 | 7.3 | Altar em árvore | ⏳ |
 | 7.4 | Juramentos | ⏳ (os botões de regra já existem: regen de fôlego, ganho de Shura, velocidade de adaptação, afixos extras) |
+| 7.2 | Mon | ✅ (Fase 2) — as outras moedas entram aqui |
 | 7.5 | Linhagem e envelhecimento | ⏳ |
 | 7.6 | Pergaminhos de inimigo | ⏳ |
 | 7.7 | Liberação em camadas | ⏳ |

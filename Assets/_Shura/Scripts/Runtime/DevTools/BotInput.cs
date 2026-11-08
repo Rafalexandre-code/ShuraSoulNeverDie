@@ -28,6 +28,10 @@ namespace Shura
         public bool AttackHeld { get; private set; }
 
         int kamae = -1;
+        int lingered;
+        /// <summary>Frames to stand still on entering an encounter (screenshot tours).</summary>
+        public int EncounterLinger { get; set; }
+        readonly System.Collections.Generic.HashSet<Offering> used = new System.Collections.Generic.HashSet<Offering>();
         int sealCooldown;
         int toolCooldown;
 
@@ -119,6 +123,45 @@ namespace Shura
                 toolCooldown = 300;
             }
 
+            // Encounter rooms: use one thing, then everyone to the torii.
+            if (world.ActiveEnemyCount == 0 && world.Offerings.Count > 0)
+            {
+                // Screenshot tours look around first.
+                if (lingered < EncounterLinger)
+                {
+                    lingered++;
+                    return;
+                }
+                Offering goal = null;
+                foreach (Offering o in world.Offerings)
+                {
+                    if (o.Exit) continue;
+                    // Anything already used (even in passing) or refused counts as done.
+                    if (o.UsedBy.Contains(p) || o.Refused.Contains(p)) used.Add(o);
+                    if (!o.AvailableTo(p) || (o.Price > 0 && p.Build.Mon < o.Price) || used.Contains(o)) continue;
+                    if (goal == null) goal = o;
+                }
+                if (goal == null || used.Count >= 1)
+                {
+                    foreach (Offering o in world.Offerings)
+                    {
+                        if (o.Exit) goal = o;
+                    }
+                }
+                if (goal != null)
+                {
+                    if (Vector2.Distance(p.Position, goal.Position) > 0.5f) Move = layout != null ? layout.Steer(p.Position, goal.Position, p.Radius) : (goal.Position - p.Position).normalized;
+                    else if (!goal.Exit && goal.UsedBy.Contains(p)) used.Add(goal);
+                    if (!goal.Exit && (goal.Spent || goal.UsedBy.Contains(p))) used.Add(goal);
+                }
+                return;
+            }
+            if (world.Offerings.Count == 0)
+            {
+                used.Clear();
+                lingered = 0;
+            }
+
             Enemy broken = world.FindFinisherTarget(p.Position, 99f);
             if (broken != null)
             {
@@ -130,7 +173,7 @@ namespace Shura
             float best = float.MaxValue;
             foreach (Enemy e in world.Enemies)
             {
-                if (!e.CanBeHit) continue;
+                if (!e.CanBeHit || e.IsAlly) continue;
                 // Blades pass through an unexposed spirit: go for anyone solid first.
                 float d = Vector2.Distance(e.Position, p.Position) + (e.IsIntangible ? 6f : 0f);
                 if (d < best)

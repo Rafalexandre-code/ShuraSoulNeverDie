@@ -324,7 +324,7 @@ namespace Shura
                 int count = pendingSpawns.Count;
                 for (int i = 0; i < Enemies.Count; i++)
                 {
-                    if (!Enemies[i].IsGone) count++;
+                    if (!Enemies[i].IsGone && !Enemies[i].IsAlly) count++;
                 }
                 return count;
             }
@@ -345,6 +345,8 @@ namespace Shura
         public void EndRun()
         {
             ClearEnemies();
+            ClearEncounter();
+            ClearConditions();
             roomActive = false;
         }
 
@@ -355,6 +357,10 @@ namespace Shura
             room = PartyScaling.Scale(room, PartySize);
             CurrentRoom = room;
             RebuildArena(room);
+            ApplyConditions(room);
+            ResetChallenge(room);
+            if (room.IsEncounter) SetupEncounter(room);
+            else ClearEncounter();
             Coordinator.MinGapFrames = PartyScaling.AttackGap(DifficultyRules.AttackGapFrames(Config.enemies.attackGapFrames, room.depth), PartySize);
             Coordinator.Capacity = PartyScaling.SimultaneousAttackers(PartySize);
             RefreshAdaptation();
@@ -366,6 +372,7 @@ namespace Shura
             trapCooldown.Clear();
             trapActivation.Clear();
             reviveProgress.Clear();
+            deathReported = false;
             for (int i = 0; i < Players.Count; i++)
             {
                 PlayerController p = Players[i];
@@ -374,6 +381,18 @@ namespace Shura
                 p.ResetForRoom(PartySpawn(i));
             }
             if (firstRoom) HintOnce(HintId.Controls);
+            if (Run != null && Run.AllyRooms > 0) SpawnAlly();
+            if (room.weather != Weather.Clear) HintOnce(HintId.Weather);
+            if (room.biome.rule != BiomeRule.Embers || room.depth >= Biomes.RoomsPerBiome) HintOnce(HintId.Biome);
+        }
+
+        /// <summary>The wounded ronin, by the party's side for a few rooms.</summary>
+        void SpawnAlly()
+        {
+            Vector2 at = Layout.NearestFloor(PlayerSpawn + Vector2.down * 1.5f, EnemyDefs.Ronin.radius);
+            Enemy ally = CreateEnemy(EnemyDefs.Ronin, at, false, null);
+            ally.IsAlly = true;
+            HintOnce(HintId.Ally);
         }
 
         public void Tick()
@@ -394,6 +413,9 @@ namespace Shura
             TickBursts();
             TickBlasts();
             TickTraps();
+            TickConditions();
+            TickEncounter();
+            TickChallenge();
             TickPickups();
             ResolveCollisions();
             RemoveDead();
@@ -467,6 +489,8 @@ namespace Shura
         void TickWaves()
         {
             if (!roomActive || RoomCleared || !AnyPlayerAlive) return;
+            // Encounters end at the torii, not when the (absent) waves run out.
+            if (CurrentRoom != null && CurrentRoom.IsEncounter) return;
             if (ActiveEnemyCount > 0) return;
             if (waveDelay > 0)
             {
@@ -489,6 +513,7 @@ namespace Shura
             ClearProjectiles();
             ClearBlasts();
             CollectAllPickups();
+            RewardChallenge();
             RoomClearedEvent?.Invoke();
         }
 
@@ -499,8 +524,18 @@ namespace Shura
             {
                 Enemy e = CreateEnemy(EnemyDefs.Get(spawn.id), FindSpawnPoint(), spawn.elite, null);
                 ApplyEliteAffixes(e, spawn);
+                ConditionSpawn(e, spawn.elite);
                 list.Add(e);
+                // Kalpa "twin guardians": every Guardian comes with a brother.
+                if (spawn.elite && Run.HasRule(KalpaRule.TwinGuardians))
+                {
+                    Enemy twin = CreateEnemy(EnemyDefs.Get(spawn.id), FindSpawnPoint(), true, null);
+                    ApplyEliteAffixes(twin, spawn);
+                    list.Add(twin);
+                }
             }
+            // A dispute: two factions already at each other's throats.
+            if (CurrentRoom != null && CurrentRoom.kind == RoomKind.Dispute) StartDispute(list);
             return list;
         }
 
@@ -510,6 +545,7 @@ namespace Shura
             go.transform.SetParent(root, false);
             var enemy = go.AddComponent<Enemy>();
             EnemyScaling scaling = EnemyScaling.For(Depth, elite);
+            if (elite && CurrentRoom != null && CurrentRoom.kind == RoomKind.Event) scaling.health *= 0.8f;
             scaling.health *= elite ? PartyScaling.GuardianHealth(PartySize) : PartyScaling.EnemyHealth(PartySize);
             enemy.Init(this, def, at, Config, Run.Rng, scaling, summoner);
             Enemies.Add(enemy);
@@ -639,7 +675,8 @@ namespace Shura
             int h = Mathf.Max(8, Mathf.RoundToInt(room.height));
             Layout = new ArenaLayout(w, h, room.shape);
             var rng = new SeededRandom(room.layoutSeed ^ 0x5EEDUL);
-            Layout.PlaceTraps(rng, room.depth, PlayerSpawn);
+            // Encounters are a pause on the road: no traps.
+            if (!room.IsEncounter) Layout.PlaceTraps(rng, room.depth, PlayerSpawn);
             Bounds = Layout.FloorBounds;
             Decor = ArenaBuilder.Build(arenaRoot, Config, Layout, room.biome, EncodeArenaPng);
             ArenaPng = Decor.Png;
@@ -726,6 +763,8 @@ namespace Shura
         /// <summary>Called by an enemy on each of its active frames until it connects once.</summary>
         public bool TryHitPlayer(Enemy attacker, AttackDef attack)
         {
+            // The ally's blows only ever meet enemies.
+            if (attacker.IsAlly) return false;
             // A sweep can catch several duelists at once; each answers it on their own.
             bool connected = false;
             bool groupAnswered = false;
@@ -750,14 +789,19 @@ namespace Shura
                     attack = attack,
                     source = attacker.Position,
                     signature = attacker.CurrentMove != null && attacker.CurrentMove.isSignature,
-                    powerMult = attacker.PowerMult,
+                    powerMult = attacker.PowerMult * EnemyDamageMultFor(attacker),
                     groupAnswered = groupAnswered,
                 };
                 actor = p;
                 HitOutcome outcome = p.ReceiveAttack(incoming);
                 actor = null;
                 connected = true;
-                if (outcome == HitOutcome.Hit) attacker.OnDealtDamage(attack.damage * attacker.PowerMult);
+                if (outcome == HitOutcome.Hit)
+                {
+                    attacker.OnDealtDamage(attack.damage * attacker.PowerMult);
+                    attacker.OnLandedHitKalpa();
+                    if (CurrentRoom != null && CurrentRoom.challenge == ChallengeKind.NoHit) FailChallenge();
+                }
             }
             return connected;
         }
@@ -787,10 +831,11 @@ namespace Shura
         void Strike(Vector2 origin, Vector2 direction, HitShape shape, float damage, float posture,
                     HashSet<Enemy> alreadyHit, bool unblockable, bool applyRewardHooks, float pull = 0f)
         {
+            if (applyRewardHooks) StrikeArena(origin, direction, shape, damage);
             for (int i = 0; i < Enemies.Count; i++)
             {
                 Enemy e = Enemies[i];
-                if (!e.CanBeHit) continue;
+                if (!e.CanBeHit || e.IsAlly) continue;
                 if (alreadyHit != null && alreadyHit.Contains(e)) continue;
                 if (!CombatMath.Overlaps(shape, origin, direction, e.Position, e.Radius)) continue;
                 alreadyHit?.Add(e);
@@ -862,6 +907,7 @@ namespace Shura
                 case BlastKind.Talisman: return ColorUtil.Hex("#E63946");
                 case BlastKind.Fire: return ColorUtil.Hex("#FF9F1C");
                 case BlastKind.Spirit: return ColorUtil.Hex("#9AD1D4");
+                case BlastKind.Lightning: return ColorUtil.Hex("#9FD8FF");
                 default: return ColorUtil.Hex("#FF6B35");
             }
         }
@@ -1211,6 +1257,42 @@ namespace Shura
             if (Run == null) return;
             PlayerController killer = actor ?? Host;
             if (killer != null && killer.IsAlive) killer.OnKillCredited(enemy);
+            if (enemy.IsAlly)
+            {
+                Run.AllyRooms = 0;
+                return;
+            }
+            // Mon for whoever struck it down.
+            if (killer?.Build != null) killer.Build.Mon += enemy.IsElite ? 12 : 3;
+            enemy.OnDefeated?.Invoke(enemy);
+            enemy.OnDefeated = null;
+            // A duel won: the foe's technique is guaranteed, mastered or not.
+            if (CurrentRoom != null && CurrentRoom.kind == RoomKind.Duel && !string.IsNullOrEmpty(enemy.Def.techniqueId))
+            {
+                foreach (PlayerController p in Players)
+                {
+                    if (p.Build == null || !p.Build.CanAbsorb(enemy.Def.techniqueId)) continue;
+                    p.Build.AddPendingTechnique(enemy.Def.techniqueId);
+                    Fx.Popup(Strings.PopupMastered, p.Position + Vector2.up * 1.4f, Config.palette.gold);
+                }
+            }
+            // Kalpa "inheritance": the nearest enemy takes the fallen one's strength.
+            if (Run.HasRule(KalpaRule.EnemyAbsorb))
+            {
+                Enemy heir = null;
+                float best = 6f;
+                foreach (Enemy e in Enemies)
+                {
+                    if (e == enemy || e.IsGone || e.IsAlly) continue;
+                    float d = Vector2.Distance(e.Position, enemy.Position);
+                    if (d < best)
+                    {
+                        best = d;
+                        heir = e;
+                    }
+                }
+                heir?.Inherit();
+            }
             // Every duelist's own techniques hear about it (each heals or explodes for themselves).
             PlayerController before = actor;
             foreach (PlayerController p in Players)
@@ -1287,6 +1369,8 @@ namespace Shura
             {
                 Projectile p = Projectiles[i];
                 p.PrevPosition = p.Position;
+                // Strong wind bends every arrow and blade in flight.
+                if (Wind != Vector2.zero) p.Direction = (p.Direction + Wind * 0.9f * SimClock.Dt).normalized;
                 p.Position += p.Direction * p.Speed * SimClock.Dt;
                 p.Life--;
 
@@ -1408,7 +1492,7 @@ namespace Shura
             for (int i = 0; i < Enemies.Count; i++)
             {
                 Enemy e = Enemies[i];
-                if (!e.CanBeHit) continue;
+                if (!e.CanBeHit || e.IsAlly) continue;
                 Vector2 to = e.Position - from;
                 float dist = to.magnitude;
                 if (dist > range + e.Radius) continue;
@@ -1432,7 +1516,7 @@ namespace Shura
             for (int i = 0; i < Enemies.Count; i++)
             {
                 Enemy e = Enemies[i];
-                if (!e.IsBroken) continue;
+                if (!e.IsBroken || e.IsAlly) continue;
                 float dist = Vector2.Distance(from, e.Position) - e.Radius;
                 if (dist > range || dist >= bestDist) continue;
                 bestDist = dist;

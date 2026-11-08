@@ -192,8 +192,10 @@ namespace Shura
         /// <summary>From depth 15, Guardians carry 1 to 3 affixes that change how they fight.</summary>
         void ApplyEliteAffixes(Enemy e, EnemySpawn spawn)
         {
-            if (!spawn.elite || Depth < 15 || Run == null) return;
-            int n = Mathf.Clamp(1 + (Depth - 15) / 10 + ExtraEliteAffixes, 1, 3);
+            if (!spawn.elite || Run == null) return;
+            bool early = Run.HasRule(KalpaRule.EarlyAffixes);
+            if (Depth < 15 && !early) return;
+            int n = Mathf.Clamp(1 + Mathf.Max(0, Depth - 15) / 10 + ExtraEliteAffixes + (early ? 1 : 0), 1, 3);
             var pool = new List<EliteAffix>((EliteAffix[])System.Enum.GetValues(typeof(EliteAffix)));
             for (int i = 0; i < n && pool.Count > 0; i++)
             {

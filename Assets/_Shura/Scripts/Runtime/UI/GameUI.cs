@@ -192,6 +192,9 @@ namespace Shura
                 case Game.Mode.Reward:
                     HandleReward(input);
                     break;
+                case Game.Mode.Route:
+                    HandleRoute(input);
+                    break;
                 case Game.Mode.Arsenal:
                     HandleArsenal(input);
                     break;
@@ -551,6 +554,7 @@ namespace Shura
                 case Game.Mode.Credits: DrawCredits(); break;
                 case Game.Mode.Paused: DrawPause(); break;
                 case Game.Mode.Reward: DrawReward(); break;
+                case Game.Mode.Route: DrawRoute(); break;
                 case Game.Mode.GameOver: DrawEnd(Strings.DeathTitle, Strings.DeathSubtitle); break;
                 case Game.Mode.Altar: DrawAltar(); break;
                 case Game.Mode.Arsenal: DrawArsenal(); break;
@@ -559,7 +563,7 @@ namespace Shura
             }
 
             // The reward screen has its own text blocks; room-clear toasts were already seen in play.
-            if (mode != Game.Mode.Reward) DrawToasts();
+            if (mode != Game.Mode.Reward && mode != Game.Mode.Route) DrawToasts();
             if (mode == Game.Mode.Playing) DrawHint();
             DrawOverlays();
             if (fadeAlpha > 0.001f) DrawRect(FullScreen, Color.black.WithAlpha(fadeAlpha));
@@ -966,11 +970,12 @@ namespace Shura
 
                 bool technique = r.Kind == RewardKind.Technique;
                 bool blessing = r.Kind == RewardKind.Blessing;
-                Color accent = technique ? UiKit.GoldInk : blessing ? UiKit.Ai : UiKit.Shu;
+                bool item = r is Item;
+                Color accent = item ? Rarities.Color(((Item)r).rarity) : technique ? UiKit.GoldInk : blessing ? UiKit.Ai : UiKit.Shu;
                 // Talisman card: paper, a coloured band across the top, a seal when chosen.
                 kit.PaperPanel(rect, selected ? 1f : 0.93f);
                 kit.Stroke(new Rect(rect.x + 30f, rect.y + 28f, rect.width - 60f, 64f), accent.WithAlpha(0.92f));
-                Label(new Rect(rect.x, rect.y + 32f, cardW, 54f), technique ? Strings.Technique : blessing ? Strings.Blessing : Strings.Relic, cardKindStyle, UiKit.PaperText);
+                Label(new Rect(rect.x, rect.y + 32f, cardW, 54f), item ? Strings.ItemCard : technique ? Strings.Technique : blessing ? Strings.Blessing : Strings.Relic, cardKindStyle, UiKit.PaperText);
                 float nameH = cardNameStyle.CalcHeight(new GUIContent(r.Name), cardW - 60f);
                 Label(new Rect(rect.x + 30, rect.y + 100, cardW - 60, nameH), r.Name, cardNameStyle, UiKit.Ink);
                 float y = rect.y + 104 + nameH;
@@ -1097,6 +1102,9 @@ namespace Shura
             RunState run = game.Run;
             PlayerController p = game.World.Player;
             if (run == null || p == null) return;
+            DrawEnvironment();
+            DrawOfferings();
+            DrawAllyLabels();
             if (game.World.Standoff.Active) DrawStandoff(game.World.Standoff);
             if (p.AimingCut) DrawFinisherAim(p);
             DrawAffixLabels();
@@ -1108,7 +1116,7 @@ namespace Shura
             }
 
             const float x = 52f, y = 30f, w = 440f;
-            kit.InkPanel(new Rect(10f, 2f, 560f, 362f), 0.82f);
+            kit.InkPanel(new Rect(10f, 2f, 560f, 392f), 0.82f);
 
             Label(new Rect(x, y, w, 26), Strings.HudHealth, capsStyle, UiKit.PaperDim);
             var hpRect = new Rect(x - 8f, y + 24, w + 16f, 40);
@@ -1139,7 +1147,7 @@ namespace Shura
                 Label(new Rect(0, 8, VW, 60), string.Format(Strings.HudRoom, run.RoomIndex + 1, room.name), roomStyle, rc);
                 kit.Underline(new Rect(VW * 0.5f - 230f, 62f, 460f, 16f), rc.WithAlpha(0.55f));
                 int wave = Mathf.Max(1, game.World.WaveIndex + 1);
-                Label(new Rect(0, 76, VW, 30), string.Format(Strings.HudWave, wave, room.waves.Length), smallStyleCenter, UiKit.PaperDim);
+                if (room.waves.Length > 0) Label(new Rect(0, 76, VW, 30), string.Format(Strings.HudWave, wave, room.waves.Length), smallStyleCenter, UiKit.PaperDim);
                 List<ReadingId> reading = game.World.Adaptation.Active();
                 if (reading.Count > 0)
                 {
@@ -1147,11 +1155,13 @@ namespace Shura
                     for (int i = 0; i < reading.Count; i++) names[i] = Strings.ReadingName(reading[i]);
                     Label(new Rect(0, 104, VW, 30), string.Format(Strings.HudReading, string.Join("  ·  ", names)), smallStyleCenter, Pal.adapted);
                 }
+                DrawRoadLine(room);
             }
 
             DrawFlow(run.Flow);
             DrawWeaponsHud(run, x, y + 168f);
             DrawKiHud(p, x, y + 234f);
+            DrawPurse(p, x, y + 346f);
             DrawParty();
         }
 
@@ -1546,7 +1556,8 @@ namespace Shura
             {
                 FloatingText t = toasts[i];
                 float alpha = Mathf.Clamp01((t.life - t.age) / 0.5f) * Mathf.Clamp01(t.age / 0.15f);
-                float y = playing ? 150f + i * 54f : VH - 120f - i * 54f;
+                // Under the room's road lines (hour, weather, rule, challenge).
+                float y = playing ? 236f + i * 54f : VH - 120f - i * 54f;
                 float tw = toastStyle.CalcSize(new GUIContent(t.text)).x;
                 float sw = Mathf.Min(VW - 100f, tw + 160f);
                 kit.Stroke(new Rect(VW * 0.5f - sw * 0.5f, y - 10f, sw, 68f), UiKit.Ink.WithAlpha(0.8f * alpha), Mathf.Clamp01(t.age / 0.2f));

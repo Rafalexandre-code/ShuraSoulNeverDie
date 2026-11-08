@@ -677,6 +677,29 @@ namespace Shura
 
         public static readonly EnemyDef[] Minions = { Hitodama, LodoPequeno, RaijinSombra };
 
+        /// <summary>The kitsune of the road event: fox fire, claws and a blink — met only by unmasking her.</summary>
+        public static readonly EnemyDef Kitsune = new EnemyDef
+        {
+            id = "kitsune", art = "Shaman", displayName = "Kitsune", color = ColorUtil.Hex("#F4A261"), unarmed = true,
+            bloodColor = ColorUtil.Hex("#C8553D"),
+            maxHealth = 70f, maxPosture = 60f, radius = 0.4f, moveSpeed = 3.8f, preferredRange = 3.2f,
+            blockChance = 0.2f, evadeChance = 0.35f, blinkRange = 1.6f, postureRegenPerSecond = 10f, idleMin = 35, idleMax = 70,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.KunaiFan,
+            lore = "Nove caudas debaixo do quimono. O chá era só o começo.",
+            moves = new[]
+            {
+                Move("garras_raposa", 0f, 2.0f, 3,
+                     Arc("garras_r1", 15, 3, 5, 9, 9f, 11f, 12f, 1.5f, 110f, 0.6f),
+                     Arc("garras_r2", 10, 3, 22, 6, 9f, 11f, 14f, 1.5f, 110f, 0.6f)),
+                Move("fogo_de_raposa", 2.5f, 10f, 3, Fan("fogo_de_raposa", 26, 26, 20, 9f, 10f, 14f, 10f, 3, 30f, "fx_fireball")),
+                Signature("baile_de_chamas", 0f, 2.6f, 2,
+                          Spirit(Arc("baile_de_chamas", 34, 5, 28, 24, 16f, 18f, 26f, 2.2f, 150f, 0.6f))),
+            },
+        };
+
+        /// <summary>Met only through the road (events), never placed by the room generator.</summary>
+        public static readonly EnemyDef[] Specials = { Kitsune };
+
         static readonly Dictionary<string, EnemyDef> ById = BuildIndex();
 
         static AttackDef Teleporting(AttackDef a)
@@ -762,6 +785,7 @@ namespace Shura
             var index = new Dictionary<string, EnemyDef>();
             foreach (EnemyDef def in All) index[def.id] = def;
             foreach (EnemyDef def in Minions) index[def.id] = def;
+            foreach (EnemyDef def in Specials) index[def.id] = def;
             return index;
         }
 

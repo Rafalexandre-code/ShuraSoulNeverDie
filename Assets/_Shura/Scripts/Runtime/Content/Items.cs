@@ -279,10 +279,13 @@ namespace Shura
             return (Rarity)Mathf.Clamp(tier, 0, Rarities.Count - 1);
         }
 
-        public static Item Roll(SeededRandom rng, int depth, bool elite)
+        public static Item Roll(SeededRandom rng, int depth, bool elite) => RollAt(rng, RollRarity(rng, depth, elite), null);
+
+        /// <summary>An item of a given rarity (forges, chests, Jizō); a fixed slot when re-engraving.</summary>
+        public static Item RollAt(SeededRandom rng, Rarity rarity, ItemSlot? fixedSlot)
         {
-            Rarity rarity = RollRarity(rng, depth, elite);
-            var slot = (ItemSlot)rng.Range(0, 4);
+            rarity = (Rarity)Mathf.Clamp((int)rarity, 0, Rarities.Count - 1);
+            var slot = fixedSlot ?? (ItemSlot)rng.Range(0, 4);
             var element = (Element)rng.Range(0, 7);
             string[] names = BaseNames[(int)slot];
             var item = new Item(slot, rarity, element, names[rng.Range(0, names.Length)]);

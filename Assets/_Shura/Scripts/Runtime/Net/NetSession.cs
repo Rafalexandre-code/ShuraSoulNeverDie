@@ -39,6 +39,8 @@ namespace Shura
             public PlayerController player;
             /// <summary>This player's own reward cards after a room (empty once they picked).</summary>
             public readonly List<RewardDef> choices = new List<RewardDef>();
+            /// <summary>Cards still to take (a dispute gives two).</summary>
+            public int picksLeft = 1;
         }
 
         readonly Game game;
@@ -230,6 +232,9 @@ namespace Shura
                 case "pick":
                     if (r.joined) PickReward(r, m.i);
                     break;
+                case "vote":
+                    if (r.joined) game.VoteRoute(r.id, m.i);
+                    break;
                 case "equip":
                     if (r.joined && r.player?.Build != null && m.i >= 0 && m.i < r.player.Build.Bag.Count)
                     {
@@ -317,14 +322,22 @@ namespace Shura
         // ── Personal rewards and equipment ──────────────────────────────────────────────
 
         /// <summary>After a room: every browser player gets their own cards, from their own build.</summary>
-        public void OfferRewards(int depth)
+        public void OfferRewards(int depth, RewardHint hint = RewardHint.Any, int picks = 1)
         {
             foreach (Remote r in remotes.Values)
             {
                 r.choices.Clear();
                 if (!r.joined || r.player?.Build == null) continue;
                 PlayerBuild b = r.player.Build;
-                r.choices.AddRange(b.RollChoices(3 + b.Modifiers.extraRewardChoices, depth));
+                r.picksLeft = picks;
+                r.choices.AddRange(b.RollChoices(3 + picks - 1 + b.Modifiers.extraRewardChoices, depth, hint));
+                SendChoices(r);
+            }
+        }
+
+        void SendChoices(Remote r)
+        {
+            {
                 sb.Clear();
                 sb.Append("{\"t\":\"rewards\",\"list\":[");
                 for (int i = 0; i < r.choices.Count; i++)
@@ -337,6 +350,48 @@ namespace Shura
                 sb.Append("]}");
                 server.Send(r.id, sb.ToString());
             }
+        }
+
+        // ── Route map ───────────────────────────────────────────────────────────────────
+
+        /// <summary>The doors ahead, for everyone to vote on (plus two more layers to read ahead).</summary>
+        public void OfferRoute(IReadOnlyList<RouteNode> options)
+        {
+            RunState run = game.Run;
+            sb.Clear();
+            sb.Append("{\"t\":\"route\",\"o\":[");
+            for (int i = 0; i < options.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                AppendNode(options[i]);
+            }
+            sb.Append("],\"ahead\":[");
+            int depth = options.Count > 0 ? options[0].depth : run.RoomIndex + 1;
+            for (int d = 1; d < RouteMap.Lookahead; d++)
+            {
+                if (d > 1) sb.Append(',');
+                sb.Append('[');
+                List<RouteNode> layer = RouteMap.Layer(run.Seed, depth + d);
+                for (int i = 0; i < layer.Count; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    AppendNode(layer[i]);
+                }
+                sb.Append(']');
+            }
+            sb.Append("]}");
+            server.Broadcast(sb.ToString());
+        }
+
+        void AppendNode(RouteNode n)
+        {
+            sb.Append('[').Int((int)n.kind).Append(',').Str(RouteMap.KindGlyph(n.kind)).Append(',').Str(RouteMap.Describe(n)).Append(',')
+              .Str(RouteMap.KindText(n.kind)).Append(',').Hex(RouteMap.KindColor(n.kind)).Append(',').Int(n.column).Append(']');
+        }
+
+        public void OnRouteChosen()
+        {
+            server.Broadcast("{\"t\":\"routed\"}");
         }
 
         /// <summary>Names of the browser players still choosing their reward.</summary>
@@ -363,14 +418,16 @@ namespace Shura
         {
             if (index < 0 || index >= r.choices.Count || r.player?.Build == null) return;
             RewardDef reward = r.choices[index];
-            r.choices.Clear();
-            r.player.Build.Acquire(reward);
+            r.choices.RemoveAt(index);
+            if (--r.picksLeft <= 0) r.choices.Clear();
+            r.player.Build.Grant(reward);
             r.player.ApplyStats(false);
             if (reward.HealOnPick > 0f) r.player.Heal(reward.HealOnPick);
             sb.Clear();
             sb.Append("{\"t\":\"picked\",\"n\":").Str(reward.Name).Append('}');
             server.Send(r.id, sb.ToString());
             SendInventory(r);
+            if (r.choices.Count > 0) SendChoices(r);
         }
 
         void OnRemoteItemCollected(PlayerController who, Item item, bool equipped)
@@ -525,6 +582,97 @@ namespace Shura
 
         // ── Snapshot ────────────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// The road: weather, hour and biome rule; encounter banner and offerings; zones,
+        /// props and broken statues/lanterns; the challenge; route votes.
+        /// </summary>
+        void AppendRoad(World w, RunState run)
+        {
+            if (run == null || w.CurrentRoom == null) return;
+            RoomDef room = w.CurrentRoom;
+            sb.Append(",\"env\":[").Int((int)w.Weather).Append(',').Int((int)w.TimeOfDay).Append(',').Int((int)w.BiomeRule).Append(',')
+              .Num(w.VisionRadius).Append(',').Num(w.RingRange).Append(',').Num(w.FogRange).Append(',').Num(w.Wind.x).Append(',').Num(w.Wind.y).Append(',')
+              .Str(Biomes.WeatherName(w.Weather)).Append(',').Str(Biomes.TimeName(w.TimeOfDay)).Append(',').Str(Biomes.RuleText(w.BiomeRule)).Append(',')
+              .Int(run.Kalpa).Append(',').Int((int)room.kind).Append(',').Str(RouteMap.KindName(room.kind)).Append(']');
+            if (room.challenge != ChallengeKind.None)
+            {
+                sb.Append(",\"ch\":[").Str(RouteMap.ChallengeName(room.challenge)).Append(',').Bool(w.ChallengeFailed).Append(',').Num(w.ChallengeTimeLeft, 1).Append(']');
+            }
+            if (!string.IsNullOrEmpty(w.EncounterTitle))
+            {
+                sb.Append(",\"enc\":[").Str(w.EncounterTitle).Append(',').Str(w.EncounterText ?? "").Append(']');
+            }
+            if (w.Offerings.Count > 0)
+            {
+                sb.Append(",\"O\":[");
+                for (int i = 0; i < w.Offerings.Count; i++)
+                {
+                    Offering o = w.Offerings[i];
+                    if (i > 0) sb.Append(',');
+                    sb.Append('[').Num(o.Position.x).Append(',').Num(o.Position.y).Append(',').Str(o.Sheet ?? "").Append(',')
+                      .Int(o.Tile.x).Append(',').Int(o.Tile.y).Append(',').Int(o.Tile.width).Append(',').Int(o.Tile.height).Append(',')
+                      .Str(o.Character ?? "").Append(',').Str(o.Title).Append(',').Str(o.Detail ?? "").Append(',').Int(o.Price).Append(',')
+                      .Num(o.MaxProgress / (o.Exit ? World.ExitHoldSeconds : World.OfferingHoldSeconds)).Append(',').Bool(o.Spent).Append(',').Bool(o.Exit).Append(',')
+                      .Hex(o.Color).Append(",[");
+                    bool first = true;
+                    foreach (PlayerController u in o.UsedBy)
+                    {
+                        if (!first) sb.Append(',');
+                        first = false;
+                        sb.Int(u == w.Host ? 0 : u.NetId);
+                    }
+                    sb.Append("],").Bool(o.Repeatable).Append(']');
+                }
+                sb.Append(']');
+            }
+            if (w.Zones.Count > 0)
+            {
+                sb.Append(",\"Z\":[");
+                for (int i = 0; i < w.Zones.Count; i++)
+                {
+                    Zone z = w.Zones[i];
+                    if (i > 0) sb.Append(',');
+                    sb.Append('[').Int((int)z.Kind).Append(',').Num(z.Position.x).Append(',').Num(z.Position.y).Append(',').Num(z.Radius).Append(']');
+                }
+                sb.Append(']');
+            }
+            if (w.Props.Count > 0)
+            {
+                sb.Append(",\"PR\":[");
+                bool first = true;
+                foreach (Prop p in w.Props)
+                {
+                    if (p.Gone) continue;
+                    if (!first) sb.Append(',');
+                    first = false;
+                    sb.Append('[').Int((int)p.Kind).Append(',').Num(p.Position.x).Append(',').Num(p.Position.y).Append(',').Num(p.Angle, 0).Append(']');
+                }
+                sb.Append(']');
+            }
+            if (w.BrokenStatues.Count > 0 || w.BrokenLanterns.Count > 0)
+            {
+                sb.Append(",\"SB\":[");
+                for (int i = 0; i < w.BrokenStatues.Count; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Int(w.BrokenStatues[i]);
+                }
+                sb.Append("],\"LB\":[");
+                for (int i = 0; i < w.BrokenLanterns.Count; i++)
+                {
+                    if (i > 0) sb.Append(',');
+                    sb.Int(w.BrokenLanterns[i]);
+                }
+                sb.Append(']');
+            }
+            if (game.CurrentMode == Game.Mode.Route)
+            {
+                sb.Append(",\"rt\":[").Num(game.RouteTimeLeft, 0);
+                for (int i = 0; i < game.RouteOptions.Count; i++) sb.Append(',').Int(game.RouteVotesFor(i));
+                sb.Append(']');
+            }
+        }
+
         string ModeName()
         {
             switch (game.CurrentMode)
@@ -535,6 +683,7 @@ namespace Shura
                 case Game.Mode.Settings when game.WorldKeepsRunning: return "play";
                 case Game.Mode.Paused: return "pause";
                 case Game.Mode.Reward: return "reward";
+                case Game.Mode.Route: return "route";
                 case Game.Mode.Equipment: return "equip";
                 case Game.Mode.GameOver: return "over";
                 default: return "lobby";
@@ -569,11 +718,12 @@ namespace Shura
             if (run != null && w.CurrentRoom != null)
             {
                 sb.Append(",\"room\":").Str(string.Format(Strings.HudRoom, run.RoomIndex + 1, w.CurrentRoom.name));
-                sb.Append(",\"wave\":").Str(string.Format(Strings.HudWave, Mathf.Max(1, w.WaveIndex + 1), w.CurrentRoom.waves.Length));
+                sb.Append(",\"wave\":").Str(w.CurrentRoom.waves.Length == 0 ? "" : string.Format(Strings.HudWave, Mathf.Max(1, w.WaveIndex + 1), w.CurrentRoom.waves.Length));
                 sb.Append(",\"fl\":").Int(run.Flow.Level).Append(",\"fp\":").Num(run.Flow.ProgressInLevel)
                   .Append(",\"st\":").Int(run.PerfectStreak).Append(",\"cb\":").Bool(w.ActiveEnemyCount > 0)
                   .Append(",\"guard\":").Bool(w.CurrentRoom.guardian);
             }
+            AppendRoad(w, run);
             // The Iai standoff: [active, advancing, leader x, leader y].
             if (w.Standoff.Active && w.Standoff.Leader != null)
             {
@@ -607,7 +757,10 @@ namespace Shura
                   .Int(p.Sips).Append(',').Int(p.MaxSips).Append(',').Int(b != null ? (int)b.Tool : 0).Append(',').Int(b != null ? b.SpiritPapers : 0).Append(',')
                   .Int(p.WoundMask).Append(',').Bool(p.InMushin).Append(',').Bool(p.InAsura).Append(',').Bool(p.AimingCut).Append(',')
                   .Num(p.AimLineAngle, 1).Append(',').Num(aimAt != null ? aimAt.Position.x : 0f).Append(',').Num(aimAt != null ? aimAt.Position.y : 0f).Append(',')
-                  .Bool(p.RingsHidden).Append(',').Num(p.RingScale).Append(',').Int(p.Charge).Append(',').Int(b != null ? b.Bandages : 0).Append(']');
+                  .Bool(p.RingsHidden).Append(',').Num(p.RingScale).Append(',').Int(p.Charge).Append(',').Int(b != null ? b.Bandages : 0).Append(',')
+                  // [54] Mon, [55] curse, [56] curse rooms, [57] in spores.
+                  .Int(b != null ? b.Mon : 0).Append(',').Str(b != null && b.CurseRooms > 0 ? RunCurses.Name(b.Curse) : "").Append(',')
+                  .Int(b != null ? b.CurseRooms : 0).Append(',').Bool(w.InZone(ZoneKind.Spores, p.Position)).Append(']');
             }
             sb.Append("],\"E\":[");
             bool first = true;
@@ -627,7 +780,9 @@ namespace Shura
                   .Num(e.NetTeleAlpha).Append(',').Bool(e.NetDanger).Append(',').Int(e.NetRing).Append(',').Num(e.NetRingSize).Append(',').Num(e.NetRingProgress).Append(',')
                   .Bool(e.IsGone).Append(',');
                 // [33] ring kind, [34] seals, [35] veiled, [36] affixes, [37] winded.
-                sb.Int(e.NetRingKind).Append(',').Int(e.Seals).Append(',').Bool(e.Veiled).Append(',').Str(e.AffixLabel).Append(',').Bool(e.Winded > 0).Append(']');
+                sb.Int(e.NetRingKind).Append(',').Int(e.Seals).Append(',').Bool(e.Veiled).Append(',').Str(e.AffixLabel).Append(',').Bool(e.Winded > 0).Append(',')
+                  // [38] ally, [39] frozen, [40] enemy Mushin.
+                  .Bool(e.IsAlly).Append(',').Bool(e.Frozen).Append(',').Bool(e.InKalpaMushin).Append(']');
             }
             sb.Append("],\"R\":[");
             for (int i = 0; i < w.Projectiles.Count; i++)

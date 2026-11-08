@@ -76,6 +76,30 @@ h1 { font-family: "Kaushan"; font-weight: normal; font-size: 46px; text-align: c
 @keyframes blink { from { opacity: 1; } to { opacity: .4; } }
 #hud.mushin #me, #hud.mushin #flowBox, #hud.mushin #roomBox, #hud.mushin #escHint { opacity: 0; transition: opacity .6s; }
 #hud #me, #hud #flowBox, #hud #roomBox { transition: opacity .6s; }
+/* The road */
+#purse { color: #f2c14e; margin-top: 4px; }
+#purse.cursed { color: #b06cff; }
+#envLine { margin-top: 4px; opacity: .9; }
+#ruleLine { opacity: .65; max-width: 60vw; margin: 0 auto; }
+#challenge { color: #f2c14e; font-size: 22px; margin-top: 4px; }
+#challenge.failed { color: #ff5a3c; }
+#encBanner { display: none; position: fixed; left: 50%; bottom: 12vh; transform: translateX(-50%); width: min(900px, 90vw); text-align: center; padding: 12px 24px; }
+#encTitle { color: #f2c14e; font-size: 26px; }
+#route { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(14,13,19,.78); z-index: 20; }
+#route[hidden] { display: none; }
+#route h2 { font: 48px "Kaushan"; margin: 0; color: #f1e8d6; }
+#routeCards { display: flex; gap: 24px; margin: 24px 0; flex-wrap: wrap; justify-content: center; }
+.door { position: relative; width: 260px; min-height: 250px; padding: 18px; border: 3px solid #888; border-radius: 10px 2px 10px 2px;
+  background: rgba(241,232,214,.95); color: #1c1a20; cursor: pointer; text-align: center; transition: transform .12s; }
+.door:hover, .door.chosen { transform: translateY(-8px); box-shadow: 0 10px 24px rgba(0,0,0,.5); }
+.door .glyph { font-size: 64px; line-height: 1.1; font-weight: bold; }
+.door .nm { font-size: 20px; font-weight: bold; margin: 6px 0; }
+.door .g { font-size: 15px; opacity: .8; }
+.door .votes { color: #b3261e; font-size: 22px; margin-top: 8px; min-height: 26px; }
+.door .key { position: absolute; top: 6px; left: 10px; font-size: 14px; opacity: .6; }
+#routeAhead .layer { display: flex; gap: 10px; justify-content: center; margin: 6px 0; }
+#routeAhead span { border: 2px solid #888; padding: 4px 12px; border-radius: 6px; color: #f1e8d6; font-size: 14px; }
 #standoff { display: none; position: fixed; inset: 0; pointer-events: none; }
 #standoff::before, #standoff::after { content: ""; position: absolute; left: 0; right: 0; height: 13vh; background: rgba(0,0,0,.92); }
 #standoff::before { top: 0; }

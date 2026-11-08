@@ -737,6 +737,7 @@ namespace Shura
             dodgeDir = move.sqrMagnitude > 0.04f ? move.normalized : Facing;
             Velocity = Vector2.zero;
             Enter(State.Dodge);
+            world.OnDodgeForChallenge();
             Squash(1.35f, 0.72f);
             world.Fx.Emit(FxType.Dodge, Position, dodgeDir);
             for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnDodge(world, Position);
@@ -979,8 +980,12 @@ namespace Shura
             }
         }
 
+        /// <summary>What hurt this duelist last (for automated run reports).</summary>
+        public string LastHurtBy { get; private set; } = "";
+
         void TakeHit(AttackDef attack, Vector2 toAttacker, float power)
         {
+            LastHurtBy = (lastAttacker != null ? lastAttacker.Def.id + ":" : "") + (attack.id ?? "perigo") + " sala=" + (world.CurrentRoom != null ? world.CurrentRoom.kind.ToString() : "?");
             bool maxFlow = Build.Flow.Level >= Build.Flow.MaxLevel;
             float damage = attack.damage * power * Mods.damageTakenMult * (maxFlow ? Mods.damageTakenAtMaxFlowMult : 1f);
             if (!world.PlayerInvincible) Health = Mathf.Max(0f, Health - damage);

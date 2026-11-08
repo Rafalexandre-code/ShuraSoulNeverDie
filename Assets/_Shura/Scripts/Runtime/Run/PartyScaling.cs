@@ -51,7 +51,8 @@ namespace Shura
                 {
                     if (!s.elite) pool.Add(s);
                 }
-                int target = WaveSize(src.Length, players);
+                // A duel stays one against one (the foe's health still scales with the party).
+                int target = room.kind == RoomKind.Duel ? src.Length : WaveSize(src.Length, players);
                 while (list.Count < target)
                 {
                     // Extra enemies mirror the wave's own line-up; a lone Guardian brings escorts.
@@ -60,8 +61,10 @@ namespace Shura
                 }
                 waves[w] = list.ToArray();
             }
-            return new RoomDef(room.name, room.depth, room.biome, room.width * side, room.height * side, room.guardian, waves,
-                               room.shape, room.layoutSeed);
+            var scaled = new RoomDef(room.name, room.depth, room.biome, room.width * side, room.height * side, room.guardian, waves,
+                                     room.shape, room.layoutSeed);
+            scaled.CopyRoadFrom(room);
+            return scaled;
         }
     }
 }

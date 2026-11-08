@@ -30,6 +30,35 @@ namespace Shura
         public int BonusEcos;
         /// <summary>Multiplier on the Ecos this run banks (oaths raise it).</summary>
         public float EcosMult = 1f;
+
+        // ── The road (design doc §6) ────────────────────────────────────────────────
+        /// <summary>Bushidō (+) or Shura (−): mercy, gifts and honour against cruelty (§8.3).</summary>
+        public int Karma;
+        /// <summary>1 + gates passed: each Kalpa adds a permanent rule.</summary>
+        public int Kalpa = 1;
+        public readonly List<KalpaRule> KalpaRules = new List<KalpaRule>();
+        /// <summary>The wounded ronin walks with the party this many more rooms.</summary>
+        public int AllyRooms;
+        /// <summary>The door the party came through (null before the first choice).</summary>
+        public RouteNode CurrentNode;
+
+        public bool HasRule(KalpaRule r) => KalpaRules.Contains(r);
+
+        /// <summary>The doors open from where the party stands.</summary>
+        public List<RouteNode> NextDoors()
+        {
+            if (CurrentNode == null || CurrentNode.depth != RoomIndex) return RouteMap.Layer(Seed, RoomIndex + 1);
+            return RouteMap.Next(Seed, CurrentNode);
+        }
+
+        /// <summary>Walks through a door: the room behind it replaces the default one.</summary>
+        public RoomDef Choose(RouteNode node)
+        {
+            GetRoom(node.depth);
+            rooms[node.depth] = RoomGenerator.Generate(Seed, node.depth, node);
+            CurrentNode = node;
+            return rooms[node.depth];
+        }
         public int RoomIndex;
         public int RoomsCleared;
         public float Elapsed;

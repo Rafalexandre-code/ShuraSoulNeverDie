@@ -21,6 +21,8 @@ namespace Shura
         Talisman,
         Fire,
         Spirit,
+        /// <summary>Storm lightning (weather), drawn to steel.</summary>
+        Lightning,
     }
 
     public enum HitShapeType

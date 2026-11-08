@@ -145,11 +145,13 @@ namespace Shura
             }
         }
 
-        float KiMoveMult => Exhausted ? 0.6f : 1f;
+        float KiMoveMult => (Exhausted ? 0.6f : 1f) * world.MoveMultWorld;
         float KiDodgeDistance => (Stance == Kamae.Gedan ? 0.8f : 1f) * (HasWound(WoundRegion.Leg) ? 0.7f : 1f);
         int DodgeFrames => Mathf.Max(6, Mathf.RoundToInt(t.dodgeFrames * (Stance == Kamae.Gedan ? 0.8f : 1f)));
-        public float HealMult => (ShuraLevel >= 1 ? 0.8f : 1f) * (HasWound(WoundRegion.Torso) ? 0.5f : 1f) * (curseTime > 0f ? 0.5f : 1f) * (Build?.HealMultExtra ?? 1f);
-        public float KiLifesteal => ShuraLevel >= 2 ? 0.05f : 0f;
+        public float HealMult =>
+            (ShuraLevel >= 1 ? 0.8f : 1f) * (HasWound(WoundRegion.Torso) ? 0.5f : 1f) * (curseTime > 0f ? 0.5f : 1f) * (Build?.HealMultExtra ?? 1f) *
+            world.HealMultWorld * (Build != null && Build.Cursed(RunCurse.NoHeal) ? 0f : 1f);
+        public float KiLifesteal => (ShuraLevel >= 2 ? 0.05f : 0f) * world.LifestealMultWorld + (world.LifestealMultWorld > 1f ? 0.04f : 0f);
         bool PostureUnbreakable => ShuraLevel >= 3 || InAsura;
         /// <summary>This duelist no longer sees timing rings (Frenzy, Mushin, eyes wound).</summary>
         public bool RingsHidden => ShuraLevel >= 3 || InMushin || RingHiddenFrames > 0 || InAsura;
@@ -180,6 +182,12 @@ namespace Shura
             {
                 curseTime -= SimClock.Dt;
                 if (StateFrame % 20 == 0 && Health > 1f) Health = Mathf.Max(1f, Health - 1f);
+            }
+            // The Muramasa and the "restless" curse feed the Shura on their own.
+            if (Build != null && world.ActiveEnemyCount > 0)
+            {
+                if (Build.Muramasa) AddShura(1.2f * SimClock.Dt);
+                if (Build.Cursed(RunCurse.Restless)) AddShura(1f * SimClock.Dt);
             }
 
             int k = input.TakeKamae();
@@ -731,7 +739,46 @@ namespace Shura
             CycleFramesLeft = 0;
             eloChain = 0;
             curseTime = 0f;
-            if (Build != null) Build.FirstWoundIgnored = false;
+            if (Build != null)
+            {
+                Build.FirstWoundIgnored = false;
+                Stance = Build.DefaultStance;
+            }
+        }
+
+        // ── Shrines, onsen and gifts ──────────────────────────────────────────────────
+
+        public void ClearWounds()
+        {
+            for (int i = 0; i < wounds.Length; i++) wounds[i] = false;
+            RingHiddenFrames = 0;
+        }
+
+        public void RestoreBreath()
+        {
+            Stamina = MaxStamina;
+            ExhaustedFrames = 0;
+        }
+
+        /// <summary>The onsen: the mind goes quiet (Flow and Shura back to zero).</summary>
+        public void EmptyMind()
+        {
+            if (Build == null) return;
+            Build.Shura = 0f;
+            Build.Flow.Reset();
+            InMushin = false;
+        }
+
+        /// <summary>The corrupted mist: breath drains away.</summary>
+        public void DrainBreath(float amount)
+        {
+            Stamina = Mathf.Max(0f, Stamina - amount);
+            if (Stamina <= 0f && !Exhausted) ExhaustedFrames = ExhaustionFrames;
+        }
+
+        public void GainSip()
+        {
+            Sips++;
         }
 
         /// <summary>Taking a hit ends Mushin and the Link chain, and wounds.</summary>

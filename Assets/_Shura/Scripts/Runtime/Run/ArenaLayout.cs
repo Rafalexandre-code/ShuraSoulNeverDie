@@ -127,6 +127,28 @@ namespace Shura
             fields.Clear();
         }
 
+        /// <summary>Props that stand and fall (bamboo, shōji, statues): blocked cells that can open again.</summary>
+        public void SetBlocked(int x, int y, bool blocked)
+        {
+            if (x < 0 || y < 0 || x >= W || y >= H) return;
+            if (pit != null && pit[y * W + x]) return;
+            floor[y * W + x] = !blocked;
+            fields.Clear();
+        }
+
+        /// <summary>A floor cell away from walls (all eight neighbours are floor).</summary>
+        public bool IsOpen(int x, int y)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (!IsFloor(x + dx, y + dy)) return false;
+                }
+            }
+            return true;
+        }
+
         public Vector2Int CellAt(Vector2 p) => new Vector2Int(Mathf.FloorToInt(p.x - Origin.x), Mathf.FloorToInt(p.y - Origin.y));
 
         public bool IsFloorAt(Vector2 p)

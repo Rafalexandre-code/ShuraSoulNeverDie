@@ -65,6 +65,49 @@ namespace Shura
         public bool IgnoreFirstWound;
         public bool FirstWoundIgnored;
 
+        // ── The road (design doc §6) ────────────────────────────────────────────────
+        /// <summary>Mon: the run's coin, spent at merchants, smiths, beggars and dice.</summary>
+        public int Mon;
+        /// <summary>A curse from a cursed treasure or a poisoned cup, and the rooms it still lasts.</summary>
+        public RunCurse Curse;
+        public int CurseRooms;
+        /// <summary>The Muramasa blade: much more damage, and the Shura rises on its own.</summary>
+        public bool Muramasa;
+        /// <summary>The wandering smith's whetstone (+damage for the run).</summary>
+        public float Sharpened;
+        /// <summary>A duel of honour: no techniques, no items while it lasts.</summary>
+        public bool HonorBound;
+        /// <summary>The guard taken at the start of every room (changed at shrines).</summary>
+        public Kamae DefaultStance = Kamae.Chudan;
+
+        public bool Cursed(RunCurse c) => CurseRooms > 0 && Curse == c;
+
+        public void ApplyCurse(RunCurse c, int rooms)
+        {
+            Curse = c;
+            CurseRooms = rooms;
+            RecomputeModifiers();
+        }
+
+        /// <summary>A room was cleared: curses wear off one room at a time.</summary>
+        public void TickCurse()
+        {
+            if (CurseRooms <= 0) return;
+            if (--CurseRooms == 0) Curse = RunCurse.None;
+            RecomputeModifiers();
+        }
+
+        /// <summary>A reward card taken: items go to the slots or the bag, the rest is owned.</summary>
+        public void Grant(RewardDef reward)
+        {
+            if (reward is Item item)
+            {
+                AddItem(item);
+                return;
+            }
+            Acquire(reward);
+        }
+
         public PlayerBuild(RunState owner, SeededRandom rng, FlowTuning flow)
         {
             run = owner;
@@ -164,7 +207,13 @@ namespace Shura
             m.maxHealthBonus += DifficultyRules.AscensionHealth * ascension;
             m.maxPostureBonus += DifficultyRules.AscensionPosture * ascension;
             m.damageMult *= 1f + DifficultyRules.AscensionDamage * ascension;
+            // A duel of honour: only the blade and the hand that holds it.
+            if (HonorBound) Effects.Clear();
             for (int i = 0; i < Effects.Count; i++) Effects[i].Apply(m);
+            if (Muramasa) m.damageMult *= 1.35f;
+            m.damageMult *= 1f + Sharpened;
+            if (Cursed(RunCurse.Fragile)) m.damageTakenMult *= 1.3f;
+            if (Cursed(RunCurse.Clumsy)) m.dodgeChargeBonus -= 1;
             Modifiers = m;
         }
 
@@ -173,6 +222,57 @@ namespace Shura
         /// mastering an enemy. From depth 2 one slot is a Blessing; remaining slots are seeded
         /// relics this player doesn't own yet, and Blessings fill in once the relics run out.
         /// </summary>
+        /// <summary>The door's symbol tilts the draw: all relics, all blessings, or an item among them.</summary>
+        public List<RewardDef> RollChoices(int count, int depth, RewardHint hint)
+        {
+            List<RewardDef> choices = RollChoices(count, depth);
+            switch (hint)
+            {
+                case RewardHint.Relic:
+                {
+                    // Blessings give way to relics this player does not own.
+                    var pool = new List<string>();
+                    foreach (string id in RewardIds.Relics)
+                    {
+                        bool offered = false;
+                        foreach (RewardDef c in choices) offered |= c.Id == id;
+                        if (!Owns(id) && !offered) pool.Add(id);
+                    }
+                    for (int i = 0; i < choices.Count && pool.Count > 0; i++)
+                    {
+                        if (choices[i].Kind != RewardKind.Blessing) continue;
+                        int k = Rng.Range(0, pool.Count);
+                        RewardDef r = RewardRegistry.Create(pool[k]);
+                        pool.RemoveAt(k);
+                        if (r != null) choices[i] = r;
+                    }
+                    break;
+                }
+                case RewardHint.Blessing:
+                {
+                    var blessings = new List<string>(RewardIds.Blessings);
+                    for (int i = 0; i < choices.Count && blessings.Count > 0; i++)
+                    {
+                        if (choices[i].Kind != RewardKind.Relic) continue;
+                        int k = Rng.Range(0, blessings.Count);
+                        RewardDef b = RewardRegistry.Create(blessings[k]);
+                        blessings.RemoveAt(k);
+                        if (b != null) choices[i] = b;
+                    }
+                    break;
+                }
+                case RewardHint.Item:
+                {
+                    // An item card (a notch better than a floor drop) takes the last slot.
+                    Item item = ItemGenerator.Roll(Rng, depth + 3, false);
+                    if (choices.Count > 0 && choices[choices.Count - 1].Kind != RewardKind.Technique) choices[choices.Count - 1] = item;
+                    else choices.Add(item);
+                    break;
+                }
+            }
+            return choices;
+        }
+
         public List<RewardDef> RollChoices(int count, int depth = 0)
         {
             var choices = new List<RewardDef>();

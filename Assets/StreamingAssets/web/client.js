@@ -379,6 +379,8 @@ function connect() {
         setStatus("");
         break;
       case "rewards": showRewards(m.list || []); break;
+      case "route": showRoute(m); break;
+      case "routed": hideRoute(); break;
       case "picked": hideRewards(); toast("Obtido: " + m.n, GOLD); break;
       case "inv": renderInventory(m); break;
       case "toast": toast(m.text, m.c); break;
@@ -468,6 +470,7 @@ addEventListener("keydown", (e) => {
     return;
   }
   if (S.rewards && ["1", "2", "3", "4"].includes(k)) { pickReward(parseInt(k, 10) - 1); return; }
+  if (S.route && ["1", "2", "3"].includes(k)) { voteRoute(parseInt(k, 10) - 1); return; }
   if (S.menuOpen || S.rewards || S.roomShown || document.activeElement === nameInput) return;
   if (!keys.has(k)) {
     if (k === " " || k === "l") S.input.dod++;
@@ -787,6 +790,8 @@ function draw(dt, now, real) {
   }
   // Floor stains.
   for (const s of S.stains) circle(s.x, s.y, s.r, null, rgba(s.c, 0.55));
+  drawZones(b, now);
+  for (const pr of b.PR || []) if (pr[0] === 3 || pr[0] === 4) drawProp(pr, now);
   drawTraps(b, room, now);
   drawBlasts(b, now);
 
@@ -827,8 +832,11 @@ function draw(dt, now, real) {
   const things = [];
   for (const p of P) things.push({ y: p[4], kind: "p", d: p });
   for (const e of E) things.push({ y: e[3], kind: "e", d: e });
-  for (const l of room.lan || []) things.push({ y: l[1], kind: "lan", d: l });
-  for (const s of room.sta || []) things.push({ y: s[1], kind: "sta", d: s });
+  const brokenL = b.LB || [], brokenS = b.SB || [];
+  (room.lan || []).forEach((l, i) => { if (!brokenL.includes(i)) things.push({ y: l[1], kind: "lan", d: l }); });
+  (room.sta || []).forEach((s, i) => { if (!brokenS.includes(i)) things.push({ y: s[1], kind: "sta", d: s }); });
+  for (const pr of b.PR || []) if (pr[0] <= 2) things.push({ y: pr[2], kind: "prop", d: pr });
+  for (const o of b.O || []) things.push({ y: o[1], kind: "off", d: o });
   things.sort((u, v) => v.y - u.y);
   for (const th of things) if (th.kind === "p" || th.kind === "e") {
     const d = th.d; const x = th.kind === "p" ? d[3] : d[2]; const y = th.kind === "p" ? d[4] : d[3];
@@ -841,6 +849,8 @@ function draw(dt, now, real) {
     if (th.kind === "p") drawPlayer(d);
     else if (th.kind === "e") drawEnemy(d);
     else if (th.kind === "lan") drawLantern(d, room, now);
+    else if (th.kind === "prop") drawProp(d, now);
+    else if (th.kind === "off") drawOffering(d);
     else drawStatue(d, room);
   }
 
@@ -863,6 +873,8 @@ function draw(dt, now, real) {
   for (const e of E) drawEnemyOverlay(e);
   for (const p of P) drawPlayerOverlay(p, b);
   drawEffects(real);
+  drawEnvironment(b, now);
+  for (const o of b.O || []) drawOfferingLabel(o);
 
   if (S.flash > 0) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -895,8 +907,18 @@ function drawPlayer(p) {
   if (isMe) circle(p[3], p[4] - 0.2, 0.55, rgba(GOLD, 0.35), null, 2);
 }
 
+function fogAlpha(x, y) {
+  const env = S.last && S.last.env, me = myPlayer();
+  if (!env || !(env[5] > 0) || !me) return 1;
+  return Math.max(0, Math.min(1, 1 - (Math.hypot(x - me.x, y - me.y) - env[5]) / 2));
+}
 function drawEnemy(e) {
-  drawFighter(e[1], e[2], e[3], e[8], e[7], e[4], e[5], e[6], e[14], e[15], e[16]);
+  const fog = fogAlpha(e[2], e[3]);
+  if (fog <= 0.01) return;
+  ctx.globalAlpha = fog;
+  if (e[39]) circle(e[2], e[3], 0.55, null, "rgba(160,215,255,.45)");
+  ctx.globalAlpha = 1;
+  drawFighter(e[1], e[2], e[3], e[8], e[7], e[4], e[5], e[6], e[40] ? 0.4 : e[14], e[40] ? DANGER : e[15], e[16] * fog);
   if (e[12] && !e[32]) drawWeapon(e[13], e[2], e[3], e[9], e[10], e[11], e[16]);
 }
 
@@ -999,7 +1021,9 @@ function ringVisible(e) {
   const me = myPlayer();
   if (!me) return true;
   const raw = me.raw;
-  if (raw[50] === 1) return false;
+  if (raw[50] === 1 || raw[57] === 1) return false;
+  const env = S.last && S.last.env;
+  if (env && env[4] > 0 && Math.hypot(e[2] - me.x, e[3] - me.y) > env[4]) return false;
   if (e[35] === 1 && Math.hypot(e[2] - me.x, e[3] - me.y) > 3) return false;
   return true;
 }
@@ -1028,8 +1052,13 @@ function drawEnemyOverlay(e) {
   if (e[34] > 0 && !e[32]) {
     for (let i = 0; i < e[34]; i++) circle(x - 0.36 + i * 0.18, y + e[8] + e[7] * 1.05 + 0.55, 0.06, null, GOLD);
   }
-  if (e[32] || e[16] < 0.05 || e[5] === 3) return;
+  if (e[32] || e[16] < 0.05 || e[5] === 3 || fogAlpha(x, y) < 0.3) return;
   const top = y + e[8] + e[7] * 1.05 + 0.25;
+  if (e[38]) {
+    ctx.font = Math.round(PPU * 0.24) + "px SpectralBold, serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#9bd39b"; ctx.fillText("RONIN ALIADO", sx(x), sy(top + 0.3));
+  }
   drawBar(x, top, 1.3, e[17], "#c8553d");
   drawBar(x, top - 0.14, 1.3, e[18], e[20] ? GOLD : "#e9a35a");
   if (e[19]) circle(x, y, 1.4 * e[7], rgba(GOLD, 0.3), null, 2);
@@ -1181,6 +1210,8 @@ function updateHud() {
     const wm = me[43] || 0, parts = [];
     for (let i = 0; i < 4; i++) if (wm & (1 << i)) parts.push(WOUND_NAMES[i]);
     $("wounds").textContent = parts.length ? "Ferido: " + parts.join(", ") + " · bandagens " + (me[53] || 0) : (me[52] > 0 ? "CARGA " + me[52] : "");
+    $("purse").textContent = (me[54] || 0) + " Mon" + (me[55] ? "  ·  " + me[55] + " (" + me[56] + ")" : "");
+    $("purse").classList.toggle("cursed", !!me[55]);
     // Mushin: the interface fades away.
     document.getElementById("hud").classList.toggle("mushin", me[44] === 1);
   }
@@ -1193,6 +1224,28 @@ function updateHud() {
   }
   $("room").textContent = s.room || "";
   $("wave").textContent = s.wave || "";
+  const env = s.env;
+  if (env) {
+    const parts = [];
+    if (env[12] !== 0) parts.push(env[13]);
+    parts.push(env[9]);
+    if (env[0] !== 0) parts.push(env[8]);
+    if (env[11] > 1) parts.push("Kalpa " + ROMAN[env[11] - 1]);
+    $("envLine").textContent = parts.join("  ·  ");
+    $("ruleLine").textContent = env[10];
+  } else { $("envLine").textContent = ""; $("ruleLine").textContent = ""; }
+  const ch = s.ch;
+  $("challenge").textContent = ch ? (ch[1] ? "DESAFIO PERDIDO" : "DESAFIO: " + ch[0] + (ch[2] > 0 ? "  ·  " + Math.ceil(ch[2]) + " s" : "")) : "";
+  $("challenge").classList.toggle("failed", !!(ch && ch[1]));
+  const enc = s.enc;
+  $("encBanner").style.display = enc ? "block" : "none";
+  if (enc) { $("encTitle").textContent = enc[0]; $("encText").textContent = enc[1]; }
+  if (S.route && s.rt) {
+    $("routeTimer").textContent = "Cada um vota (teclas 1–" + S.route.o.length + " ou clique). Empate: decide o anfitrião · " + s.rt[0] + " s";
+    S.route.o.forEach((_, i) => { const v = document.getElementById("rv" + i); if (v) v.textContent = "●".repeat(s.rt[i + 1] || 0); });
+  }
+  // The scroll closes when the host says so ("routed"), or if play has clearly resumed.
+  if (S.route && s.m === "play" && performance.now() - S.routeAt > 2000) hideRoute();
   let f = "";
   const fl = me ? me[29] || 0 : 0, fp = me ? me[30] || 0 : 0, st = me ? me[31] || 0 : 0;
   for (let i = 0; i < 3; i++) f += '<b class="' + (fl > i ? "on" : "") + '"></b>';
@@ -1232,6 +1285,170 @@ function updateHud() {
   $("center").style.display = title ? "block" : "none";
 }
 const KAMAE_NAMES = ["JŌDAN", "CHŪDAN", "GEDAN", "WAKI"];
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+
+// ── The road: route map, zones, props, offerings, light and weather ────────────────
+function showRoute(m) {
+  S.route = m;
+  S.routeAt = performance.now();
+  const box = document.getElementById("routeCards");
+  box.innerHTML = "";
+  m.o.forEach((n, i) => {
+    const d = document.createElement("div");
+    d.className = "door";
+    d.style.borderColor = n[4];
+    d.innerHTML = '<span class="key">' + (i + 1) + '</span><div class="glyph" style="color:' + (n[0] === 0 ? "#1c1a20" : n[4]) + '">' + escapeHtml(n[1]) + '</div>' +
+      '<div class="nm">' + escapeHtml(n[2]) + '</div><div class="g">' + escapeHtml(n[3]) + '</div><div class="votes" id="rv' + i + '"></div>';
+    d.onclick = () => voteRoute(i);
+    box.appendChild(d);
+  });
+  const ahead = document.getElementById("routeAhead");
+  ahead.innerHTML = (m.ahead || []).map((layer) => '<div class="layer">' + layer.map((n) =>
+    '<span style="border-color:' + n[4] + '">' + escapeHtml(n[2].split(" · ")[0]) + "</span>").join("") + "</div>").join("");
+  document.getElementById("route").hidden = false;
+  hideRewards();
+  closeMenu();
+}
+function voteRoute(i) {
+  if (!S.route || i < 0 || i >= S.route.o.length) return;
+  send({ t: "vote", i });
+  document.querySelectorAll("#routeCards .door").forEach((d, k) => d.classList.toggle("chosen", k === i));
+}
+function hideRoute() { S.route = null; document.getElementById("route").hidden = true; }
+
+const ZONE_COLORS = ["#b8d46a", "#8e0f1e", "#8e44ad", "#ff8c2b", "#cfefff"];
+function drawZones(snap, now) {
+  for (const z of snap.Z || []) {
+    const [k, x, y, r] = z;
+    const flick = k === 3 ? 0.25 + 0.1 * Math.sin(now / 90 + x) : 0;
+    const a = k === 1 ? 0.7 : k === 2 ? 0.3 : k === 4 ? 0.3 : 0.38;
+    const g = ctx.createRadialGradient(sx(x), sy(y), 0, sx(x), sy(y), r * PPU * 1.2);
+    g.addColorStop(0, rgba(ZONE_COLORS[k], a + flick)); g.addColorStop(1, rgba(ZONE_COLORS[k], 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(sx(x) - r * PPU * 1.2, sy(y) - r * PPU * 1.2, r * PPU * 2.4, r * PPU * 2.4);
+  }
+}
+function drawProp(pr, now) {
+  const [k, x, y, ang] = pr;
+  ctx.save();
+  if (k === 0) {
+    // Bamboo: three stalks with knots.
+    for (let i = 0; i < 3; i++) {
+      const ox = (i - 1) * 0.28, h = 1.3 + 0.25 * (i % 2);
+      ctx.fillStyle = "#5c8a34"; ctx.fillRect(sx(x + ox) - PPU * 0.07, sy(y - 0.45 + h), PPU * 0.14, h * PPU);
+      ctx.fillStyle = "#a7d46a";
+      for (let j = 1; j < 4; j++) ctx.fillRect(sx(x + ox) - PPU * 0.08, sy(y - 0.45 + j * h / 4), PPU * 0.16, PPU * 0.04);
+    }
+  } else if (k === 1) {
+    ctx.fillStyle = "rgba(241,232,214,.92)"; ctx.fillRect(sx(x - 0.5), sy(y + 0.85), PPU, PPU * 1.35);
+    ctx.strokeStyle = "#6b4a2b"; ctx.lineWidth = Math.max(1, PPU * 0.05);
+    ctx.strokeRect(sx(x - 0.5), sy(y + 0.85), PPU, PPU * 1.35);
+    for (let j = 1; j < 4; j++) { ctx.beginPath(); ctx.moveTo(sx(x - 0.5), sy(y + 0.85 - j * 0.34)); ctx.lineTo(sx(x + 0.5), sy(y + 0.85 - j * 0.34)); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(sx(x), sy(y + 0.85)); ctx.lineTo(sx(x), sy(y - 0.5)); ctx.stroke();
+  } else if (k === 2) {
+    const g = img("art/tiles_dungeon.png");
+    const glow = ctx.createRadialGradient(sx(x), sy(y + 0.3), 0, sx(x), sy(y + 0.3), PPU);
+    glow.addColorStop(0, "rgba(217,166,255,.6)"); glow.addColorStop(1, "rgba(217,166,255,0)");
+    ctx.fillStyle = glow; ctx.fillRect(sx(x) - PPU, sy(y + 0.3) - PPU, PPU * 2, PPU * 2);
+    if (g) ctx.drawImage(g.img, 32, 32, 16, 16, sx(x) - PPU / 2, sy(y + 0.6), PPU, PPU);
+  } else if (k === 3) {
+    ctx.fillStyle = "#050409"; ctx.fillRect(sx(x - 0.5), sy(y + 0.5), PPU, PPU);
+    ctx.fillStyle = "#332c44"; ctx.fillRect(sx(x - 0.5), sy(y + 0.5), PPU, PPU * 0.12);
+  } else if (k === 4) {
+    ctx.translate(sx(x), sy(y)); ctx.rotate(-ang * Math.PI / 180);
+    ctx.fillStyle = "#6e9c40"; ctx.fillRect(-PPU * 1.25, -PPU * 0.08, PPU * 2.5, PPU * 0.16);
+  }
+  ctx.restore();
+}
+function drawOffering(o) {
+  const [x, y, sheet, tx, ty, tw, th, ch] = o;
+  const exit = o[13] === 1;
+  ctx.save();
+  ctx.globalAlpha = o[12] === 1 && !exit ? 0.45 : 1;
+  circle(x, y, exit ? 1.6 : 0.8, rgba(o[14], 0.55), null, 2);
+  if (ch) drawFighter(ch, x, y, -0.228, 1, 0, 0, 0, 0, "#000000", ctx.globalAlpha);
+  else if (sheet) {
+    const g = img("art/" + sheet + ".png");
+    if (g) {
+      const w = tw * PPU, h = th * PPU;
+      ctx.drawImage(g.img, tx * 16, ty * 16, tw * 16, th * 16, sx(x) - w / 2, sy(y - (exit ? 0.6 : 0.3)) - h, w, h);
+    }
+  }
+  ctx.restore();
+}
+function drawOfferingLabel(o) {
+  const [x, y] = o;
+  const exit = o[13] === 1, me = myPlayer();
+  const used = (o[15] || []).includes(S.myId) && o[16] !== 1;
+  const off = o[12] === 1 || used;
+  const ly = y + (exit ? 2.6 : 1.9);
+  ctx.font = Math.round(PPU * 0.3) + "px SpectralBold, serif";
+  ctx.textAlign = "center";
+  const title = o[8] + (o[10] > 0 ? "  ·  " + o[10] + " Mon" : "");
+  ctx.fillStyle = "rgba(0,0,0,.75)"; ctx.fillText(title, sx(x) + 2, sy(ly) + 2);
+  ctx.fillStyle = off ? "rgba(200,190,180,.55)" : o[14]; ctx.fillText(title, sx(x), sy(ly));
+  const near = me && Math.hypot(me.x - x, me.y - y) <= (exit ? 1.8 : 1.1);
+  if (near && o[9]) {
+    ctx.font = Math.round(PPU * 0.24) + "px Spectral, serif";
+    const text = o[9] + (!off && !exit ? "  (segure E)" : "");
+    const w = Math.min(PPU * 9, ctx.measureText(text).width + PPU * 0.6);
+    ctx.fillStyle = "rgba(14,13,19,.85)"; ctx.fillRect(sx(x) - w / 2, sy(ly + 0.75), w, PPU * 0.5);
+    ctx.fillStyle = "#ede6d6"; ctx.fillText(text, sx(x), sy(ly + 0.4), PPU * 8.8);
+  }
+  if (o[11] > 0) drawBar(x, ly - 0.25, 1.2, Math.min(1, o[11]), GOLD);
+}
+let holeCanvas = null;
+function drawEnvironment(snap, now) {
+  const env = snap.env;
+  if (!env) return;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const tints = [null, "rgba(255,190,100,.05)", "rgba(240,115,64,.12)", "rgba(13,20,64,.3)", "rgba(255,153,190,.08)"];
+  if (tints[env[1]]) { ctx.fillStyle = tints[env[1]]; ctx.fillRect(0, 0, W, H); }
+  if (env[5] > 0) {
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.2, W / 2, H / 2, Math.max(W, H) * 0.7);
+    g.addColorStop(0, "rgba(190,200,210,0)"); g.addColorStop(1, "rgba(190,200,210,.55)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  const me = myPlayer();
+  if (env[3] > 0 && me) {
+    const cx = sx(me.x), cy = sy(me.y), r = env[3] * PPU;
+    const g = ctx.createRadialGradient(cx, cy, r * 0.55, cx, cy, r);
+    g.addColorStop(0, "rgba(0,0,5,0)"); g.addColorStop(1, "rgba(0,0,5,.94)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "rgba(0,0,5,.94)";
+    ctx.fillRect(0, 0, W, Math.max(0, cy - r)); ctx.fillRect(0, cy + r, W, H);
+    ctx.fillRect(0, cy - r, Math.max(0, cx - r), r * 2); ctx.fillRect(cx + r, cy - r, W, r * 2);
+  }
+  const t = now / 1000, w = env[0];
+  const hash = (i) => { let x = Math.imul(i, 2654435761) >>> 0; x ^= x >>> 13; x = Math.imul(x, 0x5bd1e995) >>> 0; x ^= x >>> 15; return (x & 0xffffff) / 16777216; };
+  if (w === 1 || w === 4) {
+    ctx.fillStyle = "rgba(190,215,255,.35)";
+    const n = w === 4 ? 140 : 90;
+    for (let i = 0; i < n; i++) {
+      const x = ((hash(i * 7 + 1) * W + t * 180) % W + W) % W, y = ((hash(i * 13 + 5) * H + t * 1500) % H + H) % H;
+      ctx.fillRect(x, y, 2, 26);
+    }
+    if (w === 4 && (t % 7) < 0.08) { ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(0, 0, W, H); }
+  } else if (w === 5) {
+    ctx.fillStyle = "rgba(255,255,255,.7)";
+    for (let i = 0; i < 110; i++) {
+      const h1 = hash(i * 11 + 3), h2 = hash(i * 17 + 9);
+      const x = ((h1 * W + Math.sin(t + i) * 30) % W + W) % W, y = ((h2 * H + t * 90 * (0.6 + h1)) % H + H) % H;
+      ctx.beginPath(); ctx.arc(x, y, 1.5 + 2 * h2, 0, Math.PI * 2); ctx.fill();
+    }
+  } else if (w === 2) {
+    ctx.fillStyle = "rgba(201,166,107,.75)";
+    for (let i = 0; i < 40; i++) {
+      const x = ((hash(i * 5 + 2) * W + env[6] * t * 420) % W + W) % W;
+      const y = ((hash(i * 19 + 4) * H - env[7] * t * 420 + Math.sin(t * 3 + i) * 12) % H + H) % H;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(t * 3 + i); ctx.fillRect(-6, -3, 12, 6); ctx.restore();
+    }
+  } else if (w === 6) {
+    ctx.fillStyle = "rgba(153,13,20,.06)"; ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+}
 const TOOL_NAMES = ["Shuriken", "Bomba de fumaça", "Sino de bronze", "Petardo", "Óleo", "Corrente com gancho"];
 const WOUND_NAMES = ["braço", "perna", "tronco", "olhos"];
 const SHURA_NAMES = ["", "IRA", "SEDE", "FRENESI", "QUEDA NO SHURADŌ"];

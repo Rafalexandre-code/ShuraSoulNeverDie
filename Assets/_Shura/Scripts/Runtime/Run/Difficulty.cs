@@ -9,9 +9,15 @@ namespace Shura
     /// </summary>
     public static class DifficultyRules
     {
-        public static float EnemyHealthMult(int depth) => 1f + 0.08f * depth;
-        public static float EnemyPostureMult(int depth) => 1f + 0.06f * depth;
-        public static float EnemyDamageMult(int depth) => 1f + 0.05f * depth;
+        /// <summary>
+        /// Past the first Kalpa the numbers climb more slowly (the new rules carry the
+        /// difficulty instead): each room beyond 25 counts as 0.6 of a room.
+        /// </summary>
+        public static float ScalingDepth(int depth) => depth <= RouteMap.KalpaLength ? depth : RouteMap.KalpaLength + (depth - RouteMap.KalpaLength) * 0.6f;
+
+        public static float EnemyHealthMult(int depth) => 1f + 0.08f * ScalingDepth(depth);
+        public static float EnemyPostureMult(int depth) => 1f + 0.06f * ScalingDepth(depth);
+        public static float EnemyDamageMult(int depth) => 1f + 0.05f * ScalingDepth(depth);
         /// <summary>Shorter pauses between attacks (never below 55%).</summary>
         public static float EnemyIdleMult(int depth) => Mathf.Max(0.55f, 1f - 0.03f * depth);
         public static int AttackGapFrames(int baseGap, int depth) => Mathf.Max(8, baseGap - depth);

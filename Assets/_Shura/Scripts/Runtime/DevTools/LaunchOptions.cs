@@ -22,6 +22,11 @@ namespace Shura
         /// <summary>Automated runs only: "-shuraWeapons katana,montante".</summary>
         public string WeaponA;
         public string WeaponB;
+        /// <summary>Automated runs only: "-shuraRoomKind Merchant" opens on that kind of door; "-shuraEvent 3" picks the event.</summary>
+        public string RoomKind;
+        public int EventId = -1;
+        /// <summary>Automated runs only: "-shuraWeather Storm" forces the first room's weather.</summary>
+        public string Weather;
 
         /// <summary>"-shuraHost N": open the online room and start once N browser players joined (or after 40 s).</summary>
         public bool Host;
@@ -46,6 +51,16 @@ namespace Shura
                     case "-shuraShots":
                         if (i + 1 < args.Length) options.ShotDir = args[++i];
                         options.Bot = true;
+                        break;
+                    case "-shuraRoomKind":
+                        if (i + 1 < args.Length) options.RoomKind = args[++i];
+                        break;
+                    case "-shuraEvent":
+                        if (i + 1 < args.Length && int.TryParse(args[i + 1], out int ev)) options.EventId = ev;
+                        i++;
+                        break;
+                    case "-shuraWeather":
+                        if (i + 1 < args.Length) options.Weather = args[++i];
                         break;
                     case "-shuraStartDepth":
                         if (i + 1 < args.Length && int.TryParse(args[i + 1], out int start)) options.StartDepth = start;

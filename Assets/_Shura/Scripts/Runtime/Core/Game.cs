@@ -28,6 +28,8 @@ namespace Shura
             Equipment,
             /// <summary>Online room: browser players join through the links shown here.</summary>
             Lobby,
+            /// <summary>The route map between rooms: choose (or vote for) the next door.</summary>
+            Route,
         }
 
         const int RoomClearDelayFrames = 75;
@@ -84,6 +86,28 @@ namespace Shura
         public IReadOnlyList<RewardDef> RewardChoices => rewardChoices;
         /// <summary>The host has picked; the room waits for teammates still choosing theirs.</summary>
         public bool WaitingForParty => CurrentMode == Mode.Reward && hostPicked;
+        /// <summary>Reward cards the host still takes this room (a dispute gives two).</summary>
+        public int HostPicksLeft { get; private set; } = 1;
+
+        // ── Route map ─────────────────────────────────────────────────────────────────
+        readonly List<RouteNode> routeOptions = new List<RouteNode>();
+        /// <summary>Votes by voter (-1 the host, otherwise a browser player's id).</summary>
+        readonly Dictionary<int, int> routeVotes = new Dictionary<int, int>();
+        float routeStart;
+        const float RouteSeconds = 25f;
+        public IReadOnlyList<RouteNode> RouteOptions => routeOptions;
+        public float RouteTimeLeft => Mathf.Max(0f, RouteSeconds - (Time.unscaledTime - routeStart));
+        public int HostRouteVote => routeVotes.TryGetValue(-1, out int v) ? v : -1;
+
+        public int RouteVotesFor(int option)
+        {
+            int n = 0;
+            foreach (int v in routeVotes.Values)
+            {
+                if (v == option) n++;
+            }
+            return n;
+        }
         /// <summary>Seconds left before teammates who have not chosen get their first card.</summary>
         public float PartyRewardTimeLeft => Mathf.Max(0f, RewardWaitSeconds - (Time.unscaledTime - rewardWaitStart));
         bool hostPicked;
@@ -141,7 +165,7 @@ namespace Shura
             World.RoomClearedEvent += OnRoomCleared;
             World.PlayerDiedEvent += OnPlayerDied;
 
-            if (Launch.Bot) bot = new BotInput();
+            if (Launch.Bot) bot = new BotInput { EncounterLinger = Launch.ShotDir != null ? 150 : 0 };
             if (Launch.Automated) autoDriver = new AutoDriver(this);
 
             ApplySettings();
@@ -172,6 +196,9 @@ namespace Shura
                     break;
                 case Mode.Equipment:
                     if (Controls.EquipmentPressed) CloseEquipment();
+                    break;
+                case Mode.Route:
+                    TryResolveRoute();
                     break;
             }
 
@@ -269,7 +296,15 @@ namespace Shura
             for (int i = 0; i < startDepth; i++) Run.Ascend();
             Run.RoomIndex = startDepth;
             World.Player.ApplyStats(true);
-            World.StartRoom(Run.GetRoom(startDepth), startDepth == 0);
+            RoomDef first = Run.GetRoom(startDepth);
+            // Automated inspection: open on a chosen kind of door, event or weather.
+            if (Launch.Automated && startDepth > 0 && Enum.TryParse(Launch.RoomKind ?? "", out RoomKind kind))
+            {
+                first = Run.Choose(new RouteNode { depth = startDepth, column = 1, kind = kind, eventId = Launch.EventId, hint = RewardHint.Relic,
+                                                   challenge = kind == RoomKind.Challenge ? ChallengeKind.Timed : ChallengeKind.None });
+            }
+            if (Launch.Automated && Enum.TryParse(Launch.Weather ?? "", out Weather weather)) first.weather = weather;
+            World.StartRoom(first, startDepth == 0);
             announcedReadings.Clear();
             tempo = Config.feel.baseTempo;
             slowMoTimer = 0f;
@@ -407,7 +442,7 @@ namespace Shura
             if (CurrentMode != Mode.Reward || index < 0 || index >= rewardChoices.Count) return;
             RewardDef reward = rewardChoices[index];
             // The host's own build: teammates choose theirs in their browsers.
-            Run.Acquire(reward);
+            Run.Main.Grant(reward);
             World.Host.ApplyStats(false);
             if (reward.HealOnPick > 0f) World.Host.Heal(reward.HealOnPick);
             Color c = reward.Kind == RewardKind.Technique ? Config.palette.gold
@@ -415,6 +450,12 @@ namespace Shura
                     : Config.palette.playerAccent;
             UI.Toast(string.Format(Strings.Obtained, reward.Name), c);
             Audio.Play(Sfx.UiConfirm, 0.8f, 1f, 0f);
+            // A dispute: a second card from what is left.
+            if (--HostPicksLeft > 0 && rewardChoices.Count > 1)
+            {
+                rewardChoices.RemoveAt(index);
+                return;
+            }
             rewardChoices.Clear();
             hostPicked = true;
             rewardWaitStart = Time.unscaledTime;
@@ -431,6 +472,63 @@ namespace Shura
                 Net.AutoPickRemaining();
             }
             hostPicked = false;
+            OpenRoute();
+        }
+
+        // ── Route map ─────────────────────────────────────────────────────────────────
+
+        /// <summary>After a room: the doors ahead. One door means no choice.</summary>
+        void OpenRoute()
+        {
+            routeOptions.Clear();
+            routeOptions.AddRange(Run.NextDoors());
+            routeVotes.Clear();
+            if (routeOptions.Count <= 1)
+            {
+                ChooseRoute(0);
+                return;
+            }
+            routeStart = Time.unscaledTime;
+            if (Net.Active) Net.OfferRoute(routeOptions);
+            SetMode(Mode.Route);
+            World.HintOnce(HintId.Route);
+        }
+
+        /// <summary>A vote (the host's is -1). Solo, the host's vote decides at once.</summary>
+        public void VoteRoute(int voter, int option)
+        {
+            if (CurrentMode != Mode.Route || option < 0 || option >= routeOptions.Count) return;
+            routeVotes[voter] = option;
+            Audio.Play(Sfx.UiConfirm, 0.6f, 1.1f, 0f);
+            TryResolveRoute();
+        }
+
+        void TryResolveRoute()
+        {
+            if (CurrentMode != Mode.Route) return;
+            int voters = 1 + (Net.Active ? Net.JoinedCount : 0);
+            bool everyone = routeVotes.Count >= voters;
+            if (!everyone && RouteTimeLeft > 0f) return;
+            // The most votes win; a tie goes to the host's door (or the first of the tied).
+            int best = -1, bestVotes = -1;
+            for (int i = 0; i < routeOptions.Count; i++)
+            {
+                int v = RouteVotesFor(i);
+                bool hostTie = v == bestVotes && HostRouteVote == i;
+                if (v > bestVotes || hostTie)
+                {
+                    best = i;
+                    bestVotes = v;
+                }
+            }
+            ChooseRoute(Mathf.Max(0, best));
+        }
+
+        void ChooseRoute(int index)
+        {
+            RouteNode node = routeOptions.Count > 0 ? routeOptions[Mathf.Clamp(index, 0, routeOptions.Count - 1)] : RouteMap.Default(Run.Seed, Run.RoomIndex + 1);
+            Run.Choose(node);
+            if (Net.Active) Net.OnRouteChosen();
             NextRoom();
         }
 
@@ -549,6 +647,8 @@ namespace Shura
 
         void NextRoom()
         {
+            // A party that fell as the room was won stands up at the next one: no late game over.
+            deathTimer = -1;
             Run.RoomIndex++;
             RoomDef room = Run.GetRoom(Run.RoomIndex);
             World.StartRoom(room, false);
@@ -564,6 +664,11 @@ namespace Shura
         {
             Palette pal = Config.palette;
             UI.Toast(string.Format(Strings.ToastDepth, room.depth + 1), pal.uiText);
+            if (room.kind != RoomKind.Combat && room.kind != RoomKind.Guardian) UI.Toast(RouteMap.Describe(Run.CurrentNode ?? new RouteNode { kind = room.kind }), RouteMap.KindColor(room.kind));
+            if (room.depth % Biomes.RoomsPerBiome == 0) UI.Toast(room.biome.name + ": " + Biomes.RuleText(room.biome.rule), pal.uiText);
+            if (room.depth % 3 == 0) UI.Toast(Biomes.TimeName(room.time), pal.uiDim);
+            if (room.weather != Weather.Clear) UI.Toast(Biomes.WeatherName(room.weather) + ": " + Biomes.WeatherText(room.weather), pal.playerAccent);
+            if (room.corrupted) UI.Toast(Strings.ToastCorrupted, ColorUtil.Hex("#B06CFF"));
             foreach (string newcomer in RoomGenerator.NewEnemiesAt(room.depth))
             {
                 EnemyDef def = EnemyDefs.Get(newcomer);
@@ -580,6 +685,14 @@ namespace Shura
         void OnRoomCleared()
         {
             Run.RoomsCleared++;
+            bool fight = !World.CurrentRoom.IsEncounter;
+            foreach (PlayerController p in World.Players)
+            {
+                if (p.Build == null) continue;
+                p.Build.TickCurse();
+                if (fight) p.Build.Mon += 8 + Run.RoomIndex / 2;
+            }
+            if (Run.AllyRooms > 0) Run.AllyRooms--;
             // Ascension: the duelist grows with every room, so depth is a race, not a wall.
             Run.Ascend();
             float heal = Mathf.Max(0f, Config.player.healOnRoomClear + Run.Modifiers.roomClearHealBonus);
@@ -617,11 +730,20 @@ namespace Shura
 
         void AdvanceAfterRoom()
         {
+            // Encounters pay out inside the room: straight to the route map.
+            if (World.CurrentRoom.IsEncounter)
+            {
+                OpenRoute();
+                return;
+            }
             // Endless: there is always a next room. Every duelist chooses their own reward.
+            RoomDef room = World.CurrentRoom;
+            int picks = room.kind == RoomKind.Dispute ? 2 : 1;
+            HostPicksLeft = picks;
             rewardChoices.Clear();
-            rewardChoices.AddRange(Run.RollChoices(3 + Run.Modifiers.extraRewardChoices, Run.RoomIndex + 1));
+            rewardChoices.AddRange(Run.Main.RollChoices(3 + picks - 1 + Run.Modifiers.extraRewardChoices, Run.RoomIndex + 1, room.hint));
             hostPicked = false;
-            if (Net.Active) Net.OfferRewards(Run.RoomIndex + 1);
+            if (Net.Active) Net.OfferRewards(Run.RoomIndex + 1, room.hint, picks);
             if (rewardChoices.Count == 0)
             {
                 hostPicked = true;
@@ -632,7 +754,7 @@ namespace Shura
 
         void UpdateMusic()
         {
-            bool inRun = CurrentMode == Mode.Playing || CurrentMode == Mode.Paused || CurrentMode == Mode.Reward || CurrentMode == Mode.Equipment;
+            bool inRun = CurrentMode == Mode.Playing || CurrentMode == Mode.Paused || CurrentMode == Mode.Reward || CurrentMode == Mode.Equipment || CurrentMode == Mode.Route;
             bool menu = CurrentMode == Mode.Title || CurrentMode == Mode.MainMenu ||
                         CurrentMode == Mode.Settings || CurrentMode == Mode.Credits || CurrentMode == Mode.Altar || CurrentMode == Mode.Arsenal;
             int flow = Run != null ? Run.Flow.Level : 0;

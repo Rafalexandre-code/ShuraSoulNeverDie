@@ -72,7 +72,9 @@ divisão, fúria, cópias de sombra, raios de longo alcance com teleporte, roubo
 remontagem e fintas. Arte e efeitos do pacote Ninja Adventure (CC0); funciona no online.
 Todos aparecem até a profundidade 12. Correções: estátua-santuário que saía cortada ao meio;
 jatos de fogo agora têm placas de brasa no chão marcando o caminho da chama.
-**Falta:** técnicas absorvíveis para os 16 novos.
+Depois: os 16 novos ganharam técnicas absorvíveis (24 no total), e bombas/talismãs passaram a
+contar como esquiva perfeita para dominar a assinatura. Corrigido um travamento antigo das
+armadilhas quando um inimigo morria nelas durante a recarga.
 
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; shader de paleta unificando a pixel art; migração URP 2D; corredores

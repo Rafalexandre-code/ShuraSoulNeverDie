@@ -159,8 +159,31 @@ o chão, com pedaços do corpo conforme a arma. Opção **Sangue: Ligado/Desliga
 
 Lacaios (nunca aparecem sozinhos): Hitodama (fogo-fátuo que explode ao morrer), Lodo pequeno,
 cópia do Ninja do Trovão. Lacaios não deixam itens. Todos os 24 inimigos aparecem até a
-profundidade 12, dois novos por sala, cada um primeiro sozinho. Os 8 originais mantêm suas
-técnicas absorvíveis; os 16 novos ainda não têm técnica própria.
+profundidade 12, dois novos por sala, cada um primeiro sozinho.
+
+### Técnicas do bestiário
+Como os 8 originais, cada inimigo novo ensina uma técnica: domine o golpe-assinatura dele
+(a Resposta Perfeita) e finalize-o. Bombas e talismãs também se dominam: esquive através
+da explosão. Toda técnica tem um custo.
+
+| Inimigo | Técnica | Ganho | Custo |
+|---|---|---|---|
+| Kunoichi | Leque de Kunai | Parry perfeito lança 3 kunai (6 dano, 8 postura) | Parry perfeito -15% postura |
+| Bombardeiro | Pavio Curto | Esquivar deixa uma bomba (12/18), 1 a cada 3 s | -8 vida máx. |
+| Tengu | Saque Iai | 1 s sem atacar: próximo golpe +80% dano, 2x postura | 2º/3º golpe -15% dano |
+| Onmyōji | Selo Explosivo | Parry perfeito: selo explode sob o atacante (14/22) | Parry perfeito -20% postura |
+| Xamã Curandeira | Bênção da Xamã | Finalização cura 10 de todo o grupo e zera sua postura | -10% dano |
+| Chōchin-obake | Lanterna Viva | Todo inimigo que cai explode (12/18 nos outros) | +10% dano recebido |
+| Onryō | Corpo Etéreo | Após parry perfeito, nada te acerta por 0,5 s | Esquiva recarrega 25% mais devagar |
+| Kappa | Correnteza do Kappa | Esquiva perfeita devolve a carga e cura 4 | Esquivas 15% mais curtas |
+| Oni Ciclope | Golpe do Oni | 2x postura em inimigos encostados em parede/estátua | -8% velocidade |
+| Lodo Faminto | Fome do Lodo | Cada inimigo que cai cura 5 | -10 vida máx. |
+| Bárbaro | Fúria do Bárbaro | Abaixo de 50% de vida: +40% dano | Acima de 50%: -10% dano |
+| Ninja do Trovão | Cópia de Sombra | 3º golpe do combo repetido por uma sombra (8/10) | -8 vida máx. |
+| Olho Vigia | Piscar do Vigia | Esquiva perfeita te teleporta às costas do atacante | Esquiva recarrega 20% mais devagar |
+| Kyūketsuki | Sede de Sangue | Golpes curam 8% do dano; finalizações curam 12 | Cura de fim de sala -15 |
+| Gashadokuro | Ossos Teimosos | 1x por sala, golpe fatal deixa com 1 de vida | -15 vida máx. |
+| Macaco Boxeador | Contragolpe | Após bloquear: próximo golpe +50% dano, 2x postura | Bloquear desgasta 15% mais |
 
 **Choque de lâminas:** um parry perfeito **interrompe** o golpe — a arma do inimigo quica e ele
 fica aberto (14 f; 28 f se era o último golpe do combo). Combos continuam depois do quique,

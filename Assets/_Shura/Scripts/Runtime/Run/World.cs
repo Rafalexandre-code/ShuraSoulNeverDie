@@ -74,6 +74,8 @@ namespace Shura
         public BlastKind Kind;
         public bool HitsEnemies;
         public Enemy Owner;
+        /// <summary>Released by a signature move: dodging through it can master the thrower.</summary>
+        public bool Signature;
         public Color Color;
         public Transform Root;
         public SpriteRenderer Fill;
@@ -97,6 +99,7 @@ namespace Shura
             public float damage;
             public float posture;
             public Color color;
+            public bool explosion;
         }
 
         const float PickupRadius = 0.9f;
@@ -738,12 +741,12 @@ namespace Shura
             Strike(origin, direction, shape, damage, posture, null, true, false);
         }
 
-        public void ScheduleBurst(Vector2 position, int delayFrames, float radius, float damage, float posture, Color? color = null)
+        public void ScheduleBurst(Vector2 position, int delayFrames, float radius, float damage, float posture, Color? color = null, bool explosion = false)
         {
             bursts.Add(new Burst
             {
                 position = position, framesLeft = delayFrames, radius = radius, damage = damage, posture = posture,
-                color = color ?? Config.palette.playerAccent,
+                color = color ?? Config.palette.playerAccent, explosion = explosion,
             });
             Fx.Emit(FxType.Afterimage, position, Player.Facing, Player.Radius * 1.3f, Config.palette.gold);
         }
@@ -799,7 +802,7 @@ namespace Shura
                     continue;
                 }
                 bursts.RemoveAt(i);
-                Fx.Emit(FxType.Burst, b.position, Vector2.up, b.radius, b.color);
+                Fx.Emit(b.explosion ? FxType.Explosion : FxType.Burst, b.position, Vector2.up, b.radius, b.color);
                 Strike(b.position, Vector2.right, HitShape.Circle(b.radius), b.damage, b.posture, null, true, false);
             }
         }
@@ -822,7 +825,7 @@ namespace Shura
         /// unless they dodge through the blast; a dying lantern's blast hurts enemies as well.
         /// </summary>
         public void ScheduleEnemyBlast(Enemy owner, Vector2 position, float radius, int fuse, float damage, float posture,
-                                       BlastKind kind, bool hitsEnemies)
+                                       BlastKind kind, bool hitsEnemies, bool signature = false)
         {
             var go = new GameObject("Blast");
             go.transform.SetParent(root, false);
@@ -831,7 +834,7 @@ namespace Shura
             var b = new EnemyBlast
             {
                 Position = position, Radius = radius, Fuse = Mathf.Max(1, fuse), Damage = damage, Posture = posture, Kind = kind,
-                HitsEnemies = hitsEnemies, Owner = owner, Color = color, Root = go.transform,
+                HitsEnemies = hitsEnemies, Owner = owner, Signature = signature, Color = color, Root = go.transform,
                 Fill = SpriteUtil.Make("Fill", go.transform, ShapeLibrary.Get(Shape.SoftCircle), color.WithAlpha(0.2f), Sorting.Ground + 3),
                 Ring = SpriteUtil.Make("Ring", go.transform, ShapeLibrary.Get(Shape.Ring), color, Sorting.Ground + 4),
             };
@@ -855,7 +858,9 @@ namespace Shura
                     if (!p.IsAlive || Vector2.Distance(p.Position, b.Position) > b.Radius + p.Radius * 0.6f) continue;
                     Vector2 dir = p.Position - b.Position;
                     actor = p;
-                    p.ReceiveHazard(b.Damage, b.Posture, dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector2.up);
+                    bool dodged = p.ReceiveHazard(b.Damage, b.Posture, dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector2.up);
+                    // Dodging through a bomb or talisman as it goes off is a perfect dodge.
+                    if (dodged && b.Owner != null && !b.HitsEnemies) p.CreditPerfectDodge(b.Owner, b.Signature);
                     actor = null;
                 }
                 if (b.HitsEnemies)
@@ -1143,6 +1148,30 @@ namespace Shura
                 p.Art = attack.projectileArt;
                 p.Spin = attack.projectileArt != null && attack.projectileArt.Contains("shuriken") ? 900f : 0f;
             }
+        }
+
+        /// <summary>Every enemy death reaches the party's techniques (Lanterna Viva, Fome do Lodo).</summary>
+        public void NotifyKill(Enemy enemy)
+        {
+            if (Run == null) return;
+            for (int r = 0; r < Run.Effects.Count; r++) Run.Effects[r].OnKill(this, enemy);
+        }
+
+        /// <summary>A fan of player kunai (Leque de Kunai).</summary>
+        public void FirePlayerKunai(Vector2 origin, Vector2 direction, int count, float spread, float damage, float posture)
+        {
+            Sprite art = PixelArt.ProjectileSprite("fx_kunai");
+            for (int i = 0; i < count; i++)
+            {
+                float offset = count == 1 ? 0f : -spread * 0.5f + spread * i / (count - 1);
+                Vector2 dir = CombatMath.FromAngle(CombatMath.AngleDegrees(direction) + offset);
+                Projectile p = CreateProjectile(origin + dir * (Player.Radius + 0.3f), dir, 15f, 0.22f, Config.palette.playerAccent, art, 1f, false);
+                p.Reflected = true;
+                p.Damage = damage;
+                p.Posture = posture;
+                p.Art = "fx_kunai";
+            }
+            Fx.Emit(FxType.EnemySwing, origin, direction, 2f);
         }
 
         /// <summary>A player-owned arrow (Flecha Reflexa): flies like a reflected one.</summary>
@@ -1516,7 +1545,9 @@ namespace Shura
 
             public bool Equals(TrapHitKey other) => trap == other.trap && ReferenceEquals(who, other.who);
             public override bool Equals(object obj) => obj is TrapHitKey k && Equals(k);
-            public override int GetHashCode() => trap * 397 ^ (who != null ? who.GetHashCode() : 0);
+            // Reference hash: Unity's "== null" turns true once a fighter is destroyed, which would
+            // change the hash of a key already in the dictionary and lose it.
+            public override int GetHashCode() => trap * 397 ^ System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(who);
         }
 
         // ── Presentation & dev tools ────────────────────────────────────────────────────

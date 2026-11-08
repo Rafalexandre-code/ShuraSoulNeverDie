@@ -79,6 +79,42 @@ namespace Shura.Tests
         }
 
         [Test]
+        public void EveryEnemy_TeachesItsOwnTechnique()
+        {
+            var taught = new HashSet<string>();
+            foreach (EnemyDef d in EnemyDefs.All)
+            {
+                Assert.IsFalse(string.IsNullOrEmpty(d.techniqueId), d.id + " has no technique to absorb");
+                Assert.IsTrue(taught.Add(d.techniqueId), d.id + " shares its technique");
+                RewardDef r = RewardRegistry.Create(d.techniqueId);
+                Assert.IsNotNull(r, d.techniqueId);
+                Assert.AreEqual(RewardKind.Technique, r.Kind, d.techniqueId);
+                Assert.AreEqual(d.displayName, r.SourceEnemy, d.techniqueId + " names the wrong teacher");
+                Assert.AreEqual(d.techniqueId, r.Id);
+            }
+            CollectionAssert.AreEquivalent(taught, RewardIds.Techniques, "every technique is taught by exactly one enemy");
+            foreach (EnemyDef d in EnemyDefs.Minions) Assert.IsNull(d.techniqueId, d.id + ": minions teach nothing");
+        }
+
+        [Test]
+        public void TechniqueStatCosts_AreReal()
+        {
+            foreach (string id in RewardIds.Techniques)
+            {
+                RewardDef r = RewardRegistry.Create(id);
+                var before = new PlayerModifiers();
+                var after = new PlayerModifiers();
+                r.Apply(after);
+                // Either a stat trade (Apply changes something) or a conditional cost spelled out in the text.
+                bool statCost = after.maxHealthBonus < before.maxHealthBonus || after.damageMult < 1f || after.damageTakenMult > 1f ||
+                                after.blockWearMult > 1f || after.dodgeRechargeMult > 1f || after.dodgeDistanceMult < 1f ||
+                                after.moveSpeedMult < 1f || after.perfectParryPostureMult < 1f || after.perfectParryFrameBonus < 0 ||
+                                after.normalAttackPostureMult < 1f || after.roomClearHealBonus < 0f;
+                Assert.IsTrue(statCost || r.Cost.Contains("menos"), id + " has no real cost");
+            }
+        }
+
+        [Test]
         public void Rooms_IntroduceTwoNewcomersEachAlone()
         {
             int met = 1;

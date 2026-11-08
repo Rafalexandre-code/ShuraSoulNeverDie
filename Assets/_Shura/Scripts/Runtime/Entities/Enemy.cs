@@ -611,7 +611,7 @@ namespace Shura
                 }
                 at = world.Layout.NearestFloor(at, 0.1f);
                 world.ScheduleEnemyBlast(this, at, attack.blastRadius, attack.blastFuse + i * 6, attack.damage * PowerMult,
-                                         attack.postureDamage * PowerMult, attack.blastKind, false);
+                                         attack.postureDamage * PowerMult, attack.blastKind, false, CurrentMove != null && CurrentMove.isSignature);
             }
         }
 
@@ -972,6 +972,7 @@ namespace Shura
             if (!Def.minion) world.OnEnemyDied(this);
             world.Fx.Emit(FxType.EnemyDeath, Position, Facing, Radius, Def.color);
 
+            world.NotifyKill(this);
             if (Def.clones) world.DispelMinionsOf(this);
             // A finisher ends it for good: no split.
             if (!gibbed && !string.IsNullOrEmpty(Def.splitInto) && Def.splitCount > 0)

@@ -353,7 +353,7 @@ namespace Shura
             id = "kunoichi", art = "NinjaMasked", weaponArt = "weapon_Kunai", displayName = "Kunoichi das Lâminas", color = ColorUtil.Hex("#E8E4F0"),
             weaponLength = 0.75f, maxHealth = 48f, maxPosture = 50f, radius = 0.38f, moveSpeed = 3.8f, preferredRange = 4.5f,
             blockChance = 0.1f, evadeChance = 0.4f, postureRegenPerSecond = 10f, idleMin = 40, idleMax = 75,
-            signatureAnswer = SignatureAnswer.PerfectParry,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.KunaiFan,
             lore = "Arremessa leques de kunai e salta para longe dos seus golpes.",
             moves = new[]
             {
@@ -369,7 +369,7 @@ namespace Shura
             id = "bombardeiro", art = "NinjaBomb", displayName = "Bombardeiro", color = ColorUtil.Hex("#5C7A4A"), unarmed = true,
             maxHealth = 55f, maxPosture = 55f, radius = 0.42f, moveSpeed = 3.0f, preferredRange = 5.5f,
             blockChance = 0.15f, postureRegenPerSecond = 9f, idleMin = 50, idleMax = 90,
-            signatureAnswer = SignatureAnswer.PerfectDodge,
+            signatureAnswer = SignatureAnswer.PerfectDodge, techniqueId = RewardIds.ShortFuse,
             lore = "Lança bombas no chão onde você pisa: saia do círculo antes do pavio acabar.",
             moves = new[]
             {
@@ -385,7 +385,7 @@ namespace Shura
             id = "tengu", art = "Tengu", weaponArt = "weapon_Katana", displayName = "Tengu Espadachim", color = ColorUtil.Hex("#C0392B"),
             weaponLength = 1.15f, maxHealth = 70f, maxPosture = 70f, radius = 0.42f, moveSpeed = 3.4f, preferredRange = 1.9f,
             blockChance = 0.5f, postureRegenPerSecond = 11f, idleMin = 45, idleMax = 80,
-            signatureAnswer = SignatureAnswer.PerfectParry,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.IaiDraw,
             lore = "Em postura de saque, quem o golpeia leva o contra-ataque. Espere e apare o saque.",
             moves = new[]
             {
@@ -403,7 +403,7 @@ namespace Shura
             id = "onmyoji", art = "SorcererBlack", displayName = "Onmyōji", color = ColorUtil.Hex("#B23A48"), unarmed = true,
             maxHealth = 60f, maxPosture = 55f, radius = 0.4f, moveSpeed = 2.8f, preferredRange = 6f,
             blockChance = 0.3f, postureRegenPerSecond = 9f, idleMin = 55, idleMax = 95, summonId = "hitodama", summonMax = 3,
-            signatureAnswer = SignatureAnswer.PerfectDodge,
+            signatureAnswer = SignatureAnswer.PerfectDodge, techniqueId = RewardIds.ExplosiveSeal,
             lore = "Marca o chão com talismãs e invoca fogos-fátuos. Derrube-o primeiro.",
             moves = new[]
             {
@@ -420,7 +420,7 @@ namespace Shura
             id = "curandeira", art = "Shaman", weaponArt = "weapon_Stick", displayName = "Xamã Curandeira", color = ColorUtil.Hex("#7FB069"),
             weapon = Shape.Staff, weaponLength = 1.3f, maxHealth = 65f, maxPosture = 60f, radius = 0.42f, moveSpeed = 3.0f, preferredRange = 6.5f,
             blockChance = 0.4f, postureRegenPerSecond = 9f, idleMin = 60, idleMax = 100, healRadius = 6f, healFraction = 0.08f,
-            signatureAnswer = SignatureAnswer.PerfectParry,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.ShamanBlessing,
             lore = "Cura e restaura a postura dos aliados ao redor. Enquanto ela viver, ninguém cai.",
             moves = new[]
             {
@@ -436,7 +436,7 @@ namespace Shura
             maxHealth = 40f, maxPosture = 45f, radius = 0.4f, moveSpeed = 2.6f, preferredRange = 2.2f,
             blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 45, idleMax = 80,
             deathBlastRadius = 2.0f, deathBlastDamage = 22f, deathBlastFuse = 50,
-            signatureAnswer = SignatureAnswer.CounterThrust,
+            signatureAnswer = SignatureAnswer.CounterThrust, techniqueId = RewardIds.LivingLantern,
             lore = "Lanterna assombrada: explode ao morrer e fere também os inimigos ao redor.",
             moves = new[]
             {
@@ -452,7 +452,7 @@ namespace Shura
             bloodColor = ColorUtil.Hex("#5FA8B0"),
             maxHealth = 45f, maxPosture = 40f, radius = 0.38f, moveSpeed = 3.3f, preferredRange = 1.6f,
             blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 40, idleMax = 75,
-            signatureAnswer = SignatureAnswer.PerfectParry,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.EtherealBody,
             lore = "Espírito vingativo: sua lâmina o atravessa. Apare as garras para torná-lo sólido.",
             moves = new[]
             {
@@ -471,7 +471,7 @@ namespace Shura
             bloodColor = ColorUtil.Hex("#386641"),
             maxHealth = 60f, maxPosture = 55f, radius = 0.42f, moveSpeed = 3.6f, preferredRange = 1.5f,
             blockChance = 0.3f, postureRegenPerSecond = 10f, idleMin = 40, idleMax = 80,
-            signatureAnswer = SignatureAnswer.PerfectDodge,
+            signatureAnswer = SignatureAnswer.PerfectDodge, techniqueId = RewardIds.KappaCurrent,
             lore = "Mergulha no chão e irrompe debaixo de você. O círculo que te segue é ele.",
             moves = new[]
             {
@@ -489,7 +489,7 @@ namespace Shura
             weapon = Shape.Axe, weaponLength = 1.6f, bloodColor = ColorUtil.Hex("#6A0A14"),
             maxHealth = 160f, maxPosture = 140f, radius = 0.75f, mass = 3.5f, moveSpeed = 2.0f, preferredRange = 2.0f,
             blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 55, idleMax = 95, superArmor = true,
-            signatureAnswer = SignatureAnswer.CounterThrust,
+            signatureAnswer = SignatureAnswer.CounterThrust, techniqueId = RewardIds.OniCrush,
             lore = "Investe pela arena. Faça-o bater numa parede ou estátua e ele fica atordoado.",
             moves = new[]
             {
@@ -507,7 +507,7 @@ namespace Shura
             bloodColor = ColorUtil.Hex("#4F772D"),
             maxHealth = 50f, maxPosture = 40f, radius = 0.45f, moveSpeed = 2.4f, preferredRange = 1.6f,
             blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 40, idleMax = 80, splitInto = "lodo_pequeno", splitCount = 2,
-            signatureAnswer = SignatureAnswer.PerfectDodge,
+            signatureAnswer = SignatureAnswer.PerfectDodge, techniqueId = RewardIds.SlimeHunger,
             lore = "Divide-se em dois ao morrer. Uma finalização impede a divisão.",
             moves = new[]
             {
@@ -523,7 +523,7 @@ namespace Shura
             weapon = Shape.Axe, weaponLength = 1.3f,
             maxHealth = 95f, maxPosture = 80f, radius = 0.48f, mass = 1.6f, moveSpeed = 3.0f, preferredRange = 1.6f,
             blockChance = 0.2f, postureRegenPerSecond = 10f, idleMin = 45, idleMax = 85, enrageBelow = 0.5f,
-            signatureAnswer = SignatureAnswer.PerfectParry,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.Frenzy,
             lore = "Abaixo de meia vida entra em FÚRIA: golpes mais rápidos e sem pausa.",
             moves = new[]
             {
@@ -546,7 +546,7 @@ namespace Shura
             weaponLength = 1.1f, maxHealth = 60f, maxPosture = 55f, radius = 0.4f, moveSpeed = 3.9f, preferredRange = 2.2f,
             blockChance = 0.3f, postureRegenPerSecond = 10f, idleMin = 45, idleMax = 80,
             summonId = "raijin_sombra", summonMax = 2, clones = true,
-            signatureAnswer = SignatureAnswer.PerfectParry,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.ShadowCopy,
             lore = "Cria cópias de si que também atacam, mas caem com um golpe. Ache o verdadeiro.",
             moves = new[]
             {
@@ -564,7 +564,7 @@ namespace Shura
             bloodColor = ColorUtil.Hex("#A8DADC"),
             maxHealth = 50f, maxPosture = 50f, radius = 0.42f, moveSpeed = 1.2f, preferredRange = 7.5f,
             blockChance = 0f, postureRegenPerSecond = 8f, idleMin = 50, idleMax = 90, blinkRange = 2.6f,
-            signatureAnswer = SignatureAnswer.PerfectDodge,
+            signatureAnswer = SignatureAnswer.PerfectDodge, techniqueId = RewardIds.SentinelBlink,
             lore = "Dispara raios que cruzam a arena e se teleporta quando você chega perto.",
             moves = new[]
             {
@@ -582,7 +582,7 @@ namespace Shura
             weaponLength = 1.1f, bloodColor = ColorUtil.Hex("#5A0F2E"),
             maxHealth = 70f, maxPosture = 60f, radius = 0.4f, moveSpeed = 3.4f, preferredRange = 1.7f,
             blockChance = 0.45f, postureRegenPerSecond = 10f, idleMin = 40, idleMax = 75, lifesteal = 1.0f,
-            signatureAnswer = SignatureAnswer.PerfectDodge,
+            signatureAnswer = SignatureAnswer.PerfectDodge, techniqueId = RewardIds.BloodThirst,
             lore = "Cada golpe que acerta em você o cura. Não troque golpes com ele.",
             moves = new[]
             {
@@ -600,7 +600,7 @@ namespace Shura
             weapon = Shape.Blade, weaponLength = 1.6f, bloodColor = ColorUtil.Hex("#BFB8A8"),
             maxHealth = 75f, maxPosture = 70f, radius = 0.44f, mass = 1.5f, moveSpeed = 2.8f, preferredRange = 1.8f,
             blockChance = 0.35f, postureRegenPerSecond = 9f, idleMin = 45, idleMax = 85, reassembles = true,
-            signatureAnswer = SignatureAnswer.PerfectParry,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.StubbornBones,
             lore = "Remonta os ossos uma vez. Finalize-o, ou golpeie os ossos antes que se levantem.",
             moves = new[]
             {
@@ -616,7 +616,7 @@ namespace Shura
             id = "boxeador", art = "MonkeyBoxerRed", displayName = "Macaco Boxeador", color = ColorUtil.Hex("#D62828"), unarmed = true,
             maxHealth = 60f, maxPosture = 60f, radius = 0.4f, moveSpeed = 3.7f, preferredRange = 1.4f,
             blockChance = 0.45f, postureRegenPerSecond = 12f, idleMin = 30, idleMax = 60,
-            signatureAnswer = SignatureAnswer.PerfectParry,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.CounterPunch,
             lore = "Finge socos que não vêm. Só apare quando o anel aparecer.",
             moves = new[]
             {

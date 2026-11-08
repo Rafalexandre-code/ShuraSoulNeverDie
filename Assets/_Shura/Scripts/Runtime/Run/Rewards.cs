@@ -77,6 +77,12 @@ namespace Shura
         public virtual void OnDealtDamage(World world, Enemy target, float damage) { }
         /// <summary>When a combo strike's active frames begin.</summary>
         public virtual void OnSwing(World world, int comboIndex, Vector2 direction) { }
+        /// <summary>When any dodge starts, from where it starts.</summary>
+        public virtual void OnDodge(World world, Vector2 from) { }
+        /// <summary>When an enemy dies in the party's room (any cause; minions included).</summary>
+        public virtual void OnKill(World world, Enemy enemy) { }
+        /// <summary>A blow is about to drop the player to 0: return true to survive it at 1 health.</summary>
+        public virtual bool OnLethalHit(World world) => false;
     }
 
     /// <summary>A blessing is a small permanent-for-this-run boost that can stack.</summary>

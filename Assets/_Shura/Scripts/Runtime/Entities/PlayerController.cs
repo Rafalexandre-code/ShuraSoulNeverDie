@@ -124,12 +124,44 @@ namespace Shura
         }
 
         /// <summary>Traps: no parry, no block; a dodge's i-frames still slip through.</summary>
-        public void ReceiveHazard(float damage, float posture, Vector2 dir)
+        /// <summary>Traps and floor blasts. Returns true when a dodge carried the player through it.</summary>
+        public bool ReceiveHazard(float damage, float posture, Vector2 dir)
         {
-            if (!IsAlive || hurtInvuln > 0 || IsDodgeInvulnerable || CurrentState == State.Finisher) return;
+            if (!IsAlive) return false;
+            if (IsDodgeInvulnerable) return true;
+            if (hurtInvuln > 0 || CurrentState == State.Finisher) return false;
             hazardAttack.damage = damage;
             hazardAttack.postureDamage = posture;
             TakeHit(hazardAttack, -dir, 1f);
+            return false;
+        }
+
+        /// <summary>A perfect dodge through something that was not a swing (a bomb or talisman going off).</summary>
+        public void CreditPerfectDodge(Enemy source, bool signature)
+        {
+            PerfectDodgeAgainst(source, true, signature);
+        }
+
+        void PerfectDodgeAgainst(Enemy attacker, bool dangerous, bool signature)
+        {
+            run.PerfectDodges++;
+            if (dangerous) world.RegisterPerfect(Position);
+            world.TryMaster(attacker, SignatureAnswer.PerfectDodge, signature);
+            world.Fx.Emit(FxType.PerfectDodge, Position, dodgeDir);
+            if (dangerous) world.AddFlow(flowTuning.perfectDodgePoints);
+            for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnPerfectDodge(world, attacker);
+        }
+
+        /// <summary>Nothing lands for a moment (techniques).</summary>
+        public void GrantInvulnerable(int frames)
+        {
+            hurtInvuln = Mathf.Max(hurtInvuln, frames);
+        }
+
+        /// <summary>Gives back one dodge charge (techniques).</summary>
+        public void RefundDodge()
+        {
+            DodgeCharges = Mathf.Min(MaxDodgeCharges, DodgeCharges + 1f);
         }
 
         readonly AttackDef hazardAttack = new AttackDef { id = "trap" };
@@ -651,6 +683,7 @@ namespace Shura
             Enter(State.Dodge);
             Squash(1.35f, 0.72f);
             world.Fx.Emit(FxType.Dodge, Position, dodgeDir);
+            for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnDodge(world, Position);
             return true;
         }
 
@@ -818,12 +851,7 @@ namespace Shura
                     break;
 
                 case HitOutcome.PerfectDodge:
-                    run.PerfectDodges++;
-                    if (attack.IsDangerous) world.RegisterPerfect(Position);
-                    world.TryMaster(attacker, SignatureAnswer.PerfectDodge, incoming.signature);
-                    world.Fx.Emit(FxType.PerfectDodge, Position, dodgeDir);
-                    if (attack.IsDangerous) world.AddFlow(flowTuning.perfectDodgePoints);
-                    for (int i = 0; i < run.Effects.Count; i++) run.Effects[i].OnPerfectDodge(world, attacker);
+                    PerfectDodgeAgainst(attacker, attack.IsDangerous, incoming.signature);
                     break;
 
                 case HitOutcome.CounterThrust:
@@ -849,6 +877,17 @@ namespace Shura
             bool maxFlow = run.Flow.Level >= run.Flow.MaxLevel;
             float damage = attack.damage * power * Mods.damageTakenMult * (maxFlow ? Mods.damageTakenAtMaxFlowMult : 1f);
             if (!world.PlayerInvincible) Health = Mathf.Max(0f, Health - damage);
+            if (Health <= 0f)
+            {
+                // A technique may refuse the fall once (Ossos Teimosos).
+                for (int i = 0; i < run.Effects.Count; i++)
+                {
+                    if (!run.Effects[i].OnLethalHit(world)) continue;
+                    Health = 1f;
+                    hurtInvuln = Mathf.Max(hurtInvuln, 60);
+                    break;
+                }
+            }
 
             world.Fx.Emit(FxType.PlayerHurt, Position, -toAttacker, damage);
             world.Fx.Blood(Position, -toAttacker, 6f + damage * 0.3f, ColorUtil.Hex("#8E0F1E"));

@@ -74,7 +74,7 @@ Conteúdo (inimigos, salas, recompensas) fica em `Assets/_Shura/Scripts/Runtime/
 ## Verificação automática
 
 ```bash
-# Testes de lógica (60 testes)
+# Testes de lógica (62 testes)
 "C:/Program Files/Unity/Hub/Editor/6000.6.8f1/Editor/Unity.exe" -batchmode -projectPath . -runTests -testPlatform EditMode -testResults TestResults.xml
 
 # Bot joga até a profundidade 15 (sem janela), com resumo no log

@@ -521,7 +521,7 @@ namespace Shura
             Run.RoomsCleared++;
             // Ascension: the duelist grows with every room, so depth is a race, not a wall.
             Run.Ascend();
-            float heal = Config.player.healOnRoomClear + Run.Modifiers.roomClearHealBonus;
+            float heal = Mathf.Max(0f, Config.player.healOnRoomClear + Run.Modifiers.roomClearHealBonus);
             foreach (PlayerController p in World.Players)
             {
                 p.ApplyStats(false);

@@ -12,10 +12,29 @@ namespace Shura
         public const string ReflexArrow = "tec_flecha_reflexa";
         public const string Ambush = "tec_emboscada";
         public const string Bulwark = "tec_muralha";
+        // Bestiary (M1.10)
+        public const string KunaiFan = "tec_leque_de_kunai";
+        public const string ShortFuse = "tec_pavio_curto";
+        public const string IaiDraw = "tec_saque_iai";
+        public const string ExplosiveSeal = "tec_selo_explosivo";
+        public const string ShamanBlessing = "tec_bencao_da_xama";
+        public const string LivingLantern = "tec_lanterna_viva";
+        public const string EtherealBody = "tec_corpo_etereo";
+        public const string KappaCurrent = "tec_correnteza_do_kappa";
+        public const string OniCrush = "tec_golpe_do_oni";
+        public const string SlimeHunger = "tec_fome_do_lodo";
+        public const string Frenzy = "tec_furia_do_barbaro";
+        public const string ShadowCopy = "tec_copia_de_sombra";
+        public const string SentinelBlink = "tec_piscar_do_vigia";
+        public const string BloodThirst = "tec_sede_de_sangue";
+        public const string StubbornBones = "tec_ossos_teimosos";
+        public const string CounterPunch = "tec_contragolpe";
 
         public static readonly string[] Techniques =
         {
             PatientBlade, MirrorThrust, PhantomStep, DuelistRhythm, ExecutionerBlow, ReflexArrow, Ambush, Bulwark,
+            KunaiFan, ShortFuse, IaiDraw, ExplosiveSeal, ShamanBlessing, LivingLantern, EtherealBody, KappaCurrent,
+            OniCrush, SlimeHunger, Frenzy, ShadowCopy, SentinelBlink, BloodThirst, StubbornBones, CounterPunch,
         };
 
         public const string HungryBlade = "rel_lamina_faminta";
@@ -55,6 +74,22 @@ namespace Shura
                 case RewardIds.ReflexArrow: return new ReflexArrowTechnique();
                 case RewardIds.Ambush: return new AmbushTechnique();
                 case RewardIds.Bulwark: return new BulwarkTechnique();
+                case RewardIds.KunaiFan: return new KunaiFanTechnique();
+                case RewardIds.ShortFuse: return new ShortFuseTechnique();
+                case RewardIds.IaiDraw: return new IaiDrawTechnique();
+                case RewardIds.ExplosiveSeal: return new ExplosiveSealTechnique();
+                case RewardIds.ShamanBlessing: return new ShamanBlessingTechnique();
+                case RewardIds.LivingLantern: return new LivingLanternTechnique();
+                case RewardIds.EtherealBody: return new EtherealBodyTechnique();
+                case RewardIds.KappaCurrent: return new KappaCurrentTechnique();
+                case RewardIds.OniCrush: return new OniCrushTechnique();
+                case RewardIds.SlimeHunger: return new SlimeHungerTechnique();
+                case RewardIds.Frenzy: return new FrenzyTechnique();
+                case RewardIds.ShadowCopy: return new ShadowCopyTechnique();
+                case RewardIds.SentinelBlink: return new SentinelBlinkTechnique();
+                case RewardIds.BloodThirst: return new BloodThirstTechnique();
+                case RewardIds.StubbornBones: return new StubbornBonesTechnique();
+                case RewardIds.CounterPunch: return new CounterPunchTechnique();
 
                 case RewardIds.BlessingVigor:
                     return new Blessing(id, "Bênção do Vigor", "+12 de vida máxima e cura 20.", 20f, m => m.maxHealthBonus += 12f);

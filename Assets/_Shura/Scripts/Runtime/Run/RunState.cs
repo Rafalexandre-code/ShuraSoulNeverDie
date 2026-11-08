@@ -26,6 +26,10 @@ namespace Shura
 
         public bool Banked;
         public int EcosBanked;
+        /// <summary>Extra Ecos earned this run (head cuts, rivals, events).</summary>
+        public int BonusEcos;
+        /// <summary>Multiplier on the Ecos this run banks (oaths raise it).</summary>
+        public float EcosMult = 1f;
         public int RoomIndex;
         public int RoomsCleared;
         public float Elapsed;

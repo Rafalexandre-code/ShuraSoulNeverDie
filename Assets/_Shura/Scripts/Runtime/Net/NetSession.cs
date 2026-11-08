@@ -574,6 +574,11 @@ namespace Shura
                   .Append(",\"st\":").Int(run.PerfectStreak).Append(",\"cb\":").Bool(w.ActiveEnemyCount > 0)
                   .Append(",\"guard\":").Bool(w.CurrentRoom.guardian);
             }
+            // The Iai standoff: [active, advancing, leader x, leader y].
+            if (w.Standoff.Active && w.Standoff.Leader != null)
+            {
+                sb.Append(",\"so\":[1,").Bool(w.Standoff.Advancing).Append(',').Num(w.Standoff.Leader.Position.x).Append(',').Num(w.Standoff.Leader.Position.y).Append(']');
+            }
 
             sb.Append(",\"P\":[");
             for (int i = 0; i < w.Players.Count; i++)
@@ -594,7 +599,15 @@ namespace Shura
                 // Each duelist's own Flow, streak, lobby readiness and look.
                 PlayerBuild b = p.Build;
                 sb.Int(b != null ? b.Flow.Level : 0).Append(',').Num(b != null ? b.Flow.ProgressInLevel : 0f).Append(',')
-                  .Int(b != null ? b.PerfectStreak : 0).Append(',').Bool(p == w.Host || ReadyOf(p)).Append(',').Int(p.ArtIndex).Append(']');
+                  .Int(b != null ? b.PerfectStreak : 0).Append(',').Bool(p == w.Host || ReadyOf(p)).Append(',').Int(p.ArtIndex).Append(',');
+                // The combat layers: [34] breath … [53] bandages.
+                Enemy aimAt = p.AimTarget;
+                sb.Num(p.Stamina / PlayerController.MaxStamina).Append(',').Bool(p.Exhausted).Append(',')
+                  .Num(b != null ? b.Shura / ShuraRules.Max : 0f).Append(',').Int(p.ShuraLevel).Append(',').Int((int)p.Stance).Append(',')
+                  .Int(p.Sips).Append(',').Int(p.MaxSips).Append(',').Int(b != null ? (int)b.Tool : 0).Append(',').Int(b != null ? b.SpiritPapers : 0).Append(',')
+                  .Int(p.WoundMask).Append(',').Bool(p.InMushin).Append(',').Bool(p.InAsura).Append(',').Bool(p.AimingCut).Append(',')
+                  .Num(p.AimLineAngle, 1).Append(',').Num(aimAt != null ? aimAt.Position.x : 0f).Append(',').Num(aimAt != null ? aimAt.Position.y : 0f).Append(',')
+                  .Bool(p.RingsHidden).Append(',').Num(p.RingScale).Append(',').Int(p.Charge).Append(',').Int(b != null ? b.Bandages : 0).Append(']');
             }
             sb.Append("],\"E\":[");
             bool first = true;
@@ -612,7 +625,9 @@ namespace Shura
                   .Num(e.HealthRatio).Append(',').Num(e.Posture.Ratio).Append(',').Bool(e.IsElite).Append(',').Bool(e.IsBroken).Append(',').Bool(e.Mastered).Append(',')
                   .Int(e.NetTeleType).Append(',').Num(e.NetTeleRange).Append(',').Num(e.NetTeleWidth).Append(',').Num(e.Facing.x).Append(',').Num(e.Facing.y).Append(',')
                   .Num(e.NetTeleAlpha).Append(',').Bool(e.NetDanger).Append(',').Int(e.NetRing).Append(',').Num(e.NetRingSize).Append(',').Num(e.NetRingProgress).Append(',')
-                  .Bool(e.IsGone).Append(']');
+                  .Bool(e.IsGone).Append(',');
+                // [33] ring kind, [34] seals, [35] veiled, [36] affixes, [37] winded.
+                sb.Int(e.NetRingKind).Append(',').Int(e.Seals).Append(',').Bool(e.Veiled).Append(',').Str(e.AffixLabel).Append(',').Bool(e.Winded > 0).Append(']');
             }
             sb.Append("],\"R\":[");
             for (int i = 0; i < w.Projectiles.Count; i++)

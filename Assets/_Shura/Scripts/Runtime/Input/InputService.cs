@@ -15,6 +15,12 @@ namespace Shura
         /// <summary>Held over a fallen teammate to bring them back (E / gamepad X).</summary>
         bool InteractHeld { get; }
 
+        /// <summary>The attack button is held (the Iai standoff draws on release).</summary>
+        bool AttackHeld { get; }
+
+        /// <summary>A guard stance (Kamae 0..3) asked for since the last call, or -1.</summary>
+        int TakeKamae();
+
         /// <summary>Normalized aim direction, or zero when the source has no explicit aim.</summary>
         Vector2 AimDirection(Vector2 playerWorldPosition);
     }
@@ -32,6 +38,8 @@ namespace Shura
         readonly InputActionMap gameplay = new InputActionMap("Gameplay");
         readonly InputActionMap ui = new InputActionMap("UI");
         readonly InputAction move, aim, attack, parry, dodge, swap, pause, interact;
+        readonly InputAction detonate, kiai, tool, toolCycle, gourd, bandage;
+        readonly InputAction[] kamae = new InputAction[4];
         readonly InputAction navigate, submit, cancel;
 
         int lastNavX, lastNavY;
@@ -88,6 +96,33 @@ namespace Shura
             interact.AddBinding("<Keyboard>/e");
             interact.AddBinding("<Gamepad>/buttonWest");
 
+            detonate = gameplay.AddAction("Detonar selos", InputActionType.Button);
+            detonate.AddBinding("<Keyboard>/g");
+            kiai = gameplay.AddAction("Kiai", InputActionType.Button);
+            kiai.AddBinding("<Keyboard>/v");
+            tool = gameplay.AddAction("Ferramenta", InputActionType.Button);
+            tool.AddBinding("<Keyboard>/r");
+            tool.AddBinding("<Gamepad>/rightTrigger");
+            toolCycle = gameplay.AddAction("Trocar ferramenta", InputActionType.Button);
+            toolCycle.AddBinding("<Keyboard>/t");
+            toolCycle.AddBinding("<Gamepad>/leftTrigger");
+            gourd = gameplay.AddAction("Cabaça", InputActionType.Button);
+            gourd.AddBinding("<Keyboard>/f");
+            gourd.AddBinding("<Gamepad>/buttonEast");
+            bandage = gameplay.AddAction("Bandagem", InputActionType.Button);
+            bandage.AddBinding("<Keyboard>/h");
+            bandage.AddBinding("<Gamepad>/leftStickPress");
+            // Kamae: 1 Jōdan (alta), 2 Chūdan (média), 3 Gedan (baixa), 4 Waki (oculta); d-pad on a gamepad.
+            for (int k = 0; k < 4; k++)
+            {
+                kamae[k] = gameplay.AddAction("Postura " + (k + 1), InputActionType.Button);
+                kamae[k].AddBinding("<Keyboard>/" + (k + 1));
+            }
+            kamae[0].AddBinding("<Gamepad>/dpad/up");
+            kamae[1].AddBinding("<Gamepad>/dpad/right");
+            kamae[2].AddBinding("<Gamepad>/dpad/down");
+            kamae[3].AddBinding("<Gamepad>/dpad/left");
+
             pause = gameplay.AddAction("Pausar", InputActionType.Button);
             pause.AddBinding("<Keyboard>/escape");
             pause.AddBinding("<Gamepad>/start");
@@ -129,6 +164,17 @@ namespace Shura
 
         public bool InteractHeld => interact.IsPressed();
 
+        public bool AttackHeld => attack.IsPressed();
+
+        int pendingKamae = -1;
+
+        public int TakeKamae()
+        {
+            int k = pendingKamae;
+            pendingKamae = -1;
+            return k;
+        }
+
         public Vector2 AimDirection(Vector2 playerWorldPosition)
         {
             if (UsingGamepad)
@@ -160,6 +206,16 @@ namespace Shura
             if (dodge.WasPressedThisFrame()) Buffer.Press(BufferedAction.Dodge, tuning.actionBufferFrames);
             if (parry.WasPressedThisFrame()) Buffer.Press(BufferedAction.Parry, tuning.parryBufferFrames);
             if (swap.WasPressedThisFrame()) Buffer.Press(BufferedAction.Swap, tuning.parryBufferFrames);
+            if (detonate.WasPressedThisFrame()) Buffer.Press(BufferedAction.Detonate, tuning.actionBufferFrames);
+            if (kiai.WasPressedThisFrame()) Buffer.Press(BufferedAction.Kiai, tuning.actionBufferFrames);
+            if (tool.WasPressedThisFrame()) Buffer.Press(BufferedAction.Tool, tuning.actionBufferFrames);
+            if (toolCycle.WasPressedThisFrame()) Buffer.Press(BufferedAction.ToolCycle, tuning.actionBufferFrames);
+            if (gourd.WasPressedThisFrame()) Buffer.Press(BufferedAction.Gourd, tuning.actionBufferFrames);
+            if (bandage.WasPressedThisFrame()) Buffer.Press(BufferedAction.Bandage, tuning.actionBufferFrames);
+            for (int k = 0; k < 4; k++)
+            {
+                if (kamae[k].WasPressedThisFrame()) pendingKamae = k;
+            }
         }
 
         void DetectDevice()
@@ -254,7 +310,7 @@ namespace Shura
         public List<KeyValuePair<string, string>> DescribeBindings()
         {
             var list = new List<KeyValuePair<string, string>>();
-            foreach (InputAction action in new[] { move, attack, parry, dodge, swap, pause })
+            foreach (InputAction action in new[] { move, attack, parry, dodge, swap, detonate, kiai, tool, gourd, bandage, pause })
             {
                 string display;
                 try

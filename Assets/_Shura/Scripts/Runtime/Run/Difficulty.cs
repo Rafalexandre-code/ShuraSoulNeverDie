@@ -86,6 +86,13 @@ namespace Shura
             earlyParries *= k;
         }
 
+        /// <summary>Smoke bomb: whatever they had read about you is gone.</summary>
+        public void Reset()
+        {
+            attacks = dodges = perfects = parryPresses = earlyParries = 0f;
+            combatSeconds = 0f;
+        }
+
         public void OnAttack() => attacks += 1f;
         public void OnDodge() => dodges += 1f;
         public void OnPerfect() => perfects += 1f;

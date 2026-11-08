@@ -61,6 +61,28 @@ h1 { font-family: "Kaushan"; font-weight: normal; font-size: 46px; text-align: c
 .row { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
 #dodges span { display: inline-block; width: 16px; height: 16px; border-radius: 50%; margin-right: 4px; background: #6fc3df; box-shadow: 0 0 6px #6fc3df; }
 #dodges span.off { background: rgba(111,195,223,.25); box-shadow: none; }
+/* Combat layers */
+.row.ki { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.row.ki .caps { min-width: 70px; }
+.bar.grow { flex: 1; }
+#breathFill { background: #a8d8c8; }
+#breathFill.exhausted { background: #ff5a3c; animation: blink .25s infinite alternate; }
+#shuraFill { background: linear-gradient(90deg, #8e0f1e, #d7263d); }
+.caps.shu { color: #d7263d; }
+.caps.accent { color: #6fc3df; }
+#sips span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 3px; background: #9bd39b; }
+#sips span.off { background: rgba(155,211,155,.2); }
+#wounds { color: #ff5a3c; min-height: 1.2em; }
+@keyframes blink { from { opacity: 1; } to { opacity: .4; } }
+#hud.mushin #me, #hud.mushin #flowBox, #hud.mushin #roomBox, #hud.mushin #escHint { opacity: 0; transition: opacity .6s; }
+#hud #me, #hud #flowBox, #hud #roomBox { transition: opacity .6s; }
+#standoff { display: none; position: fixed; inset: 0; pointer-events: none; }
+#standoff::before, #standoff::after { content: ""; position: absolute; left: 0; right: 0; height: 13vh; background: rgba(0,0,0,.92); }
+#standoff::before { top: 0; }
+#standoff::after { bottom: 0; }
+#standoff .kanji { position: absolute; top: 2vh; width: 100%; text-align: center; font-size: 6vh; color: #f1e8d6; z-index: 1; font-family: SpectralBold, serif; }
+#standoffText { position: absolute; bottom: 4vh; width: 100%; text-align: center; font-size: 2.6vh; color: #f1e8d6; z-index: 1; }
+#standoffText.now { color: #ff5a3c; font-size: 5vh; font-weight: bold; }
 #weapon { font-size: 24px; margin-top: 6px; }
 #roomBox { position: fixed; left: 0; right: 0; top: 6px; text-align: center; pointer-events: none; text-shadow: 0 2px 4px #000; }
 #room { font-size: 30px; }

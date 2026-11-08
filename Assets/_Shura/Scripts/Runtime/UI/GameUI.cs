@@ -10,7 +10,7 @@ namespace Shura
     /// InputService, so keyboard, mouse and gamepad all work; OnGUI only draws and handles
     /// mouse hover/click.
     /// </summary>
-    public sealed class GameUI : MonoBehaviour
+    public sealed partial class GameUI : MonoBehaviour
     {
         const float VW = 1920f;
         const float VH = 1080f;
@@ -835,12 +835,17 @@ namespace Shura
             if (onPaper) kit.Underline(new Rect(r.x, r.y - 8f, r.width, 16f), UiKit.Ink.WithAlpha(0.5f));
             else kit.InkPanel(new Rect(r.x - 30f, r.y - 24f, r.width + 60f, r.height + 48f), 0.92f);
             Label(new Rect(r.x + 10, r.y + 10, r.width - 20, 32), Strings.ControlsTitle, smallStyle, title);
-            float y = r.y + 46;
-            foreach (KeyValuePair<string, string> b in game.Controls.DescribeBindings())
+            // Two columns: the list grew with Detonar, Kiai, ferramenta, cabaça and bandagem.
+            List<KeyValuePair<string, string>> binds = game.Controls.DescribeBindings();
+            int perColumn = Mathf.CeilToInt(binds.Count / 2f);
+            float colW = (r.width - 20f) * 0.5f;
+            float rowH = Mathf.Min(30f, (r.height - 50f) / Mathf.Max(1, perColumn));
+            for (int i = 0; i < binds.Count; i++)
             {
-                Label(new Rect(r.x + 10, y, 200, 30), b.Key, smallStyle, key);
-                Label(new Rect(r.x + 200, y, r.width - 210, 30), b.Value, smallStyle, value);
-                y += 30;
+                float x = r.x + 10 + (i / perColumn) * colW;
+                float y = r.y + 46 + (i % perColumn) * rowH;
+                Label(new Rect(x, y, colW * 0.5f, rowH), binds[i].Key, smallStyle, key);
+                Label(new Rect(x + colW * 0.48f, y, colW * 0.52f, rowH), binds[i].Value, smallStyle, value);
             }
         }
 
@@ -1092,9 +1097,18 @@ namespace Shura
             RunState run = game.Run;
             PlayerController p = game.World.Player;
             if (run == null || p == null) return;
+            if (game.World.Standoff.Active) DrawStandoff(game.World.Standoff);
+            if (p.AimingCut) DrawFinisherAim(p);
+            DrawAffixLabels();
+            if (p.InMushin)
+            {
+                DrawMushinHud();
+                DrawParty();
+                return;
+            }
 
             const float x = 52f, y = 30f, w = 440f;
-            kit.InkPanel(new Rect(10f, 2f, 560f, 270f), 0.82f);
+            kit.InkPanel(new Rect(10f, 2f, 560f, 362f), 0.82f);
 
             Label(new Rect(x, y, w, 26), Strings.HudHealth, capsStyle, UiKit.PaperDim);
             var hpRect = new Rect(x - 8f, y + 24, w + 16f, 40);
@@ -1137,6 +1151,7 @@ namespace Shura
 
             DrawFlow(run.Flow);
             DrawWeaponsHud(run, x, y + 168f);
+            DrawKiHud(p, x, y + 234f);
             DrawParty();
         }
 

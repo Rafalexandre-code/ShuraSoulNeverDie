@@ -103,6 +103,30 @@ namespace Shura
 
         public bool IsFloor(int x, int y) => x >= 0 && y >= 0 && x < W && y < H && floor[y * W + x];
 
+        // ── Edges: void cells beside the floor (bridges and cliffs) ──────────────────
+        bool[] pit;
+
+        /// <summary>A cell that is open air: walls block duelists, but a shoved enemy falls in.</summary>
+        public bool IsPit(int x, int y) => pit != null && x >= 0 && y >= 0 && x < W && y < H && pit[y * W + x];
+
+        public bool IsPitAt(Vector2 p)
+        {
+            Vector2Int c = CellAt(p);
+            return IsPit(c.x, c.y);
+        }
+
+        public bool HasPits => pit != null;
+
+        /// <summary>Turns a floor cell into a drop (it stops being floor).</summary>
+        public void MakePit(int x, int y)
+        {
+            if (x < 0 || y < 0 || x >= W || y >= H) return;
+            if (pit == null) pit = new bool[W * H];
+            pit[y * W + x] = true;
+            floor[y * W + x] = false;
+            fields.Clear();
+        }
+
         public Vector2Int CellAt(Vector2 p) => new Vector2Int(Mathf.FloorToInt(p.x - Origin.x), Mathf.FloorToInt(p.y - Origin.y));
 
         public bool IsFloorAt(Vector2 p)

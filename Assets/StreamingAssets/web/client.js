@@ -27,7 +27,7 @@ const S = {
   ws: null, myId: null, joined: false, room: null, arena: null, arenaVersion: -1,
   snaps: [], last: null, picks: ["katana", "naginata"],
   particles: [], texts: [], stains: [], rings: [], anims: [], shake: 0, flash: 0, flashColor: "#fff",
-  cam: { x: 0, y: 0 }, input: { atk: 0, par: 0, dod: 0, swp: 0 }, lastSent: 0, lastInput: "",
+  cam: { x: 0, y: 0 }, input: { atk: 0, par: 0, dod: 0, swp: 0, det: 0, kia: 0, tl: 0, tc: 0, gd: 0, bd: 0 }, kamae: -1, lastSent: 0, lastInput: "",
 };
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -474,6 +474,13 @@ addEventListener("keydown", (e) => {
     if (k === "q") S.input.swp++;
     if (k === "j") S.input.atk++;
     if (k === "k") S.input.par++;
+    if (k === "g") S.input.det++;
+    if (k === "v") S.input.kia++;
+    if (k === "r") S.input.tl++;
+    if (k === "t") S.input.tc++;
+    if (k === "f") S.input.gd++;
+    if (k === "h") S.input.bd++;
+    if (["1", "2", "3", "4"].includes(k)) S.kamae = parseInt(k, 10) - 1;
   }
   keys.add(k);
   if ([" ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault();
@@ -495,9 +502,9 @@ const pad = { a: false, x: false, y: false, rb: false, lb: false };
 function readInput() {
   // In the menu or choosing a reward, this duelist stands still (the fight goes on).
   if (S.menuOpen || S.rewards || S.roomShown) {
-    return { t: "in", mx: 0, my: 0, ax: 0, ay: 0, p: 0, r: 0, atk: S.input.atk, par: S.input.par, dod: S.input.dod, swp: S.input.swp };
+    return { t: "in", mx: 0, my: 0, ax: 0, ay: 0, p: 0, r: 0, ...counters(), ah: 0 };
   }
-  let mx = 0, my = 0, ax = 0, ay = 0, parry = mouse.right || keys.has("k"), revive = keys.has("e");
+  let mx = 0, my = 0, ax = 0, ay = 0, parry = mouse.right || keys.has("k"), revive = keys.has("e"), held = mouse.left || keys.has("j");
   if (keys.has("w") || keys.has("arrowup")) my += 1;
   if (keys.has("s") || keys.has("arrowdown")) my -= 1;
   if (keys.has("a") || keys.has("arrowleft")) mx -= 1;
@@ -518,12 +525,25 @@ function readInput() {
     if (b(3) && !pad.y) S.input.swp++;
     if (b(5) && !pad.rb) S.input.atk++;
     if (b(4) && !pad.lb) S.input.par++;
+    if (b(7) && !pad.rt) S.input.tl++;
+    if (b(6) && !pad.lt) S.input.tc++;
+    if (b(1) && !pad.b) S.input.gd++;
+    if (b(10) && !pad.l3) S.input.bd++;
+    if (b(12)) S.kamae = 0;
+    if (b(15)) S.kamae = 1;
+    if (b(13)) S.kamae = 2;
+    if (b(14)) S.kamae = 3;
     pad.a = b(0); pad.y = b(3); pad.rb = b(5); pad.lb = b(4); pad.x = b(2);
-    parry = parry || b(4); revive = revive || b(2);
+    pad.rt = b(7); pad.lt = b(6); pad.b = b(1); pad.l3 = b(10);
+    parry = parry || b(4); revive = revive || b(2); held = held || b(5);
   }
   const len = Math.hypot(mx, my);
   if (len > 1) { mx /= len; my /= len; }
-  return { t: "in", mx, my, ax, ay, p: parry ? 1 : 0, r: revive ? 1 : 0, atk: S.input.atk, par: S.input.par, dod: S.input.dod, swp: S.input.swp };
+  return { t: "in", mx, my, ax, ay, p: parry ? 1 : 0, r: revive ? 1 : 0, ...counters(), ah: held ? 1 : 0 };
+}
+function counters() {
+  const i = S.input;
+  return { atk: i.atk, par: i.par, dod: i.dod, swp: i.swp, det: i.det, kia: i.kia, tl: i.tl, tc: i.tc, gd: i.gd, bd: i.bd, km: S.kamae };
 }
 function sendInput(now) {
   if (!S.joined) return;
@@ -973,20 +993,40 @@ function drawBlasts(snap, now) {
   }
 }
 
+const RING_COLORS = [ACCENT, DANGER, GOLD, ACCENT, "#b07cff", "#7bc950", "#ffffff"];
+const RING_DASH = [null, null, [10, 8], null, [2, 9], [4, 4], [26, 10]];
+function ringVisible(e) {
+  const me = myPlayer();
+  if (!me) return true;
+  const raw = me.raw;
+  if (raw[50] === 1) return false;
+  if (e[35] === 1 && Math.hypot(e[2] - me.x, e[3] - me.y) > 3) return false;
+  return true;
+}
 function drawEnemyOverlay(e) {
   const [x, y] = [e[2], e[3]];
-  if (e[29] && !e[32]) {
-    const col = e[28] ? DANGER : ACCENT;
-    const size = e[30];
+  if (e[29] && !e[32] && ringVisible(e)) {
+    const kind = e[33] || 0;
+    const col = RING_COLORS[kind] || (e[28] ? DANGER : ACCENT);
+    const me = myPlayer();
+    const size = e[30] * (me && me.raw[51] ? me.raw[51] : 1);
+    ctx.save();
+    if (RING_DASH[kind]) ctx.setLineDash(RING_DASH[kind].map((d) => d * PPU / 48));
     if (e[29] === 1) {
       const s = size * (3.4 + (1 - 3.4) * e[31]);
       circle(x, y, s / 2, rgba(col, 0.15 + 0.8 * e[31]), null, Math.max(2, PPU * 0.07));
       circle(x, y, size / 2, rgba(col, 0.35), null, 2);
+      if (kind === 3) circle(x, y, size * 0.3, rgba(col, 0.6), null, 2);
     } else {
       const k = e[31];
       circle(x, y, size * 0.95, null, rgba(col, 0.45 * (1 - k * 0.5)));
       circle(x, y, size * (1.18 - 0.18 * k) / 2, "#ffffff", null, Math.max(3, PPU * 0.09));
     }
+    ctx.restore();
+  }
+  // Seals: small gold marks over the head.
+  if (e[34] > 0 && !e[32]) {
+    for (let i = 0; i < e[34]; i++) circle(x - 0.36 + i * 0.18, y + e[8] + e[7] * 1.05 + 0.55, 0.06, null, GOLD);
   }
   if (e[32] || e[16] < 0.05 || e[5] === 3) return;
   const top = y + e[8] + e[7] * 1.05 + 0.25;
@@ -994,12 +1034,37 @@ function drawEnemyOverlay(e) {
   drawBar(x, top - 0.14, 1.3, e[18], e[20] ? GOLD : "#e9a35a");
   if (e[19]) circle(x, y, 1.4 * e[7], rgba(GOLD, 0.3), null, 2);
   if (e[21]) circle(x + 0.85, top, 0.12, GOLD, null, 2);
+  if (e[36]) {
+    ctx.font = Math.round(PPU * 0.24) + "px SpectralBold, serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(0,0,0,.7)"; ctx.fillText(e[36], sx(x) + 1, sy(top + 0.3) + 1);
+    ctx.fillStyle = GOLD; ctx.fillText(e[36], sx(x), sy(top + 0.3));
+  }
+  if (e[37]) {
+    ctx.font = Math.round(PPU * 0.22) + "px SpectralBold, serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#a8d8c8"; ctx.fillText("sem fôlego", sx(x), sy(y - 0.5));
+  }
   if (e[20]) circle(x, y, 0.9 + 0.08 * Math.sin(performance.now() / 80), GOLD, null, 3);
 }
 
+function dotted(x0, y0, x1, y1, color, size) {
+  const n = Math.max(2, Math.round(Math.hypot(x1 - x0, y1 - y0) / 0.32));
+  ctx.fillStyle = color;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    ctx.fillRect(sx(x0 + (x1 - x0) * t) - size / 2, sy(y0 + (y1 - y0) * t) - size / 2, size, size);
+  }
+}
 function drawPlayerOverlay(p, snap) {
   const isMe = p[0] === S.myId;
   const alive = p[21] === 1;
+  if (isMe && p[46] === 1) {
+    const a = p[47] * Math.PI / 180, lx = Math.cos(a) * 2.6, ly = Math.sin(a) * 2.6;
+    dotted(p[48] - lx, p[49] - ly, p[48] + lx, p[49] + ly, GOLD, Math.max(4, PPU * 0.12));
+    dotted(p[3], p[4], p[3] + p[5] * 3.2, p[4] + p[6] * 3.2, "rgba(241,232,214,.8)", Math.max(3, PPU * 0.08));
+  }
+  if (p[45] === 1) circle(p[3], p[4], 0.9 + 0.08 * Math.sin(performance.now() / 70), null, "rgba(215,38,61,.25)");
   if (!isMe) {
     ctx.font = Math.round(PPU * 0.32) + "px SpectralBold, serif";
     ctx.textAlign = "center";
@@ -1104,6 +1169,27 @@ function updateHud() {
     $("dodges").innerHTML = d;
     $("weapon").textContent = me[24];
     $("weapon2").textContent = "‹›  " + me[25] + "  (Q)";
+    $("breathFill").style.width = ((me[34] || 0) * 100) + "%";
+    $("breathFill").classList.toggle("exhausted", me[35] === 1);
+    $("shuraFill").style.width = ((me[36] || 0) * 100) + "%";
+    $("shuraName").textContent = me[37] > 0 ? SHURA_NAMES[me[37]] : "";
+    let g = "";
+    for (let i = 0; i < (me[40] || 0); i++) g += '<span class="' + (me[39] > i ? "" : "off") + '"></span>';
+    $("sips").innerHTML = g;
+    $("kamae").textContent = KAMAE_NAMES[me[38] || 0];
+    $("tool").textContent = (TOOL_NAMES[me[41] || 0]) + " · papéis " + (me[42] || 0);
+    const wm = me[43] || 0, parts = [];
+    for (let i = 0; i < 4; i++) if (wm & (1 << i)) parts.push(WOUND_NAMES[i]);
+    $("wounds").textContent = parts.length ? "Ferido: " + parts.join(", ") + " · bandagens " + (me[53] || 0) : (me[52] > 0 ? "CARGA " + me[52] : "");
+    // Mushin: the interface fades away.
+    document.getElementById("hud").classList.toggle("mushin", me[44] === 1);
+  }
+  // Iai standoff.
+  const so = s.so;
+  $("standoff").style.display = so ? "block" : "none";
+  if (so) {
+    $("standoffText").textContent = so[1] === 1 ? "AGORA!" : "Segure o ataque. Solte só quando ele AVANÇAR.";
+    $("standoffText").classList.toggle("now", so[1] === 1);
   }
   $("room").textContent = s.room || "";
   $("wave").textContent = s.wave || "";
@@ -1145,4 +1231,8 @@ function updateHud() {
   $("center").innerHTML = title ? "<h2>" + title + "</h2><p>" + escapeHtml(sub) + "</p>" : "";
   $("center").style.display = title ? "block" : "none";
 }
+const KAMAE_NAMES = ["JŌDAN", "CHŪDAN", "GEDAN", "WAKI"];
+const TOOL_NAMES = ["Shuriken", "Bomba de fumaça", "Sino de bronze", "Petardo", "Óleo", "Corrente com gancho"];
+const WOUND_NAMES = ["braço", "perna", "tronco", "olhos"];
+const SHURA_NAMES = ["", "IRA", "SEDE", "FRENESI", "QUEDA NO SHURADŌ"];
 function escapeHtml(t) { return String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }

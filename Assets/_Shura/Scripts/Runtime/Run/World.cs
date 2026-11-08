@@ -45,6 +45,8 @@ namespace Shura
         public float ArtAngle;
         /// <summary>Passes through every enemy instead of stopping at the first.</summary>
         public bool Piercing;
+        /// <summary>A shuriken: catches leaps, charges and dives before they land.</summary>
+        public bool Interrupts;
         /// <summary>Sprite name for browser players (empty = arrow).</summary>
         public string Art;
         /// <summary>Degrees per second the art turns (shuriken).</summary>
@@ -89,7 +91,7 @@ namespace Shura
     /// hit. Tick order is fixed (player, enemies, projectiles, effects, collisions, waves)
     /// so runs are reproducible from their seed.
     /// </summary>
-    public sealed class World
+    public sealed partial class World
     {
         struct Burst
         {
@@ -100,6 +102,8 @@ namespace Shura
             public float posture;
             public Color color;
             public bool explosion;
+            /// <summary>A firecracker: beasts and Onis caught in it are stunned this long (others a third).</summary>
+            public int stunFrames;
         }
 
         const float PickupRadius = 0.9f;
@@ -175,6 +179,7 @@ namespace Shura
         {
             Config = config;
             Fx = fx;
+            Standoff = new Standoff(this);
             Coordinator = new AttackCoordinator(config.enemies.attackGapFrames);
             root = new GameObject("World").transform;
             RebuildArena(RoomGenerator.Intro());
@@ -277,6 +282,7 @@ namespace Shura
         /// </summary>
         public PlayerController ChooseTarget(Enemy enemy)
         {
+            if (enemy.AsuraOwner != null && enemy.AsuraOwner.IsAlive) return enemy.AsuraOwner;
             PlayerController best = null;
             float bestScore = float.MaxValue;
             foreach (PlayerController p in Players)
@@ -288,6 +294,7 @@ namespace Shura
                     if (e != enemy && !e.IsGone && e.Target == p) load++;
                 }
                 float score = Vector2.Distance(p.Position, enemy.Position) + load * 4f;
+                if (p.Exhausted && Adaptation.Pressure > AdaptiveTraits.ActiveThreshold) score -= 4f;
                 if (score < bestScore)
                 {
                     bestScore = score;
@@ -381,6 +388,7 @@ namespace Shura
                 Players[i].Tick();
             }
             actor = null;
+            Standoff.Tick();
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Tick();
             TickProjectiles();
             TickBursts();
@@ -390,6 +398,7 @@ namespace Shura
             ResolveCollisions();
             RemoveDead();
             FlushSpawns();
+            FlushTwins();
             TickRevives();
             TickWaves();
             Run.Elapsed += SimClock.Dt;
@@ -468,7 +477,8 @@ namespace Shura
             if (WaveIndex + 1 < CurrentRoom.waves.Length)
             {
                 WaveIndex++;
-                SpawnWave(CurrentRoom.waves[WaveIndex]);
+                List<Enemy> spawned = SpawnWave(CurrentRoom.waves[WaveIndex]);
+                if (WaveIndex == 0 && CurrentRoom.standoff) BeginStandoffWith(spawned);
                 waveDelay = Config.enemies.waveDelayFrames;
                 return;
             }
@@ -482,9 +492,16 @@ namespace Shura
             RoomClearedEvent?.Invoke();
         }
 
-        void SpawnWave(EnemySpawn[] spawns)
+        List<Enemy> SpawnWave(EnemySpawn[] spawns)
         {
-            foreach (EnemySpawn spawn in spawns) CreateEnemy(EnemyDefs.Get(spawn.id), FindSpawnPoint(), spawn.elite, null);
+            var list = new List<Enemy>();
+            foreach (EnemySpawn spawn in spawns)
+            {
+                Enemy e = CreateEnemy(EnemyDefs.Get(spawn.id), FindSpawnPoint(), spawn.elite, null);
+                ApplyEliteAffixes(e, spawn);
+                list.Add(e);
+            }
+            return list;
         }
 
         Enemy CreateEnemy(EnemyDef def, Vector2 at, bool elite, Enemy summoner)
@@ -695,6 +712,8 @@ namespace Shura
             }
             Enemies.Clear();
             pendingSpawns.Clear();
+            resonance.Clear();
+            kiaiTimes.Clear();
             bursts.Clear();
             ClearBlasts();
             ClearProjectiles();
@@ -709,6 +728,17 @@ namespace Shura
         {
             // A sweep can catch several duelists at once; each answers it on their own.
             bool connected = false;
+            bool groupAnswered = false;
+            if (attack.groupStrike)
+            {
+                int answering = 0;
+                foreach (PlayerController q in Players)
+                {
+                    if (q.IsAlive && q.InPerfectWindow && CombatMath.Overlaps(attack.shape, attacker.Position, attacker.Facing, q.Position, q.Radius)) answering++;
+                }
+                groupAnswered = answering >= 2;
+                HintOnce(HintId.GroupBlow);
+            }
             for (int i = 0; i < Players.Count; i++)
             {
                 PlayerController p = Players[i];
@@ -721,6 +751,7 @@ namespace Shura
                     source = attacker.Position,
                     signature = attacker.CurrentMove != null && attacker.CurrentMove.isSignature,
                     powerMult = attacker.PowerMult,
+                    groupAnswered = groupAnswered,
                 };
                 actor = p;
                 HitOutcome outcome = p.ReceiveAttack(incoming);
@@ -743,12 +774,12 @@ namespace Shura
             Strike(origin, direction, shape, damage, posture, null, true, false);
         }
 
-        public void ScheduleBurst(Vector2 position, int delayFrames, float radius, float damage, float posture, Color? color = null, bool explosion = false)
+        public void ScheduleBurst(Vector2 position, int delayFrames, float radius, float damage, float posture, Color? color = null, bool explosion = false, int stunFrames = 0)
         {
             bursts.Add(new Burst
             {
                 position = position, framesLeft = delayFrames, radius = radius, damage = damage, posture = posture,
-                color = color ?? Config.palette.playerAccent, explosion = explosion,
+                color = color ?? Config.palette.playerAccent, explosion = explosion, stunFrames = stunFrames,
             });
             Fx.Emit(FxType.Afterimage, position, Player.Facing, Player.Radius * 1.3f, Config.palette.gold);
         }
@@ -786,8 +817,12 @@ namespace Shura
                 if (result != StrikeResult.Hit || !applyRewardHooks) continue;
 
                 if (crit) Fx.Emit(FxType.Crit, e.Position, hitDir, finalDamage, e.Def.bloodColor);
+                if (crit && Player.Build.Modifiers.trailElement == Element.Shadow) e.Wound(WoundRegion.Eyes);
                 if (pull > 0f) e.Pull(Player.Position, pull);
-                if (Player.Build.Modifiers.lifesteal > 0f) Player.Heal(finalDamage * Player.Build.Modifiers.lifesteal);
+                if (Player.ConsumeOil()) e.ApplyDot(8f, 3f, Element.Fire);
+                float lifesteal = Player.Build.Modifiers.lifesteal + Player.KiLifesteal;
+                if (lifesteal > 0f) Player.Heal(finalDamage * lifesteal);
+                Player.OnStrikeLanded(e);
                 for (int r = 0; r < Player.Build.Effects.Count; r++) Player.Build.Effects[r].OnDealtDamage(this, e, finalDamage);
             }
         }
@@ -806,6 +841,15 @@ namespace Shura
                 bursts.RemoveAt(i);
                 Fx.Emit(b.explosion ? FxType.Explosion : FxType.Burst, b.position, Vector2.up, b.radius, b.color);
                 Strike(b.position, Vector2.right, HitShape.Circle(b.radius), b.damage, b.posture, null, true, false);
+                if (b.stunFrames > 0)
+                {
+                    for (int e = 0; e < Enemies.Count; e++)
+                    {
+                        Enemy en = Enemies[e];
+                        if (en.IsGone || Vector2.Distance(en.Position, b.position) > b.radius + en.Radius) continue;
+                        en.Stun(en.IsBeast ? b.stunFrames : b.stunFrames / 3);
+                    }
+                }
             }
         }
 
@@ -918,6 +962,7 @@ namespace Shura
             if (enemy == null || enemy.CurrentState != Enemy.State.Finishing) return;
 
             Player.Build.Finishers++;
+            Player.OnFinisherDone();
             if (dir.sqrMagnitude < 1e-4f) dir = Player.Facing;
             // Magnitude 2 marks the last enemy of the room: the router plays the slow-motion kill.
             bool lastOne = ActiveEnemyCount <= 1 && IsLastWave;
@@ -1055,7 +1100,8 @@ namespace Shura
         public void OnEnemyDied(Enemy enemy)
         {
             if (Run == null || CurrentRoom == null) return;
-            if (Run.Rng.NextFloat() >= ItemGenerator.DropChance(Depth, enemy.IsElite)) return;
+            float chance = ItemGenerator.DropChance(Depth, enemy.IsElite) * (enemy.DropsDouble ? 2f : 1f);
+            if (Run.Rng.NextFloat() >= chance) return;
             Item item = ItemGenerator.Roll(Run.Rng, Depth, enemy.IsElite);
             SpawnPickup(item, enemy.Position);
         }
@@ -1145,6 +1191,7 @@ namespace Shura
             {
                 // A fan spreads evenly across the arc, centred on where the thrower faces.
                 float offset = count == 1 ? 0f : -attack.spreadDegrees * 0.5f + attack.spreadDegrees * i / (count - 1);
+                if (owner.EyesWound) offset += Run.Rng.Range(-25f, 25f);
                 Vector2 dir = CombatMath.FromAngle(CombatMath.AngleDegrees(owner.Facing) + offset);
                 Vector2 start = owner.Position + dir * (owner.Radius + 0.3f);
                 Projectile p = art != null
@@ -1162,6 +1209,8 @@ namespace Shura
         public void NotifyKill(Enemy enemy)
         {
             if (Run == null) return;
+            PlayerController killer = actor ?? Host;
+            if (killer != null && killer.IsAlive) killer.OnKillCredited(enemy);
             // Every duelist's own techniques hear about it (each heals or explodes for themselves).
             PlayerController before = actor;
             foreach (PlayerController p in Players)
@@ -1318,6 +1367,9 @@ namespace Shura
                 if (!e.CanBeHit || p.Struck.Contains(e)) continue;
                 if (Vector2.Distance(p.Position, e.Position) > e.Radius + p.Radius) continue;
                 p.Struck.Add(e);
+                if (p.Interrupts) e.InterruptLeap();
+                // A reflected arrow that hits someone else turns them on the archer.
+                if (p.Owner != null && p.Owner != e) e.StartBrawl(p.Owner);
                 e.ReceivePlayerHit(p.Damage, p.Posture, p.Direction, true);
                 if (!p.Piercing) return true;
             }

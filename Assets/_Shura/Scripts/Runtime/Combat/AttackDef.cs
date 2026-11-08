@@ -10,6 +10,8 @@ namespace Shura
         Thrust,
         /// <summary>Dangerous grab: cannot be parried or blocked, only dodged.</summary>
         Grab,
+        /// <summary>A yokai's spirit blow (purple ring): it passes through the blade; only a Troca Perfeita (or a dodge) answers it.</summary>
+        Spirit,
     }
 
     /// <summary>How a floor blast looks (and sounds).</summary>
@@ -106,6 +108,10 @@ namespace Shura
         public bool stance;
         /// <summary>The release calls minions (see EnemyDef.summonId) instead of striking.</summary>
         public int summonCount;
+        /// <summary>Cursed blow (green ring): parrying is safe, but blocking or taking it curses.</summary>
+        public bool cursed;
+        /// <summary>A huge group blow (white broken ring): only two duelists parrying together stop it.</summary>
+        public bool groupStrike;
 
         public bool IsProjectile => projectileSpeed > 0f;
         public bool IsBlast => blastRadius > 0f;
@@ -115,7 +121,7 @@ namespace Shura
         /// <summary>Shows the melee "answer now" ring.</summary>
         public bool ShowsTimingRing => !NoMeleeHit;
 
-        public bool IsDangerous => kind != AttackKind.Normal;
+        public bool IsDangerous => kind != AttackKind.Normal && kind != AttackKind.Spirit;
         public bool Parryable => kind == AttackKind.Normal;
         public int TotalFrames => windup + active + recovery;
     }

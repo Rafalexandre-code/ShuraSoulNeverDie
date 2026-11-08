@@ -8,7 +8,7 @@ namespace Shura
     /// bounces and the enemy is open); when it deflects the player's swing, the player's
     /// blade bounces instead. Never changes how a move behaves at random.
     /// </summary>
-    public sealed class Enemy : Fighter
+    public sealed partial class Enemy : Fighter
     {
         public enum State
         {
@@ -94,6 +94,23 @@ namespace Shura
         SpriteRenderer timingTarget, timingApproach, timingGlow;
 
         public EnemyDef Def { get; private set; }
+        /// <summary>The moves this enemy uses (its def's, plus extras such as a Guardian's group blow).</summary>
+        MoveDef[] moves;
+        float sealBarY;
+
+        /// <summary>White broken ring: a huge blow only two duelists parrying together can stop.</summary>
+        static readonly MoveDef GroupBlow = new MoveDef
+        {
+            id = "golpe_do_grupo", minRange = 0f, maxRange = 3.4f, weight = 1,
+            steps = new[]
+            {
+                new AttackDef
+                {
+                    id = "golpe_do_grupo", windup = 56, active = 6, recovery = 38, trackUntil = 40,
+                    damage = 30f, postureDamage = 30f, postureOnParried = 70f, shape = HitShape.Circle(3.2f), groupStrike = true,
+                },
+            },
+        };
         public State CurrentState { get; private set; }
         public int StateFrame { get; private set; }
         public MoveDef CurrentMove { get; private set; }
@@ -156,7 +173,15 @@ namespace Shura
             Vector2 toPlayer = owner.Player.Position - spawn;
             if (toPlayer.sqrMagnitude > 1e-4f) Facing = toPlayer.normalized;
 
+            moves = def.moves;
+            if (scaling.elite && owner.PartySize >= 2)
+            {
+                moves = new MoveDef[def.moves.Length + 1];
+                def.moves.CopyTo(moves, 0);
+                moves[def.moves.Length] = GroupBlow;
+            }
             float barY = VisualTop + 0.25f;
+            sealBarY = barY;
             barBack = SpriteUtil.Make("BarBack", transform, ShapeLibrary.Get(Shape.Pixel), new Color(0f, 0f, 0f, 0.65f), Sorting.Overlay);
             barBack.transform.localPosition = new Vector3(0f, barY, 0f);
             barBack.transform.localScale = new Vector3(BarWidth + 0.08f, 0.22f, 1f);
@@ -201,12 +226,16 @@ namespace Shura
             if (exposedFrames > 0) exposedFrames--;
             TickStatus();
             if (CurrentState == State.Dead) return;
+            TickKi();
+            if (CurrentState == State.Dead) return;
             TickTraits();
 
             switch (CurrentState)
             {
                 case State.Spawning:
-                    if (StateFrame >= et.spawnFrames) EnterEngage(rng.Range(20, 50));
+                    // Held in place, fully drawn, while the standoff lasts.
+                    if (HeldInSpawn) StateFrame = Mathf.Min(StateFrame, et.spawnFrames - 1);
+                    else if (StateFrame >= et.spawnFrames) EnterEngage(rng.Range(20, 50));
                     break;
                 case State.Engage:
                     TickEngage();
@@ -233,6 +262,8 @@ namespace Shura
                     break;
                 case State.Finishing:
                     Velocity = Vector2.zero;
+                    // Safety net: no finisher lasts this long — whoever held it let go.
+                    if (StateFrame > 300) ReleaseFromFinisher();
                     break;
                 case State.Dying:
                     Velocity = Vector2.Lerp(Velocity, Vector2.zero, 0.2f);
@@ -323,13 +354,14 @@ namespace Shura
 
         void TickEngage()
         {
+            if (TickConfused()) return;
             if (Target == null || !Target.IsAlive || --retargetTimer <= 0)
             {
                 Target = world.ChooseTarget(this);
                 retargetTimer = 90 + (NetUid & 63);
             }
             PlayerController player = Target;
-            Vector2 to = player.Position - Position;
+            Vector2 to = FoePosition - Position;
             float dist = to.magnitude;
             Vector2 dir = dist > 0.001f ? to / dist : Facing;
             Facing = CombatMath.RotateTowards(Facing, dir, et.turnDegreesPerSecond * SimClock.Dt);
@@ -340,8 +372,9 @@ namespace Shura
             float range = Def.preferredRange + (waiting ? et.waitingRangeBonus : 0f);
 
             Vector2 desired;
-            if (!player.IsAlive) desired = Vector2.zero;
-            else if (dist > range + 0.6f) desired = world.Layout.Steer(Position, player.Position, Radius) * Def.moveSpeed;
+            bool brawling = InfightTarget != null;
+            if (!player.IsAlive && !brawling) desired = Vector2.zero;
+            else if (dist > range + 0.6f) desired = world.Layout.Steer(Position, FoePosition, Radius) * Def.moveSpeed;
             else if (dist < range - 0.6f) desired = -dir * Def.moveSpeed * 0.7f;
             else desired = CombatMath.Perpendicular(dir) * strafeSign * Def.moveSpeed * 0.45f;
 
@@ -354,7 +387,7 @@ namespace Shura
             if (enraged) desired *= 1.35f;
             Velocity = Vector2.Lerp(Velocity, desired, 0.15f);
 
-            if (!player.IsAlive) return;
+            if (!player.IsAlive && !brawling) return;
             if (--idleTimer <= 0) TryChooseAttack(dist);
         }
 
@@ -382,13 +415,25 @@ namespace Shura
         {
             if (dist < m.minRange || dist > m.maxRange) return false;
             if (m.steps[0].IsSummon && (string.IsNullOrEmpty(Def.summonId) || world.MinionsOf(this) >= Def.summonMax)) return false;
+            if (Winded > 0 && HasDangerousStep(m)) return false;
+            if (!LegsAllow(m)) return false;
+            if (m.steps[0].groupStrike && world.PartySize < 2) return false;
             return true;
+        }
+
+        static bool HasDangerousStep(MoveDef m)
+        {
+            foreach (AttackDef a in m.steps)
+            {
+                if (a.IsDangerous) return true;
+            }
+            return false;
         }
 
         void TryChooseAttack(float dist)
         {
             int total = 0;
-            foreach (MoveDef m in Def.moves)
+            foreach (MoveDef m in moves)
             {
                 if (Usable(m, dist)) total += MoveWeight(m);
             }
@@ -404,7 +449,7 @@ namespace Shura
             }
 
             int roll = rng.Range(0, total);
-            foreach (MoveDef m in Def.moves)
+            foreach (MoveDef m in moves)
             {
                 if (!Usable(m, dist)) continue;
                 int w = MoveWeight(m);
@@ -425,10 +470,13 @@ namespace Shura
             StartStep();
         }
 
+        bool brawlHit;
+
         void StartStep()
         {
             StepFrame = 0;
             stepHit = false;
+            brawlHit = false;
             AttackSerial++;
             AttackDef attack = CurrentAttack;
             AdaptStep(attack);
@@ -478,7 +526,9 @@ namespace Shura
             stepAdapted = false;
             // A frenzy speeds up every swing; the ring still closes on the real impact.
             if (enraged && !attack.stance && !attack.burrow) stepWindup = Mathf.Max(8, Mathf.RoundToInt(stepWindup * 0.72f));
-            if (!attack.NoMeleeHit && !attack.burrow && !attack.teleportBehind && rng.NextFloat() < traits.Delay * 0.6f)
+            if (ArmWound) stepWindup = Mathf.RoundToInt(stepWindup * 1.2f);
+            bool hiddenBlade = Target != null && Target.Stance == Kamae.Waki;
+            if (!hiddenBlade && !attack.NoMeleeHit && !attack.burrow && !attack.teleportBehind && rng.NextFloat() < traits.Delay * 0.6f * world.AdaptationSpeed)
             {
                 stepWindup += rng.Range(8, 19);
                 stepAdapted = true;
@@ -511,7 +561,7 @@ namespace Shura
             }
 
             PlayerController victim = Target != null ? Target : world.Host;
-            Vector2 to = victim.Position - Position;
+            Vector2 to = FoePosition - Position;
             if (StepFrame <= stepTrack && to.sqrMagnitude > 1e-4f)
             {
                 Facing = CombatMath.RotateTowards(Facing, to.normalized, et.turnDegreesPerSecond * 1.5f * SimClock.Dt);
@@ -537,6 +587,7 @@ namespace Shura
                     world.Fx.Emit(FxType.EnemySwing, Position, Facing, attack.IsDangerous ? 1.5f : attack.IsProjectile ? 2f : 1f);
                 }
                 Squash(attack.feint ? 1.08f : 1.25f, attack.feint ? 0.94f : 0.82f);
+                if (attack.feint) world.PunishFeintParry(this, attack);
                 if (attack.IsProjectile) world.SpawnProjectile(this, attack, CurrentMove.isSignature);
                 if (attack.IsBlast) ReleaseBlasts(attack, victim);
                 if (attack.IsSummon) world.Summon(this, Def.summonId, attack.summonCount);
@@ -547,6 +598,11 @@ namespace Shura
             {
                 if (attack.lunge > 0f && !Lunge(attack)) return;
                 if (!stepHit && world.TryHitPlayer(this, attack)) stepHit = true;
+                if (!brawlHit && InfightTarget != null)
+                {
+                    brawlHit = true;
+                    HitBrawlTarget(attack);
+                }
                 // A perfect answer can break posture, recoil or stagger us mid-swing.
                 if (CurrentState != State.Attacking) return;
             }
@@ -750,6 +806,7 @@ namespace Shura
                 return StrikeResult.None;
             }
             float blockChance = Mathf.Min(0.95f, Def.blockChance + 0.25f * world.Adaptation.Guard);
+            if (world.Player.Stance == Kamae.Jodan) blockChance *= 0.5f;
             if (!unblockable && CurrentState == State.Engage && facingAttacker && rng.NextFloat() < blockChance)
             {
                 Deflect(posture, hitDir, contact);
@@ -757,6 +814,15 @@ namespace Shura
             }
 
             blockStreak = 0;
+            // From behind: +50% posture.
+            if (Vector2.Dot(Facing, hitDir) > 0.5f) posture *= 1.5f;
+            RegisterHitRegion(hitDir);
+            if (TwinOf != null && !TwinOf.IsGone)
+            {
+                TwinOf.TakeTwinDamage(damage, hitDir);
+                damage = 0f;
+            }
+            if (HasAffix(EliteAffix.Mirrored) && damage > 0f && !unblockable) world.ReflectToStriker(this, damage * 0.2f);
             Health -= damage;
             Flash(0.07f);
             Squash(Def.superArmor ? 0.92f : 0.8f, Def.superArmor ? 1.08f : 1.2f);
@@ -897,7 +963,7 @@ namespace Shura
             // The riposte answers whoever struck the guard.
             Target = world.Player;
             MoveDef fastest = null;
-            foreach (MoveDef m in Def.moves)
+            foreach (MoveDef m in moves)
             {
                 AttackDef first = m.steps[0];
                 if (first.IsDangerous || first.NoMeleeHit || first.burrow || first.teleportBehind || dist < m.minRange || dist > m.maxRange) continue;
@@ -915,6 +981,14 @@ namespace Shura
             Enter(State.Broken);
             world.Fx.Emit(FxType.PostureBreak, Position, Facing, Radius, pal.gold);
             world.HintOnce(HintId.Finisher);
+        }
+
+        /// <summary>The finisher was abandoned: back on its feet with half its posture.</summary>
+        public void ReleaseFromFinisher()
+        {
+            if (CurrentState != State.Finishing) return;
+            Posture.Reset(Posture.Max * 0.5f);
+            EnterEngage(30);
         }
 
         public void BeginFinisher()
@@ -974,6 +1048,8 @@ namespace Shura
 
             world.NotifyKill(this);
             if (Def.clones) world.DispelMinionsOf(this);
+            if (AsuraOwner != null) AsuraOwner.OnInnerAsuraDefeated();
+            OnDeathAffixes();
             // A finisher ends it for good: no split.
             if (!gibbed && !string.IsNullOrEmpty(Def.splitInto) && Def.splitCount > 0)
             {
@@ -1189,34 +1265,62 @@ namespace Shura
         /// </summary>
         void RenderTimingIndicator(AttackDef attack)
         {
-            bool show = world.ShowTimingIndicator && attack != null && attack.ShowsTimingRing && CurrentState == State.Attacking &&
+            bool ring = attack != null && (attack.ShowsTimingRing || attack.feint) && CurrentState == State.Attacking &&
                         TelegraphTiming.ApproachVisible(StepFrame, CueWindup, feel.timingCueLeadFrames, feel.timingApproachFrames);
             NetRing = 0;
-            if (!show)
+            NetRingKind = (int)CurrentRingKind;
+            if (!ring)
             {
                 timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
+                if (timingInner != null) timingInner.enabled = false;
                 return;
             }
 
+            RingKind kind = CurrentRingKind;
             int lead = Mathf.Max(1, feel.timingCueLeadFrames);
             int cue = TelegraphTiming.CueFrame(CueWindup, lead);
             float t = TelegraphTiming.ApproachProgress(StepFrame, CueWindup, lead, feel.timingApproachFrames);
-            Color c = attack.IsDangerous ? pal.danger : pal.playerAccent;
             float size = Radius * 2f * 1.55f;
+            NetRingSize = size;
+            NetRing = StepFrame < cue ? 1 : 2;
+            NetRingProgress = StepFrame < cue ? t : Mathf.Clamp01((StepFrame - cue) / (float)lead);
+
+            // What this computer's duelist sees: nothing in Mushin, Frenzy, or with wounded eyes.
+            PlayerController viewer = world.Host;
+            bool veiled = Veiled && Vector2.Distance(viewer.Position, Position) > 3f;
+            if (!world.ShowTimingIndicator || viewer.RingsHidden || veiled)
+            {
+                timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
+                if (timingInner != null) timingInner.enabled = false;
+                return;
+            }
+            size *= viewer.RingScale;
+
+            Color c = RingColor(kind);
+            Sprite pattern = ShapeLibrary.RingPattern((int)kind);
+            timingTarget.sprite = pattern;
+            timingApproach.sprite = pattern;
+            // Two-beat blow: an inner ring marks the real moment.
+            bool twoBeat = kind == RingKind.Double;
+            if (twoBeat && timingInner == null) timingInner = SpriteUtil.Make("TimingInner", transform, ShapeLibrary.Get(Shape.Ring), Color.white, Sorting.Overlay - 3);
+            float closeAt = twoBeat ? size * 0.6f : size;
+            if (timingInner != null)
+            {
+                timingInner.enabled = twoBeat;
+                timingInner.transform.localScale = new Vector3(size * 0.6f, size * 0.6f, 1f);
+                timingInner.color = c.WithAlpha(0.6f);
+            }
 
             timingTarget.enabled = true;
             if (StepFrame < cue)
             {
                 timingApproach.enabled = true;
                 timingGlow.enabled = false;
-                float s = size * Mathf.Lerp(3.4f, 1f, t);
+                float s = Mathf.Lerp(size * 3.4f, closeAt, t);
                 timingApproach.transform.localScale = new Vector3(s, s, 1f);
                 timingApproach.color = c.WithAlpha(Mathf.Lerp(0.15f, 0.95f, t));
                 timingTarget.transform.localScale = new Vector3(size, size, 1f);
                 timingTarget.color = c.WithAlpha(0.35f);
-                NetRing = 1;
-                NetRingSize = size;
-                NetRingProgress = t;
                 return;
             }
 
@@ -1224,16 +1328,32 @@ namespace Shura
             float k = Mathf.Clamp01((StepFrame - cue) / (float)lead);
             timingApproach.enabled = false;
             timingGlow.enabled = true;
-            float pulse = size * (1.18f - 0.18f * k);
+            float pulse = closeAt * (1.18f - 0.18f * k);
             timingTarget.transform.localScale = new Vector3(pulse, pulse, 1f);
             timingTarget.color = Color.Lerp(Color.white, c, 0.35f + 0.4f * k);
-            float g = size * 1.9f;
+            float g = closeAt * 1.9f;
             timingGlow.transform.localScale = new Vector3(g, g, 1f);
             timingGlow.color = c.WithAlpha(0.55f * (1f - k * 0.5f));
-            NetRing = 2;
-            NetRingSize = size;
-            NetRingProgress = k;
         }
+
+        SpriteRenderer timingInner;
+
+        public Color RingColor(RingKind kind)
+        {
+            switch (kind)
+            {
+                case RingKind.Danger: return pal.danger;
+                case RingKind.Feint: return pal.gold;
+                case RingKind.Spirit: return ColorUtil.Hex("#B07CFF");
+                case RingKind.Cursed: return ColorUtil.Hex("#7BC950");
+                case RingKind.Group: return Color.white;
+                default: return pal.playerAccent;
+            }
+        }
+
+        public int NetRingKind { get; private set; }
+        /// <summary>Elite affix: rings only show within 3 m.</summary>
+        public bool Veiled { get; set; }
 
         // ── Read by the network snapshot (browser players draw the same telegraphs) ─────
 
@@ -1254,6 +1374,7 @@ namespace Shura
         {
             AttackDef attack = CurrentAttack;
             RenderTimingIndicator(attack);
+            RenderSeals(sealBarY);
 
             float windupT = attack != null ? Mathf.Clamp01(StepFrame / (float)Mathf.Max(1, stepWindup)) : 0f;
             bool active = attack != null && StepFrame >= stepWindup && StepFrame < stepWindup + attack.active;

@@ -9,7 +9,7 @@ namespace Shura
     /// Carries two weapons: swapping inside an enemy's swing is a Troca Perfeita — a parry
     /// with no block fallback that unleashes the incoming weapon's Swap Strike.
     /// </summary>
-    public sealed class PlayerController : Fighter
+    public sealed partial class PlayerController : Fighter
     {
         public enum State
         {
@@ -27,6 +27,12 @@ namespace Shura
             GuardBroken,
             Finisher,
             Dead,
+            /// <summary>Drinking from the gourd or binding a wound.</summary>
+            Drink,
+            /// <summary>Time slows over a broken enemy: aim the finishing cut.</summary>
+            FinisherAim,
+            /// <summary>The Iai standoff at the start of a room.</summary>
+            Standoff,
         }
 
         static readonly PlayerModifiers DefaultMods = new PlayerModifiers();
@@ -128,7 +134,7 @@ namespace Shura
         {
             if (!IsAlive) return false;
             if (IsDodgeInvulnerable) return true;
-            if (hurtInvuln > 0 || CurrentState == State.Finisher) return false;
+            if (hurtInvuln > 0 || CurrentState == State.Finisher || CurrentState == State.FinisherAim) return false;
             hazardAttack.damage = damage;
             hazardAttack.postureDamage = posture;
             TakeHit(hazardAttack, -dir, 1f);
@@ -164,18 +170,18 @@ namespace Shura
         }
 
         readonly AttackDef hazardAttack = new AttackDef { id = "trap" };
-        PlayerAttackDef CurrentStep => CurrentState == State.SwapStrike ? Weapon.swapStrike : Weapon.combo[Mathf.Clamp(ComboIndex, 0, Weapon.combo.Length - 1)];
+        PlayerAttackDef CurrentStep => CurrentState == State.SwapStrike ? (eloStep ?? Weapon.swapStrike) : Weapon.combo[Mathf.Clamp(ComboIndex, 0, Weapon.combo.Length - 1)];
 
         public bool IsDodgeInvulnerable =>
             CurrentState == State.Dodge && StateFrame >= t.dodgeIFrameStart && StateFrame <= t.dodgeIFrameEnd;
 
-        public int PerfectParryFrames => Mathf.Max(2, t.perfectParryFrames + Mods.perfectParryFrameBonus);
+        public int PerfectParryFrames => Mathf.Max(2, (t.perfectParryFrames + Mods.perfectParryFrameBonus + KiParryBonus + (Build?.AgeParryBonus ?? 0) + world.ParryAssistFrames) / (Exhausted ? 2 : 1));
 
         public float PostureDealtMult =>
             Mods.postureMult * (FlowLevel >= 1 ? 1f + flowTuning.level1PostureBonus : 1f);
 
         /// <summary>Flow makes every blow land harder.</summary>
-        public float DamageDealtMult => Mods.damageMult * (1f + flowTuning.damagePerLevel * FlowLevel);
+        public float DamageDealtMult => Mods.damageMult * (1f + flowTuning.damagePerLevel * FlowLevel) * KiDamageMult;
 
         public void Init(World owner, GameConfig config)
         {
@@ -226,6 +232,7 @@ namespace Shura
 
         public void ResetForRoom(Vector2 spawn)
         {
+            ResetKiForRoom();
             Teleport(spawn);
             Facing = Vector2.right;
             Posture.Reset();
@@ -250,7 +257,7 @@ namespace Shura
         public void Heal(float amount)
         {
             if (!IsAlive || amount <= 0f) return;
-            Health = Mathf.Min(MaxHealth, Health + amount);
+            Health = Mathf.Min(MaxHealth, Health + amount * HealMult);
         }
 
         /// <summary>The straw-hat samurai from Ninja Adventure.</summary>
@@ -296,6 +303,8 @@ namespace Shura
             if (clashFrames > 0) clashFrames--;
             RechargeDodge();
             RegenPosture();
+            TickKi();
+            if (world.Standoff.Active && CurrentState != State.Standoff && IsAlive) BeginStandoff();
 
             switch (CurrentState)
             {
@@ -309,6 +318,9 @@ namespace Shura
                 case State.Hurt: TickHurt(); break;
                 case State.GuardBroken: TickGuardBroken(); break;
                 case State.Finisher: TickFinisher(); break;
+                case State.Drink: TickDrink(); break;
+                case State.FinisherAim: TickFinisherAim(); break;
+                case State.Standoff: TickStandoff(); break;
             }
             Integrate();
             EmitFlowTrail();
@@ -316,17 +328,21 @@ namespace Shura
 
         void Enter(State state)
         {
+            // Leaving a finisher before the kill (knocked out of it, room reset…): let the victim go.
+            bool wasFinishing = CurrentState == State.FinisherAim || CurrentState == State.Finisher;
+            if (wasFinishing && state != State.Finisher && finisherTarget != null && !finisherKilled) finisherTarget.ReleaseFromFinisher();
             CurrentState = state;
             StateFrame = 0;
         }
 
-        float MoveSpeed => t.moveSpeed * Mods.moveSpeedMult * Weapon.moveMult;
+        float MoveSpeed => t.moveSpeed * Mods.moveSpeedMult * Weapon.moveMult * KiMoveMult;
 
         // ── States ──────────────────────────────────────────────────────────────────────
 
         void TickFree()
         {
             UpdateFacing(false);
+            if (TryKiActions()) return;
             if (TryStartDodge()) return;
             if (TryStartSwap()) return;
             if (input.Buffer.Consume(BufferedAction.Parry))
@@ -357,6 +373,7 @@ namespace Shura
         {
             UpdateFacing(true);
             if (TryStartDodge()) return;
+            if (TryKiActions()) return;
 
             bool windowOver = StateFrame >= parryWindow;
             if (windowOver && TryStartSwap()) return;
@@ -413,19 +430,25 @@ namespace Shura
                 float move = (step.lunge + step.dash) / step.active;
                 Position += Facing * move;
                 float damage = step.damage * DamageDealtMult;
-                float posture = step.posture * PostureDealtMult * Mods.normalAttackPostureMult;
-                world.PlayerStrike(step.shape, damage, posture, hitThisSwing, step.pull, swapStrike);
+                float posture = step.posture * PostureDealtMult * Mods.normalAttackPostureMult * (descendFrames > 0 ? 2f : 1f);
+                world.PlayerStrike(step.shape, damage, posture, hitThisSwing, step.pull, swapStrike || InAsura);
                 if (step.style == SwingStyle.Slam && f == step.active - 1) world.Fx.Emit(FxType.SlamImpact, Position + Facing * step.shape.range * 0.6f, Facing, step.shape.range);
                 // A deflect inside PlayerStrike ends the swing immediately.
                 if (CurrentState != (swapStrike ? State.SwapStrike : State.Attack)) return;
             }
 
             if (StateFrame < activeEnd) return;
+            if (StateFrame == activeEnd)
+            {
+                if (descendFrames > 0 && hitThisSwing.Count > 0) descendFrames = 0;
+                if (!swapStrike && ComboIndex == Weapon.combo.Length - 1) OfferBreath();
+            }
 
             int sinceActive = StateFrame - activeEnd;
             if (!swapStrike && sinceActive >= t.attackCancelDelay)
             {
                 if (TryStartDodge()) return;
+                if (TryKiActions()) return;
                 if (TryStartSwap()) return;
                 if (input.Buffer.Consume(BufferedAction.Parry))
                 {
@@ -446,13 +469,14 @@ namespace Shura
 
         void TickDodge()
         {
-            float prev = CombatMath.EaseOutQuad((StateFrame - 1) / (float)t.dodgeFrames);
-            float now = CombatMath.EaseOutQuad(StateFrame / (float)t.dodgeFrames);
-            Position += dodgeDir * t.dodgeDistance * Mods.dodgeDistanceMult * (now - prev);
+            int frames = DodgeFrames;
+            float prev = CombatMath.EaseOutQuad((StateFrame - 1) / (float)frames);
+            float now = CombatMath.EaseOutQuad(StateFrame / (float)frames);
+            Position += dodgeDir * t.dodgeDistance * Mods.dodgeDistanceMult * KiDodgeDistance * world.DodgeDistanceMult * (now - prev);
 
             if (StateFrame % 2 == 0) world.Fx.Emit(FxType.Afterimage, Position, Facing, Radius, pal.playerAccent);
 
-            if (StateFrame >= t.dodgeFrames)
+            if (StateFrame >= frames)
             {
                 Enter(State.Free);
                 Velocity = dodgeDir * MoveSpeed * 0.6f;
@@ -466,6 +490,7 @@ namespace Shura
             {
                 // Recover in time to parry the riposte: deflection is a warning, not a stun-lock.
                 if (TryStartDodge()) return;
+                if (TryKiActions()) return;
                 if (TryStartSwap()) return;
                 if (input.Buffer.Consume(BufferedAction.Parry))
                 {
@@ -635,16 +660,29 @@ namespace Shura
         bool TryStartSwap()
         {
             if (!input.Buffer.Consume(BufferedAction.Swap)) return false;
+            // Swapping right after the last blow of a combo throws a Link (Elo) instead.
+            bool elo = CurrentState == State.Attack && ComboIndex == Weapon.combo.Length - 1 &&
+                       StateFrame >= CurrentStep.windup + CurrentStep.active;
+            WeaponDef outgoing = Weapon;
+            int outgoingCharge = charge[activeWeapon];
+            charge[activeWeapon] = 0;
             world.ProfileParryPress(PerfectParryFrames);
             int window = PerfectParryFrames;
             if (framesSinceSwap < t.swapSpamWindow && !lastSwapSucceeded) window = Mathf.Max(1, window / 2);
             framesSinceSwap = 0;
             lastSwapSucceeded = false;
-            swapWindow = window;
+            // A wounded sword arm cannot turn the swap into a parry.
+            swapWindow = HasWound(WoundRegion.Arm) ? 0 : window;
             activeWeapon = 1 - activeWeapon;
             if (Build != null) Build.ActiveWeapon = activeWeapon;
             ApplyWeaponVisual();
             UpdateFacing(true);
+            ReleaseCharge(outgoing, outgoingCharge);
+            if (elo)
+            {
+                StartElo(outgoing, Weapon);
+                return true;
+            }
             Enter(State.Swap);
             Squash(0.85f, 1.15f);
             world.Fx.Emit(FxType.WeaponSwap, Position, Facing, 1f, Weapon.color);
@@ -653,6 +691,7 @@ namespace Shura
 
         void StartSwapStrike()
         {
+            eloStep = null;
             hitThisSwing.Clear();
             Velocity = Vector2.zero;
             Enter(State.SwapStrike);
@@ -662,6 +701,18 @@ namespace Shura
         void StartAttack(int index)
         {
             run.Profile.OnAttack();
+            if (index == 0) comboSpent = 0f;
+            SpendStamina(AttackStamina);
+            comboSpent += AttackStamina;
+            chargedThisSwing = false;
+            if (CycleFramesLeft > 0 && index > 0)
+            {
+                // Ciclo das Duas Lâminas: every blow comes from the other weapon.
+                activeWeapon = 1 - activeWeapon;
+                if (Build != null) Build.ActiveWeapon = activeWeapon;
+                ApplyWeaponVisual();
+                index = Mathf.Min(index, Weapon.combo.Length - 1);
+            }
             ComboIndex = index;
             hitThisSwing.Clear();
             UpdateFacing(false);
@@ -676,9 +727,11 @@ namespace Shura
 
         bool TryStartDodge()
         {
+            if (TryBreathe()) return true;
             if (!input.Buffer.Peek(BufferedAction.Dodge) || DodgeCharges < 1f) return false;
             input.Buffer.Consume(BufferedAction.Dodge);
             DodgeCharges -= 1f;
+            SpendStamina(DodgeStamina);
             run.Profile.OnDodge();
             Vector2 move = input.Move;
             dodgeDir = move.sqrMagnitude > 0.04f ? move.normalized : Facing;
@@ -704,7 +757,9 @@ namespace Shura
             finisherAnchor = target.Position;
             finisherKilled = false;
             Velocity = Vector2.zero;
-            Enter(State.Finisher);
+            AimLineAngle = world.Run.Rng.Range(0f, 180f);
+            Enter(State.FinisherAim);
+            world.HintOnce(HintId.FinisherCut);
             Squash(0.8f, 1.2f);
             world.Fx.Emit(FxType.FinisherStart, target.Position, finisherDir, (int)finisherStyle);
             return true;
@@ -792,7 +847,7 @@ namespace Shura
             var defender = new DefenderState
             {
                 dodgeIFrames = IsDodgeInvulnerable,
-                hurtInvulnerable = hurtInvuln > 0 || CurrentState == State.Finisher || CurrentState == State.SwapStrike,
+                hurtInvulnerable = hurtInvuln > 0 || CurrentState == State.Finisher || CurrentState == State.FinisherAim || CurrentState == State.SwapStrike,
                 parryWindow = CurrentState == State.Parry && StateFrame < parryWindow,
                 swapWindow = CurrentState == State.Swap && StateFrame < swapWindow,
                 guarding = CurrentState == State.Parry,
@@ -801,7 +856,11 @@ namespace Shura
                 parryArcDegrees = t.parryArcDegrees,
                 dodgeDirection = CurrentState == State.Dodge ? dodgeDir : Vector2.zero,
                 counterDot = t.counterThrustDotThreshold,
+                groupAnswered = incoming.groupAnswered,
             };
+            lastAttacker = attacker;
+            // Mikiri timing: the dodge began in the last few frames before the blow.
+            bool lateDodge = CurrentState == State.Dodge && StateFrame <= 5;
 
             HitOutcome outcome = HitResolver.Resolve(attack, defender);
             // Where the two blades meet: just in front of the guard.
@@ -824,9 +883,17 @@ namespace Shura
                     world.TryMaster(attacker, SignatureAnswer.PerfectParry, incoming.signature);
                     world.Fx.Emit(swap ? FxType.SwapParry : FxType.PerfectParry, clashPoint, toDir, FlowLevel, Weapon.color);
                     Squash(0.8f, 1.2f);
+                    if (attacker != null)
+                    {
+                        // Each perfect parry plants a Ki seal and steals the attacker's breath.
+                        attacker.AddSeal(1 + (Build?.ExtraSealsPerParry ?? 0));
+                        attacker.DrainStamina(10f);
+                        world.RegisterResonance(attacker, this);
+                    }
                     if (!incoming.projectile)
                     {
                         float posture = attack.postureOnParried * PostureDealtMult * Mods.perfectParryPostureMult * (swap ? t.swapParryPostureMult : 1f);
+                        posture *= world.ResonanceMult(attacker);
                         for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].ModifyParryPosture(world, attacker, ref posture);
                         attacker.OnParried(posture);
                     }
@@ -850,11 +917,14 @@ namespace Shura
                     {
                         for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnBlock(world, attacker);
                     }
-                    if (Posture.Add(attack.postureDamage * power * t.blockPostureMultiplier * Mods.blockWearMult)) GuardBreak(toDir);
+                    SpendStamina(attack.postureDamage * power);
+                    if (attack.cursed) Curse();
+                    if (Posture.Add(attack.postureDamage * power * t.blockPostureMultiplier * Mods.blockWearMult) && !PostureUnbreakable) GuardBreak(toDir);
                     break;
 
                 case HitOutcome.PerfectDodge:
                     PerfectDodgeAgainst(attacker, attack.IsDangerous, incoming.signature);
+                    if (attacker != null && lateDodge) MasterDodge(attack, attacker, toDir);
                     break;
 
                 case HitOutcome.CounterThrust:
@@ -863,16 +933,50 @@ namespace Shura
                     world.RegisterPerfect(clashPoint);
                     world.TryMaster(attacker, SignatureAnswer.CounterThrust, incoming.signature);
                     world.Fx.Emit(FxType.CounterThrust, clashPoint, toDir, FlowLevel);
-                    attacker.OnCounterThrust(t.counterThrustPosture * PostureDealtMult);
+                    attacker.OnCounterThrust(t.counterThrustPosture * PostureDealtMult * (Stance == Kamae.Chudan ? 1.3f : 1f));
+                    attacker.Shove(toDir * -1f, 2.5f, this);
+                    if (lateDodge)
+                    {
+                        // Pisar na Lâmina: the thrust is pinned to the floor.
+                        attacker.Disarm(60);
+                        attacker.ApplyPosture(40f);
+                        world.Fx.Popup(Strings.PopupStomp, attacker.Position + Vector2.up * 1.3f, pal.gold);
+                        world.HintOnce(HintId.MasterAnswers);
+                    }
                     world.AddFlow(flowTuning.counterPoints);
                     for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnPerfectDodge(world, attacker);
                     break;
 
                 case HitOutcome.Hit:
+                    if (attack.cursed) Curse();
                     TakeHit(attack, toDir, power);
                     break;
             }
             return outcome;
+        }
+
+        Enemy lastAttacker;
+
+        /// <summary>
+        /// The master answers (Mikiri, widened): a dodge started in the last frames before a
+        /// sweep becomes a descending blow; toward a grab, a throw.
+        /// </summary>
+        void MasterDodge(AttackDef attack, Enemy attacker, Vector2 toDir)
+        {
+            if (attack.kind == AttackKind.Sweep)
+            {
+                descendFrames = DescendFrames;
+                Squash(0.7f, 1.3f);
+                world.Fx.Popup(Strings.PopupDescend, Position + Vector2.up * 1.3f, pal.gold);
+                world.HintOnce(HintId.MasterAnswers);
+            }
+            else if (attack.kind == AttackKind.Grab && Vector2.Dot(dodgeDir, toDir) > 0.4f)
+            {
+                // Reversão: the grabber is thrown over the shoulder.
+                attacker.Throw(toDir * -1f, this);
+                world.Fx.Popup(Strings.PopupReversal, attacker.Position + Vector2.up * 1.3f, pal.gold);
+                world.HintOnce(HintId.MasterAnswers);
+            }
         }
 
         void TakeHit(AttackDef attack, Vector2 toAttacker, float power)
@@ -896,6 +1000,8 @@ namespace Shura
             world.Fx.Blood(Position, -toAttacker, 6f + damage * 0.3f, ColorUtil.Hex("#8E0F1E"));
             world.DropFlow(1 + Mods.extraFlowLossOnHurt);
             Build.BreakStreak();
+            OnHurtKi(toAttacker, lastAttacker);
+            lastAttacker = null;
             hurtInvuln = t.hurtInvulnFrames;
             Velocity = -toAttacker * t.hurtKnockback;
             Flash(0.08f);
@@ -909,7 +1015,7 @@ namespace Shura
                 return;
             }
 
-            if (Posture.Add(attack.postureDamage * power * t.hitPostureFraction))
+            if (Posture.Add(attack.postureDamage * power * t.hitPostureFraction) && !PostureUnbreakable)
             {
                 GuardBreak(toAttacker);
                 return;

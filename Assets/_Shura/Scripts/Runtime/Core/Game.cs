@@ -641,6 +641,7 @@ namespace Shura
             float fightLevel = combat ? (flow >= 2 ? 0.8f : 0.7f) : 0f;
             float calmLevel = combat ? 0f : CurrentMode == Mode.GameOver ? 0.45f : menu ? 0.55f : 0.6f;
             Audio.SetMusicMood(calmLevel, fightLevel);
+            Audio.MusicMuffled = inRun && World.Player != null && (World.Player.InMushin || World.Standoff.Active);
         }
 
         void OnApplicationFocus(bool hasFocus)

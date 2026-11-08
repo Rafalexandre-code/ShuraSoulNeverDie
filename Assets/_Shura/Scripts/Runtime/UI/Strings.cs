@@ -140,6 +140,56 @@ namespace Shura
         public const string PopupStanceCounter = "CONTRA-SAQUE!";
         public const string PopupEnraged = "FÚRIA!";
 
+        // Combat layers (design doc §3)
+        public const string HudBreath = "FÔLEGO";
+        public const string HudShura = "SHURA";
+        public const string HudPapers = "papéis {0}";
+        public const string HudWounds = "Ferido: {0}  ·  bandagens {1}";
+        public const string HudCutAim = "Mire o corte: na linha dourada, no braço ou na cabeça";
+        public const string HudStandoffTitle = "居合  ·  IAI";
+        public const string HudStandoffHold = "Segure {0}. Solte só quando ele AVANÇAR.";
+        public const string HudStandoffNow = "AGORA!";
+        public const string HudMouseLeft = "o botão esquerdo";
+        public const string PopupMushin = "MUSHIN";
+        public const string PopupMushinEnd = "a mente volta";
+        public const string PopupExhausted = "SEM FÔLEGO";
+        public const string PopupBreath = "RESPIRO";
+        public const string PopupDetonate = "SELOS!";
+        public const string PopupKiaiNoFlow = "sem Fluxo para o kiai";
+        public const string PopupKiai = "KIAI!";
+        public const string PopupNoBandage = "sem bandagens";
+        public const string PopupNoWound = "nenhum ferimento";
+        public const string PopupGourdEmpty = "cabaça vazia";
+        public const string PopupBandaged = "ENFAIXADO";
+        public const string PopupNoPapers = "sem papéis espirituais";
+        public const string PopupOil = "LÂMINA EM CHAMAS";
+        public const string PopupShuraCalm = "o Shura se acalma";
+        public const string PopupAsura = "ASURA!";
+        public const string PopupAsuraBeaten = "O ASURA FOI VENCIDO";
+        public const string PopupCharge = "CARGA {0}";
+        public const string PopupCycle = "CICLO DAS DUAS LÂMINAS";
+        public const string PopupCutLine = "CORTE EM LINHA";
+        public const string PopupCutArm = "BRAÇO DECEPADO";
+        public const string PopupCutHead = "DECAPITADO";
+        public const string PopupStomp = "PISÃO!";
+        public const string PopupDescend = "DESCIDA!";
+        public const string PopupReversal = "REVERSÃO!";
+        public const string PopupStandoffLost = "SACOU CEDO DEMAIS";
+        public const string PopupFooled = "ENGANADO!";
+        public const string PopupWinded = "SEM FÔLEGO!";
+        public const string PopupKnockedDown = "DERRUBADO!";
+        public const string PopupFell = "CAIU NO ABISMO";
+        public const string PopupDisarmed = "DESARMADO!";
+        public const string PopupInterrupted = "INTERROMPIDO!";
+        public const string PopupResonance = "RESSONÂNCIA ×{0}";
+        public const string PopupMissed = "errou";
+        public const string PopupIai = "IAI!";
+        public const string ToastGroupKiai = "KIAI DO GRUPO! Todas as posturas se quebram.";
+        public const string ToastInnerAsura = "O Asura Interior de {0} desperta. Só {0} pode vencê-lo.";
+
+        static readonly string[] WoundNames = { "BRAÇO FERIDO", "PERNA FERIDA", "TRONCO FERIDO", "OLHOS FERIDOS" };
+        public static string WoundName(WoundRegion region) => WoundNames[(int)region];
+
         // Online
         public const string PlayOnline = "Jogar online (até 8)";
         public const string LobbyTitle = "SALA ONLINE";
@@ -276,6 +326,56 @@ namespace Shura
                     return "INVOCADOR: enquanto viver, chamará mais fogos-fátuos. Derrube o Onmyōji.";
                 case HintId.Split:
                     return "O LODO SE DIVIDIU! Uma FINALIZAÇÃO impede a divisão.";
+                case HintId.Mushin:
+                    return "MUSHIN: a mente vazia. A interface some, o som abafa e cada perfeito vale o dobro. Um golpe sofrido te tira do estado.";
+                case HintId.Kamae:
+                    return gamepad
+                        ? "KAMAE: o direcional troca a guarda. Cima Jōdan (dano, menos defesa) · Direita Chūdan (equilíbrio) · Baixo Gedan (aparar fácil) · Esquerda Waki (esquiva longa)."
+                        : "KAMAE: 1–4 trocam a guarda. 1 Jōdan (dano, menos defesa) · 2 Chūdan (equilíbrio) · 3 Gedan (aparar fácil) · 4 Waki (esquiva longa).";
+                case HintId.Stamina:
+                    return "FÔLEGO: atacar e esquivar gastam fôlego. Zerado, você fica exausto: aparar fica mais difícil e os inimigos percebem. O brilho após o último golpe do combo é um RESPIRO: esquive nele para recuperar.";
+                case HintId.Seals:
+                    return gamepad
+                        ? "SELOS: cada aparar perfeito marca um selo no inimigo. ATACAR + APARAR juntos detonam todos: dano e postura por selo."
+                        : "SELOS: cada aparar perfeito marca um selo no inimigo. G (ou ataque + aparar juntos) detona todos: dano e postura por selo.";
+                case HintId.Kiai:
+                    return gamepad
+                        ? "KIAI: APARAR + ESQUIVAR juntos gastam um nível de Fluxo e interrompem golpes vermelhos de perto. Três duelistas juntos quebram todas as posturas."
+                        : "KIAI: V (ou aparar + esquiva juntos) gasta um nível de Fluxo e interrompe golpes vermelhos de perto. Três duelistas juntos quebram todas as posturas.";
+                case HintId.Gourd:
+                    return gamepad
+                        ? "CABAÇA: B bebe (cura, mas te deixa parado). L3 enfaixa um ferimento. Ela se reenche a cada sala."
+                        : "CABAÇA: F bebe (cura, mas te deixa parado). H enfaixa um ferimento. Ela se reenche a cada sala.";
+                case HintId.Tools:
+                    return gamepad
+                        ? "FERRAMENTAS: RT usa, LT troca. Shuriken, fumaça, sino, bombinha, óleo e corrente. Gastam papéis espirituais (finalizações devolvem)."
+                        : "FERRAMENTAS: R usa, T troca. Shuriken, fumaça, sino, bombinha, óleo e corrente. Gastam papéis espirituais (finalizações devolvem).";
+                case HintId.Wounds:
+                    return "FERIMENTOS: golpes fortes ferem uma região. Braço: a troca falha. Perna: esquiva curta. Tronco: sangra. Olhos: os anéis somem por um tempo. Enfaixe-se.";
+                case HintId.Curse:
+                    return "AMALDIÇOADO: golpes roxos amaldiçoam quem só bloqueia. Apare perfeitamente ou esquive.";
+                case HintId.Shura:
+                    return "SHURA: matar sem misericórdia enche a barra vermelha. Ira, Sede, Frenesi… e ao transbordar você cai no Shuradō. Aparar perfeitamente acalma.";
+                case HintId.Asura:
+                    return "VOCÊ É O ASURA: seus golpes não podem ser bloqueados. Quando passar, o seu Asura Interior virá cobrar.";
+                case HintId.Elo:
+                    return "ELO: trocar de arma no meio do combo dá um golpe de transição com nome próprio. Três elos seguidos abrem o Ciclo das Duas Lâminas.";
+                case HintId.FinisherCut:
+                    return "CORTE DIRIGIDO: na finalização, mire. Na horizontal derruba quem estiver na linha, no braço desarma os próximos, na cabeça é o fim limpo.";
+                case HintId.MasterAnswers:
+                    return "RESPOSTAS DE MESTRE: esquive PARA CIMA de uma varredura (descida), PARA TRÁS de uma agarrada (arremesso), e apare a investida em Chūdan para empurrar.";
+                case HintId.Feint:
+                    return "FINTA: o anel tracejado é mentira. Não apare — espere o golpe real.";
+                case HintId.Infight:
+                    return "BRIGA: inimigos atingidos por aliados se viram contra eles. Desvie flechas para os outros.";
+                case HintId.Standoff:
+                    return "IAI: ninguém se mexe. Segure o ATAQUE e solte só quando o inimigo AVANÇAR. Sacar antes (nas fintas) é a sua morte.";
+                case HintId.InnerAsura:
+                    return "O ASURA INTERIOR: só você pode vencê-lo. Ele luta com as suas armas.";
+                case HintId.GroupBlow:
+                    return "GOLPE DO GRUPO (anel duplo): só dois duelistas aparando juntos seguram.";
+                case HintId.EliteAffixes:
+                    return "AFIXOS DE ELITE: os Guardiões profundos carregam marcas — vingativo, espelhado, possuído, gêmeo, velado, ancestral. Leia o nome antes de golpear.";
                 default:
                     return string.Empty;
             }

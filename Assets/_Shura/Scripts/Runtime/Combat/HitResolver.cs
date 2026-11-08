@@ -33,6 +33,8 @@ namespace Shura
         public bool projectile;
         /// <summary>Damage/posture multiplier from depth (0 is treated as 1).</summary>
         public float powerMult;
+        /// <summary>A group blow that two duelists parried together (see AttackDef.groupStrike).</summary>
+        public bool groupAnswered;
     }
 
     /// <summary>Snapshot of everything about the defender that decides how an enemy swing lands.</summary>
@@ -49,6 +51,8 @@ namespace Shura
         public float parryArcDegrees;
         public Vector2 dodgeDirection;
         public float counterDot;
+        /// <summary>For group blows: enough duelists answered at once for parries to count.</summary>
+        public bool groupAnswered;
     }
 
     /// <summary>
@@ -66,6 +70,15 @@ namespace Shura
             }
 
             if (d.hurtInvulnerable) return HitOutcome.Ignored;
+
+            // A group blow is too big for one blade: alone, no parry or block holds it.
+            if (attack.groupStrike && !d.groupAnswered) return HitOutcome.Hit;
+
+            // A spirit blow goes through steel: only the swap's sleight of hand answers it.
+            if (attack.kind == AttackKind.Spirit)
+            {
+                return d.swapWindow && CombatMath.WithinArc(d.facing, d.toAttacker, d.parryArcDegrees) ? HitOutcome.SwapParry : HitOutcome.Hit;
+            }
 
             // Parry is directional: a swing from outside the guarded arc (e.g. from behind) lands.
             if (attack.Parryable && CombatMath.WithinArc(d.facing, d.toAttacker, d.parryArcDegrees))

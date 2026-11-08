@@ -31,6 +31,17 @@ namespace Shura
         public int i = -1;
         /// <summary>Lobby: ready (1) or not (0); -1 = unchanged.</summary>
         public int rd = -1;
+        /// <summary>More press counters: detonate, kiai, tool, tool cycle, gourd, bandage.</summary>
+        public int det;
+        public int kia;
+        public int tl;
+        public int tc;
+        public int gd;
+        public int bd;
+        /// <summary>Kamae the player chose (0..3), -1 = none yet.</summary>
+        public int km = -1;
+        /// <summary>Attack button held (standoff).</summary>
+        public int ah;
     }
 
     /// <summary>
@@ -43,10 +54,19 @@ namespace Shura
 
         Vector2 aim = Vector2.right;
         int lastAtk = -1, lastPar = -1, lastDod = -1, lastSwp = -1;
+        int lastDet = -1, lastKia = -1, lastTl = -1, lastTc = -1, lastGd = -1, lastBd = -1, lastKm = -1, pendingKamae = -1;
 
         public Vector2 Move { get; private set; }
         public bool ParryHeld { get; private set; }
         public bool InteractHeld { get; private set; }
+        public bool AttackHeld { get; private set; }
+
+        public int TakeKamae()
+        {
+            int k = pendingKamae;
+            pendingKamae = -1;
+            return k;
+        }
         public InputBuffer Buffer { get; } = new InputBuffer();
 
         public Vector2 AimDirection(Vector2 playerWorldPosition) => aim;
@@ -63,6 +83,15 @@ namespace Shura
             Press(ref lastPar, m.par, BufferedAction.Parry);
             Press(ref lastDod, m.dod, BufferedAction.Dodge);
             Press(ref lastSwp, m.swp, BufferedAction.Swap);
+            Press(ref lastDet, m.det, BufferedAction.Detonate);
+            Press(ref lastKia, m.kia, BufferedAction.Kiai);
+            Press(ref lastTl, m.tl, BufferedAction.Tool);
+            Press(ref lastTc, m.tc, BufferedAction.ToolCycle);
+            Press(ref lastGd, m.gd, BufferedAction.Gourd);
+            Press(ref lastBd, m.bd, BufferedAction.Bandage);
+            AttackHeld = m.ah != 0;
+            if (m.km >= 0 && m.km <= 3 && m.km != lastKm) pendingKamae = m.km;
+            lastKm = m.km;
         }
 
         void Press(ref int last, int counter, BufferedAction action)

@@ -148,6 +148,102 @@ namespace Shura
                     vfx.Stream(pos + Vector2.up * 0.3f, pos, 8, col);
                     break;
 
+                // ── Combat layers ──
+                case FxType.Mushin:
+                    vfx.Ring(pos, 0.2f, 3.2f, Color.white.WithAlpha(0.6f), 0.7f);
+                    vfx.Ring(pos, 0.1f, 1.8f, Pal.gold.WithAlpha(0.7f), 0.5f);
+                    audio.Play(Sfx.Chime, 0.7f, 0.6f, 0f);
+                    ui.Flash(Color.white, 0.1f);
+                    break;
+
+                case FxType.Kamae:
+                    vfx.Ring(pos, 0.5f, 0.9f, col.WithAlpha(0.7f), 0.2f);
+                    audio.Play(Sfx.SheathClick, 0.5f, 0.9f + 0.1f * magnitude);
+                    break;
+
+                case FxType.BreathGlint:
+                    vfx.Ring(pos, 0.9f, 0.5f, Pal.breath.WithAlpha(0.8f), 0.12f);
+                    audio.Play(Sfx.Glint, 0.35f, 1.6f, 0f);
+                    break;
+
+                case FxType.Breath:
+                    vfx.Rising(pos, 0.5f, Pal.breath, 10);
+                    vfx.Ring(pos, 0.2f, 1.1f, Pal.breath.WithAlpha(0.7f), 0.25f);
+                    audio.Play(Sfx.Chime, 0.45f, 1.5f);
+                    break;
+
+                case FxType.SealBurst:
+                    clock.AddHitstop(3 + Mathf.RoundToInt(magnitude));
+                    cam.Shake(Feel.shakeHit * (1f + 0.25f * magnitude));
+                    vfx.Ring(pos, 0.2f, 1f + 0.3f * magnitude, Pal.gold, 0.35f);
+                    vfx.Burst(pos, 6 + 4 * Mathf.RoundToInt(magnitude), Pal.gold, 7f);
+                    audio.Play(Sfx.Crunch, 0.6f, 1.2f);
+                    audio.Play(Sfx.Glint, 0.7f, 0.8f);
+                    break;
+
+                case FxType.Kiai:
+                    cam.Shake(Feel.shakeHit * 1.3f);
+                    cam.Punch(0.12f);
+                    vfx.Ring(pos, 0.3f, magnitude, col.WithAlpha(0.8f), 0.35f);
+                    vfx.Ring(pos, 0.1f, magnitude * 0.6f, Color.white.WithAlpha(0.6f), 0.25f);
+                    audio.Play(Sfx.Danger, 0.7f, 1.4f);
+                    audio.Play(Sfx.Hurt, 0.4f, 0.7f);
+                    break;
+
+                case FxType.Curse:
+                    vfx.Rising(pos, 0.6f, Pal.curse, 12);
+                    vfx.Ring(pos, 0.8f, 0.3f, Pal.curse.WithAlpha(0.8f), 0.3f);
+                    audio.Play(Sfx.Absorb, 0.5f, 0.6f);
+                    break;
+
+                case FxType.ShuraRise:
+                    vfx.Ring(pos, 0.3f, 1.6f + 0.4f * magnitude, Pal.shu.WithAlpha(0.8f), 0.4f);
+                    vfx.Rising(pos, 0.6f, Pal.shu, 6 + 4 * Mathf.RoundToInt(magnitude));
+                    audio.Play(Sfx.Danger, 0.5f, 0.6f + 0.1f * magnitude);
+                    break;
+
+                case FxType.AsuraFall:
+                    clock.AddHitstop(10);
+                    cam.Shake(Feel.shakePerfectParry * 1.5f);
+                    cam.Punch(0.3f);
+                    game.SlowMo(0.6f, 0.3f);
+                    vfx.Ring(pos, 0.2f, 4f, Pal.shu, 0.6f);
+                    vfx.Burst(pos, 30, Pal.shu, 9f);
+                    audio.Play(Sfx.Death, 0.8f, 0.6f);
+                    ui.Flash(Pal.shu, 0.3f);
+                    break;
+
+                case FxType.Elo:
+                    cam.Punch(0.12f);
+                    vfx.Ring(pos, 0.3f, 1.8f, Pal.gold.WithAlpha(0.8f), 0.3f);
+                    vfx.Ring(pos, 0.2f, 1.2f, col.WithAlpha(0.8f), 0.25f);
+                    audio.Play(Sfx.Unsheathe, 0.7f, 1.2f);
+                    break;
+
+                case FxType.Bell:
+                    vfx.Ring(pos, 0.3f, magnitude, Pal.gold.WithAlpha(0.7f), 0.8f);
+                    vfx.Ring(pos, 0.3f, magnitude * 0.7f, Pal.gold.WithAlpha(0.5f), 0.6f);
+                    audio.Play(Sfx.Chime, 1f, 0.5f, 0f);
+                    audio.Play(Sfx.Chime, 0.6f, 0.75f, 0f);
+                    break;
+
+                case FxType.Standoff:
+                    game.SlowMo(0.4f, 0.5f);
+                    cam.Punch(0.2f);
+                    audio.Play(Sfx.SheathClick, 0.8f, 0.8f);
+                    ui.Flash(Color.black, 0.25f);
+                    break;
+
+                case FxType.StandoffFeint:
+                    audio.Play(Sfx.SheathClick, 0.6f, 1.2f);
+                    vfx.Dust(pos, dir);
+                    break;
+
+                case FxType.StandoffAdvance:
+                    audio.Play(Sfx.Danger, 0.9f, 1.2f);
+                    vfx.Ring(pos, 1.2f, 0.4f, Pal.danger, 0.2f);
+                    break;
+
                 case FxType.SlamImpact:
                     cam.Shake(Feel.shakeHit * 1.5f * impact);
                     vfx.Ring(pos, 0.2f, magnitude, Color.white.WithAlpha(0.7f), 0.3f);

@@ -139,8 +139,15 @@ namespace Shura
 
             // Headless test runs skip music entirely.
             if (headless) return;
+            // Music lives on its own object so Mushin can muffle it without touching the blades.
+            var musicGo = new GameObject("Music");
+            musicGo.transform.SetParent(transform, false);
+            musicHost = musicGo;
             InitMood(calm, "Calm");
             InitMood(fight, "Fight");
+            // The filter needs the sources it shapes to exist first.
+            lowPass = musicGo.GetComponent<AudioSource>() != null ? musicGo.AddComponent<AudioLowPassFilter>() : null;
+            if (lowPass != null) lowPass.cutoffFrequency = OpenCutoff;
         }
 
         void InitMood(Mood mood, string folder)
@@ -150,7 +157,7 @@ namespace Shura
             Array.Sort(mood.clips, (a, b) => string.CompareOrdinal(a.name, b.name));
             for (int i = 0; i < 2; i++)
             {
-                AudioSource src = gameObject.AddComponent<AudioSource>();
+                AudioSource src = musicHost.AddComponent<AudioSource>();
                 src.loop = false;
                 src.volume = 0f;
                 src.playOnAwake = false;
@@ -223,10 +230,25 @@ namespace Shura
             fight.target = fightLevel;
         }
 
+        GameObject musicHost;
+        AudioLowPassFilter lowPass;
+        const float OpenCutoff = 22000f;
+        const float MuffledCutoff = 700f;
+
+        /// <summary>Mushin: the music sinks under water while the blades stay sharp.</summary>
+        public bool MusicMuffled { get; set; }
+
         void Update()
         {
             if (settings == null) return;
             float dt = Time.unscaledDeltaTime;
+            if (lowPass != null)
+            {
+                float target = MusicMuffled ? MuffledCutoff : OpenCutoff;
+                // Log-space glide so the sweep sounds even.
+                float cur = Mathf.Log(lowPass.cutoffFrequency);
+                lowPass.cutoffFrequency = Mathf.Exp(Mathf.Lerp(cur, Mathf.Log(target), CombatMath.Damp(3f, dt)));
+            }
             TickMood(calm, dt);
             TickMood(fight, dt);
         }

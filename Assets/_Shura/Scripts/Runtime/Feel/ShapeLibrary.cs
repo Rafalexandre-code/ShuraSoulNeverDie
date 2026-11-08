@@ -109,6 +109,45 @@ namespace Shura
             return sprite;
         }
 
+        /// <summary>
+        /// Timing rings with a pattern per meaning, so colour is never the only signal:
+        /// 0 solid, 1 solid (the red ring carries its diamond), 2 dashed, 3 solid (with an inner
+        /// ring), 4 dotted, 5 ticked, 6 broken in two halves.
+        /// </summary>
+        public static Sprite RingPattern(int kind)
+        {
+            int key = 3000 + kind;
+            if (Cache.TryGetValue(key, out Sprite sprite) && sprite != null) return sprite;
+            sprite = Rasterize(Resolution * 2, p =>
+            {
+                float ring = Aa(Mathf.Abs(p.magnitude - 0.88f) - 0.07f, Resolution * 2);
+                float a = Mathf.Atan2(p.y, p.x) * Mathf.Rad2Deg;
+                switch (kind)
+                {
+                    case 2: // dashed: 12 dashes
+                        return ring * (Mathf.Repeat(a + 360f, 30f) < 18f ? 1f : 0f);
+                    case 4: // dotted: 16 dots
+                    {
+                        float step = 360f / 16f;
+                        float nearest = Mathf.Round(a / step) * step * Mathf.Deg2Rad;
+                        var c = new Vector2(Mathf.Cos(nearest), Mathf.Sin(nearest)) * 0.88f;
+                        return Aa((p - c).magnitude - 0.1f, Resolution * 2);
+                    }
+                    case 5: // ticks pointing inward
+                    {
+                        float tick = Mathf.Repeat(a + 360f, 45f) < 8f && p.magnitude > 0.62f && p.magnitude < 0.95f ? 1f : 0f;
+                        return Mathf.Max(ring, tick);
+                    }
+                    case 6: // broken in two halves
+                        return ring * (Mathf.Abs(Mathf.DeltaAngle(a, 90f)) > 14f && Mathf.Abs(Mathf.DeltaAngle(a, -90f)) > 14f ? 1f : 0f);
+                    default:
+                        return ring;
+                }
+            });
+            Cache[key] = sprite;
+            return sprite;
+        }
+
         /// <summary>A circular sector pointing along +X, used for swing and parry arcs.</summary>
         public static Sprite Wedge(float degrees)
         {

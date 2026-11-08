@@ -71,6 +71,34 @@ namespace Shura
         Enrage,
         /// <summary>Lifesteal: health flows back to the enemy. Magnitude = amount.</summary>
         Drain,
+        /// <summary>The duelist enters Mushin.</summary>
+        Mushin,
+        /// <summary>A new guard. Magnitude = Kamae index.</summary>
+        Kamae,
+        /// <summary>The breath window after the last blow of a combo.</summary>
+        BreathGlint,
+        /// <summary>A dodge inside the breath window.</summary>
+        Breath,
+        /// <summary>Seals detonated. Magnitude = seal count.</summary>
+        SealBurst,
+        /// <summary>A war cry. Magnitude = radius.</summary>
+        Kiai,
+        /// <summary>A curse takes hold.</summary>
+        Curse,
+        /// <summary>Shura crosses a level. Magnitude = new level.</summary>
+        ShuraRise,
+        /// <summary>The fall into the Shuradō.</summary>
+        AsuraFall,
+        /// <summary>A named weapon Link.</summary>
+        Elo,
+        /// <summary>The bronze bell rings. Magnitude = radius.</summary>
+        Bell,
+        /// <summary>The standoff begins.</summary>
+        Standoff,
+        /// <summary>A standoff feint (the enemy twitches).</summary>
+        StandoffFeint,
+        /// <summary>The real advance: draw now.</summary>
+        StandoffAdvance,
     }
 
     public enum HintId
@@ -98,6 +126,26 @@ namespace Shura
         Clones,
         Summoner,
         Split,
+        Mushin,
+        Kamae,
+        Stamina,
+        Seals,
+        Kiai,
+        Gourd,
+        Tools,
+        Wounds,
+        Curse,
+        Shura,
+        Asura,
+        Elo,
+        FinisherCut,
+        MasterAnswers,
+        Feint,
+        Infight,
+        Standoff,
+        InnerAsura,
+        GroupBlow,
+        EliteAffixes,
     }
 
     /// <summary>

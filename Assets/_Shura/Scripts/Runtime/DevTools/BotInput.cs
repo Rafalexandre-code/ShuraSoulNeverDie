@@ -24,8 +24,24 @@ namespace Shura
         /// <summary>The bot always lends a hand to a fallen teammate it stands over.</summary>
         public bool InteractHeld => true;
         public InputBuffer Buffer { get; } = new InputBuffer();
+        /// <summary>Held through a standoff, released the moment the enemy advances.</summary>
+        public bool AttackHeld { get; private set; }
+
+        int kamae = -1;
+        int sealCooldown;
+        int toolCooldown;
 
         public Vector2 AimDirection(Vector2 playerWorldPosition) => aim;
+
+        /// <summary>The bot settles into Chūdan once (exercising the guard swap) and stays there.</summary>
+        public int TakeKamae()
+        {
+            int k = kamae;
+            kamae = -1;
+            return k;
+        }
+
+        bool settled;
 
         public void Think(World world)
         {
@@ -35,6 +51,28 @@ namespace Shura
             ParryHeld = false;
             if (!p.IsAlive) return;
             if (attackCooldown > 0) attackCooldown--;
+            if (sealCooldown > 0) sealCooldown--;
+            if (toolCooldown > 0) toolCooldown--;
+            if (!settled)
+            {
+                settled = true;
+                kamae = (int)Kamae.Chudan;
+            }
+
+            // The Iai standoff: hold the draw, release on the real advance (never on a feint).
+            if (world.Standoff.Active)
+            {
+                AttackHeld = !world.Standoff.Advancing || world.Standoff.AdvanceProgress < 0.25f;
+                return;
+            }
+            AttackHeld = false;
+            // Aiming a finishing cut: along the golden line.
+            if (p.AimingCut)
+            {
+                float a = p.AimLineAngle * Mathf.Deg2Rad;
+                aim = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                return;
+            }
 
             if (AnswerProjectile(world, p)) return;
             if (EscapeBlasts(world, p)) return;
@@ -54,6 +92,32 @@ namespace Shura
             }
 
             if (threat != null && AnswerThreat(p, threat, soonest)) return;
+
+            // Drink when hurt and nothing is about to land.
+            if (p.Health < p.MaxHealth * 0.4f && p.Sips > 0 && (threat == null || soonest > 40))
+            {
+                Buffer.Press(BufferedAction.Gourd, 3);
+                return;
+            }
+            // Detonate a stack of seals.
+            if (sealCooldown == 0)
+            {
+                foreach (Enemy e in world.Enemies)
+                {
+                    if (e.Seals >= 3 && Vector2.Distance(e.Position, p.Position) < 6f)
+                    {
+                        Buffer.Press(BufferedAction.Detonate, 3);
+                        sealCooldown = 60;
+                        break;
+                    }
+                }
+            }
+            // Throw a shuriken now and then at range.
+            if (toolCooldown == 0 && p.Build.SpiritPapers > 2 && threat == null)
+            {
+                Buffer.Press(BufferedAction.Tool, 3);
+                toolCooldown = 300;
+            }
 
             Enemy broken = world.FindFinisherTarget(p.Position, 99f);
             if (broken != null)
@@ -137,7 +201,16 @@ namespace Shura
             bool answered = ReferenceEquals(threat, lastAnsweredKey) && threat.AttackSerial == lastAnsweredSerial;
             if (answered || framesUntilActive > AnswerLeadFrames) return true;
 
-            if (a.Parryable)
+            if (a.feint)
+            {
+                // A feint: do nothing and wait for the real blow.
+            }
+            else if (a.kind == AttackKind.Spirit)
+            {
+                // Steel does not stop a spirit: only the Troca Perfeita.
+                Buffer.Press(BufferedAction.Swap, 3);
+            }
+            else if (a.Parryable)
             {
                 // Every other parryable swing is answered with a Troca Perfeita to exercise it.
                 Buffer.Press(++answers % 2 == 0 ? BufferedAction.Swap : BufferedAction.Parry, 3);

@@ -82,6 +82,8 @@ namespace Shura
         public readonly ArenaShape shape;
         /// <summary>Seeds the arena's statues and traps.</summary>
         public readonly ulong layoutSeed;
+        /// <summary>The room opens with an Iai standoff against the first wave's leader.</summary>
+        public bool standoff;
 
         public RoomDef(string name, int depth, Biome biome, float width, float height, bool guardian, EnemySpawn[][] waves,
                        ArenaShape shape = ArenaShape.Hall, ulong layoutSeed = 0)
@@ -246,7 +248,10 @@ namespace Shura
             float height = rng.Range(12, 17);
             ArenaShape shape = guardian ? (rng.NextFloat() < 0.5f ? ArenaShape.Courtyard : ArenaShape.Octagon)
                                         : (ArenaShape)rng.Range(0, 5);
-            return new RoomDef(name, depth, biome, width, height, guardian, waves.ToArray(), shape, Mix(runSeed, depth + 1000));
+            var room = new RoomDef(name, depth, biome, width, height, guardian, waves.ToArray(), shape, Mix(runSeed, depth + 1000));
+            // One room in five (from depth 2) opens with a standoff.
+            room.standoff = !guardian && depth >= 2 && new SeededRandom(Mix(runSeed, depth + 2000)).NextFloat() < 0.2f;
+            return room;
         }
 
         static EnemySpawn[] FillWave(SeededRandom rng, int depth, float budget, int maxCount)

@@ -409,7 +409,7 @@ namespace Shura
             {
                 Move("selo", 2f, 12f, 3, Blast("selo", 30, 26, 16f, 18f, 1.3f, 45, BlastKind.Talisman)),
                 Move("invocar", 0f, 14f, 2, Summon("invocar", 45, 30, 2)),
-                Move("palma_o", 0f, 1.7f, 2, Arc("palma_o", 14, 3, 20, 9, 8f, 12f, 12f, 1.3f, 100f, 0.3f)),
+                Move("palma_o", 0f, 1.7f, 2, Cursed(Arc("palma_o", 14, 3, 20, 9, 8f, 12f, 12f, 1.3f, 100f, 0.3f))),
                 Signature("selo_triplo", 2f, 12f, 2, Blast("selo_triplo", 44, 34, 16f, 18f, 1.2f, 50, BlastKind.Talisman, 3, 2.2f)),
             },
         };
@@ -457,6 +457,7 @@ namespace Shura
             moves = new[]
             {
                 Move("garra", 0f, 2.0f, 3, Arc("garra", 18, 4, 20, 12, 10f, 12f, 24f, 1.5f, 110f, 0.6f)),
+                Move("grito", 0f, 2.6f, 1, Spirit(Arc("grito", 30, 5, 28, 20, 14f, 18f, 30f, 2.2f, 140f, 0.4f))),
                 Signature("lamento", 0f, 2.2f, 2,
                           Arc("lamento_1", 20, 4, 5, 14, 9f, 10f, 18f, 1.5f, 110f, 0.5f),
                           Arc("lamento_2", 10, 4, 5, 6, 9f, 10f, 18f, 1.5f, 110f, 0.5f),
@@ -587,8 +588,8 @@ namespace Shura
             moves = new[]
             {
                 Move("corte_v", 0f, 2.1f, 3,
-                     Arc("corte_v1", 15, 4, 6, 10, 10f, 12f, 12f, 1.6f, 110f, 0.5f),
-                     Arc("corte_v2", 12, 4, 24, 7, 10f, 12f, 14f, 1.6f, 110f, 0.5f)),
+                     Cursed(Arc("corte_v1", 15, 4, 6, 10, 10f, 12f, 12f, 1.6f, 110f, 0.5f)),
+                     Cursed(Arc("corte_v2", 12, 4, 24, 7, 10f, 12f, 14f, 1.6f, 110f, 0.5f))),
                 Signature("mordida_v", 0f, 2.6f, 2, Arc("mordida_v", 30, 6, 32, 22, 22f, 0f, 0f, 1.5f, 70f, 1.6f, AttackKind.Grab)),
             },
         };
@@ -604,7 +605,7 @@ namespace Shura
             lore = "Remonta os ossos uma vez. Finalize-o, ou golpeie os ossos antes que se levantem.",
             moves = new[]
             {
-                Move("corte_pesado", 0f, 2.4f, 3, Arc("corte_pesado", 24, 5, 26, 18, 16f, 20f, 18f, 1.9f, 120f, 0.5f)),
+                Move("corte_pesado", 0f, 2.4f, 3, Cursed(Arc("corte_pesado", 24, 5, 26, 18, 16f, 20f, 18f, 1.9f, 120f, 0.5f))),
                 Move("estocada_e", 1.2f, 3.2f, 2, Line("estocada_e", 26, 5, 26, 20, 14f, 16f, 16f, 2.4f, 0.6f, 0.8f)),
                 Signature("corte_da_cova", 0f, 2.6f, 2, Arc("corte_da_cova", 46, 5, 30, 36, 22f, 28f, 30f, 2.0f, 150f, 0.8f)),
             },
@@ -641,7 +642,7 @@ namespace Shura
             maxHealth = 14f, maxPosture = 14f, radius = 0.3f, moveSpeed = 4.0f, preferredRange = 1.0f,
             blockChance = 0f, postureRegenPerSecond = 6f, idleMin = 30, idleMax = 60,
             deathBlastRadius = 1.1f, deathBlastDamage = 10f, deathBlastFuse = 35,
-            moves = new[] { Move("chama", 0f, 1.6f, 1, Arc("chama", 18, 4, 24, 12, 7f, 8f, 10f, 1.1f, 120f, 0.8f)) },
+            moves = new[] { Move("chama", 0f, 1.6f, 1, Spirit(Arc("chama", 18, 4, 24, 12, 7f, 8f, 10f, 1.1f, 120f, 0.8f))) },
         };
 
         public static readonly EnemyDef LodoPequeno = new EnemyDef
@@ -682,6 +683,78 @@ namespace Shura
         {
             a.teleportBehind = true;
             return a;
+        }
+
+        /// <summary>A spirit blow: steel does not stop it — only a Troca Perfeita (or a dodge).</summary>
+        static AttackDef Spirit(AttackDef a)
+        {
+            a.kind = AttackKind.Spirit;
+            return a;
+        }
+
+        /// <summary>A cursed blow: blocking it curses you (heals stop, Shura rises).</summary>
+        static AttackDef Cursed(AttackDef a)
+        {
+            a.cursed = true;
+            return a;
+        }
+
+        // ── The Inner Asura ──────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// The dark copy that rises after the fall into the Shuradō: the duelist's own look,
+        /// their combo as its chain, their Troca strike as its red signature. Built fresh every
+        /// time so it always matches the build that summoned it.
+        /// </summary>
+        public static EnemyDef InnerAsura(PlayerController owner)
+        {
+            WeaponDef w = owner.Weapon;
+            var steps = new List<AttackDef>();
+            PlayerAttackDef[] combo = w.combo ?? new PlayerAttackDef[0];
+            for (int i = 0; i < combo.Length; i++)
+            {
+                PlayerAttackDef c = combo[i];
+                bool last = i == combo.Length - 1;
+                steps.Add(new AttackDef
+                {
+                    id = "asura_" + i,
+                    windup = (i == 0 ? 16 : 10) + c.windup,
+                    active = Mathf.Max(3, c.active),
+                    recovery = last ? 26 : 5,
+                    trackUntil = i == 0 ? 10 : 5,
+                    damage = c.damage * 1.1f,
+                    postureDamage = c.posture,
+                    postureOnParried = 14f,
+                    shape = c.shape,
+                    lunge = Mathf.Max(0.4f, c.lunge),
+                });
+            }
+            if (steps.Count == 0) steps.Add(Arc("asura_0", 16, 4, 24, 10, 12f, 14f, 14f, 1.6f, 110f, 0.5f));
+            var moves = new List<MoveDef> { Move("asura_combo", 0f, 2.6f, 3, steps.ToArray()) };
+            PlayerAttackDef sw = w.swapStrike;
+            if (sw != null)
+            {
+                moves.Add(Signature("asura_troca", 0f, 3.4f, 2, new AttackDef
+                {
+                    id = "asura_troca", kind = AttackKind.Sweep, windup = 32, active = Mathf.Max(4, sw.active), recovery = 30, trackUntil = 22,
+                    damage = sw.damage * 1.2f, postureDamage = 0f, postureOnParried = 0f,
+                    shape = sw.shape, lunge = Mathf.Max(0.8f, sw.lunge + sw.dash),
+                }));
+            }
+            int art = Mathf.Clamp(owner.ArtIndex, 0, PlayerController.PartyArt.Length - 1);
+            return new EnemyDef
+            {
+                id = "asura_interior", displayName = "Asura de " + owner.DisplayName,
+                art = PlayerController.PartyArt[art], weaponArt = w.art, artScale = 1.1f,
+                shape = Shape.Diamond, color = ColorUtil.Hex("#3A0A12"),
+                weaponLength = w.length, weaponColor = ColorUtil.Hex("#D7263D"), bloodColor = ColorUtil.Hex("#2A0008"),
+                maxHealth = 110f, maxPosture = 80f, radius = 0.44f,
+                moveSpeed = 3.6f, preferredRange = 1.6f, blockChance = 0.5f, postureRegenPerSecond = 10f,
+                idleMin = 30, idleMax = 60, signatureAnswer = SignatureAnswer.PerfectDodge,
+                lifesteal = 0.1f, enrageBelow = 0.3f,
+                lore = "Tudo o que você matou sem misericórdia, de pé à sua frente.",
+                moves = moves.ToArray(),
+            };
         }
 
         static Dictionary<string, EnemyDef> BuildIndex()

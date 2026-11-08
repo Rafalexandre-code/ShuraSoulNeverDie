@@ -169,6 +169,8 @@ namespace Shura
             burstFrames--;
         }
 
+        float nextBeat = 20f;
+
         void UpdatePlaying()
         {
             if (shots) UpdateBursts();
@@ -178,7 +180,26 @@ namespace Shura
                 Finish("profundidade alvo");
                 return;
             }
-            if (!shots) return;
+            if (!shots)
+            {
+                // A heartbeat every 20 s of real time, so a stuck run shows where it stands.
+                if (elapsed >= nextBeat)
+                {
+                    nextBeat = elapsed + 20f;
+                    World w = game.World;
+                    PlayerController p = w.Player;
+                    var sb = new System.Text.StringBuilder();
+                    foreach (Enemy e in w.Enemies)
+                    {
+                        sb.Append(e.Def.id).Append(':').Append(e.CurrentState).Append(e.HeldInSpawn ? "(held)" : "")
+                          .Append(e.IsIntangible ? "(int)" : "").Append(" hp=").Append(e.Health.ToString("0")).Append(' ');
+                    }
+                    Debug.Log("[Shura][Auto] pulso t=" + elapsed.ToString("0") + "s sala=" + (game.Run.RoomIndex + 1) + " onda=" + w.WaveIndex +
+                              " jogador=" + p.CurrentState + " vida=" + p.Health.ToString("0") + " folego=" + p.Stamina.ToString("0") +
+                              " iai=" + w.Standoff.Active + " inimigos=[" + sb + "]");
+                }
+                return;
+            }
             if (elapsed >= nextShot)
             {
                 Shot("play");

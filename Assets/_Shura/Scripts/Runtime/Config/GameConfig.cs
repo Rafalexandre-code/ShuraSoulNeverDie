@@ -230,6 +230,12 @@ namespace Shura
         public Color uiText = ColorUtil.Hex("#EDE6D6");
         public Color uiDim = ColorUtil.Hex("#8C8597");
         public Color uiPanel = ColorUtil.Hex("#0E0D13", 0.88f);
+        /// <summary>Shu: the vermilion of the Shura meter and the Asura.</summary>
+        public Color shu = ColorUtil.Hex("#D7263D");
+        /// <summary>Breath (stamina).</summary>
+        public Color breath = ColorUtil.Hex("#A8D8C8");
+        /// <summary>Curses and cursed blows.</summary>
+        public Color curse = ColorUtil.Hex("#8E44AD");
     }
 
     public static class ColorUtil

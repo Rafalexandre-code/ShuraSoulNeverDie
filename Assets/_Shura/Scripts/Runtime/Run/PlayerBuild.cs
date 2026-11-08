@@ -43,6 +43,28 @@ namespace Shura
         public int SwapParries;
         public int TechniquesAbsorbed;
 
+        // ── Inner resources (design doc §3) ─────────────────────────────────────────
+        /// <summary>The Shura meter, 0..100: only rises; meditation and Gedan finishers calm it.</summary>
+        public float Shura;
+        public float ShuraGainMult = 1f;
+        /// <summary>Perfect actions in a row (at full Flow) that open Mushin.</summary>
+        public int MushinStreak = 10;
+        public bool MushinSurvivesHit;
+        /// <summary>Spirit papers pay for tools.</summary>
+        public int SpiritPapers = 6;
+        public ToolKind Tool = ToolKind.Shuriken;
+        public int Bandages = 1;
+        public int FinishersForPaper;
+        public int ExtraSips;
+        public int ExtraSealsPerParry;
+        public float SealDamageMult = 1f;
+        public float HealMultExtra = 1f;
+        /// <summary>Lineage: perfect-window frames from the disciple's age.</summary>
+        public int AgeParryBonus;
+        /// <summary>Altar "Corpo de Diamante": the first wound of each room is ignored.</summary>
+        public bool IgnoreFirstWound;
+        public bool FirstWoundIgnored;
+
         public PlayerBuild(RunState owner, SeededRandom rng, FlowTuning flow)
         {
             run = owner;

@@ -21,6 +21,8 @@ namespace Shura
 
         public Vector2 Move { get; private set; }
         public bool ParryHeld { get; private set; }
+        /// <summary>The bot always lends a hand to a fallen teammate it stands over.</summary>
+        public bool InteractHeld => true;
         public InputBuffer Buffer { get; } = new InputBuffer();
 
         public Vector2 AimDirection(Vector2 playerWorldPosition) => aim;
@@ -28,6 +30,7 @@ namespace Shura
         public void Think(World world)
         {
             PlayerController p = world.Player;
+            layout = world.Layout;
             Move = Vector2.zero;
             ParryHeld = false;
             if (!p.IsAlive) return;
@@ -131,6 +134,8 @@ namespace Shura
             return true;
         }
 
+        ArenaLayout layout;
+
         void Approach(PlayerController p, Vector2 target, float range, bool allowAttack)
         {
             Vector2 to = target - p.Position;
@@ -138,7 +143,8 @@ namespace Shura
             if (dist > 1e-3f) aim = to / dist;
             if (dist > range)
             {
-                Move = aim;
+                // Walk around statues and pillars instead of pressing into them.
+                Move = layout != null ? layout.Steer(p.Position, target, p.Radius) : aim;
                 return;
             }
             if (allowAttack && attackCooldown == 0)

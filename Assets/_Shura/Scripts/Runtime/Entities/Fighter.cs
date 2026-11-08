@@ -126,6 +126,30 @@ namespace Shura
             hurtbox.enabled = false;
         }
 
+        /// <summary>Swaps the character drawn (party members each get their own samurai).</summary>
+        protected void SetCharacterArt(CharacterArt characterArt)
+        {
+            if (characterArt == null) return;
+            art = characterArt;
+            body.sprite = art.idle[0];
+            bodyGlow.sprite = art.idleWhite[0];
+        }
+
+        // ── State shared with browser players (read by the network snapshot) ───────────
+
+        public ArtDir NetDir => dir;
+        /// <summary>0 idle, 1 walk, 2 strike, 3 fallen.</summary>
+        public int NetPose { get; private set; }
+        public int NetFrame => currentFrame;
+        public float NetWeaponAngle => FacingAngle + weaponAngle;
+        public float NetWeaponReach => Radius * 0.55f + weaponExtend;
+        public float NetWeaponLength => weaponLength;
+        public bool NetWeaponVisible => weapon != null && weapon.enabled;
+        public Color NetGlow => bodyGlow != null ? bodyGlow.color : Color.clear;
+        public Color NetTint => body != null ? body.color : Color.white;
+        public float NetScale => visualScale;
+        public float NetFeetY => feetY;
+
         /// <summary>Top of the drawn character, relative to the entity's position (bars sit above it).</summary>
         protected float VisualTop => feetY + (art != null ? art.visibleHeight * visualScale : Radius * 2f);
 
@@ -250,12 +274,14 @@ namespace Shura
 
             if (FallenPose && art.dead != null)
             {
+                NetPose = 3;
                 body.sprite = art.dead;
                 bodyGlow.sprite = art.deadWhite;
                 return;
             }
             if (StrikePose)
             {
+                NetPose = 2;
                 body.sprite = art.attack[d];
                 bodyGlow.sprite = art.attackWhite[d];
                 return;
@@ -269,6 +295,7 @@ namespace Shura
             }
             if (!moving)
             {
+                NetPose = 0;
                 body.sprite = art.idle[d];
                 bodyGlow.sprite = art.idleWhite[d];
                 return;
@@ -278,6 +305,7 @@ namespace Shura
             int index = Mathf.FloorToInt(animTime) % frames.Length;
             if (index != currentFrame && (index == 0 || index == 2)) OnFootfall();
             currentFrame = index;
+            NetPose = 1;
             body.sprite = frames[index];
             bodyGlow.sprite = art.walkWhite[d][index];
         }

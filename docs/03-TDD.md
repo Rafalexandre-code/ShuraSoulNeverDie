@@ -81,9 +81,26 @@ Perda de foco da janela durante `Playing` → `Paused`.
 para o padrão sem quebrar. Remapeamentos salvos via `SaveBindingOverridesAsJson`.
 Meta-progressão usará o mesmo esquema (arquivo próprio) no marco correspondente.
 
+## Online (M1.9)
+- **Host autoritativo.** Só o jogo do anfitrião simula. `Net/WebServer` é um servidor HTTP +
+  WebSocket próprio sobre `TcpListener` (porta 7777, threads de leitura/envio, fila
+  `ConcurrentQueue` lida no thread principal). Serve `StreamingAssets/web` e `/arena.png`
+  (a arena desenhada pelo host).
+- **Protocolo (JSON):** cliente → `join` (nome, 2 armas), `in` (eixos + contadores de toques,
+  para nenhum toque se perder), `pong`. Servidor → `welcome`, `room` (decoração, armadilhas e
+  grade de chão), `s` (estado ~30/s: jogadores, inimigos, projéteis, itens, armadilhas,
+  eventos de efeito/som), `ping`. Envio com descarte dos quadros mais velhos se o cliente atrasa.
+- **Jogadores remotos** são `PlayerController` comuns com `NetInput` como fonte de input.
+  `World.actor` diz quem está agindo; efeitos e sons gravados pelo `FeedbackTap` vão para os
+  clientes, e no host o "feel" de jogadores remotos sai mudo.
+- **Ping:** o impacto do golpe inimigo atrasa `LatencyTicks` do alvo, e o anel fecha nesse
+  instante: o jogador remoto aperta quando vê o anel fechar, como no local.
+- **Arenas:** `ArenaLayout` (grade com forma, estátuas, armadilhas, colisão por células) e
+  navegação por campo de caminhos (BFS por destino, em cache) em `Steer`.
+
 ## Desempenho
 Pool de partículas (sprites reutilizados) e de fontes de áudio. Meta: 60 FPS estáveis.
-Contagem de entidades é baixa (≤ 4 lutadores), então sem culling.
+Até 8 jogadores e ~20 inimigos: sem culling. Online: ~45 KB/s por cliente a 30 estados/s.
 
 ## Riscos técnicos
 | Risco | Mitigação |
@@ -103,3 +120,5 @@ Contagem de entidades é baixa (≤ 4 lutadores), então sem culling.
 | Built-in RP no protótipo | URP 2D | Zero configuração; migrar junto da arte |
 | Placeholders e áudio sintetizados | Assets já agora | Validar diversão antes de conteúdo |
 | IMGUI no protótipo | uGUI/UI Toolkit | Rápido de iterar; UI final no polimento |
+| Online pelo navegador, host autoritativo | Netcode for GameObjects, Mirror, Steam | Amigos entram por um link do Radmin sem instalar nada; zero dependências |
+| Servidor HTTP/WebSocket próprio | HttpListener, pacote externo | HttpListener exige permissão de admin para IP externo; TcpListener não |

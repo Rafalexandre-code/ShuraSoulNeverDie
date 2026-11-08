@@ -23,12 +23,40 @@ namespace Shura
         float Impact => 1f + game.Config.flow.impactPerLevel * FlowLevel;
         int ImpactHitstop => FlowLevel;
 
+        readonly SimClock mutedClock = new SimClock();
+
+        /// <summary>
+        /// In co-op, a teammate's parry must not freeze or shake the host's screen: their
+        /// moments keep particles and (quieter) sound; hit-stop, shake, slow motion and screen
+        /// flashes belong to whoever is at this computer.
+        /// </summary>
         public void Emit(FxType type, Vector2 pos, Vector2 dir, float magnitude = 1f, Color? color = null)
+        {
+            bool remote = game.World != null && game.World.ActorIsRemote;
+            if (!remote)
+            {
+                EmitCore(type, pos, dir, magnitude, color, game.Clock);
+                return;
+            }
+            game.FeelMuted = true;
+            game.Audio.VolumeScale = 0.55f;
+            try
+            {
+                EmitCore(type, pos, dir, magnitude, color, mutedClock);
+            }
+            finally
+            {
+                game.FeelMuted = false;
+                game.Audio.VolumeScale = 1f;
+                mutedClock.Reset();
+            }
+        }
+
+        void EmitCore(FxType type, Vector2 pos, Vector2 dir, float magnitude, Color? color, SimClock clock)
         {
             Vfx vfx = game.Vfx;
             AudioService audio = game.Audio;
             CameraRig cam = game.CameraRig;
-            SimClock clock = game.Clock;
             GameUI ui = game.UI;
             Color col = color ?? Color.white;
             float impact = Impact;
@@ -39,7 +67,7 @@ namespace Shura
                 case FxType.PlayerSwing:
                     // magnitude: the weapon's swing pitch (heavy weapons whoosh low and long).
                     audio.Play(magnitude < 0.95f ? Sfx.SwingHeavy : Sfx.Swing, 0.5f + 0.08f * FlowLevel, Mathf.Max(0.8f, magnitude) * (1.05f + 0.05f * FlowLevel));
-                    if (game.Run != null && game.Run.CurrentWeapon.chain) audio.Play(Sfx.Chain, 0.4f);
+                    if (game.Run != null && game.World.Player.Weapon.chain) audio.Play(Sfx.Chain, 0.4f);
                     break;
 
                 case FxType.WeaponSwap:

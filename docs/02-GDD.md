@@ -181,6 +181,21 @@ de recompensa. O anel de tempo continua sempre fiel ao momento real do golpe. Jo
 Vitória: limpar a última sala (no MVP: derrotar o chefe). Derrota: vida 0 → tela "A morte
 ensina" com estatísticas → nova run com nova semente em 1 botão.
 
+### Cooperativo online (até 8)
+O anfitrião abre a sala; os amigos entram pelo navegador. Recompensas, itens e Fluxo são da
+equipe; armas são de cada um. Com mais gente: arena até +112% de área, ondas ~50% maiores por
+jogador (com teto), inimigos +8% de vida por jogador (Guardião +35%), um atacante ativo por
+jogador (até 6) e ritmo de ataques mais curto. Inimigos escolhem alvo por distância e carga,
+espalhando os duelos. **Reviver:** aliado em cima do caído segurando E por 2,4 s (mais ajudantes
+= mais rápido; soltar perde o progresso aos poucos); caídos voltam com 50% na sala seguinte;
+derrota só quando todos caem.
+
+### Arenas e armadilhas
+Cinco formas (salão, octógono, cruz, colunas, pátio com estátua central), 22–30 × 12–17
+células, sorteadas pela semente. Armadilhas por profundidade, sempre com aviso visível antes:
+espinhos (prof. 1+), jatos de fogo (3+), lâminas giratórias (5+). Inimigos sofrem 1,5× o dano
+das armadilhas, recompensando quem as usa a seu favor.
+
 ## 7. Conteúdo do MVP
 1 bioma, 4–5 tipos de inimigo, 1 chefe com 2 fases, ~20 recompensas, 1 arma.
 Protótipo atual: 3 inimigos, 4 salas, 3 técnicas, 7 relíquias.

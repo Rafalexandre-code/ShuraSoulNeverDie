@@ -79,7 +79,60 @@ namespace Shura
 
         PlayerModifiers Mods => run != null ? run.Modifiers : DefaultMods;
         int FlowLevel => run != null ? run.Flow.Level : 0;
-        WeaponDef Weapon => run != null ? run.CurrentWeapon : WeaponDefs.Katana;
+        /// <summary>
+        /// This duelist's two weapons. The host's pair is the run's (so the HUD and equipment
+        /// screens see it); players who joined over the network bring their own.
+        /// </summary>
+        WeaponDef[] loadout;
+        int activeWeapon;
+        public WeaponDef Weapon => loadout != null && loadout[activeWeapon] != null ? loadout[activeWeapon] : run != null ? run.CurrentWeapon : WeaponDefs.Katana;
+        public WeaponDef OtherWeapon => loadout != null && loadout[1 - activeWeapon] != null ? loadout[1 - activeWeapon] : WeaponDefs.Katana;
+        public string DisplayName { get; set; } = "Anfitrião";
+        /// <summary>Network id (0 = host).</summary>
+        public int NetId { get; set; }
+        /// <summary>How late (in ticks) this player sees and answers the world; enemies wait that long before landing on them.</summary>
+        public int LatencyTicks { get; set; }
+        public IPlayerInputSource Input { get; set; }
+        public int ArtIndex { get; private set; }
+        bool ownLoadout;
+
+        /// <summary>The samurai variants players can be (host is 0).</summary>
+        public static readonly string[] PartyArt = { "Samurai", "SamuraiRed", "NinjaBlue", "Monk", "Master", "NinjaGreen", "Hunter", "FighterWhite" };
+
+        public void SetLoadout(WeaponDef a, WeaponDef b)
+        {
+            loadout = new[] { a ?? WeaponDefs.Katana, b ?? WeaponDefs.Montante };
+            activeWeapon = 0;
+            ownLoadout = true;
+            ApplyWeaponVisual();
+        }
+
+        public void SetArt(int index)
+        {
+            ArtIndex = Mathf.Clamp(index, 0, PartyArt.Length - 1);
+            SetCharacterArt(PixelArt.Character(PartyArt[ArtIndex]) ?? PixelArt.Character(PlayerArt));
+        }
+
+        /// <summary>Back on their feet: by a teammate's side, or at the start of a room.</summary>
+        public void Revive(float healthFraction)
+        {
+            Health = Mathf.Max(1f, MaxHealth * healthFraction);
+            Posture.Reset();
+            hurtInvuln = 90;
+            Velocity = Vector2.zero;
+            Enter(State.Free);
+        }
+
+        /// <summary>Traps: no parry, no block; a dodge's i-frames still slip through.</summary>
+        public void ReceiveHazard(float damage, float posture, Vector2 dir)
+        {
+            if (!IsAlive || hurtInvuln > 0 || IsDodgeInvulnerable || CurrentState == State.Finisher) return;
+            hazardAttack.damage = damage;
+            hazardAttack.postureDamage = posture;
+            TakeHit(hazardAttack, -dir, 1f);
+        }
+
+        readonly AttackDef hazardAttack = new AttackDef { id = "trap" };
         PlayerAttackDef CurrentStep => CurrentState == State.SwapStrike ? Weapon.swapStrike : Weapon.combo[Mathf.Clamp(ComboIndex, 0, Weapon.combo.Length - 1)];
 
         public bool IsDodgeInvulnerable =>
@@ -121,6 +174,13 @@ namespace Shura
         {
             run = runState;
             input = source;
+            Input = source;
+            if (!ownLoadout)
+            {
+                // The host carries the run's pair.
+                loadout = run.Weapons;
+                activeWeapon = run.ActiveWeapon;
+            }
             ApplyStats(true);
             DodgeCharges = MaxDodgeCharges;
             EmpoweredFrames = 0;
@@ -546,7 +606,8 @@ namespace Shura
             framesSinceSwap = 0;
             lastSwapSucceeded = false;
             swapWindow = window;
-            run.ActiveWeapon = 1 - run.ActiveWeapon;
+            activeWeapon = 1 - activeWeapon;
+            if (!ownLoadout) run.ActiveWeapon = activeWeapon;
             ApplyWeaponVisual();
             UpdateFacing(true);
             Enter(State.Swap);

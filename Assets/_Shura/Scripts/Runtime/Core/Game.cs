@@ -26,6 +26,8 @@ namespace Shura
             Arsenal,
             /// <summary>Character, weapon wheel and worn items (from the reward screen or pause).</summary>
             Equipment,
+            /// <summary>Online room: browser players join through the links shown here.</summary>
+            Lobby,
         }
 
         const int RoomClearDelayFrames = 75;
@@ -61,6 +63,21 @@ namespace Shura
         public AudioService Audio { get; private set; }
         public GameUI UI { get; private set; }
         public FeedbackRouter Feedback { get; private set; }
+        public FeedbackTap Tap { get; private set; }
+        public NetSession Net { get; private set; }
+        bool feelMuted;
+        bool arsenalForLobby;
+
+        /// <summary>While a teammate's moment plays: no hit-stop, shake, slow motion or flashes here.</summary>
+        public bool FeelMuted
+        {
+            get => feelMuted;
+            set
+            {
+                feelMuted = value;
+                CameraRig.Muted = value;
+            }
+        }
         public MetaProgress Meta { get; private set; }
         public LaunchOptions Launch { get; private set; }
         public Mode CurrentMode { get; private set; }
@@ -99,7 +116,9 @@ namespace Shura
             gameObject.AddComponent<DebugOverlay>().Init(this);
 
             Feedback = new FeedbackRouter(this);
-            World = new World(Config, Feedback);
+            Tap = new FeedbackTap(Feedback);
+            World = new World(Config, Tap);
+            Net = new NetSession(this, Tap);
             World.RoomClearedEvent += OnRoomCleared;
             World.PlayerDiedEvent += OnPlayerDied;
 
@@ -135,6 +154,8 @@ namespace Shura
                     break;
             }
 
+            Net.Update(Time.unscaledDeltaTime);
+
             autoDriver?.Update();
             UpdateMusic();
             if (!Launch.Headless && CurrentMode != Mode.Paused) SpawnEmbers(Time.unscaledDeltaTime);
@@ -142,7 +163,8 @@ namespace Shura
 
         void Simulate()
         {
-            if (bot != null && Launch.Headless)
+            // Headless bots fast-forward, except when hosting (browser players live in real time).
+            if (bot != null && Launch.Headless && !Net.Active)
             {
                 Clock.Accumulate(SimClock.Dt * HeadlessBotTicksPerFrame, 10f);
             }
@@ -162,6 +184,7 @@ namespace Shura
                 bot?.Think(World);
                 World.Tick();
                 ActiveInput.Buffer.Age();
+                Net.AgeInputs();
                 TickTimers();
                 if (CurrentMode != Mode.Playing) break;
             }
@@ -175,7 +198,8 @@ namespace Shura
             Vfx.Paused = CurrentMode == Mode.Paused;
             CameraRig.SetZoomOffset(Run != null ? FlowLevel * Config.feel.flowZoomPerLevel : 0f);
             // Outside a run the camera frames the whole arena behind the menus.
-            if (Run != null) CameraRig.Follow(World.Player.RenderPosition, World.Player.Facing, World.Bounds, realDt);
+            PlayerController focus = World.CameraFocus;
+            if (Run != null) CameraRig.Follow(focus.RenderPosition, focus.Facing, World.Bounds, realDt);
             else CameraRig.Follow(World.Bounds.center, Vector2.zero, World.Bounds, realDt);
             CameraRig.Tick(realDt);
         }
@@ -231,7 +255,34 @@ namespace Shura
 
         public void OpenArsenal()
         {
+            arsenalForLobby = CurrentMode == Mode.Lobby;
             SetMode(Mode.Arsenal);
+        }
+
+        // ── Online ────────────────────────────────────────────────────────────────────
+
+        /// <summary>Opens the online room (starts the server) and shows its links.</summary>
+        public void OpenLobby()
+        {
+            if (!Net.Active && !Net.Start(Launch.Port))
+            {
+                UI.Toast(string.Format(Strings.NetPortError, Launch.Port, Net.Error), Config.palette.danger);
+                return;
+            }
+            SetMode(Mode.Lobby);
+        }
+
+        public void CloseLobby()
+        {
+            Net.Stop();
+            SetMode(Mode.MainMenu);
+        }
+
+        /// <summary>Someone joined or left: refresh everyone's stats (shared buffs) and the HUD.</summary>
+        public void OnPartyChanged()
+        {
+            if (Run == null) return;
+            foreach (PlayerController p in World.Players) p.ApplyStats(false);
         }
 
         /// <summary>Saves the chosen pair and starts the run.</summary>
@@ -240,6 +291,12 @@ namespace Shura
             Settings.weaponA = weaponA;
             Settings.weaponB = weaponB;
             if (!Launch.Automated) Settings.Save();
+            if (arsenalForLobby && Net.Active)
+            {
+                arsenalForLobby = false;
+                SetMode(Mode.Lobby);
+                return;
+            }
             StartRun();
         }
 
@@ -258,14 +315,14 @@ namespace Shura
         public void EquipItem(Item item)
         {
             Run.Equip(item);
-            World.Player.ApplyStats(false);
+            foreach (PlayerController p in World.Players) p.ApplyStats(false);
             Audio.Play(Sfx.Unsheathe, 0.5f, 1.3f, 0f);
         }
 
         public void UnequipItem(ItemSlot slot)
         {
             Run.Unequip(slot);
-            World.Player.ApplyStats(false);
+            foreach (PlayerController p in World.Players) p.ApplyStats(false);
             Audio.Play(Sfx.UiMove, 0.6f, 0.8f, 0f);
         }
 
@@ -305,7 +362,8 @@ namespace Shura
             if (Run != null && !Run.Banked) BankRun();
             World.EndRun();
             Run = null;
-            SetMode(Mode.MainMenu);
+            // Hosting: back to the online room, the party stays connected.
+            SetMode(Net.Active ? Mode.Lobby : Mode.MainMenu);
         }
 
         public void QuitGame()
@@ -322,8 +380,12 @@ namespace Shura
             if (CurrentMode != Mode.Reward || index < 0 || index >= rewardChoices.Count) return;
             RewardDef reward = rewardChoices[index];
             Run.Acquire(reward);
-            World.Player.ApplyStats(false);
-            if (reward.HealOnPick > 0f) World.Player.Heal(reward.HealOnPick);
+            // Rewards are the party's: every duelist gains (and pays) them.
+            foreach (PlayerController p in World.Players)
+            {
+                p.ApplyStats(false);
+                if (reward.HealOnPick > 0f) p.Heal(reward.HealOnPick);
+            }
             Color c = reward.Kind == RewardKind.Technique ? Config.palette.gold
                     : reward.Kind == RewardKind.Blessing ? Config.palette.blessing
                     : Config.palette.playerAccent;
@@ -409,7 +471,7 @@ namespace Shura
         /// <summary>Briefly slows the whole simulation (real-time seconds). Never stacks to slower.</summary>
         public void SlowMo(float seconds, float scale)
         {
-            if (Launch.Headless) return;
+            if (Launch.Headless || FeelMuted) return;
             if (slowMoTimer > 0f && slowMoScale <= scale) slowMoTimer = Mathf.Max(slowMoTimer, seconds);
             else
             {
@@ -455,10 +517,13 @@ namespace Shura
             Run.RoomsCleared++;
             // Ascension: the duelist grows with every room, so depth is a race, not a wall.
             Run.Ascend();
-            World.Player.ApplyStats(false);
             float heal = Config.player.healOnRoomClear + Run.Modifiers.roomClearHealBonus;
-            World.Player.Heal(heal);
-            Feedback.Emit(FxType.RoomClear, World.Player.Position, Vector2.up);
+            foreach (PlayerController p in World.Players)
+            {
+                p.ApplyStats(false);
+                p.Heal(heal);
+            }
+            Feedback.Emit(FxType.RoomClear, World.CameraFocus.Position, Vector2.up);
             UI.Toast(string.Format(Strings.ToastRoomClear, Mathf.RoundToInt(heal)), Config.palette.uiText);
             UI.Toast(string.Format(Strings.ToastRoomEcos, MetaRules.RoomEcos(Run.RoomsCleared - 1)), Config.palette.gold);
             UI.Toast(string.Format(Strings.ToastAscension, Run.Ascension), Config.palette.blessing);
@@ -516,11 +581,18 @@ namespace Shura
 
         void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus && CurrentMode == Mode.Playing && !Launch.Automated) Pause();
+            // Hosting keeps the duel running for everyone while this window is in the background.
+            if (!hasFocus && CurrentMode == Mode.Playing && !Launch.Automated && !Net.Active) Pause();
+        }
+
+        void OnApplicationQuit()
+        {
+            Net?.Stop();
         }
 
         void OnDestroy()
         {
+            Net?.Stop();
             Controls?.Disable();
         }
     }

@@ -23,6 +23,11 @@ namespace Shura
         public string WeaponA;
         public string WeaponB;
 
+        /// <summary>"-shuraHost N": open the online room and start once N browser players joined (or after 40 s).</summary>
+        public bool Host;
+        public int HostWait;
+        public int Port = NetSession.DefaultPort;
+
         public bool Automated => Bot || ShotDir != null;
 
         public static LaunchOptions FromCommandLine()
@@ -57,6 +62,18 @@ namespace Shura
                         break;
                     case "-shuraDepth":
                         if (i + 1 < args.Length && int.TryParse(args[i + 1], out int depth)) options.TargetDepth = depth;
+                        i++;
+                        break;
+                    case "-shuraHost":
+                        options.Host = true;
+                        if (i + 1 < args.Length && int.TryParse(args[i + 1], out int wait))
+                        {
+                            options.HostWait = wait;
+                            i++;
+                        }
+                        break;
+                    case "-shuraPort":
+                        if (i + 1 < args.Length && int.TryParse(args[i + 1], out int port)) options.Port = port;
                         i++;
                         break;
                     case "-shuraSeed":

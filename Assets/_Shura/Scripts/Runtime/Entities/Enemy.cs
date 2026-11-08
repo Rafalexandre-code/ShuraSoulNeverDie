@@ -216,22 +216,34 @@ namespace Shura
             idleTimer = idleFrames;
         }
 
+        /// <summary>The duelist this enemy is fighting (re-chosen now and then, and when they fall).</summary>
+        public PlayerController Target { get; set; }
+        static int nextUid;
+        /// <summary>Stable id for network snapshots.</summary>
+        public int NetUid { get; } = ++nextUid;
+        int retargetTimer;
+
         void TickEngage()
         {
-            PlayerController player = world.Player;
+            if (Target == null || !Target.IsAlive || --retargetTimer <= 0)
+            {
+                Target = world.ChooseTarget(this);
+                retargetTimer = 90 + (NetUid & 63);
+            }
+            PlayerController player = Target;
             Vector2 to = player.Position - Position;
             float dist = to.magnitude;
             Vector2 dir = dist > 0.001f ? to / dist : Facing;
             Facing = CombatMath.RotateTowards(Facing, dir, et.turnDegreesPerSecond * SimClock.Dt);
             RegenPosture();
 
-            // Enemies waiting for their turn hang back so the active duel stays readable.
-            bool waiting = world.Coordinator.Holder != null && !world.Coordinator.IsHeldBy(this);
+            // Enemies waiting for their turn hang back so the active duels stay readable.
+            bool waiting = world.Coordinator.IsFull && !world.Coordinator.IsHeldBy(this);
             float range = Def.preferredRange + (waiting ? et.waitingRangeBonus : 0f);
 
             Vector2 desired;
             if (!player.IsAlive) desired = Vector2.zero;
-            else if (dist > range + 0.6f) desired = dir * Def.moveSpeed;
+            else if (dist > range + 0.6f) desired = world.Layout.Steer(Position, player.Position, Radius) * Def.moveSpeed;
             else if (dist < range - 0.6f) desired = -dir * Def.moveSpeed * 0.7f;
             else desired = CombatMath.Perpendicular(dir) * strafeSign * Def.moveSpeed * 0.45f;
 
@@ -351,19 +363,30 @@ namespace Shura
             }
             int trackBonus = Mathf.RoundToInt(6f * traits.Track);
             stepTrack = Mathf.Min(attack.trackUntil + trackBonus, Mathf.Max(attack.trackUntil, stepWindup - 6));
+
+            // Online lag compensation: a browser player sees this swing late by their ping, so
+            // the blow lands that much later while the ring keeps closing when they see it.
+            stepLag = !attack.IsProjectile && Target != null && Target != world.Host ? Target.LatencyTicks : 0;
+            stepWindup += stepLag;
         }
+
+        int stepLag;
+
+        /// <summary>The windup as the target perceives it (the timing ring closes on this).</summary>
+        int CueWindup => stepWindup - stepLag;
 
         void TickAttack()
         {
             StepFrame++;
             AttackDef attack = CurrentAttack;
             // Arrows cue on their own flight; melee cues when the ring closes.
-            if (!attack.IsProjectile && StepFrame == TelegraphTiming.CueFrame(stepWindup, feel.timingCueLeadFrames))
+            if (!attack.IsProjectile && StepFrame == TelegraphTiming.CueFrame(CueWindup, feel.timingCueLeadFrames))
             {
                 world.Fx.Emit(FxType.TimingCue, Position, Facing, attack.IsDangerous ? 1f : 0f);
             }
 
-            Vector2 to = world.Player.Position - Position;
+            PlayerController victim = Target != null ? Target : world.Host;
+            Vector2 to = victim.Position - Position;
             if (StepFrame <= stepTrack && to.sqrMagnitude > 1e-4f)
             {
                 Facing = CombatMath.RotateTowards(Facing, to.normalized, et.turnDegreesPerSecond * 1.5f * SimClock.Dt);
@@ -507,6 +530,12 @@ namespace Shura
             return StrikeResult.Hit;
         }
 
+        /// <summary>Traps: cannot be guarded, never counted as the player's blow.</summary>
+        public void ReceiveHazard(float damage, float posture, Vector2 dir)
+        {
+            ReceivePlayerHit(damage, posture, dir, true);
+        }
+
         // ── Status effects (from equipment) ─────────────────────────────────────────────
 
         public void ApplyDot(float damagePerSecond, float seconds, Element element)
@@ -594,6 +623,8 @@ namespace Shura
         void Riposte()
         {
             float dist = Vector2.Distance(world.Player.Position, Position);
+            // The riposte answers whoever struck the guard.
+            Target = world.Player;
             MoveDef fastest = null;
             foreach (MoveDef m in Def.moves)
             {
@@ -819,7 +850,8 @@ namespace Shura
         void RenderTimingIndicator(AttackDef attack)
         {
             bool show = world.ShowTimingIndicator && attack != null && !attack.IsProjectile && CurrentState == State.Attacking &&
-                        TelegraphTiming.ApproachVisible(StepFrame, stepWindup, feel.timingCueLeadFrames, feel.timingApproachFrames);
+                        TelegraphTiming.ApproachVisible(StepFrame, CueWindup, feel.timingCueLeadFrames, feel.timingApproachFrames);
+            NetRing = 0;
             if (!show)
             {
                 timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
@@ -827,8 +859,8 @@ namespace Shura
             }
 
             int lead = Mathf.Max(1, feel.timingCueLeadFrames);
-            int cue = TelegraphTiming.CueFrame(stepWindup, lead);
-            float t = TelegraphTiming.ApproachProgress(StepFrame, stepWindup, lead, feel.timingApproachFrames);
+            int cue = TelegraphTiming.CueFrame(CueWindup, lead);
+            float t = TelegraphTiming.ApproachProgress(StepFrame, CueWindup, lead, feel.timingApproachFrames);
             Color c = attack.IsDangerous ? pal.danger : pal.playerAccent;
             float size = Radius * 2f * 1.55f;
 
@@ -842,6 +874,9 @@ namespace Shura
                 timingApproach.color = c.WithAlpha(Mathf.Lerp(0.15f, 0.95f, t));
                 timingTarget.transform.localScale = new Vector3(size, size, 1f);
                 timingTarget.color = c.WithAlpha(0.35f);
+                NetRing = 1;
+                NetRingSize = size;
+                NetRingProgress = t;
                 return;
             }
 
@@ -855,7 +890,25 @@ namespace Shura
             float g = size * 1.9f;
             timingGlow.transform.localScale = new Vector3(g, g, 1f);
             timingGlow.color = c.WithAlpha(0.55f * (1f - k * 0.5f));
+            NetRing = 2;
+            NetRingSize = size;
+            NetRingProgress = k;
         }
+
+        // ── Read by the network snapshot (browser players draw the same telegraphs) ─────
+
+        /// <summary>0 none, 1 cone, 2 circle, 3 line.</summary>
+        public int NetTeleType { get; private set; }
+        public float NetTeleRange { get; private set; }
+        /// <summary>Cone: degrees; line: width.</summary>
+        public float NetTeleWidth { get; private set; }
+        public float NetTeleAlpha { get; private set; }
+        public bool NetDanger { get; private set; }
+        /// <summary>Timing ring: 0 none, 1 closing in, 2 closed (press now).</summary>
+        public int NetRing { get; private set; }
+        public float NetRingSize { get; private set; }
+        public float NetRingProgress { get; private set; }
+        public float HealthRatio => MaxHealth > 0f ? Mathf.Clamp01(Health / MaxHealth) : 0f;
 
         protected override void RenderExtra(Vector2 renderPosition, float visualDt)
         {
@@ -943,6 +996,15 @@ namespace Shura
                 linePreview.color = tint.WithAlpha(alpha);
                 linePreview.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
                 linePreview.transform.localScale = new Vector3(length, attack.shape.width, 1f);
+            }
+
+            NetTeleType = !telegraphing ? 0 : shapeType == HitShapeType.Line ? 3 : shapeType == HitShapeType.Circle ? 2 : 1;
+            NetDanger = attack != null && attack.IsDangerous;
+            NetTeleAlpha = alpha;
+            if (NetTeleType != 0)
+            {
+                NetTeleRange = shapeType == HitShapeType.Line ? attack.shape.range + (active ? 0f : attack.lunge) : attack.shape.range;
+                NetTeleWidth = shapeType == HitShapeType.Line ? attack.shape.width : attack.shape.arcDegrees;
             }
 
             dangerGlyph.enabled = telegraphing && attack.IsDangerous;

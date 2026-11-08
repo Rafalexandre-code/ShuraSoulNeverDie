@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Shura
 {
-    /// <summary>Animated arena props (lantern light). Purely visual.</summary>
+    /// <summary>Animated arena props (lantern light) plus what browser players need to draw it.</summary>
     public sealed class ArenaDecor
     {
         readonly List<SpriteRenderer> flames = new List<SpriteRenderer>();
@@ -12,11 +12,20 @@ namespace Shura
         readonly List<float> seeds = new List<float>();
 
         public readonly List<Vector2> FlamePositions = new List<Vector2>();
+        /// <summary>Lantern feet positions (world).</summary>
+        public readonly List<Vector2> Lanterns = new List<Vector2>();
+        /// <summary>Statues: block in cells and which art (0 small shrine, 1 great lion).</summary>
+        public readonly List<Vector4> Statues = new List<Vector4>();
         /// <summary>Generated per room; destroyed with the arena to avoid leaking textures.</summary>
         public Texture2D FloorTexture;
         public Color FlameColor = Color.white;
+        /// <summary>The arena image as PNG (only when hosting browser players).</summary>
+        public byte[] Png;
+        /// <summary>Arena image size and where world (0,0) falls in it, in pixels from the bottom-left.</summary>
+        public Vector2Int PixelSize;
+        public Vector2 PixelPivot;
+        public bool Moss;
 
-        /// <summary>A light source; <paramref name="frames"/> may be null for static art.</summary>
         public void AddBrazier(Vector2 flamePos, SpriteRenderer flame, Sprite[] frames, SpriteRenderer glow)
         {
             FlamePositions.Add(flamePos);
@@ -47,17 +56,15 @@ namespace Shura
     }
 
     /// <summary>
-    /// Builds each arena as one pixel-art image from the Ninja Adventure tilesets: a temple
-    /// floor that changes with the biome (ash cobblestone, moss and ice temple tiles, blood
-    /// brick, abyss stone), framed by the pack's walls, with nobori banners along the back
-    /// wall; paper lanterns light the corners. 16 px per unit, point filtered.
+    /// Builds each arena from its <see cref="ArenaLayout"/> as one pixel-art image from the
+    /// Ninja Adventure tilesets: a temple floor that changes with the biome, walls that follow
+    /// the outline (hall, octagon, cross…), nobori banners on the back wall; statues and
+    /// paper lanterns stand as sprites so fighters walk in front of and behind them.
+    /// 16 px per unit, point filtered.
     /// </summary>
     public static class ArenaBuilder
     {
         const int Tile = PixelArt.PixelsPerUnit;
-        const int SideMargin = Tile;
-        const int BottomMargin = Tile;
-        const int TopMargin = Tile * 2;
         const string FloorSheet = "tiles_floor";
         const string WallSheet = "tiles_wall";
         const string HouseSheet = "tiles_house";
@@ -68,6 +75,7 @@ namespace Shura
             public RectInt floor;
             public Vector2Int frame;
             public Color tint;
+            public bool moss;
         }
 
         static Style StyleFor(Biome biome)
@@ -75,7 +83,7 @@ namespace Shura
             switch (biome.suffix)
             {
                 case "do Musgo":
-                    return new Style { floor = new RectInt(15, 6, 4, 4), frame = new Vector2Int(5, 6), tint = new Color(0.78f, 0.86f, 0.8f) };
+                    return new Style { floor = new RectInt(15, 6, 4, 4), frame = new Vector2Int(5, 6), tint = new Color(0.78f, 0.86f, 0.8f), moss = true };
                 case "do Sangue":
                     return new Style { floor = new RectInt(4, 6, 4, 4), frame = new Vector2Int(5, 0), tint = new Color(0.78f, 0.45f, 0.42f) };
                 case "do Abismo":
@@ -87,22 +95,53 @@ namespace Shura
             }
         }
 
-        public static ArenaDecor Build(Transform parent, GameConfig config, float width, float height, Biome biome)
+        public static ArenaDecor Build(Transform parent, GameConfig config, ArenaLayout layout, Biome biome, bool encodePng)
         {
-            Sprite arena = BuildArenaSprite(width, height, biome);
+            Style style = StyleFor(biome);
+            var decor = new ArenaDecor { FlameColor = biome.flame, Moss = style.moss };
+            Sprite arena = BuildArenaSprite(layout, biome, style, decor, encodePng);
             var floor = SpriteUtil.Make("Arena", parent, arena, Color.white, Sorting.Floor);
             floor.transform.localPosition = Vector3.zero;
+            decor.FloorTexture = arena.texture;
 
-            float hw = width * 0.5f;
-            float hh = height * 0.5f;
-            var decor = new ArenaDecor { FloorTexture = arena.texture, FlameColor = biome.flame };
-            float bx = hw - 1.0f;
-            float by = hh - 0.9f;
-            foreach (Vector2 corner in new[] { new Vector2(-bx, by), new Vector2(bx, by), new Vector2(-bx, -by), new Vector2(bx, -by) })
+            foreach (RectInt block in layout.Statues) AddStatue(parent, layout, block, style.moss, decor);
+
+            Rect fb = layout.FloorBounds;
+            var corners = new[]
             {
-                AddLantern(parent, decor, corner, biome);
-            }
+                new Vector2(fb.xMin + 1.2f, fb.yMax - 1.0f), new Vector2(fb.xMax - 1.2f, fb.yMax - 1.0f),
+                new Vector2(fb.xMin + 1.2f, fb.yMin + 0.9f), new Vector2(fb.xMax - 1.2f, fb.yMin + 0.9f),
+            };
+            foreach (Vector2 c in corners) AddLantern(parent, decor, layout.NearestFloor(c, 0.6f), biome);
             return decor;
+        }
+
+        /// <summary>Shrines on 2×2 pillars; the great lion (with columns) on the courtyard's centre.</summary>
+        static void AddStatue(Transform parent, ArenaLayout layout, RectInt block, bool moss, ArenaDecor decor)
+        {
+            int row = moss ? 19 : 15;
+            bool great = block.width >= 3;
+            Vector2 baseCenter = layout.Origin + new Vector2(block.center.x, block.yMin);
+            int order = -Mathf.RoundToInt(baseCenter.y * 20f);
+            if (great)
+            {
+                Sprite lion = PixelArt.Region(HouseSheet, 1, row, 2, 3, new Vector2(0.5f, 0f));
+                var s = SpriteUtil.Make("Lion", parent, lion, Color.white, order);
+                s.transform.localPosition = baseCenter;
+                Sprite column = PixelArt.Region(HouseSheet, 0, row, 1, 3, new Vector2(0.5f, 0f));
+                var left = SpriteUtil.Make("Column", parent, column, Color.white, order);
+                left.transform.localPosition = layout.Origin + new Vector2(block.xMin + 0.5f, block.yMin);
+                var right = SpriteUtil.Make("Column", parent, column, Color.white, order);
+                right.transform.localPosition = layout.Origin + new Vector2(block.xMax - 0.5f, block.yMin);
+                decor.Statues.Add(new Vector4(block.xMin, block.yMin, block.width, 1));
+            }
+            else
+            {
+                Sprite shrine = PixelArt.Region(HouseSheet, 4, row, 2, 2, new Vector2(0.5f, 0f));
+                var s = SpriteUtil.Make("Shrine", parent, shrine, Color.white, order);
+                s.transform.localPosition = baseCenter;
+                decor.Statues.Add(new Vector4(block.xMin, block.yMin, block.width, 0));
+            }
         }
 
         /// <summary>A tall paper lantern (andon) whose light flickers on the floor.</summary>
@@ -123,85 +162,106 @@ namespace Shura
 
             Sprite lantern = PixelArt.Region("tiles_element", 0, 5, 1, 2, new Vector2(0.5f, 0f));
             var body = SpriteUtil.Make("Andon", root, lantern != null ? lantern : ShapeLibrary.Get(Shape.Capsule), Color.white, order);
-            // The paper glows in the biome's light colour.
             var paper = SpriteUtil.Make("Paper", root, ShapeLibrary.Get(Shape.SoftCircle), biome.flame.WithAlpha(0.45f), order + 1);
             paper.transform.localPosition = new Vector3(0f, 1.2f, 0f);
             paper.transform.localScale = new Vector3(0.7f, 0.9f, 1f);
 
+            decor.Lanterns.Add(pos);
             decor.AddBrazier(pos + new Vector2(0f, 1.2f), body, null, glow);
         }
 
         // ── Arena image ─────────────────────────────────────────────────────────────────
 
-        static Sprite BuildArenaSprite(float width, float height, Biome biome)
+        static Sprite BuildArenaSprite(ArenaLayout layout, Biome biome, Style style, ArenaDecor decor, bool encodePng)
         {
-            int fw = Mathf.Max(Tile, Mathf.RoundToInt(width * Tile));
-            int fh = Mathf.Max(Tile, Mathf.RoundToInt(height * Tile));
-            int cw = fw + SideMargin * 2;
-            int ch = fh + BottomMargin + TopMargin;
-
-            Texture2D floorSheet = PixelArt.Texture(FloorSheet);
-            Texture2D wallSheet = PixelArt.Texture(WallSheet);
-            if (floorSheet == null || wallSheet == null || !floorSheet.isReadable || !wallSheet.isReadable) return FallbackFloor(width, height, biome);
-
-            Style style = StyleFor(biome);
+            int cw = layout.W * Tile;
+            int ch = layout.H * Tile;
             var canvas = new Color32[cw * ch];
             var voidColor = (Color32)Color.Lerp(biome.mortar, Color.black, 0.7f);
             for (int i = 0; i < canvas.Length; i++) canvas[i] = voidColor;
 
-            Color32[] floorPx = floorSheet.GetPixels32();
-            Color32[] wallPx = wallSheet.GetPixels32();
-            var floorRect = new RectInt(SideMargin, BottomMargin, fw, fh);
-
-            // Floor: the biome's tile pattern, repeated from the arena's top-left corner.
-            int tilesW = Mathf.CeilToInt(fw / (float)Tile);
-            int tilesH = Mathf.CeilToInt(fh / (float)Tile);
-            for (int ty = 0; ty < tilesH; ty++)
+            Texture2D floorSheet = PixelArt.Texture(FloorSheet);
+            Texture2D wallSheet = PixelArt.Texture(WallSheet);
+            bool art = floorSheet != null && wallSheet != null && floorSheet.isReadable && wallSheet.isReadable;
+            Color32[] floorPx = art ? floorSheet.GetPixels32() : null;
+            Color32[] wallPx = art ? wallSheet.GetPixels32() : null;
+            var statueCells = new HashSet<Vector2Int>();
+            foreach (RectInt b in layout.Statues)
             {
-                for (int tx = 0; tx < tilesW; tx++)
+                for (int y = b.yMin; y < b.yMax; y++)
                 {
-                    int sx = style.floor.x + tx % style.floor.width;
-                    int sy = style.floor.y + ty % style.floor.height;
-                    // Slight per-tile brightness drift so large floors never look stamped.
-                    float drift = 1f + (Hash(tx, ty) - 0.5f) * 0.08f;
-                    Blit(canvas, cw, ch, floorPx, floorSheet.width, floorSheet.height, sx, sy,
-                         SideMargin + tx * Tile, BottomMargin + fh - (ty + 1) * Tile, style.tint * drift, floorRect);
+                    for (int x = b.xMin; x < b.xMax; x++) statueCells.Add(new Vector2Int(x, y));
                 }
             }
-            Vignette(canvas, cw, floorRect);
-
-            // Wall frame around the floor (the frame's corners and edges, tile-sized).
             var full = new RectInt(0, 0, cw, ch);
-            int ox = style.frame.x;
-            int oy = style.frame.y;
-            int topY = BottomMargin + fh;
-            for (int x = SideMargin; x < SideMargin + fw; x += Tile)
-            {
-                Blit(canvas, cw, ch, wallPx, wallSheet.width, wallSheet.height, ox + 1, oy, x, topY, style.tint, full);
-                Blit(canvas, cw, ch, wallPx, wallSheet.width, wallSheet.height, ox + 1, oy + 4, x, 0, style.tint, full);
-            }
-            for (int y = BottomMargin; y < BottomMargin + fh; y += Tile)
-            {
-                Blit(canvas, cw, ch, wallPx, wallSheet.width, wallSheet.height, ox, oy + 1, 0, y, style.tint, full);
-                Blit(canvas, cw, ch, wallPx, wallSheet.width, wallSheet.height, ox + 4, oy + 1, SideMargin + fw, y, style.tint, full);
-            }
-            Blit(canvas, cw, ch, wallPx, wallSheet.width, wallSheet.height, ox, oy, 0, topY, style.tint, full);
-            Blit(canvas, cw, ch, wallPx, wallSheet.width, wallSheet.height, ox + 4, oy, SideMargin + fw, topY, style.tint, full);
-            Blit(canvas, cw, ch, wallPx, wallSheet.width, wallSheet.height, ox, oy + 4, 0, 0, style.tint, full);
-            Blit(canvas, cw, ch, wallPx, wallSheet.width, wallSheet.height, ox + 4, oy + 4, SideMargin + fw, 0, style.tint, full);
 
-            // Nobori banners hang along the back wall.
+            // Floor (also under statues, which stand on it as sprites).
+            for (int y = 0; y < layout.H; y++)
+            {
+                for (int x = 0; x < layout.W; x++)
+                {
+                    bool isFloor = layout.IsFloor(x, y) || statueCells.Contains(new Vector2Int(x, y));
+                    if (!isFloor) continue;
+                    if (!art)
+                    {
+                        FillCell(canvas, cw, x, y, biome.floorA);
+                        continue;
+                    }
+                    int ty = layout.H - 1 - y;
+                    int sx = style.floor.x + x % style.floor.width;
+                    int sy = style.floor.y + ty % style.floor.height;
+                    float drift = 1f + (Hash(x, y) - 0.5f) * 0.08f;
+                    Blit(canvas, cw, ch, floorPx, floorSheet.width, floorSheet.height, sx, sy, x * Tile, y * Tile, style.tint * drift, full);
+                }
+            }
+            var floorRect = new RectInt(0, 0, cw, ch);
+            Vignette(canvas, cw, layout, floorRect);
+
+            // Walls follow the outline: each wall cell next to the floor takes the frame piece
+            // whose stone faces that floor.
+            int ox = style.frame.x, oy = style.frame.y;
+            var bannerCandidates = new List<Vector2Int>();
+            for (int y = 0; y < layout.H; y++)
+            {
+                for (int x = 0; x < layout.W; x++)
+                {
+                    if (layout.IsFloor(x, y) || statueCells.Contains(new Vector2Int(x, y))) continue;
+                    bool n = Walkable(layout, statueCells, x, y + 1), s = Walkable(layout, statueCells, x, y - 1);
+                    bool e = Walkable(layout, statueCells, x + 1, y), w = Walkable(layout, statueCells, x - 1, y);
+                    bool ne = Walkable(layout, statueCells, x + 1, y + 1), nw = Walkable(layout, statueCells, x - 1, y + 1);
+                    bool se = Walkable(layout, statueCells, x + 1, y - 1), sw = Walkable(layout, statueCells, x - 1, y - 1);
+                    Vector2Int piece;
+                    if (s) piece = new Vector2Int(ox + 1, oy);
+                    else if (n) piece = new Vector2Int(ox + 1, oy + 4);
+                    else if (e) piece = new Vector2Int(ox, oy + 1);
+                    else if (w) piece = new Vector2Int(ox + 4, oy + 1);
+                    else if (se) piece = new Vector2Int(ox, oy);
+                    else if (sw) piece = new Vector2Int(ox + 4, oy);
+                    else if (ne) piece = new Vector2Int(ox, oy + 4);
+                    else if (nw) piece = new Vector2Int(ox + 4, oy + 4);
+                    else continue;
+                    if (!art)
+                    {
+                        FillCell(canvas, cw, x, y, biome.wall);
+                        continue;
+                    }
+                    Blit(canvas, cw, ch, wallPx, wallSheet.width, wallSheet.height, piece.x, piece.y, x * Tile, y * Tile, style.tint, full);
+                    if (s && y >= layout.H / 2) bannerCandidates.Add(new Vector2Int(x, y));
+                }
+            }
+
+            // Nobori banners hang along the back walls.
             Texture2D house = PixelArt.Texture(HouseSheet);
-            if (house != null && house.isReadable)
+            if (house != null && house.isReadable && bannerCandidates.Count > 0)
             {
                 Color32[] housePx = house.GetPixels32();
-                int count = Mathf.Max(2, fw / (Tile * 5));
-                for (int i = 0; i < count; i++)
+                int step = Mathf.Max(3, bannerCandidates.Count / Mathf.Max(2, layout.W / 6));
+                for (int i = step / 2; i < bannerCandidates.Count; i += step)
                 {
-                    int bx = SideMargin + Mathf.RoundToInt((i + 0.5f) * fw / (float)count) - Tile / 2;
-                    int bannerColumn = 22 + Random.Range(0, 7);
-                    Blit(canvas, cw, ch, housePx, house.width, house.height, bannerColumn, 20, bx, topY + Tile, Color.white, full);
-                    Blit(canvas, cw, ch, housePx, house.width, house.height, bannerColumn, 21, bx, topY, Color.white, full);
+                    Vector2Int c = bannerCandidates[i];
+                    int column = 22 + (int)(Hash(c.x, c.y) * 6.99f);
+                    Blit(canvas, cw, ch, housePx, house.width, house.height, column, 21, c.x * Tile, c.y * Tile, Color.white, full);
+                    Blit(canvas, cw, ch, housePx, house.width, house.height, column, 20, c.x * Tile, (c.y + 1) * Tile, Color.white, full);
                 }
             }
 
@@ -212,9 +272,24 @@ namespace Shura
                 name = "Arena",
             };
             tex.SetPixels32(canvas);
-            tex.Apply(false, true);
-            var pivot = new Vector2((SideMargin + fw * 0.5f) / cw, (BottomMargin + fh * 0.5f) / ch);
+            tex.Apply(false, false);
+            if (encodePng) decor.Png = tex.EncodeToPNG();
+            decor.PixelSize = new Vector2Int(cw, ch);
+            decor.PixelPivot = -layout.Origin * Tile;
+            var pivot = new Vector2(-layout.Origin.x / layout.W, -layout.Origin.y / layout.H);
             return Sprite.Create(tex, new Rect(0, 0, cw, ch), pivot, Tile);
+        }
+
+        static bool Walkable(ArenaLayout layout, HashSet<Vector2Int> statues, int x, int y) =>
+            layout.IsFloor(x, y) && !statues.Contains(new Vector2Int(x, y));
+
+        static void FillCell(Color32[] canvas, int cw, int x, int y, Color c)
+        {
+            var c32 = (Color32)c;
+            for (int py = 0; py < Tile; py++)
+            {
+                for (int px = 0; px < Tile; px++) canvas[(y * Tile + py) * cw + x * Tile + px] = c32;
+            }
         }
 
         /// <summary>
@@ -244,16 +319,20 @@ namespace Shura
             }
         }
 
-        /// <summary>Darkens the floor toward the walls so the centre reads as the dueling ground.</summary>
-        static void Vignette(Color32[] canvas, int cw, RectInt floor)
+        /// <summary>Darkens the floor toward its edges so the centre reads as the dueling ground.</summary>
+        static void Vignette(Color32[] canvas, int cw, ArenaLayout layout, RectInt area)
         {
-            for (int y = floor.yMin; y < floor.yMax; y++)
+            Rect fb = layout.FloorBounds;
+            float x0 = (fb.xMin - layout.Origin.x) * Tile, x1 = (fb.xMax - layout.Origin.x) * Tile;
+            float y0 = (fb.yMin - layout.Origin.y) * Tile, y1 = (fb.yMax - layout.Origin.y) * Tile;
+            for (int y = area.yMin; y < area.yMax; y++)
             {
-                float ey = Mathf.Abs((y - floor.yMin) / (float)floor.height - 0.5f) * 2f;
-                for (int x = floor.xMin; x < floor.xMax; x++)
+                float ey = Mathf.Abs((y - y0) / Mathf.Max(1f, y1 - y0) - 0.5f) * 2f;
+                for (int x = area.xMin; x < area.xMax; x++)
                 {
-                    float ex = Mathf.Abs((x - floor.xMin) / (float)floor.width - 0.5f) * 2f;
-                    float k = 1f - 0.35f * Mathf.Pow(Mathf.Max(ex, ey), 3f);
+                    if (!layout.IsFloor(x / Tile, y / Tile)) continue;
+                    float ex = Mathf.Abs((x - x0) / Mathf.Max(1f, x1 - x0) - 0.5f) * 2f;
+                    float k = 1f - 0.35f * Mathf.Pow(Mathf.Clamp01(Mathf.Max(ex, ey)), 3f);
                     Color32 c = canvas[y * cw + x];
                     canvas[y * cw + x] = new Color32((byte)(c.r * k), (byte)(c.g * k), (byte)(c.b * k), 255);
                 }
@@ -269,19 +348,6 @@ namespace Shura
                 h ^= h >> 16;
                 return (h & 0xFFFF) / 65535f;
             }
-        }
-
-        /// <summary>Plain stone if the tileset is missing (never expected in a build).</summary>
-        static Sprite FallbackFloor(float width, float height, Biome biome)
-        {
-            int w = Mathf.RoundToInt(width * Tile);
-            int h = Mathf.RoundToInt(height * Tile);
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, name = "ArenaFallback" };
-            var px = new Color32[w * h];
-            for (int i = 0; i < px.Length; i++) px[i] = biome.floorA;
-            tex.SetPixels32(px);
-            tex.Apply(false, true);
-            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), Tile);
         }
     }
 }

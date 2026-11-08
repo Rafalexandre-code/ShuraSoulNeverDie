@@ -133,6 +133,26 @@ namespace Shura
         public const string PopupFinisher = "FINALIZADO";
         public const string PopupDodge = "ESQUIVA PERFEITA";
         public const string PopupMastered = "DOMINADO";
+        public const string PopupRevived = "DE PÉ!";
+
+        // Online
+        public const string PlayOnline = "Jogar online (até 8)";
+        public const string LobbyTitle = "SALA ONLINE";
+        public const string LobbyLinks = "Mande um destes links para os amigos (abre no navegador, sem instalar nada):";
+        public const string LobbyRadminHint = "Todos precisam estar na mesma rede do Radmin VPN que você. Se o Windows perguntar, permita o Shura no firewall.";
+        public const string LobbyPlayers = "Duelistas na sala";
+        public const string LobbyHostName = "{0}  (você)";
+        public const string LobbyEmpty = "Ninguém entrou ainda…";
+        public const string LobbyStart = "Começar a run";
+        public const string LobbyWeapons = "Escolher minhas armas";
+        public const string LobbyClose = "Fechar a sala";
+        public const string NetJoined = "{0} entrou na sala";
+        public const string NetLeft = "{0} saiu";
+        public const string NetPortError = "Não deu para abrir a porta {0}: {1}";
+        public const string OnlineBadge = "ONLINE  ·  {0} duelistas";
+        public const string ReviveHold = "Segure E para reviver {0}";
+        public const string ReviveHoldPad = "Segure X para reviver {0}";
+        public const string YouFell = "Você caiu. Um aliado pode te reviver ficando sobre você e segurando E.";
         public const string PopupGuardBroken = "GUARDA QUEBRADA";
 
         public const string ToastTechnique = "Técnica absorvida: {0}";

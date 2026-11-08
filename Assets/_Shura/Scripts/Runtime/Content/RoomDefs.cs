@@ -79,9 +79,15 @@ namespace Shura
         public readonly bool guardian;
         /// <summary>Each wave spawns when the previous one is dead.</summary>
         public readonly EnemySpawn[][] waves;
+        public readonly ArenaShape shape;
+        /// <summary>Seeds the arena's statues and traps.</summary>
+        public readonly ulong layoutSeed;
 
-        public RoomDef(string name, int depth, Biome biome, float width, float height, bool guardian, EnemySpawn[][] waves)
+        public RoomDef(string name, int depth, Biome biome, float width, float height, bool guardian, EnemySpawn[][] waves,
+                       ArenaShape shape = ArenaShape.Hall, ulong layoutSeed = 0)
         {
+            this.shape = shape;
+            this.layoutSeed = layoutSeed;
             this.name = name;
             this.depth = depth;
             this.biome = biome;
@@ -161,7 +167,7 @@ namespace Shura
 
         public static RoomDef Intro()
         {
-            return new RoomDef("Pátio das Cinzas", 0, Biomes.All[0], 19f, 10.5f, false, new[]
+            return new RoomDef("Pátio das Cinzas", 0, Biomes.All[0], 24f, 13f, false, new[]
             {
                 new[] { new EnemySpawn("ronin") },
                 new[] { new EnemySpawn("ronin"), new EnemySpawn("ronin") },
@@ -200,9 +206,12 @@ namespace Shura
             // Stepping by 7 through 12 places (coprime) never repeats a name within 12 rooms.
             int place = (int)((runSeed % (ulong)Places.Length + (ulong)depth * 7UL) % (ulong)Places.Length);
             string name = guardian ? "Covil do Guardião " + biome.suffix : Places[place] + " " + biome.suffix;
-            float width = rng.Range(17f, 22f);
-            float height = rng.Range(9.5f, 12f);
-            return new RoomDef(name, depth, biome, width, height, guardian, waves.ToArray());
+            // Bigger arenas than the first prototype, each with its own outline and traps.
+            float width = rng.Range(22, 30);
+            float height = rng.Range(12, 17);
+            ArenaShape shape = guardian ? (rng.NextFloat() < 0.5f ? ArenaShape.Courtyard : ArenaShape.Octagon)
+                                        : (ArenaShape)rng.Range(0, 5);
+            return new RoomDef(name, depth, biome, width, height, guardian, waves.ToArray(), shape, Mix(runSeed, depth + 1000));
         }
 
         static EnemySpawn[] FillWave(SeededRandom rng, int depth, float budget, int maxCount)

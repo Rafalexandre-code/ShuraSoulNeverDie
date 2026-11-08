@@ -1,16 +1,22 @@
+using System.Collections.Generic;
+
 namespace Shura
 {
     /// <summary>
-    /// Only one enemy may attack at a time, with a minimum gap between attacks. This keeps
-    /// fights against groups readable: you duel one opponent while the others pressure.
+    /// Limits how many enemies attack at once, with a minimum gap between attacks. Solo it is
+    /// one at a time: you duel one opponent while the others pressure. In co-op the limit
+    /// grows with the party (Capacity), so each player can have a duel of their own.
     /// </summary>
     public sealed class AttackCoordinator
     {
-        object holder;
+        readonly List<object> holders = new List<object>();
         int cooldown;
 
         public int MinGapFrames { get; set; }
-        public object Holder => holder;
+        public int Capacity { get; set; } = 1;
+        /// <summary>Any one active attacker (debug overlay).</summary>
+        public object Holder => holders.Count > 0 ? holders[0] : null;
+        public bool IsFull => holders.Count >= Capacity;
 
         public AttackCoordinator(int minGapFrames)
         {
@@ -19,40 +25,40 @@ namespace Shura
 
         public bool TryAcquire(object who)
         {
-            if (holder == who) return true;
-            if (holder != null || cooldown > 0) return false;
-            holder = who;
+            if (holders.Contains(who)) return true;
+            if (holders.Count >= Capacity || cooldown > 0) return false;
+            holders.Add(who);
             return true;
         }
 
-        /// <summary>Ripostes ignore the gap but still respect another active attacker.</summary>
+        /// <summary>Ripostes ignore the gap but still respect the attacker limit.</summary>
         public bool ForceAcquire(object who)
         {
-            if (holder != null && holder != who) return false;
-            holder = who;
+            if (holders.Contains(who)) return true;
+            if (holders.Count >= Capacity) return false;
+            holders.Add(who);
             return true;
         }
 
         public void Release(object who)
         {
-            if (holder != who) return;
-            holder = null;
+            if (!holders.Remove(who)) return;
             cooldown = MinGapFrames;
         }
 
         public bool IsHeldBy(object who)
         {
-            return holder == who;
+            return holders.Contains(who);
         }
 
         public void Tick()
         {
-            if (holder == null && cooldown > 0) cooldown--;
+            if (holders.Count < Capacity && cooldown > 0) cooldown--;
         }
 
         public void Reset()
         {
-            holder = null;
+            holders.Clear();
             cooldown = 0;
         }
     }

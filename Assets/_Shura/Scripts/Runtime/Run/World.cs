@@ -99,7 +99,33 @@ namespace Shura
         bool roomActive;
         bool deathReported;
 
-        public PlayerController Player { get; private set; }
+        /// <summary>Everyone in the duel: the host first, then players who joined over the network.</summary>
+        public readonly List<PlayerController> Players = new List<PlayerController>();
+        /// <summary>The player at this computer (camera, HUD, equipment screen).</summary>
+        public PlayerController Host { get; private set; }
+        PlayerController actor;
+
+        /// <summary>
+        /// The player acting right now: while a player ticks, strikes or is struck, rewards and
+        /// effects that ask for "the player" get that one; otherwise the host.
+        /// </summary>
+        public PlayerController Player => actor != null ? actor : Host;
+        public bool ActorIsRemote => actor != null && actor != Host;
+        public int PartySize => Players.Count;
+
+        public ArenaLayout Layout { get; private set; }
+        /// <summary>The arena image as PNG for browser players (only built while hosting).</summary>
+        public byte[] ArenaPng { get; private set; }
+        public int ArenaVersion { get; private set; }
+        public bool EncodeArenaPng { get; set; }
+        public int TrapTick { get; private set; }
+        readonly Dictionary<PlayerController, float> reviveProgress = new Dictionary<PlayerController, float>();
+        readonly Dictionary<object, int> trapCooldown = new Dictionary<object, int>();
+        readonly Dictionary<object, int> trapActivation = new Dictionary<object, int>();
+        TrapViews trapViews;
+        public const float ReviveSeconds = 2.4f;
+        public const float ReviveRange = 1.4f;
+
         public ArenaDecor Decor { get; private set; }
         public RunState Run { get; private set; }
         public Rect Bounds { get; private set; }
@@ -123,16 +149,137 @@ namespace Shura
             Fx = fx;
             Coordinator = new AttackCoordinator(config.enemies.attackGapFrames);
             root = new GameObject("World").transform;
-            RebuildArena(config.arena.width, config.arena.height, Biomes.All[0]);
+            RebuildArena(RoomGenerator.Intro());
 
-            var playerObject = new GameObject("Player");
-            playerObject.transform.SetParent(root, false);
-            Player = playerObject.AddComponent<PlayerController>();
-            Player.Init(this, config);
-            Player.Teleport(PlayerSpawn);
+            Host = CreatePlayer("Player");
+            Host.Teleport(PlayerSpawn);
         }
 
-        public Vector2 PlayerSpawn => new Vector2(Bounds.xMin + 3f, 0f);
+        PlayerController CreatePlayer(string name)
+        {
+            var playerObject = new GameObject(name);
+            playerObject.transform.SetParent(root, false);
+            var p = playerObject.AddComponent<PlayerController>();
+            p.Init(this, Config);
+            Players.Add(p);
+            return p;
+        }
+
+        /// <summary>A player joining over the network. Mid-run they drop in next to the party.</summary>
+        public PlayerController AddPlayer(string name, IPlayerInputSource input, WeaponDef a, WeaponDef b, int artIndex)
+        {
+            PlayerController p = CreatePlayer("Remote_" + name);
+            p.DisplayName = name;
+            p.SetArt(artIndex);
+            p.SetLoadout(a, b);
+            p.Input = input;
+            if (Run != null)
+            {
+                p.BeginRun(Run, input);
+                p.ApplyStats(true);
+                Vector2 near = Host.IsAlive ? Host.Position : PlayerSpawn;
+                p.Teleport(Layout.NearestFloor(near + Vector2.down * 1.2f, p.Radius));
+            }
+            else
+            {
+                p.Teleport(PartySpawn(Players.Count - 1));
+            }
+            return p;
+        }
+
+        public void RemovePlayer(PlayerController p)
+        {
+            if (p == null || p == Host) return;
+            Players.Remove(p);
+            reviveProgress.Remove(p);
+            foreach (Enemy e in Enemies)
+            {
+                if (e.Target == p) e.Target = null;
+            }
+            Object.Destroy(p.gameObject);
+        }
+
+        public bool AnyPlayerAlive
+        {
+            get
+            {
+                foreach (PlayerController p in Players)
+                {
+                    if (p.IsAlive) return true;
+                }
+                return false;
+            }
+        }
+
+        /// <summary>Who the camera watches: the host, or a living teammate while the host is down.</summary>
+        public PlayerController CameraFocus
+        {
+            get
+            {
+                if (Host.IsAlive) return Host;
+                foreach (PlayerController p in Players)
+                {
+                    if (p.IsAlive) return p;
+                }
+                return Host;
+            }
+        }
+
+        public PlayerController NearestAlivePlayer(Vector2 from)
+        {
+            PlayerController best = null;
+            float bestD = float.MaxValue;
+            foreach (PlayerController p in Players)
+            {
+                if (!p.IsAlive) continue;
+                float d = (p.Position - from).sqrMagnitude;
+                if (d < bestD)
+                {
+                    bestD = d;
+                    best = p;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Picks who an enemy duels: close players, but spread out so nobody faces the whole
+        /// wave alone while a teammate idles.
+        /// </summary>
+        public PlayerController ChooseTarget(Enemy enemy)
+        {
+            PlayerController best = null;
+            float bestScore = float.MaxValue;
+            foreach (PlayerController p in Players)
+            {
+                if (!p.IsAlive) continue;
+                int load = 0;
+                foreach (Enemy e in Enemies)
+                {
+                    if (e != enemy && !e.IsGone && e.Target == p) load++;
+                }
+                float score = Vector2.Distance(p.Position, enemy.Position) + load * 4f;
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    best = p;
+                }
+            }
+            return best ?? Host;
+        }
+
+        public Vector2 PlayerSpawn => Layout.NearestFloor(new Vector2(Layout.FloorBounds.xMin + 3f, 0f), 0.5f);
+
+        /// <summary>The party lines up in a loose column at the left of the arena.</summary>
+        public Vector2 PartySpawn(int index)
+        {
+            if (index == 0) return PlayerSpawn;
+            int col = index / 4;
+            int row = index % 4;
+            float y = (row - 1.5f) * 1.6f;
+            var target = new Vector2(Layout.FloorBounds.xMin + 2f + col * 1.6f, y);
+            return Layout.NearestFloor(target, 0.5f);
+        }
 
         public int ActiveEnemyCount
         {
@@ -155,7 +302,7 @@ namespace Shura
             Run = run;
             hintsShown.Clear();
             deathReported = false;
-            Player.BeginRun(run, input);
+            foreach (PlayerController p in Players) p.BeginRun(run, p == Host ? input : p.Input);
         }
 
         public void EndRun()
@@ -167,44 +314,118 @@ namespace Shura
         public void StartRoom(RoomDef room, bool firstRoom)
         {
             ClearEnemies();
+            // A bigger party gets a bigger arena and more enemies per wave.
+            room = PartyScaling.Scale(room, PartySize);
             CurrentRoom = room;
-            RebuildArena(room.width, room.height, room.biome);
-            Coordinator.MinGapFrames = DifficultyRules.AttackGapFrames(Config.enemies.attackGapFrames, room.depth);
+            RebuildArena(room);
+            Coordinator.MinGapFrames = PartyScaling.AttackGap(DifficultyRules.AttackGapFrames(Config.enemies.attackGapFrames, room.depth), PartySize);
+            Coordinator.Capacity = PartyScaling.SimultaneousAttackers(PartySize);
             RefreshAdaptation();
             WaveIndex = -1;
             waveDelay = Config.enemies.firstWaveDelay;
             RoomCleared = false;
             roomActive = true;
-            Player.ResetForRoom(PlayerSpawn);
+            TrapTick = 0;
+            trapCooldown.Clear();
+            trapActivation.Clear();
+            reviveProgress.Clear();
+            for (int i = 0; i < Players.Count; i++)
+            {
+                PlayerController p = Players[i];
+                // Fallen teammates stand up again at the start of every room.
+                if (!p.IsAlive) p.Revive(0.5f);
+                p.ResetForRoom(PartySpawn(i));
+            }
             if (firstRoom) HintOnce(HintId.Controls);
         }
 
         public void Tick()
         {
             if (Run == null) return;
-            Run.Profile.Tick(SimClock.Dt, ActiveEnemyCount > 0 && Player.IsAlive);
+            Run.Profile.Tick(SimClock.Dt, ActiveEnemyCount > 0 && Host.IsAlive);
             if (++adaptationTimer >= SimClock.TickRate) RefreshAdaptation();
             Coordinator.Tick();
-            Player.Tick();
+            for (int i = 0; i < Players.Count; i++)
+            {
+                actor = Players[i];
+                Players[i].Tick();
+            }
+            actor = null;
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Tick();
             TickProjectiles();
             TickBursts();
+            TickTraps();
             TickPickups();
             ResolveCollisions();
             RemoveDead();
+            TickRevives();
             TickWaves();
             Run.Elapsed += SimClock.Dt;
 
-            if (!Player.IsAlive && !deathReported)
+            if (!AnyPlayerAlive && !deathReported)
             {
                 deathReported = true;
                 PlayerDiedEvent?.Invoke();
             }
         }
 
+        /// <summary>
+        /// A fallen player stands again when a teammate stands over them holding the revive
+        /// button (E / gamepad X) long enough; letting go drains the progress quickly. Several
+        /// helpers revive faster.
+        /// </summary>
+        void TickRevives()
+        {
+            if (Players.Count < 2) return;
+            foreach (PlayerController down in Players)
+            {
+                if (down.IsAlive)
+                {
+                    reviveProgress.Remove(down);
+                    continue;
+                }
+                int helpers = 0;
+                foreach (PlayerController p in Players)
+                {
+                    if (p == down || !p.IsAlive || p.Input == null || !p.Input.InteractHeld) continue;
+                    if (Vector2.Distance(p.Position, down.Position) <= ReviveRange) helpers++;
+                }
+                reviveProgress.TryGetValue(down, out float t);
+                t = helpers > 0 ? t + SimClock.Dt * (1f + 0.5f * (helpers - 1)) : Mathf.Max(0f, t - SimClock.Dt * 2f);
+                if (t <= 0f)
+                {
+                    reviveProgress.Remove(down);
+                    continue;
+                }
+                if (t >= ReviveSeconds)
+                {
+                    down.Revive(0.35f);
+                    Fx.Emit(FxType.FlowUp, down.Position, Vector2.up, 1f, Config.palette.gold);
+                    Fx.Popup(Strings.PopupRevived, down.Position + Vector2.up, Config.palette.gold);
+                    reviveProgress.Remove(down);
+                    continue;
+                }
+                reviveProgress[down] = t;
+            }
+        }
+
+        /// <summary>0..1 progress of a teammate reviving this fallen player.</summary>
+        public float ReviveProgress(PlayerController p) => reviveProgress.TryGetValue(p, out float t) ? t / ReviveSeconds : 0f;
+
+        /// <summary>A fallen teammate within reach of this player (for the "hold E" prompt).</summary>
+        public PlayerController FallenNear(PlayerController helper)
+        {
+            if (helper == null || !helper.IsAlive) return null;
+            foreach (PlayerController p in Players)
+            {
+                if (p != helper && !p.IsAlive && Vector2.Distance(p.Position, helper.Position) <= ReviveRange) return p;
+            }
+            return null;
+        }
+
         void TickWaves()
         {
-            if (!roomActive || RoomCleared || !Player.IsAlive) return;
+            if (!roomActive || RoomCleared || !AnyPlayerAlive) return;
             if (ActiveEnemyCount > 0) return;
             if (waveDelay > 0)
             {
@@ -235,7 +456,9 @@ namespace Shura
                 var go = new GameObject("Enemy_" + spawn.id);
                 go.transform.SetParent(root, false);
                 var enemy = go.AddComponent<Enemy>();
-                enemy.Init(this, EnemyDefs.Get(spawn.id), FindSpawnPoint(), Config, Run.Rng, EnemyScaling.For(Depth, spawn.elite));
+                EnemyScaling scaling = EnemyScaling.For(Depth, spawn.elite);
+                scaling.health *= spawn.elite ? PartyScaling.GuardianHealth(PartySize) : PartyScaling.EnemyHealth(PartySize);
+                enemy.Init(this, EnemyDefs.Get(spawn.id), FindSpawnPoint(), Config, Run.Rng, scaling);
                 Enemies.Add(enemy);
             }
         }
@@ -246,8 +469,11 @@ namespace Shura
             Adaptation = Run != null ? Run.Profile.Traits(DifficultyRules.AdaptStrength(Depth)) : default;
         }
 
-        /// <summary>Each room has its own size and biome; the old arena (and its texture) is discarded.</summary>
-        void RebuildArena(float width, float height, Biome biome)
+        /// <summary>
+        /// Each room has its own size, outline, traps and biome; the old arena (and its
+        /// texture) is discarded.
+        /// </summary>
+        void RebuildArena(RoomDef room)
         {
             if (arenaRoot != null)
             {
@@ -256,8 +482,16 @@ namespace Shura
             }
             arenaRoot = new GameObject("Arena").transform;
             arenaRoot.SetParent(root, false);
-            Bounds = new Rect(-width * 0.5f, -height * 0.5f, width, height);
-            Decor = ArenaBuilder.Build(arenaRoot, Config, width, height, biome);
+            int w = Mathf.Max(12, Mathf.RoundToInt(room.width));
+            int h = Mathf.Max(8, Mathf.RoundToInt(room.height));
+            Layout = new ArenaLayout(w, h, room.shape);
+            var rng = new SeededRandom(room.layoutSeed ^ 0x5EEDUL);
+            Layout.PlaceTraps(rng, room.depth, PlayerSpawn);
+            Bounds = Layout.FloorBounds;
+            Decor = ArenaBuilder.Build(arenaRoot, Config, Layout, room.biome, EncodeArenaPng);
+            ArenaPng = Decor.Png;
+            ArenaVersion++;
+            trapViews = new TrapViews(arenaRoot, Layout);
         }
 
         /// <summary>
@@ -288,13 +522,13 @@ namespace Shura
 
         Vector2 FindSpawnPoint()
         {
-            Rect inner = new Rect(Bounds.xMin + 1.5f, Bounds.yMin + 1.5f, Bounds.width - 3f, Bounds.height - 3f);
-            Vector2 best = inner.center;
+            Vector2 best = Bounds.center;
             float bestScore = float.MinValue;
             for (int attempt = 0; attempt < 24; attempt++)
             {
-                var p = new Vector2(Run.Rng.Range(inner.xMin, inner.xMax), Run.Rng.Range(inner.yMin, inner.yMax));
-                float fromPlayer = Vector2.Distance(p, Player.Position);
+                Vector2 p = Layout.RandomFloorPoint(Run.Rng, 0.8f);
+                PlayerController nearest = NearestAlivePlayer(p);
+                float fromPlayer = nearest != null ? Vector2.Distance(p, nearest.Position) : 99f;
                 float fromOthers = 3f;
                 for (int i = 0; i < Enemies.Count; i++) fromOthers = Mathf.Min(fromOthers, Vector2.Distance(p, Enemies[i].Position));
                 float score = Mathf.Min(fromPlayer / Config.enemies.minSpawnDistance, 1f) * 10f + fromOthers;
@@ -335,18 +569,27 @@ namespace Shura
         /// <summary>Called by an enemy on each of its active frames until it connects once.</summary>
         public bool TryHitPlayer(Enemy attacker, AttackDef attack)
         {
-            if (!Player.IsAlive) return false;
-            if (!CombatMath.Overlaps(attack.shape, attacker.Position, attacker.Facing, Player.Position, Player.Radius)) return false;
-            var incoming = new IncomingAttack
+            // A sweep can catch several duelists at once; each answers it on their own.
+            bool connected = false;
+            for (int i = 0; i < Players.Count; i++)
             {
-                attacker = attacker,
-                attack = attack,
-                source = attacker.Position,
-                signature = attacker.CurrentMove != null && attacker.CurrentMove.isSignature,
-                powerMult = attacker.PowerMult,
-            };
-            Player.ReceiveAttack(incoming);
-            return true;
+                PlayerController p = Players[i];
+                if (!p.IsAlive) continue;
+                if (!CombatMath.Overlaps(attack.shape, attacker.Position, attacker.Facing, p.Position, p.Radius)) continue;
+                var incoming = new IncomingAttack
+                {
+                    attacker = attacker,
+                    attack = attack,
+                    source = attacker.Position,
+                    signature = attacker.CurrentMove != null && attacker.CurrentMove.isSignature,
+                    powerMult = attacker.PowerMult,
+                };
+                actor = p;
+                p.ReceiveAttack(incoming);
+                actor = null;
+                connected = true;
+            }
+            return connected;
         }
 
         public void PlayerStrike(HitShape shape, float damage, float posture, HashSet<Enemy> alreadyHit, float pull = 0f, bool unblockable = false)
@@ -443,7 +686,7 @@ namespace Shura
             // Magnitude 2 marks the last enemy of the room: the router plays the slow-motion kill.
             bool lastOne = ActiveEnemyCount <= 1 && IsLastWave;
             Fx.Emit(FxType.Finisher, enemy.Position, dir, lastOne ? 2f : 1f, enemy.Def.bloodColor);
-            Fx.Popup(Run.CurrentWeapon.finisherName.ToUpperInvariant(), enemy.Position + Vector2.up * 1f, Color.white);
+            Fx.Popup(Player.Weapon.finisherName.ToUpperInvariant(), enemy.Position + Vector2.up * 1f, Color.white);
             Fx.Gore(style, enemy.Position, dir, enemy.BodySprite, enemy.BodyColor, enemy.Def.bloodColor, enemy.Radius);
             bool absorb = enemy.Mastered && Run.CanAbsorb(enemy.Def.techniqueId);
             enemy.DieByFinisher();
@@ -509,12 +752,12 @@ namespace Shura
         public void TeleportBehindPlayer(Enemy enemy)
         {
             Vector2 from = enemy.Position;
-            Vector2 behind = Player.Position - Player.Facing * Config.enemies.teleportBehindDistance;
-            float r = enemy.Radius;
-            behind = new Vector2(Mathf.Clamp(behind.x, Bounds.xMin + r, Bounds.xMax - r), Mathf.Clamp(behind.y, Bounds.yMin + r, Bounds.yMax - r));
+            PlayerController victim = enemy.Target != null && enemy.Target.IsAlive ? enemy.Target : Host;
+            Vector2 behind = victim.Position - victim.Facing * Config.enemies.teleportBehindDistance;
+            behind = Layout.NearestFloor(behind, enemy.Radius);
             Fx.Emit(FxType.ShadowStep, from, Vector2.up, enemy.Radius, enemy.Def.color);
             enemy.Teleport(behind);
-            Vector2 to = Player.Position - behind;
+            Vector2 to = victim.Position - behind;
             if (to.sqrMagnitude > 1e-4f) enemy.Facing = to.normalized;
             Fx.Emit(FxType.ShadowStep, behind, Vector2.up, enemy.Radius, enemy.Def.color);
         }
@@ -612,21 +855,26 @@ namespace Shura
 
         void TickPickups()
         {
-            if (!Player.IsAlive) return;
             for (int i = Pickups.Count - 1; i >= 0; i--)
             {
                 ItemPickup p = Pickups[i];
                 p.Age += SimClock.Dt;
-                if (p.Age < 0.4f || Vector2.Distance(p.Position, Player.Position) > PickupRadius) continue;
+                if (p.Age < 0.4f) continue;
+                PlayerController near = NearestAlivePlayer(p.Position);
+                if (near == null || Vector2.Distance(p.Position, near.Position) > PickupRadius) continue;
                 Collect(p);
                 Pickups.RemoveAt(i);
             }
         }
 
+        /// <summary>Loot belongs to the party: equipped items strengthen everyone.</summary>
         void Collect(ItemPickup p)
         {
             bool equipped = Run.AddItem(p.Item);
-            if (equipped) Player.ApplyStats(false);
+            if (equipped)
+            {
+                foreach (PlayerController pl in Players) pl.ApplyStats(false);
+            }
             Fx.ItemCollected(p.Item, equipped, p.Position);
             Object.Destroy(p.Root.gameObject);
         }
@@ -708,8 +956,8 @@ namespace Shura
                 p.Position += p.Direction * p.Speed * SimClock.Dt;
                 p.Life--;
 
-                Rect outer = new Rect(Bounds.xMin - 0.5f, Bounds.yMin - 0.5f, Bounds.width + 1f, Bounds.height + 1f);
-                bool dead = p.Life <= 0 || !outer.Contains(p.Position);
+                // Walls and statues stop arrows.
+                bool dead = p.Life <= 0 || !Layout.IsFloorAt(p.Position);
 
                 if (!dead && !p.Reflected) dead = TickHostileProjectile(p);
                 else if (!dead) dead = TickFriendlyProjectile(p);
@@ -723,25 +971,31 @@ namespace Shura
         /// <summary>Returns true when the projectile is spent.</summary>
         bool TickHostileProjectile(Projectile p)
         {
-            if (p.PassedPlayer || !Player.IsAlive) return false;
+            if (p.PassedPlayer) return false;
+            PlayerController victim = null;
+            float soonest = float.PositiveInfinity;
+            foreach (PlayerController pl in Players)
+            {
+                if (!pl.IsAlive) continue;
+                float frames = p.FramesToImpact(pl);
+                if (frames < soonest)
+                {
+                    soonest = frames;
+                    victim = pl;
+                }
+            }
+            if (victim == null) return false;
 
-            if (!p.Cued && p.FramesToImpact(Player) <= Config.feel.timingCueLeadFrames)
+            if (!p.Cued && soonest <= Config.feel.timingCueLeadFrames)
             {
                 p.Cued = true;
                 Fx.Emit(FxType.TimingCue, p.Position, p.Direction, 0f);
             }
 
-            if (Vector2.Distance(p.Position, Player.Position) > Player.Radius + p.Radius) return false;
-            var incoming = new IncomingAttack
-            {
-                attacker = p.Owner,
-                attack = p.Attack,
-                source = p.Position - p.Direction,
-                signature = p.Signature,
-                projectile = true,
-                powerMult = p.Owner != null ? p.Owner.PowerMult : 1f,
-            };
-            HitOutcome outcome = Player.ReceiveAttack(incoming);
+            if (Vector2.Distance(p.Position, victim.Position) > victim.Radius + p.Radius) return false;
+            actor = victim;
+            HitOutcome outcome = ReceiveProjectile(p, victim);
+            actor = null;
             switch (outcome)
             {
                 case HitOutcome.PerfectParry:
@@ -755,6 +1009,20 @@ namespace Shura
                 default:
                     return true;
             }
+        }
+
+        HitOutcome ReceiveProjectile(Projectile p, PlayerController victim)
+        {
+            var incoming = new IncomingAttack
+            {
+                attacker = p.Owner,
+                attack = p.Attack,
+                source = p.Position - p.Direction,
+                signature = p.Signature,
+                projectile = true,
+                powerMult = p.Owner != null ? p.Owner.PowerMult : 1f,
+            };
+            return victim.ReceiveAttack(incoming);
         }
 
         bool TickFriendlyProjectile(Projectile p)
@@ -857,7 +1125,7 @@ namespace Shura
         void ResolveCollisions()
         {
             // Dodging passes through bodies: that is what makes the counter-thrust possible.
-            bool playerSolid = Player.CurrentState != PlayerController.State.Dodge && Player.IsAlive;
+            // Teammates never block each other.
             for (int i = 0; i < Enemies.Count; i++)
             {
                 Enemy a = Enemies[i];
@@ -866,10 +1134,13 @@ namespace Shura
                 {
                     if (IsSolid(Enemies[j])) Separate(a, Enemies[j]);
                 }
-                if (playerSolid) Separate(Player, a);
+                foreach (PlayerController p in Players)
+                {
+                    if (p.CurrentState != PlayerController.State.Dodge && p.IsAlive) Separate(p, a);
+                }
             }
 
-            ClampToArena(Player);
+            foreach (PlayerController p in Players) ClampToArena(p);
             for (int i = 0; i < Enemies.Count; i++) ClampToArena(Enemies[i]);
         }
 
@@ -892,12 +1163,118 @@ namespace Shura
             b.Position += n * overlap * (a.Mass / total);
         }
 
+        /// <summary>Walls and statues: fighters slide along them.</summary>
         void ClampToArena(Fighter f)
         {
-            float r = f.Radius;
-            f.Position = new Vector2(
-                Mathf.Clamp(f.Position.x, Bounds.xMin + r, Bounds.xMax - r),
-                Mathf.Clamp(f.Position.y, Bounds.yMin + r, Bounds.yMax - r));
+            f.Position = Layout.Resolve(f.Position, f.Radius);
+        }
+
+        // ── Traps ───────────────────────────────────────────────────────────────────────
+
+        /// <summary>Traps run on the room clock and hurt players and enemies alike.</summary>
+        void TickTraps()
+        {
+            TrapTick++;
+            List<TrapDef> traps = Layout.Traps;
+            for (int t = 0; t < traps.Count; t++)
+            {
+                TrapDef trap = traps[t];
+                int phase = trap.PhaseAt(TrapTick);
+                if (phase != 2) continue;
+                foreach (PlayerController p in Players)
+                {
+                    if (p.IsAlive && TrapTouches(trap, p)) HitByTrap(trap, p, t);
+                }
+                foreach (Enemy e in Enemies)
+                {
+                    if (e.CanBeHit && TrapTouches(trap, e)) HitByTrap(trap, e, t);
+                }
+            }
+            // Cooldowns tick down (blades and flames hit repeatedly, but not every frame).
+            if (trapCooldown.Count > 0)
+            {
+                var keys = new List<object>(trapCooldown.Keys);
+                foreach (object k in keys)
+                {
+                    int v = trapCooldown[k] - 1;
+                    if (v <= 0) trapCooldown.Remove(k);
+                    else trapCooldown[k] = v;
+                }
+            }
+        }
+
+        bool TrapTouches(TrapDef trap, Fighter f)
+        {
+            switch (trap.type)
+            {
+                case TrapType.Spikes:
+                    foreach (Vector2Int c in trap.cells)
+                    {
+                        Vector2 min = Layout.Origin + new Vector2(c.x, c.y);
+                        var closest = new Vector2(Mathf.Clamp(f.Position.x, min.x, min.x + 1f), Mathf.Clamp(f.Position.y, min.y, min.y + 1f));
+                        if ((closest - f.Position).sqrMagnitude < f.Radius * f.Radius * 0.5f) return true;
+                    }
+                    return false;
+                case TrapType.FlameJet:
+                    return CombatMath.Overlaps(HitShape.Line(trap.length, trap.width), trap.origin, trap.direction, f.Position, f.Radius);
+                case TrapType.Blade:
+                {
+                    float a = trap.BladeAngle(TrapTick) * Mathf.Deg2Rad;
+                    var dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                    // Two arms: the blade sweeps both ways from its pivot.
+                    return CombatMath.Overlaps(HitShape.Line(trap.length, trap.width), trap.origin, dir, f.Position, f.Radius) ||
+                           CombatMath.Overlaps(HitShape.Line(trap.length, trap.width), trap.origin, -dir, f.Position, f.Radius);
+                }
+            }
+            return false;
+        }
+
+        void HitByTrap(TrapDef trap, Fighter f, int trapIndex)
+        {
+            var key = new TrapHitKey(trapIndex, f);
+            if (trap.type == TrapType.Spikes)
+            {
+                // Spikes strike once per eruption.
+                int activation = trap.ActivationIndex(TrapTick);
+                if (trapActivation.TryGetValue(key, out int last) && last == activation) return;
+                trapActivation[key] = activation;
+            }
+            else
+            {
+                if (trapCooldown.ContainsKey(key)) return;
+                trapCooldown[key] = trap.type == TrapType.Blade ? 40 : 22;
+            }
+
+            Vector2 dir = f.Position - trap.origin;
+            if (trap.type == TrapType.FlameJet) dir = trap.direction;
+            dir = dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector2.up;
+            if (f is PlayerController p)
+            {
+                actor = p;
+                p.ReceiveHazard(trap.damage, trap.posture, dir);
+                actor = null;
+            }
+            else if (f is Enemy e)
+            {
+                // Luring enemies into traps pays: they take more than you do.
+                e.ReceiveHazard(trap.damage * 1.5f, trap.posture * 1.5f, dir);
+            }
+        }
+
+        readonly struct TrapHitKey : IEquatable<TrapHitKey>
+        {
+            readonly int trap;
+            readonly Fighter who;
+
+            public TrapHitKey(int trap, Fighter who)
+            {
+                this.trap = trap;
+                this.who = who;
+            }
+
+            public bool Equals(TrapHitKey other) => trap == other.trap && ReferenceEquals(who, other.who);
+            public override bool Equals(object obj) => obj is TrapHitKey k && Equals(k);
+            public override int GetHashCode() => trap * 397 ^ (who != null ? who.GetHashCode() : 0);
         }
 
         // ── Presentation & dev tools ────────────────────────────────────────────────────
@@ -916,9 +1293,10 @@ namespace Shura
                 b.a = 0.25f + 0.15f * Mathf.Sin(t * 1.7f);
                 p.Beam.color = b;
             }
-            Player.Render(alpha, visualDt, showHitboxes);
+            foreach (PlayerController p in Players) p.Render(alpha, visualDt, showHitboxes);
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Render(alpha, visualDt, showHitboxes);
             for (int i = 0; i < Projectiles.Count; i++) RenderProjectile(Projectiles[i], alpha);
+            trapViews?.Render(TrapTick, Time.unscaledTime);
         }
 
         /// <summary>Arrows carry their own "press now" ring that closes as they reach you.</summary>
@@ -932,8 +1310,8 @@ namespace Shura
             p.View.transform.localPosition = p.IsArrow ? -(Vector3)(p.Direction * p.Size) : Vector3.zero;
             p.View.transform.localScale = new Vector3(p.Size, p.Size, 1f);
 
-            bool hostile = !p.Reflected && !p.PassedPlayer && Player.IsAlive;
-            float frames = hostile ? p.FramesToImpact(Player) : float.PositiveInfinity;
+            bool hostile = !p.Reflected && !p.PassedPlayer && Host.IsAlive;
+            float frames = hostile ? p.FramesToImpact(Host) : float.PositiveInfinity;
             bool showRing = hostile && ShowTimingIndicator && frames <= RingApproachFrames + Config.feel.timingCueLeadFrames;
             p.Ring.enabled = showRing;
             p.Glow.enabled = showRing || p.Reflected;

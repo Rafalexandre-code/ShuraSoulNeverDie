@@ -117,6 +117,7 @@ namespace Shura
 
         public void Flash(Color color, float strength)
         {
+            if (game.FeelMuted) return;
             if (game.Settings.reduceFlashes) strength *= 0.2f;
             flashColor = color;
             flashAlpha = Mathf.Max(flashAlpha, strength);
@@ -124,6 +125,7 @@ namespace Shura
 
         public void HurtVignette()
         {
+            if (game.FeelMuted) return;
             hurtAlpha = game.Settings.reduceFlashes ? 0.15f : 0.45f;
         }
 
@@ -234,8 +236,15 @@ namespace Shura
             GameSettings s = game.Settings;
             switch (game.CurrentMode)
             {
+                case Game.Mode.Lobby:
+                    AddItem(Strings.LobbyStart, game.StartRun);
+                    AddItem(Strings.LobbyWeapons, game.OpenArsenal);
+                    AddItem(Strings.Altar, game.OpenAltar);
+                    AddItem(Strings.LobbyClose, game.CloseLobby);
+                    break;
                 case Game.Mode.MainMenu:
                     AddItem(Strings.Play, game.OpenArsenal);
+                    AddItem(Strings.PlayOnline, game.OpenLobby);
                     AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.Settings, game.OpenSettings);
                     AddItem(Strings.Credits, game.OpenCredits);
@@ -373,6 +382,7 @@ namespace Shura
                 case Game.Mode.Paused: game.Resume(); break;
                 case Game.Mode.Altar: game.CloseAltar(); break;
                 case Game.Mode.Equipment: game.CloseEquipment(); break;
+                case Game.Mode.Lobby: game.CloseLobby(); break;
             }
         }
 
@@ -397,7 +407,7 @@ namespace Shura
             {
                 Game.Mode m = game.CurrentMode;
                 return m == Game.Mode.Title || m == Game.Mode.MainMenu || m == Game.Mode.Credits || m == Game.Mode.Arsenal ||
-                       m == Game.Mode.Altar || (m == Game.Mode.Settings && !game.SettingsFromPause);
+                       m == Game.Mode.Altar || m == Game.Mode.Lobby || (m == Game.Mode.Settings && !game.SettingsFromPause);
             }
         }
 
@@ -485,6 +495,7 @@ namespace Shura
                 case Game.Mode.Altar: DrawAltar(); break;
                 case Game.Mode.Arsenal: DrawArsenal(); break;
                 case Game.Mode.Equipment: DrawEquipment(); break;
+                case Game.Mode.Lobby: DrawLobby(); break;
             }
 
             // The reward screen has its own text blocks; room-clear toasts were already seen in play.
@@ -538,7 +549,7 @@ namespace Shura
             var panel = new Rect(110f, 395f, 620f, 590f);
             kit.PaperPanel(panel);
             Label(new Rect(panel.x, panel.y + 44f, panel.width, 34f), Strings.Tagline, taglineSmallStyle, UiKit.InkSoft);
-            DrawMenuList(panel.y + 110f, 86f, 520f, panel.center.x, true);
+            DrawMenuList(panel.y + 104f, 76f, 520f, panel.center.x, true);
             Label(new Rect(VW - 460, VH - 56, 420, 40), Strings.BuildLabel, smallRightStyle, UiKit.PaperText.WithAlpha(0.7f));
         }
 
@@ -578,6 +589,130 @@ namespace Shura
                 Color c = selected ? UiKit.PaperText : onPaper ? UiKit.Ink : UiKit.PaperText;
                 FitLabel(r, text, itemStyle, c);
             }
+        }
+
+        // ── Online ────────────────────────────────────────────────────────────────────
+
+        /// <summary>The online room: links to share (Radmin first), who is in, and the run's start.</summary>
+        void DrawLobby()
+        {
+            NetSession net = game.Net;
+            kit.Logo(new Rect(70f, 30f, 420f, 214f), UiKit.Ink);
+            var left = new Rect(80f, 250f, 640f, 780f);
+            kit.PaperPanel(left);
+            Heading(new Rect(left.x, left.y + 36f, left.width, 90f), Strings.LobbyTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f), 360f);
+            DrawMenuList(left.y + 170f, 78f, 520f, left.center.x, true);
+            Label(new Rect(left.x + 60f, left.yMax - 200f, left.width - 120f, 150f), Strings.LobbyRadminHint, cardBodyStyle, UiKit.InkSoft);
+
+            var right = new Rect(780f, 60f, 1080f, 970f);
+            kit.PaperPanel(right);
+            Label(new Rect(right.x + 70f, right.y + 50f, right.width - 140f, 60f), Strings.LobbyLinks, bodyStyle, UiKit.Ink);
+            float y = right.y + 120f;
+            for (int i = 0; i < net.Urls.Count && i < 4; i++)
+            {
+                bool radmin = net.UrlLabels[i] == "Radmin VPN";
+                var row = new Rect(right.x + 60f, y, right.width - 120f, 70f);
+                if (radmin) kit.Stroke(new Rect(row.x - 20f, row.y - 6f, row.width + 40f, row.height + 12f), UiKit.Shu.WithAlpha(0.9f));
+                Label(new Rect(row.x + 10f, row.y, 260f, row.height), net.UrlLabels[i], capsStyle, radmin ? UiKit.PaperText : UiKit.Shu);
+                Label(new Rect(row.x + 230f, row.y, row.width - 240f, row.height), net.Urls[i], urlStyle, radmin ? UiKit.PaperText : UiKit.Ink);
+                y += 80f;
+            }
+
+            y += 20f;
+            kit.Underline(new Rect(right.x + 60f, y, right.width - 120f, 16f), UiKit.Ink.WithAlpha(0.45f));
+            Label(new Rect(right.x + 70f, y + 20f, 600f, 40f), Strings.LobbyPlayers + "  ·  " + game.World.Players.Count + " / " + PartyScaling.MaxPlayers, capsStyle, UiKit.Shu);
+            y += 66f;
+            DrawLobbyPlayer(new Rect(right.x + 60f, y, right.width - 120f, 64f), PlayerController.PartyArt[0], string.Format(Strings.LobbyHostName, "Anfitrião"),
+                            WeaponDefs.Get(game.Settings.weaponA).name + "  ·  " + WeaponDefs.Get(game.Settings.weaponB).name, -1f);
+            y += 70f;
+            int shown = 0;
+            foreach (NetSession.Remote r in net.Remotes)
+            {
+                if (!r.joined) continue;
+                DrawLobbyPlayer(new Rect(right.x + 60f, y, right.width - 120f, 64f), PlayerController.PartyArt[r.slot], r.name,
+                                WeaponDefs.Get(r.weaponA).name + "  ·  " + WeaponDefs.Get(r.weaponB).name, r.rtt);
+                y += 70f;
+                shown++;
+            }
+            if (shown == 0) Label(new Rect(right.x + 80f, y + 6f, right.width - 160f, 40f), Strings.LobbyEmpty, taglineStyle, UiKit.InkSoft);
+        }
+
+        void DrawLobbyPlayer(Rect r, string art, string name, string weapons, float rtt)
+        {
+            CharacterArt a = PixelArt.Character(art);
+            if (a != null) DrawSprite(new Rect(r.x, r.y, r.height, r.height), a.walk[(int)ArtDir.Down][Mathf.FloorToInt(Time.unscaledTime * 5f) % a.walk[0].Length]);
+            Label(new Rect(r.x + r.height + 20f, r.y, 420f, r.height), name, weaponHudStyle, UiKit.Ink);
+            Label(new Rect(r.x + r.height + 380f, r.y, 400f, r.height), weapons, smallStyle, UiKit.InkSoft);
+            if (rtt >= 0f) Label(new Rect(r.xMax - 140f, r.y, 140f, r.height), Mathf.RoundToInt(rtt * 1000f) + " ms", smallRightStyle, rtt < 0.12f ? UiKit.Ai : UiKit.Shu);
+        }
+
+        /// <summary>Draws one sprite of a sheet (IMGUI draws whole textures, so via UVs).</summary>
+        static void DrawSprite(Rect r, Sprite s)
+        {
+            Rect tr = s.textureRect;
+            Texture tex = s.texture;
+            float k = Mathf.Min(r.width / tr.width, r.height / tr.height);
+            var fit = new Rect(r.center.x - tr.width * k * 0.5f, r.center.y - tr.height * k * 0.5f, tr.width * k, tr.height * k);
+            Color old = GUI.color;
+            GUI.color = Color.white;
+            GUI.DrawTextureWithTexCoords(fit, tex, new Rect(tr.x / tex.width, tr.y / tex.height, tr.width / tex.width, tr.height / tex.height));
+            GUI.color = old;
+        }
+
+        /// <summary>
+        /// Co-op HUD: teammates' health under the Flow panel, "hold E" over a fallen ally,
+        /// and the host's own "you fell" notice while the party fights on.
+        /// </summary>
+        void DrawParty()
+        {
+            World w = game.World;
+            if (w.Players.Count < 2) return;
+            Camera cam = game.CameraRig.Cam;
+
+            var panel = new Rect(VW - 470f, 240f, 460f, 34f + (w.Players.Count - 1) * 40f);
+            kit.InkPanel(new Rect(panel.x, panel.y - 10f, panel.width, panel.height + 20f), 0.8f);
+            Label(new Rect(panel.x + 40f, panel.y, panel.width - 80f, 26f), string.Format(Strings.OnlineBadge, w.Players.Count), capsRightStyle, Pal.gold);
+            float y = panel.y + 30f;
+            foreach (PlayerController p in w.Players)
+            {
+                if (p == w.Host) continue;
+                Label(new Rect(panel.x + 40f, y, 170f, 32f), p.DisplayName, smallStyle, p.IsAlive ? UiKit.PaperText : UiKit.Shu);
+                if (p.IsAlive) kit.Bar(new Rect(panel.x + 200f, y + 4f, 220f, 22f), p.Health / p.MaxHealth, UiKit.ShuBright, Color.black.WithAlpha(0.7f));
+                else kit.Bar(new Rect(panel.x + 200f, y + 4f, 220f, 22f), w.ReviveProgress(p), Pal.gold, Color.black.WithAlpha(0.7f));
+                y += 40f;
+            }
+
+            if (cam == null) return;
+            // Every fallen teammate shows its revive progress where it lies.
+            foreach (PlayerController p in w.Players)
+            {
+                if (p.IsAlive) continue;
+                Vector2 g = WorldToGui(cam, p.RenderPosition + Vector2.up * 1.3f);
+                float t = w.ReviveProgress(p);
+                kit.Enso(new Rect(g.x - 34f, g.y - 34f, 68f, 68f), UiKit.PaperText.WithAlpha(0.35f), Time.unscaledTime * 40f);
+                if (t > 0f) kit.Bar(new Rect(g.x - 60f, g.y + 34f, 120f, 18f), t, Pal.gold, Color.black.WithAlpha(0.7f));
+            }
+
+            PlayerController host = w.Host;
+            PlayerController fallen = w.FallenNear(host);
+            if (fallen != null)
+            {
+                string text = string.Format(game.Controls.UsingGamepad ? Strings.ReviveHoldPad : Strings.ReviveHold, fallen.DisplayName);
+                float tw = toastStyle.CalcSize(new GUIContent(text)).x;
+                kit.Stroke(new Rect(VW * 0.5f - tw * 0.5f - 80f, VH - 250f, tw + 160f, 70f), UiKit.Shu.WithAlpha(0.92f));
+                Label(new Rect(0f, VH - 240f, VW, 48f), text, toastStyle, UiKit.PaperText);
+            }
+            if (!host.IsAlive && w.AnyPlayerAlive)
+            {
+                kit.InkPanel(new Rect(VW * 0.5f - 560f, VH - 260f, 1120f, 110f), 0.9f);
+                Label(new Rect(VW * 0.5f - 520f, VH - 252f, 1040f, 90f), Strings.YouFell, hintStyleCenter, UiKit.PaperText);
+            }
+        }
+
+        Vector2 WorldToGui(Camera cam, Vector2 world)
+        {
+            Vector3 sp = cam.WorldToScreenPoint(new Vector3(world.x, world.y, 0f));
+            return new Vector2((sp.x - offset.x) / scale, (Screen.height - sp.y - offset.y) / scale);
         }
 
         void DrawSettings()
@@ -921,6 +1056,7 @@ namespace Shura
 
             DrawFlow(run.Flow);
             DrawWeaponsHud(run, x, y + 168f);
+            DrawParty();
         }
 
         void DrawFlow(FlowMeter flow)
@@ -1372,7 +1508,7 @@ namespace Shura
         }
 
         GUIStyle latinTitleStyle, taglineStyle, taglineSmallStyle, cardKindStyle, cardNameLeftStyle, pickStyle, deathTitleStyle,
-                 ecosSmallStyle, ecosHudStyle, capsStyle, capsRightStyle, capsCenterStyle, weaponHudStyle;
+                 ecosSmallStyle, ecosHudStyle, capsStyle, capsRightStyle, capsCenterStyle, weaponHudStyle, urlStyle, hintStyleCenter;
 
         void EnsureStyles()
         {
@@ -1413,6 +1549,8 @@ namespace Shura
             damageStyle = MakeStyle(30, TextAnchor.MiddleCenter, brush);
             streakStyle = MakeStyle(34, TextAnchor.MiddleRight, brush);
             weaponHudStyle = MakeStyle(32, TextAnchor.MiddleLeft, brush);
+            urlStyle = MakeStyle(36, TextAnchor.MiddleLeft, bold);
+            hintStyleCenter = MakeStyle(27, TextAnchor.MiddleCenter, text);
         }
 
         static GUIStyle MakeStyle(int size, TextAnchor anchor, Font font, FontStyle fontStyle = FontStyle.Normal)

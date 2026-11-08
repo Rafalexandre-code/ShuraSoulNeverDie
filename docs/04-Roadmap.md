@@ -56,6 +56,15 @@ de papel com pinceladas vermelhas, pausa/recompensa/equipamento/morte/altar/arse
 configurações/créditos redesenhados, HUD com barras de pincel e Fluxo em ensō; fontes
 Kaushan Script + Spectral (OFL).
 
+**M1.9 — cooperativo online pelo navegador (feito):** o jogo hospeda uma sala (HTTP +
+WebSocket na porta 7777) e mostra os links (Radmin VPN primeiro); até 7 amigos entram pelo
+navegador, sem instalar nada, inclusive no meio da run. Host autoritativo com compensação de
+ping no anel; escala de grupo (arena, ondas, vida, atacantes simultâneos); reviver segurando E
+sobre o aliado caído. Arenas novas com 5 formas (salão, octógono, cruz, colunas, pátio),
+tamanhos variados, estátuas sólidas e armadilhas por profundidade (espinhos, jatos de fogo,
+lâminas giratórias); inimigos e bots contornam obstáculos por um campo de caminhos na grade.
+**Pronto quando:** 8 jogadores limpam 5 salas sem travar (verificado com 7 bots de navegador).
+
 ## M2 — Vertical slice (G)
 Chefe com 2 fases; shader de paleta unificando a pixel art; migração URP 2D; corredores
 curtos; UI final das telas obrigatórias; tela de remapeamento.

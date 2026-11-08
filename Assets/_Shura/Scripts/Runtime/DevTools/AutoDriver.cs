@@ -66,8 +66,20 @@ namespace Shura
                 case Game.Mode.MainMenu:
                     if (ShotThenAct("menu", wait))
                     {
-                        if (shots) game.OpenArsenal();
+                        if (game.Launch.Host) game.OpenLobby();
+                        else if (shots) game.OpenArsenal();
                         else game.StartRun();
+                    }
+                    break;
+                case Game.Mode.Lobby:
+                    // Online test: start once the expected browser players are in (or give up waiting).
+                    if (game.Net.JoinedCount >= game.Launch.HostWait || modeTime > 40f)
+                    {
+                        if (ShotThenAct("lobby", wait))
+                        {
+                            Debug.Log("[Shura][Auto] começando online com " + game.World.Players.Count + " jogadores");
+                            game.StartRun();
+                        }
                     }
                     break;
                 case Game.Mode.Arsenal:
@@ -254,6 +266,10 @@ namespace Shura
                 sb.Append(" vida=").Append(Mathf.CeilToInt(game.World.Player.Health));
                 sb.Append(" tempoSim=").Append(run.Elapsed.ToString("0.0")).Append('s');
                 sb.Append(" semente=").Append(run.Seed);
+                sb.Append(" jogadores=").Append(game.World.Players.Count);
+                int alive = 0;
+                foreach (PlayerController pl in game.World.Players) if (pl.IsAlive) alive++;
+                sb.Append(" vivos=").Append(alive);
                 sb.Append(" ecos=").Append(MetaRules.EcosForRun(run)).Append(" (total ").Append(game.Meta.ecos).Append(')');
                 sb.Append(" recompensas=[");
                 for (int i = 0; i < run.Owned.Count; i++) sb.Append(i > 0 ? ", " : string.Empty).Append(run.Owned[i].Name);

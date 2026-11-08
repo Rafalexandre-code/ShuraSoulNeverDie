@@ -106,6 +106,20 @@ namespace Shura
             return s;
         }
 
+        /// <summary>A horizontal strip of animation frames of any size (effects sheets).</summary>
+        public static Sprite[] Strip(string sheet, int frameW, int frameH, Vector2 pivot)
+        {
+            Texture2D tex = Texture(sheet);
+            if (tex == null) return new Sprite[0];
+            int count = Mathf.Max(1, tex.width / frameW);
+            var frames = new Sprite[count];
+            for (int i = 0; i < count; i++)
+            {
+                frames[i] = UnityEngine.Sprite.Create(tex, new Rect(i * frameW, tex.height - frameH, frameW, frameH), pivot, PixelsPerUnit, 0, SpriteMeshType.FullRect);
+            }
+            return frames;
+        }
+
         // ── Characters ──────────────────────────────────────────────────────────────────
 
         /// <summary>

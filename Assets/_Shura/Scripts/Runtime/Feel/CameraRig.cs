@@ -35,13 +35,18 @@ namespace Shura
             transform.position = new Vector3(0f, 0f, -10f);
         }
 
+        /// <summary>While set, shakes and punches are ignored (a teammate's moment, not ours).</summary>
+        public static bool Muted;
+
         public void Shake(float amount)
         {
+            if (Muted) return;
             trauma = Mathf.Min(1f, trauma + amount);
         }
 
         public void Punch(float amount)
         {
+            if (Muted) return;
             punch = Mathf.Max(punch, amount);
         }
 

@@ -12,6 +12,9 @@ namespace Shura
         bool ParryHeld { get; }
         InputBuffer Buffer { get; }
 
+        /// <summary>Held over a fallen teammate to bring them back (E / gamepad X).</summary>
+        bool InteractHeld { get; }
+
         /// <summary>Normalized aim direction, or zero when the source has no explicit aim.</summary>
         Vector2 AimDirection(Vector2 playerWorldPosition);
     }
@@ -28,7 +31,7 @@ namespace Shura
 
         readonly InputActionMap gameplay = new InputActionMap("Gameplay");
         readonly InputActionMap ui = new InputActionMap("UI");
-        readonly InputAction move, aim, attack, parry, dodge, swap, pause;
+        readonly InputAction move, aim, attack, parry, dodge, swap, pause, interact;
         readonly InputAction navigate, submit, cancel;
 
         int lastNavX, lastNavY;
@@ -81,6 +84,10 @@ namespace Shura
             swap.AddBinding("<Mouse>/middleButton");
             swap.AddBinding("<Gamepad>/buttonNorth");
 
+            interact = gameplay.AddAction("Reviver", InputActionType.Button);
+            interact.AddBinding("<Keyboard>/e");
+            interact.AddBinding("<Gamepad>/buttonWest");
+
             pause = gameplay.AddAction("Pausar", InputActionType.Button);
             pause.AddBinding("<Keyboard>/escape");
             pause.AddBinding("<Gamepad>/start");
@@ -119,6 +126,8 @@ namespace Shura
         }
 
         public bool ParryHeld => parry.IsPressed();
+
+        public bool InteractHeld => interact.IsPressed();
 
         public Vector2 AimDirection(Vector2 playerWorldPosition)
         {

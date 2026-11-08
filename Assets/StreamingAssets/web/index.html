@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shura — Duelo Online</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<section id="lobby">
+  <div class="sheet">
+    <img class="logo" src="ui/logo.png" alt="修羅">
+    <img class="seal" src="ui/seal.png" alt="">
+    <h1>Duelo online</h1>
+    <p class="tag">Entre na sala do anfitrião e lute ao lado dele, até 8 duelistas.</p>
+    <label class="field">Seu nome
+      <input id="name" maxlength="16" autocomplete="off" placeholder="Ronin sem nome">
+    </label>
+    <p class="caps">Escolha duas armas</p>
+    <div id="weapons"></div>
+    <button id="join" disabled>Entrar no duelo</button>
+    <p id="status" class="status">Conectando…</p>
+    <div class="controls">
+      <b>Controles</b> WASD mover · mouse mirar · botão esq. atacar · botão dir. aparar (segurar bloqueia) ·
+      Espaço esquivar · Q trocar arma (no anel = Troca Perfeita) · E segurar sobre um aliado caído para reviver ·
+      controle de videogame também funciona.
+    </div>
+  </div>
+</section>
+
+<section id="hud" hidden>
+  <div id="me" class="ink">
+    <div class="who"><span id="myName"></span><span id="ping"></span></div>
+    <div class="caps">Vida <span id="hpText"></span></div>
+    <div class="bar"><i id="hpGhost"></i><i id="hpFill"></i></div>
+    <div class="caps">Postura</div>
+    <div class="bar thin"><i id="postFill"></i></div>
+    <div class="row"><span class="caps">Esquiva</span><span id="dodges"></span></div>
+    <div id="weapon" class="brush"></div>
+    <div id="weapon2" class="small"></div>
+  </div>
+  <div id="roomBox"><div id="room" class="brush"></div><div id="wave" class="small"></div></div>
+  <div id="flowBox" class="ink">
+    <div class="caps right">Fluxo</div>
+    <div id="flow"></div>
+    <div class="bar thin gold"><i id="flowFill"></i></div>
+    <div id="streak" class="brush right"></div>
+  </div>
+  <div id="team" class="ink"></div>
+  <div id="prompt"></div>
+  <div id="center"></div>
+  <div id="toasts"></div>
+</section>
+
+<script src="client.js"></script>
+</body>
+</html>

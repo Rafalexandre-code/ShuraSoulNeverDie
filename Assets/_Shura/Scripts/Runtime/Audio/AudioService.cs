@@ -206,12 +206,15 @@ namespace Shura
             if (bank.synth != null) Emit(bank.synth, volume, p);
         }
 
+        /// <summary>Scales one-shots (teammates' moments are quieter than the host's).</summary>
+        public float VolumeScale { get; set; } = 1f;
+
         void Emit(AudioClip clip, float volume, float pitch)
         {
             AudioSource src = pool[next];
             next = (next + 1) % PoolSize;
             src.clip = clip;
-            src.volume = volume * settings.sfx;
+            src.volume = volume * settings.sfx * VolumeScale;
             src.pitch = pitch;
             src.Play();
         }

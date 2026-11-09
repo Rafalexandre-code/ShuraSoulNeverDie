@@ -76,7 +76,7 @@ namespace Shura
             transform.position = new Vector3(focus.x + offset.x, focus.y + offset.y, -10f);
             transform.rotation = Quaternion.Euler(0f, 0f, angle);
             zoomOffset = Mathf.Lerp(zoomOffset, zoomTarget, CombatMath.Damp(2f, dt));
-            Cam.orthographicSize = feel.cameraOrthoSize - zoomOffset - punch * settings.shake;
+            Cam.orthographicSize = feel.cameraOrthoSize * settings.view - zoomOffset - punch * settings.shake;
         }
 
         public Vector2 ScreenToWorld(Vector2 screen)

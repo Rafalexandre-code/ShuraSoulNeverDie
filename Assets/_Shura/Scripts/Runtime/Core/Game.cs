@@ -684,10 +684,46 @@ namespace Shura
             AudioListener.volume = Settings.master;
             if (World != null) World.ShowTimingIndicator = Settings.timingIndicator;
             if (Vfx != null) Vfx.BloodEnabled = Settings.blood;
-            if (!Application.isEditor && !Launch.Automated)
+            if (!Application.isEditor && !Launch.Automated) ApplyScreen();
+        }
+
+        string appliedScreen;
+
+        /// <summary>Full screen or window, at the chosen resolution (the monitor's own by default).</summary>
+        void ApplyScreen()
+        {
+            FullScreenMode mode = Settings.fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed;
+            int w = Settings.resolutionWidth, h = Settings.resolutionHeight;
+            if (w <= 0 || h <= 0)
             {
-                Screen.fullScreenMode = Settings.fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed;
+                if (Settings.fullscreen)
+                {
+                    w = Screen.currentResolution.width;
+                    h = Screen.currentResolution.height;
+                }
+                else
+                {
+                    w = Screen.width;
+                    h = Screen.height;
+                }
             }
+            string key = w + "x" + h + ":" + mode;
+            if (key == appliedScreen) return;
+            appliedScreen = key;
+            Screen.SetResolution(w, h, mode);
+        }
+
+        /// <summary>Resolutions offered in the settings: the monitor's own sizes, from 1280×720 up.</summary>
+        public List<Vector2Int> Resolutions()
+        {
+            var list = new List<Vector2Int>();
+            foreach (Resolution r in Screen.resolutions)
+            {
+                var v = new Vector2Int(r.width, r.height);
+                if (r.width >= 1280 && r.height >= 720 && !list.Contains(v)) list.Add(v);
+            }
+            list.Sort((a, b) => a.x != b.x ? a.x.CompareTo(b.x) : a.y.CompareTo(b.y));
+            return list;
         }
 
         /// <summary>Briefly slows the whole simulation (real-time seconds). Never stacks to slower.</summary>

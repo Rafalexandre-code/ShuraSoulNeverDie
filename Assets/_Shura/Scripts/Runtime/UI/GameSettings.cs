@@ -10,7 +10,7 @@ namespace Shura
     [Serializable]
     public sealed class GameSettings
     {
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
         const string PrefsKey = "shura.settings";
 
         public int version = CurrentVersion;
@@ -20,6 +20,15 @@ namespace Shura
         public float shake = 1f;
         public bool reduceFlashes;
         public bool fullscreen = true;
+        /// <summary>Size of the battle HUD (1 = the original layout, drawn for 1080p).</summary>
+        public float uiScale = 0.8f;
+        /// <summary>How much of the arena the camera shows (1 = default; more = farther, smaller fighters).</summary>
+        public float view = 1.25f;
+        /// <summary>Tutorial hints during play.</summary>
+        public bool hints = true;
+        /// <summary>Chosen screen resolution (0 = the monitor's own).</summary>
+        public int resolutionWidth;
+        public int resolutionHeight;
         public bool timingIndicator = true;
         public bool blood = true;
         /// <summary>false = Ninja Adventure tracks; true = "Samurai Nights" in five layers.</summary>
@@ -33,6 +42,11 @@ namespace Shura
         public int playerArt;
         /// <summary>The last host typed in "Entrar por IP".</summary>
         public string lastAddress = string.Empty;
+
+        public const float MinUiScale = 0.5f;
+        public const float MaxUiScale = 1.3f;
+        public const float MinView = 0.9f;
+        public const float MaxView = 1.7f;
 
         public static GameSettings Load()
         {
@@ -71,6 +85,16 @@ namespace Shura
             if (version < 2) timingIndicator = true;
             // v3 added blood and the weapon loadout.
             if (version < 3) blood = true;
+            // v4 added the HUD size, the camera's field of view, hints and the resolution.
+            if (version < 4)
+            {
+                uiScale = defaults.uiScale;
+                view = defaults.view;
+                hints = true;
+            }
+            uiScale = Mathf.Clamp(float.IsNaN(uiScale) ? defaults.uiScale : uiScale, MinUiScale, MaxUiScale);
+            view = Mathf.Clamp(float.IsNaN(view) ? defaults.view : view, MinView, MaxView);
+            if (resolutionWidth < 640 || resolutionHeight < 360) resolutionWidth = resolutionHeight = 0;
             if (!WeaponDefs.Exists(weaponA)) weaponA = "katana";
             if (!WeaponDefs.Exists(weaponB) || weaponB == weaponA) weaponB = weaponA == "montante" ? "katana" : "montante";
             playerName = CleanName(playerName, defaults.playerName);

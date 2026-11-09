@@ -12,8 +12,12 @@ namespace Shura
     /// </summary>
     public sealed partial class GameUI : MonoBehaviour
     {
-        const float VW = 1920f;
-        const float VH = 1080f;
+        /// <summary>
+        /// The canvas being drawn: menus use a 1920×1080 page fitted (letterboxed) to the screen;
+        /// the battle HUD uses the whole screen, its edges as anchors, at the player's HUD size.
+        /// </summary>
+        float VW = 1920f;
+        float VH = 1080f;
         const int MaxPopups = 24;
         const int MaxToasts = 4;
 
@@ -102,6 +106,13 @@ namespace Shura
         public void Popup(string text, Vector2 world, Color color)
         {
             if (popups.Count >= MaxPopups) popups.RemoveAt(0);
+            // Words born at the same spot stack upwards instead of printing over each other.
+            int near = 0;
+            foreach (FloatingText p in popups)
+            {
+                if (p.age < 0.7f && (p.world - world).sqrMagnitude < 4f) near++;
+            }
+            world += Vector2.up * 0.85f * near;
             popups.Add(new FloatingText { text = text, world = world, color = color, life = 0.9f });
         }
 
@@ -119,6 +130,7 @@ namespace Shura
 
         public void ShowHint(string text)
         {
+            if (!game.Settings.hints) return;
             hint = text;
             hintTimer = 6.5f;
         }
@@ -175,6 +187,7 @@ namespace Shura
             shownStreak = streak;
             streakPop = Mathf.MoveTowards(streakPop, 0f, dt * 4f);
             UpdateGhostHealth(dt);
+            UpdateLogToggle();
             UpdatePetals(dt);
             if (menuIndex != lastSel)
             {
@@ -340,6 +353,16 @@ namespace Shura
                     AddToggle(Strings.Blood, () => s.blood, v => s.blood = v);
                     AddToggle(Strings.ReduceFlashes, () => s.reduceFlashes, v => s.reduceFlashes = v);
                     AddToggle(Strings.Fullscreen, () => s.fullscreen, v => s.fullscreen = v);
+                    items.Add(new MenuItem
+                    {
+                        label = Strings.Resolution,
+                        value = () => s.resolutionWidth > 0 ? s.resolutionWidth + " × " + s.resolutionHeight : Strings.ResolutionNative,
+                        activate = () => CycleResolution(1),
+                        adjust = CycleResolution,
+                    });
+                    AddStep(Strings.UiScale, () => s.uiScale, v => s.uiScale = v, GameSettings.MinUiScale, GameSettings.MaxUiScale, 0.05f);
+                    AddStep(Strings.ViewScale, () => s.view, v => s.view = v, GameSettings.MinView, GameSettings.MaxView, 0.05f);
+                    AddToggle(Strings.Hints, () => s.hints, v => s.hints = v);
                     AddItem(Strings.ResetControls, () =>
                     {
                         game.Controls.ResetOverrides();
@@ -391,6 +414,46 @@ namespace Shura
                     game.ApplySettings();
                 },
             });
+        }
+
+        /// <summary>A percentage that steps between two bounds (and wraps around on Enter).</summary>
+        void AddStep(string label, Func<float> get, Action<float> set, float min, float max, float step)
+        {
+            Action<int> move = dir =>
+            {
+                float v = Mathf.Round((get() + dir * step) / step) * step;
+                set(Mathf.Clamp(v, min, max));
+                game.ApplySettings();
+            };
+            items.Add(new MenuItem
+            {
+                label = label,
+                value = () => Mathf.RoundToInt(get() * 100f) + "%",
+                adjust = move,
+                activate = () =>
+                {
+                    if (get() >= max - 0.001f) set(min);
+                    else move(1);
+                    game.ApplySettings();
+                },
+            });
+        }
+
+        /// <summary>The monitor's own resolution, then each size it offers.</summary>
+        void CycleResolution(int dir)
+        {
+            GameSettings s = game.Settings;
+            List<Vector2Int> list = game.Resolutions();
+            int current = list.IndexOf(new Vector2Int(s.resolutionWidth, s.resolutionHeight));
+            int n = list.Count + 1;
+            int next = ((current + 1 + dir) % n + n) % n - 1;
+            if (next < 0) s.resolutionWidth = s.resolutionHeight = 0;
+            else
+            {
+                s.resolutionWidth = list[next].x;
+                s.resolutionHeight = list[next].y;
+            }
+            game.ApplySettings();
         }
 
         void AddToggle(string label, Func<bool> get, Action<bool> set)
@@ -625,9 +688,7 @@ namespace Shura
         {
             if (game == null) return;
             EnsureStyles();
-            scale = Mathf.Min(Screen.width / VW, Screen.height / VH);
-            offset = new Vector2((Screen.width - VW * scale) * 0.5f, (Screen.height - VH * scale) * 0.5f);
-            GUI.matrix = Matrix4x4.TRS(new Vector3(offset.x, offset.y, 0f), Quaternion.identity, new Vector3(scale, scale, 1f));
+            UseCanvas(false);
 
             HandleNameTyping();
             HandleIpTyping();
@@ -648,11 +709,21 @@ namespace Shura
                 float pulse = 0.35f + 0.15f * Mathf.Sin(Time.unscaledTime * 4f);
                 DrawTex(FullScreen, vignette, Pal.gold.WithAlpha(pulse));
             }
-            if (mode == Game.Mode.Playing || mode == Game.Mode.Paused)
+            // The duel's HUD, at the player's size, anchored to the screen's edges.
+            bool remoteDuel = mode == Game.Mode.Remote && game.Remote.Joined && !game.Remote.Between;
+            if (mode == Game.Mode.Playing || mode == Game.Mode.Paused || remoteDuel)
             {
-                DrawHud();
-                DrawPopups();
-                if (game.World.Player == null || !game.World.Player.InMushin) DrawLog();
+                UseCanvas(true);
+                CollectBodies();
+                if (remoteDuel) DrawRemoteDuel();
+                else
+                {
+                    DrawHud();
+                    DrawPopups();
+                    if (game.World.Player == null || !game.World.Player.InMushin) DrawLog();
+                }
+                if (mode == Game.Mode.Playing || (remoteDuel && RemoteHintFree)) DrawHint();
+                UseCanvas(false);
             }
 
             switch (mode)
@@ -675,7 +746,6 @@ namespace Shura
 
             // The reward screen has its own text blocks; room-clear toasts were already seen in play.
             if (mode != Game.Mode.Reward && mode != Game.Mode.Route) DrawToasts();
-            if (mode == Game.Mode.Playing || (mode == Game.Mode.Remote && RemoteHintFree)) DrawHint();
             DrawOverlays();
             if (fadeAlpha > 0.001f) DrawRect(FullScreen, Color.black.WithAlpha(fadeAlpha));
             if (Event.current.type == EventType.Repaint) lastMouse = Event.current.mousePosition;
@@ -683,6 +753,28 @@ namespace Shura
         }
 
         Rect FullScreen => new Rect(-offset.x / scale, -offset.y / scale, Screen.width / scale, Screen.height / scale);
+
+        void UseCanvas(bool hud)
+        {
+            float fit = Mathf.Min(Screen.width / 1920f, Screen.height / 1080f);
+            if (hud)
+            {
+                // Bigger screens get more room, not just bigger letters: the HUD grows slower than the screen.
+                float grow = fit > 1f ? Mathf.Pow(fit, 0.55f) : fit;
+                scale = Mathf.Max(0.05f, grow * game.Settings.uiScale);
+                VW = Screen.width / scale;
+                VH = Screen.height / scale;
+                offset = Vector2.zero;
+            }
+            else
+            {
+                scale = fit;
+                VW = 1920f;
+                VH = 1080f;
+                offset = new Vector2((Screen.width - VW * scale) * 0.5f, (Screen.height - VH * scale) * 0.5f);
+            }
+            GUI.matrix = Matrix4x4.TRS(new Vector3(offset.x, offset.y, 0f), Quaternion.identity, new Vector3(scale, scale, 1f));
+        }
 
         /// <summary>The game frozen behind a screen: darkened, with an ink wash creeping in from the edges.</summary>
         void DimGame(float amount)
@@ -850,7 +942,7 @@ namespace Shura
             float k = Mathf.Min(r.width / tr.width, r.height / tr.height);
             var fit = new Rect(r.center.x - tr.width * k * 0.5f, r.center.y - tr.height * k * 0.5f, tr.width * k, tr.height * k);
             Color old = GUI.color;
-            GUI.color = Color.white;
+            GUI.color = UiKit.Faded(Color.white);
             GUI.DrawTextureWithTexCoords(fit, tex, new Rect(tr.x / tex.width, tr.y / tex.height, tr.width / tex.width, tr.height / tex.height));
             GUI.color = old;
         }
@@ -877,6 +969,7 @@ namespace Shura
                 else kit.Bar(new Rect(panel.x + 200f, y + 4f, 220f, 22f), w.ReviveProgress(p), Pal.gold, Color.black.WithAlpha(0.7f));
                 y += 40f;
             }
+            UiKit.Fade = 1f;
 
             if (cam == null) return;
             // Every fallen teammate shows its revive progress where it lies.
@@ -917,8 +1010,8 @@ namespace Shura
             var panel = new Rect(300f, 28f, 900f, 1024f);
             kit.PaperPanel(panel);
             Heading(new Rect(panel.x, panel.y + 40f, panel.width, 90f), Strings.SettingsTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f));
-            DrawMenuList(panel.y + 160f, 72f, 760f, panel.center.x, true);
-            DrawControlsPanel(new Rect(1250f, 300f, 600f, 340f), false);
+            DrawMenuList(panel.y + 150f, 60f, 760f, panel.center.x, true);
+            DrawControlsPanel(new Rect(1250f, 280f, 620f, 380f), false);
         }
 
         void DrawCredits()
@@ -979,10 +1072,15 @@ namespace Shura
             {
                 float x = r.x + 10 + (i / perColumn) * colW;
                 float y = r.y + 46 + (i % perColumn) * rowH;
-                Label(new Rect(x, y, colW * 0.5f, rowH), binds[i].Key, smallStyle, key);
-                Label(new Rect(x + colW * 0.48f, y, colW * 0.52f, rowH), binds[i].Value, smallStyle, value);
+                FitLabel(new Rect(x, y, colW * 0.46f, rowH), binds[i].Key, smallStyle, key);
+                FitLabel(new Rect(x + colW * 0.47f, y, colW * 0.51f, rowH), ShortKeys(binds[i].Value), smallStyle, value);
             }
         }
+
+        /// <summary>Key names short enough for one line ("Up/Left/Down/Right" → "Setas").</summary>
+        static string ShortKeys(string keys) => keys
+            .Replace("Up/Left/Down/Right", "Setas").Replace("Left Stick Press", "L3").Replace("Right Stick Press", "R3")
+            .Replace("Left Stick", "LS").Replace("Right Stick", "RS").Replace(" | ", " · ");
 
         // ── Altar ─────────────────────────────────────────────────────────────────────
 
@@ -1175,7 +1273,7 @@ namespace Shura
             }
         }
 
-        GUIStyle smallStyleCenter;
+        GUIStyle smallStyleCenter, hintSmallStyle;
 
         // ── Death ─────────────────────────────────────────────────────────────────────
 
@@ -1242,13 +1340,18 @@ namespace Shura
             if (p.InMushin)
             {
                 DrawMushinHud();
+                Panel(5, PartyRect(game.World.Players.Count));
                 DrawParty();
+                UiKit.Fade = 1f;
                 return;
             }
 
             hud.From(p);
+            Panel(1, CardRect);
             DrawDuelistCard(hud);
+            Panel(2, BeltRect);
             DrawBelt(hud);
+            Panel(3, TitleRect);
 
             RoomDef room = game.World.CurrentRoom;
             if (room != null)
@@ -1268,8 +1371,11 @@ namespace Shura
                 DrawRoadLine(room);
             }
 
+            Panel(4, FlowRect);
             DrawFlow(run.Flow.Level, run.Flow.MaxLevel, run.Flow.ProgressInLevel, MetaRules.EcosForRun(run), run.PerfectStreak);
+            Panel(5, PartyRect(game.World.Players.Count));
             DrawParty();
+            UiKit.Fade = 1f;
         }
 
         void DrawFlow(int level, int maxLevel, float progress, int ecosEarned, int streak)
@@ -1620,7 +1726,7 @@ namespace Shura
             var fit = new Rect(r.center.x - tr.width * k * 0.5f, r.center.y - tr.height * k * 0.5f, tr.width * k, tr.height * k);
             var uv = new Rect(tr.x / tex.width, tr.y / tex.height, tr.width / tex.width, tr.height / tex.height);
             Color old = GUI.color;
-            GUI.color = Color.white;
+            GUI.color = UiKit.Faded(Color.white);
             GUI.DrawTextureWithTexCoords(fit, tex, uv);
             GUI.color = old;
         }
@@ -1668,16 +1774,20 @@ namespace Shura
 
         void DrawHint()
         {
-            if (string.IsNullOrEmpty(hint) || hintTimer <= 0f) return;
-            float alpha = Mathf.Clamp01(hintTimer / 0.6f);
-            // Between the belt (left) and the log (right).
-            const float w = 740f;
-            float textH = hintStyle.CalcHeight(new GUIContent(hint), w - 190f);
-            float h = Mathf.Max(130f, textH + 50f);
-            var r = new Rect(VW * 0.5f - w * 0.5f - 20f, VH - h - 172f, w, h);
-            kit.PaperPanel(r, alpha);
-            kit.Seal(new Rect(r.x + 40f, r.center.y - 34f, 68f, 68f), 0.9f * alpha);
-            Label(new Rect(r.x + 130, r.y + 24, r.width - 170, r.height - 48), hint, hintStyle, UiKit.Ink.WithAlpha(alpha));
+            if (string.IsNullOrEmpty(hint) || hintTimer <= 0f || !game.Settings.hints) return;
+            float alpha = Mathf.Clamp01(hintTimer / 0.6f) * Mathf.Clamp01((6.5f - hintTimer) / 0.25f + 0.2f);
+            // At the left edge, under the duelist's card: read it at a glance, never over the fight.
+            const float w = 560f;
+            float textH = hintSmallStyle.CalcHeight(new GUIContent(hint), w - 96f);
+            float h = Mathf.Max(84f, textH + 48f);
+            float top = Mathf.Min(346f, VH - 160f - h);
+            var r = new Rect(10f, top, w, h);
+            Panel(7, r);
+            kit.InkPanel(r, 0.78f * alpha);
+            kit.Seal(new Rect(r.x + 24f, r.y + 14f, 40f, 40f), 0.85f * alpha);
+            Label(new Rect(r.x + 76f, r.y + 10f, 200f, 24f), Strings.HintTitle, capsStyle, Pal.gold.WithAlpha(alpha));
+            Label(new Rect(r.x + 76f, r.y + 34f, w - 96f, textH), hint, hintSmallStyle, UiKit.PaperText.WithAlpha(alpha));
+            UiKit.Fade = 1f;
         }
 
         void DrawOverlays()
@@ -1691,7 +1801,7 @@ namespace Shura
         static void DrawTex(Rect r, Texture tex, Color c)
         {
             Color prev = GUI.color;
-            GUI.color = c;
+            GUI.color = UiKit.Faded(c);
             GUI.DrawTexture(r, tex);
             GUI.color = prev;
         }
@@ -1699,7 +1809,7 @@ namespace Shura
         void DrawRect(Rect r, Color c)
         {
             Color prev = GUI.color;
-            GUI.color = c;
+            GUI.color = UiKit.Faded(c);
             GUI.DrawTexture(r, white);
             GUI.color = prev;
         }
@@ -1707,6 +1817,7 @@ namespace Shura
         /// <summary>Light text gets a soft ink shadow over the game; dark ink on paper needs none.</summary>
         static void Label(Rect r, string text, GUIStyle style, Color color)
         {
+            color = UiKit.Faded(color);
             Color prev = style.normal.textColor;
             float luminance = color.r * 0.3f + color.g * 0.59f + color.b * 0.11f;
             if (luminance > 0.62f)
@@ -1753,6 +1864,7 @@ namespace Shura
             pickStyle = MakeStyle(34, TextAnchor.MiddleCenter, brush);
             cardBodyStyle = MakeStyle(24, TextAnchor.UpperLeft, text);
             hintStyle = MakeStyle(27, TextAnchor.MiddleLeft, text);
+            hintSmallStyle = MakeStyle(21, TextAnchor.UpperLeft, text);
             toastStyle = MakeStyle(30, TextAnchor.MiddleCenter, bold);
             roomStyle = MakeStyle(44, TextAnchor.MiddleCenter, brush);
             ecosStyle = MakeStyle(52, TextAnchor.MiddleCenter, brush);

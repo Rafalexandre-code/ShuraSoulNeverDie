@@ -33,9 +33,30 @@ namespace Shura
                               game.CurrentMode == Game.Mode.Route || game.CurrentMode == Game.Mode.Equipment)) ||
                             (game.Remote.Joined && !game.Remote.Between);
 
+        /// <summary>The log starts folded into a small tab; opened, it shows the last lines.</summary>
+        bool logOpen;
+        int logUnread;
+
+        void UpdateLogToggle()
+        {
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            var pad = UnityEngine.InputSystem.Gamepad.current;
+            bool hudUp = game.CurrentMode == Game.Mode.Playing || (game.CurrentMode == Game.Mode.Remote && game.Remote.Joined && !game.Remote.Between);
+            if (!hudUp || editingName || editingIp) return;
+            if ((kb != null && kb.cKey.wasPressedThisFrame) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) ToggleLog();
+        }
+
+        void ToggleLog()
+        {
+            logOpen = !logOpen;
+            if (logOpen) logUnread = 0;
+            game.Audio.Play(Sfx.UiMove, 0.4f, logOpen ? 1.1f : 0.9f, 0f);
+        }
+
         public void Log(string text, Color color)
         {
             if (string.IsNullOrEmpty(text)) return;
+            if (!logOpen) logUnread++;
             // The same line twice in a row folds into one.
             if (log.Count > 0 && log[log.Count - 1].text == text && Time.unscaledTime - log[log.Count - 1].born < 3f)
             {
@@ -59,6 +80,11 @@ namespace Shura
         void DrawLog()
         {
             if (log.Count == 0) return;
+            if (!logOpen)
+            {
+                DrawLogTab();
+                return;
+            }
             if (logStyle == null)
             {
                 logStyle = new GUIStyle(smallStyle) { fontSize = 20, wordWrap = true, alignment = TextAnchor.UpperLeft };
@@ -79,12 +105,15 @@ namespace Shura
             }
             float h = 48f + total;
             var r = new Rect(VW - w - 10f, VH - h - 10f, w, h);
+            Panel(6, r);
+            if (LogClicked(new Rect(r.x, r.y, r.width, 44f))) return;
             float newest = Time.unscaledTime - log[log.Count - 1].born;
             // A solid backing so the lines read over bright floors, then the brush panel.
             DrawRect(new Rect(r.x + 14f, r.y + 6f, r.width - 14f, r.height - 6f), new Color(0.05f, 0.04f, 0.05f, 0.62f));
             DrawRect(new Rect(r.x + 14f, r.y + 6f, r.width - 14f, 2f), Pal.gold.WithAlpha(0.35f));
             kit.InkPanel(r, Mathf.Lerp(0.92f, 0.7f, Mathf.Clamp01((newest - 6f) / 4f)));
             Label(new Rect(r.x + 32f, r.y + 12f, 200f, 24f), Strings.HudLog, capsStyle, Pal.gold.WithAlpha(0.75f));
+            Label(new Rect(r.xMax - 260f, r.y + 12f, 240f, 24f), Strings.HudLogFold, capsRightStyle, UiKit.PaperDim.WithAlpha(0.7f));
             float y = r.y + 40f;
             for (int i = 0; i < shown.Count; i++)
             {
@@ -97,6 +126,101 @@ namespace Shura
                 Label(new Rect(r.x + textX + slide, y, textW, heights[i]), e.text, logStyle, Color.Lerp(UiKit.PaperText, e.color, 0.3f).WithAlpha(a));
                 y += heights[i];
             }
+            UiKit.Fade = 1f;
+        }
+
+        /// <summary>Folded: one small tab in the corner, with how many lines are new.</summary>
+        void DrawLogTab()
+        {
+            var r = new Rect(VW - 300f, VH - 54f, 290f, 46f);
+            Panel(6, r);
+            if (LogClicked(r))
+            {
+                UiKit.Fade = 1f;
+                return;
+            }
+            DrawRect(new Rect(r.x + 6f, r.y + 4f, r.width - 6f, r.height - 4f), new Color(0.05f, 0.04f, 0.05f, 0.72f));
+            DrawRect(new Rect(r.x + 6f, r.y + 4f, r.width - 6f, 2f), Pal.gold.WithAlpha(0.45f));
+            kit.InkPanel(r, 0.8f);
+            bool fresh = logUnread > 0;
+            float pulse = fresh ? 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 5f) : 0.6f;
+            Label(new Rect(r.x + 26f, r.y + 11f, 170f, 24f), Strings.HudLog, capsStyle, Pal.gold.WithAlpha(pulse));
+            string right = (fresh ? "+" + logUnread + "  " : "") + (game.Controls.UsingGamepad ? "R3" : "C");
+            Label(new Rect(r.x + 120f, r.y + 11f, r.width - 140f, 24f), right, capsRightStyle, fresh ? Pal.gold : UiKit.PaperDim);
+            UiKit.Fade = 1f;
+        }
+
+        bool LogClicked(Rect r)
+        {
+            Event e = Event.current;
+            if (e.type != EventType.MouseDown || e.button != 0 || !r.Contains(e.mousePosition)) return false;
+            e.Use();
+            ToggleLog();
+            return true;
+        }
+
+        // ── Keeping the fight in view ────────────────────────────────────────────────
+
+        readonly List<Rect> bodies = new List<Rect>();
+        readonly Dictionary<int, float> panelFade = new Dictionary<int, float>();
+
+        Rect CardRect => new Rect(8f, 4f, 632f, 330f);
+        Rect BeltRect => new Rect(8f, VH - 150f, 900f, 142f);
+        Rect TitleRect => new Rect(VW * 0.5f - 470f, 0f, 940f, 200f);
+        Rect FlowRect => new Rect(VW - 470f, 2f, 460f, 280f);
+        Rect PartyRect(int players) => new Rect(VW - 470f, 230f, 460f, 34f + Mathf.Max(0, players - 1) * 40f);
+
+        /// <summary>Where every duelist and enemy stands on screen this frame (GUI space, head to feet).</summary>
+        void CollectBodies()
+        {
+            bodies.Clear();
+            Camera cam = game.CameraRig.Cam;
+            if (cam == null) return;
+            if (game.Remote.Joined)
+            {
+                foreach (RemoteView.Puppet p in game.Remote.View.Players) AddBody(cam, p.pos, p.top + 0.3f);
+                foreach (RemoteView.Puppet p in game.Remote.View.Enemies)
+                {
+                    if (p.row != null && !MiniJson.B(p.row, 32)) AddBody(cam, p.pos, p.top + 0.3f);
+                }
+                return;
+            }
+            World w = game.World;
+            foreach (PlayerController p in w.Players)
+            {
+                if (p.gameObject.activeSelf) AddBody(cam, p.RenderPosition, 1.4f);
+            }
+            foreach (Enemy e in w.Enemies)
+            {
+                if (!e.IsGone) AddBody(cam, e.RenderPosition, e.Radius * 2.6f + 0.6f);
+            }
+        }
+
+        void AddBody(Camera cam, Vector2 at, float height)
+        {
+            Vector2 feet = WorldToGui(cam, at + Vector2.down * 0.35f);
+            Vector2 head = WorldToGui(cam, at + Vector2.up * height);
+            float h = Mathf.Max(20f, feet.y - head.y);
+            float w = Mathf.Max(40f, h * 0.7f);
+            bodies.Add(new Rect(feet.x - w * 0.5f, head.y, w, h));
+        }
+
+        /// <summary>Draws the next HUD panel see-through while anyone stands under it (eased, so it never flickers).</summary>
+        void Panel(int id, Rect r)
+        {
+            bool covered = false;
+            foreach (Rect b in bodies)
+            {
+                if (b.Overlaps(r))
+                {
+                    covered = true;
+                    break;
+                }
+            }
+            if (!panelFade.TryGetValue(id, out float f)) f = 1f;
+            if (Event.current.type == EventType.Repaint) f = Mathf.MoveTowards(f, covered ? 0.18f : 1f, Time.unscaledDeltaTime * 5f);
+            panelFade[id] = f;
+            UiKit.Fade = f;
         }
 
         // ── What the HUD shows ───────────────────────────────────────────────────────
@@ -397,7 +521,7 @@ namespace Shura
                 dst = new Rect(r.center.x - tr.width * k * 0.5f, r.center.y - tr.height * k * 0.5f, tr.width * k, tr.height * k);
             }
             Color old = GUI.color;
-            GUI.color = c;
+            GUI.color = UiKit.Faded(c);
             GUI.DrawTextureWithTexCoords(dst, tex, new Rect(tr.x / tex.width, tr.y / tex.height, tr.width / tex.width, tr.height / tex.height));
             GUI.color = old;
         }

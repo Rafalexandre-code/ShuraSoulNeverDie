@@ -78,6 +78,14 @@ namespace Shura
 
         // ── Panels ──────────────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Transparency applied to everything drawn (1 = opaque). The HUD lowers it over a panel
+        /// while a duelist or an enemy stands under it, so the HUD never hides the fight.
+        /// </summary>
+        public static float Fade = 1f;
+
+        public static Color Faded(Color c) => new Color(c.r, c.g, c.b, c.a * Fade);
+
         /// <summary>Washi sheet with torn, scorched edges and a dry ink border.</summary>
         public void PaperPanel(Rect r, float alpha = 1f)
         {
@@ -85,12 +93,12 @@ namespace Shura
             Color prev = GUI.color;
             if (paperPanel == null || Paper == null)
             {
-                GUI.color = ColorUtil.Hex("#E9DFC8").WithAlpha(alpha);
+                GUI.color = Faded(ColorUtil.Hex("#E9DFC8").WithAlpha(alpha));
                 GUI.DrawTexture(r, white);
                 GUI.color = prev;
                 return;
             }
-            GUI.color = new Color(1f, 1f, 1f, alpha);
+            GUI.color = Faded(new Color(1f, 1f, 1f, alpha));
             var inner = new Rect(r.x + 30f, r.y + 30f, r.width - 60f, r.height - 60f);
             GUI.DrawTextureWithTexCoords(inner, Paper, new Rect(r.x / 256f, r.y / 256f, inner.width / 256f, inner.height / 256f));
             paperPanel.Draw(r, GUIContent.none, false, false, false, false);
@@ -102,11 +110,11 @@ namespace Shura
         {
             if (!Repaint) return;
             Color prev = GUI.color;
-            GUI.color = new Color(1f, 1f, 1f, alpha);
+            GUI.color = Faded(new Color(1f, 1f, 1f, alpha));
             if (inkPanel != null) inkPanel.Draw(r, GUIContent.none, false, false, false, false);
             else
             {
-                GUI.color = new Color(0.08f, 0.07f, 0.07f, 0.8f * alpha);
+                GUI.color = Faded(new Color(0.08f, 0.07f, 0.07f, 0.8f * alpha));
                 GUI.DrawTexture(r, white);
             }
             GUI.color = prev;
@@ -173,7 +181,7 @@ namespace Shura
         {
             if (!Repaint) return;
             Color prev = GUI.color;
-            GUI.color = c;
+            GUI.color = Faded(c);
             GUI.DrawTexture(r, tex != null ? tex : white);
             GUI.color = prev;
         }
@@ -184,7 +192,7 @@ namespace Shura
             fraction = Mathf.Clamp01(fraction);
             if (fraction <= 0.001f || !Repaint) return;
             Color prev = GUI.color;
-            GUI.color = c;
+            GUI.color = Faded(c);
             var part = new Rect(r.x, r.y, r.width * fraction, r.height);
             if (tex != null) GUI.DrawTextureWithTexCoords(part, tex, new Rect(0f, 0f, fraction, 1f));
             else GUI.DrawTexture(part, white);

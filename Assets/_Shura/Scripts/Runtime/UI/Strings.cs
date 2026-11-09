@@ -262,6 +262,13 @@ namespace Shura
         public const string JoinIp = "Entrar por IP (mesma rede / Radmin)";
         public const string JoinIpHint = "Digite o endereço mostrado na sala do anfitrião (ex.: 192.168.0.10 ou 26.12.34.56) e aperte Enter.";
         public const string Cancel = "Cancelar";
+        public const string Resolution = "Resolução";
+        public const string ResolutionNative = "A do monitor";
+        public const string UiScale = "Tamanho da interface";
+        public const string ViewScale = "Campo de visão";
+        public const string Hints = "Dicas durante o jogo";
+        public const string HintTitle = "DICA";
+        public const string HudLogFold = "clique para recolher";
         public const string SteamLost = "A conexão com o anfitrião caiu.";
         public const string SteamProxyFailed = "Não foi possível abrir a porta local (7790–7799).";
         public const string SteamNoLobbies = "Nenhum duelo aberto agora. Peça para o anfitrião abrir \"Jogar online\" e clique em Atualizar.";

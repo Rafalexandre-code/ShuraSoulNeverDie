@@ -180,6 +180,19 @@ namespace Shura
 
         // ── Drawing ──────────────────────────────────────────────────────────────────
 
+        /// <summary>The duel itself on the HUD canvas: HUD, popups, the log and the ping.</summary>
+        void DrawRemoteDuel()
+        {
+            RemoteSession r = Remote;
+            if (r.Latest == null) return;
+            DrawRemoteHud();
+            DrawPopups();
+            List<object> me = r.Me;
+            if (me == null || !MiniJson.B(me, 44)) DrawLog();
+            DrawPing();
+        }
+
+        /// <summary>The screens over the duel (menu canvas): the room between runs, cards, doors, menu, equipment.</summary>
         void DrawRemote()
         {
             RemoteSession r = Remote;
@@ -195,16 +208,11 @@ namespace Shura
                 DrawPing();
                 return;
             }
-            DrawRemoteHud();
-            DrawPopups();
-            List<object> me = r.Me;
-            if (me == null || !MiniJson.B(me, 44)) DrawLog();
             if (r.Cards.Count > 0) DrawRemoteCards();
             else if (r.Doors.Count > 0) DrawRemoteRoute();
             else if (r.Mode == "reward") DrawRemoteWaiting();
             if (remoteEquip) DrawRemoteEquip();
             else if (remoteMenu) DrawRemoteMenu();
-            DrawPing();
         }
 
         /// <summary>Top right, small: the round trip to the host.</summary>
@@ -212,7 +220,7 @@ namespace Shura
         {
             float ms = Remote.Ping * 1000f;
             Color c = ms < 80f ? Pal.blessing : ms < 150f ? Pal.gold : Pal.danger;
-            Label(new Rect(VW - 330f, VH - 34f, 320f, 30f), string.Format(Strings.RemotePing, Mathf.RoundToInt(ms)), capsRightStyle, c.WithAlpha(0.85f));
+            Label(new Rect(VW - 330f, VH - 88f, 320f, 30f), string.Format(Strings.RemotePing, Mathf.RoundToInt(ms)), capsRightStyle, c.WithAlpha(0.85f));
         }
 
         void DrawRemoteLobby()
@@ -268,11 +276,16 @@ namespace Shura
             if (hud.mushin)
             {
                 DrawMushinHud();
+                Panel(5, PartyRect(s.P != null ? s.P.Count : 1));
                 DrawRemoteParty(s);
+                UiKit.Fade = 1f;
                 return;
             }
+            Panel(1, CardRect);
             DrawDuelistCard(hud);
+            Panel(2, BeltRect);
             DrawBelt(hud);
+            Panel(3, TitleRect);
 
             string room = MiniJson.S(s.d, "room");
             if (!string.IsNullOrEmpty(room))
@@ -285,8 +298,11 @@ namespace Shura
                 if (!string.IsNullOrEmpty(wave)) Label(new Rect(0, 76, VW, 30), wave, smallStyleCenter, UiKit.PaperDim);
                 DrawRemoteRoadLine(s);
             }
+            Panel(4, FlowRect);
             DrawFlow(hud.flow, Mathf.Max(1, MiniJson.I(s.d, "fm", 3)), MiniJson.F(me, 30), MiniJson.I(s.d, "ec"), MiniJson.I(me, 31));
+            Panel(5, PartyRect(s.P != null ? s.P.Count : 1));
             DrawRemoteParty(s);
+            UiKit.Fade = 1f;
         }
 
         /// <summary>The hour, the weather, the rule, the challenge and the encounter's banner, from the host's words.</summary>

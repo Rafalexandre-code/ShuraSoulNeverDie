@@ -128,6 +128,15 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **Entrar por IP** (mesma rede / Radmin): o mesmo cliente nativo, por WebSocket direto ao anfitrião. O navegador continua funcionando para quem não tem o jogo.
 - Testado: anfitrião + convidado nativo na mesma máquina (bots), salas, recompensas, rota, sem exceções.
 
+## Interface por resolução e visão limpa (v0.4.1) — ✅
+
+- **HUD em duas camadas**: menus continuam numa página 1920×1080 ajustada à tela; o HUD da luta usa a tela inteira presa às bordas e cresce mais devagar que a resolução (em 2K/4K sobra espaço, as coisas não ficam gigantes). Novo padrão 80% e opção **Tamanho da interface** (50–130%).
+- **Nada do HUD tapa a luta**: cada painel (cartão, cinto, título, Fluxo, grupo, registro, dica) fica quase transparente enquanto um duelista ou inimigo está embaixo dele, em qualquer posição do mapa.
+- **Câmera mais afastada** (125% por padrão) e opção **Campo de visão** (90–170%).
+- **Dicas** compactas à esquerda, sob o cartão (nunca no centro), e opção para desligá-las.
+- **Registro começa recolhido** numa aba no canto (com o número de linhas novas); clique ou C / R3 abre e fecha.
+- Configurações novas: **Resolução** (a do monitor ou qualquer outra que ele ofereça), tamanho da interface, campo de visão, dicas. Textos flutuantes no mesmo ponto agora se empilham em vez de se sobrepor.
+
 ## Apresentação e acessibilidade (§10) — ⏳
 
 10.1 tabela de impacto · 10.2 câmera e finalizações em tinta · 10.3 som que informa · 10.4 música adaptativa (🟡 música abafada em Mushin/Iai já feita) · 10.5 interface diegética · 10.6 luz 2D (provável adiamento: o projeto usa Built-in RP; luz 2D exige URP) · 10.7 acessibilidade (🟡 anéis com padrão próprio por tipo) · 10.8 replay e foto.

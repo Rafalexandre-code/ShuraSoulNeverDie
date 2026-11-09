@@ -143,6 +143,8 @@ namespace Shura
         /// </summary>
         public PlayerController Player => actor != null ? actor : Host;
         public bool ActorIsRemote => actor != null && actor != Host;
+        /// <summary>Who acts, as the network names them: -1 nobody (the world), 0 the host, otherwise the guest's id.</summary>
+        public int ActorNetId => actor == null ? -1 : actor == Host ? 0 : actor.NetId;
         public int PartySize => Players.Count;
 
         public ArenaLayout Layout { get; private set; }
@@ -662,6 +664,55 @@ namespace Shura
         /// Each room has its own size, outline, traps and biome; the old arena (and its
         /// texture) is discarded.
         /// </summary>
+        // ── Native online guest: the host's arena rebuilt here, nothing simulated ───────
+
+        /// <summary>Builds the host's arena from its seed (same statues, lanterns and traps), with no fighters of its own.</summary>
+        public void ShowRemoteArena(float width, float height, ArenaShape shape, int depth, int biome, ulong seed, bool encounter)
+        {
+            ClearEnemies();
+            ClearEncounter();
+            ClearConditions();
+            roomActive = false;
+            var room = new RoomDef("remote", depth, Biomes.All[Mathf.Clamp(biome, 0, Biomes.All.Length - 1)], width, height, false, new EnemySpawn[0][], shape, seed);
+            room.kind = encounter ? RoomKind.Shrine : RoomKind.Combat;
+            CurrentRoom = room;
+            RebuildArena(room);
+            foreach (PlayerController p in Players) p.gameObject.SetActive(false);
+        }
+
+        /// <summary>The guest's arena animates with the host's trap clock; broken statues and lanterns disappear.</summary>
+        public void RenderRemote(int tick, List<int> brokenStatues, List<int> brokenLanterns)
+        {
+            if (Decor == null) return;
+            Decor.Animate(Time.unscaledTime);
+            TrapTick = tick;
+            trapViews?.Render(tick, Time.unscaledTime);
+            if (brokenStatues != null)
+            {
+                foreach (int i in brokenStatues)
+                {
+                    if (i < 0 || i >= Decor.StatueViews.Count) continue;
+                    foreach (GameObject go in Decor.StatueViews[i]) if (go != null && go.activeSelf) go.SetActive(false);
+                }
+            }
+            if (brokenLanterns != null)
+            {
+                foreach (int i in brokenLanterns)
+                {
+                    if (i >= 0 && i < Decor.LanternViews.Count && Decor.LanternViews[i] != null && Decor.LanternViews[i].activeSelf) Decor.LanternViews[i].SetActive(false);
+                }
+            }
+        }
+
+        /// <summary>Leaving a friend's duel: this world's own duelists come back.</summary>
+        public void EndRemote()
+        {
+            foreach (PlayerController p in Players) p.gameObject.SetActive(true);
+            CurrentRoom = null;
+            RebuildArena(RoomGenerator.Intro());
+            Host.Teleport(PlayerSpawn);
+        }
+
         void RebuildArena(RoomDef room)
         {
             if (arenaRoot != null)

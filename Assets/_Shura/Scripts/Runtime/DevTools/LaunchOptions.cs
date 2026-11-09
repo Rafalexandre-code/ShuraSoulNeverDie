@@ -31,8 +31,10 @@ namespace Shura
         public bool Steam;
         /// <summary>"-shuraSteamGuest": a test guest that joins the first Steam duel it finds (even its own account's).</summary>
         public bool SteamGuest;
-        /// <summary>"-shuraNoBrowser": the Steam guest does not open the system browser.</summary>
+        /// <summary>"-shuraNoBrowser": kept for old scripts (guests no longer use a browser).</summary>
         public bool NoBrowser;
+        /// <summary>"-shuraJoin host[:port]": a test guest that joins that host directly (native client over WebSocket).</summary>
+        public string JoinAddress;
 
         /// <summary>"-shuraHost N": open the online room and start once N browser players joined (or after 40 s).</summary>
         public bool Host;
@@ -74,6 +76,9 @@ namespace Shura
                         break;
                     case "-shuraNoBrowser":
                         options.NoBrowser = true;
+                        break;
+                    case "-shuraJoin":
+                        if (i + 1 < args.Length) options.JoinAddress = args[++i];
                         break;
                     case "-shuraWeather":
                         if (i + 1 < args.Length) options.Weather = args[++i];

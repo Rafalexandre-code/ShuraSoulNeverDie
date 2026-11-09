@@ -58,6 +58,8 @@ namespace Shura
         float fadeAlpha;
         Texture2D vignette;
         float ghostHp;
+        /// <summary>The duelist the HUD shows this frame (the local player, or this guest's row of the host's snapshot).</summary>
+        readonly HudData hud = new HudData();
         float lastHp;
         float ghostDelay;
         float selAnim;
@@ -163,11 +165,12 @@ namespace Shura
             float dt = Time.unscaledDeltaTime;
             Age(popups, dt);
             Age(toasts, dt);
-            if (game.CurrentMode == Game.Mode.Playing && hintTimer > 0f) hintTimer -= dt;
+            if ((game.CurrentMode == Game.Mode.Playing || game.CurrentMode == Game.Mode.Remote) && hintTimer > 0f) hintTimer -= dt;
             flashAlpha = Mathf.MoveTowards(flashAlpha, 0f, dt * 3f);
             hurtAlpha = Mathf.MoveTowards(hurtAlpha, 0f, dt * 1.5f);
             fadeAlpha = Mathf.MoveTowards(fadeAlpha, 0f, dt * 2.2f);
-            int streak = game.Run != null ? game.Run.PerfectStreak : 0;
+            List<object> remoteMe = game.Remote.Joined ? game.Remote.Me : null;
+            int streak = game.Run != null ? game.Run.PerfectStreak : remoteMe != null ? MiniJson.I(remoteMe, 31) : 0;
             if (streak > shownStreak) streakPop = 1f;
             shownStreak = streak;
             streakPop = Mathf.MoveTowards(streakPop, 0f, dt * 4f);
@@ -185,7 +188,7 @@ namespace Shura
             if (game.Launch.Automated || Time.frameCount == modeChangedFrame) return;
 
             InputService input = game.Controls;
-            if (editingName) return;
+            if (editingName || editingIp) return;
             switch (game.CurrentMode)
             {
                 case Game.Mode.Title:
@@ -209,6 +212,9 @@ namespace Shura
                     break;
                 case Game.Mode.Playing:
                     break;
+                case Game.Mode.Remote:
+                    HandleRemote(input);
+                    break;
                 default:
                     HandleMenu(input);
                     break;
@@ -218,17 +224,28 @@ namespace Shura
         /// <summary>A white chunk lingers where health was lost, then drains: damage reads at a glance.</summary>
         void UpdateGhostHealth(float dt)
         {
-            PlayerController p = game.World != null ? game.World.Player : null;
-            if (p == null) return;
-            if (p.Health < lastHp) ghostDelay = 0.45f;
-            lastHp = p.Health;
-            if (p.Health >= ghostHp)
+            float health, max;
+            if (game.Remote.Joined)
             {
-                ghostHp = p.Health;
+                health = hud.health;
+                max = hud.maxHealth;
+            }
+            else
+            {
+                PlayerController p = game.World != null ? game.World.Player : null;
+                if (p == null) return;
+                health = p.Health;
+                max = p.MaxHealth;
+            }
+            if (health < lastHp) ghostDelay = 0.45f;
+            lastHp = health;
+            if (health >= ghostHp)
+            {
+                ghostHp = health;
                 return;
             }
             ghostDelay -= dt;
-            if (ghostDelay <= 0f) ghostHp = Mathf.MoveTowards(ghostHp, p.Health, p.MaxHealth * 0.8f * dt);
+            if (ghostDelay <= 0f) ghostHp = Mathf.MoveTowards(ghostHp, health, max * 0.8f * dt);
         }
 
         static void Age(List<FloatingText> list, float dt)
@@ -269,24 +286,35 @@ namespace Shura
                 case Game.Mode.SteamJoin:
                 {
                     SteamLink st = game.Steam;
-                    if (st.GuestConnected) AddItem(Strings.SteamOpenBrowser, st.OpenBrowser);
-                    else
+                    if (game.Remote.Active)
                     {
-                        foreach (SteamLink.LobbyInfo l in st.Lobbies)
-                        {
-                            SteamLink.LobbyInfo lobby = l;
-                            items.Add(new MenuItem
-                            {
-                                label = string.IsNullOrEmpty(l.host) ? "?" : l.host,
-                                value = () => lobby.players + " / " + lobby.max,
-                                activate = () => st.Join(lobby.id),
-                            });
-                        }
-                        if (st.Ready) AddItem(Strings.SteamRefresh, st.RefreshLobbies);
+                        AddItem(Strings.Cancel, game.CloseSteamJoin);
+                        break;
                     }
+                    foreach (SteamLink.LobbyInfo l in st.Lobbies)
+                    {
+                        SteamLink.LobbyInfo lobby = l;
+                        bool other = !string.IsNullOrEmpty(l.version) && l.version != Application.version;
+                        items.Add(new MenuItem
+                        {
+                            label = (string.IsNullOrEmpty(l.host) ? "?" : l.host) + (other ? "  (v" + l.version + ")" : ""),
+                            value = () => lobby.players + " / " + lobby.max,
+                            activate = () => game.JoinSteamLobby(lobby.id),
+                        });
+                    }
+                    if (st.Ready) AddItem(Strings.SteamRefresh, st.RefreshLobbies);
+                    items.Add(new MenuItem
+                    {
+                        label = Strings.JoinIp,
+                        value = () => editingIp ? ipBuffer + (Mathf.Repeat(Time.unscaledTime, 1f) < 0.5f ? "|" : " ") : game.Settings.lastAddress,
+                        activate = BeginIpEdit,
+                    });
                     AddItem(Strings.Back, game.CloseSteamJoin);
                     break;
                 }
+                case Game.Mode.Remote:
+                    BuildRemoteMenu();
+                    break;
                 case Game.Mode.MainMenu:
                     AddItem(Strings.Play, game.OpenArsenal);
                     AddItem(Strings.PlayOnline, game.OpenLobby);
@@ -410,10 +438,56 @@ namespace Shura
         }
 
         /// <summary>Keyboard text for the name field (IMGUI key events, in OnGUI).</summary>
+        // ── Host address (typed on the join screen) ────────────────────────────────────
+
+        bool editingIp;
+        string ipBuffer = string.Empty;
+
+        void BeginIpEdit()
+        {
+            editingIp = true;
+            ipBuffer = game.Settings.lastAddress ?? string.Empty;
+        }
+
+        void HandleIpTyping()
+        {
+            if (!editingIp) return;
+            if (game.CurrentMode != Game.Mode.SteamJoin)
+            {
+                editingIp = false;
+                return;
+            }
+            Event e = Event.current;
+            if (e.type != EventType.KeyDown) return;
+            if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
+            {
+                editingIp = false;
+                modeChangedFrame = Time.frameCount;
+                game.Settings.lastAddress = ipBuffer.Trim();
+                if (!game.Launch.Automated) game.Settings.Save();
+                game.Audio.Play(Sfx.UiConfirm, 0.6f, 1f, 0f);
+                game.JoinByAddress(ipBuffer);
+            }
+            else if (e.keyCode == KeyCode.Escape)
+            {
+                editingIp = false;
+                modeChangedFrame = Time.frameCount;
+            }
+            else if (e.keyCode == KeyCode.Backspace)
+            {
+                if (ipBuffer.Length > 0) ipBuffer = ipBuffer.Substring(0, ipBuffer.Length - 1);
+            }
+            else if (e.character != '\0' && !char.IsControl(e.character) && ipBuffer.Length < 40 && (char.IsLetterOrDigit(e.character) || e.character == '.' || e.character == ':' || e.character == '-'))
+            {
+                ipBuffer += e.character;
+            }
+            e.Use();
+        }
+
         void HandleNameTyping()
         {
             if (!editingName) return;
-            if (game.CurrentMode != Game.Mode.Lobby)
+            if (game.CurrentMode != Game.Mode.Lobby && game.CurrentMode != Game.Mode.Remote)
             {
                 editingName = false;
                 return;
@@ -423,6 +497,7 @@ namespace Shura
             if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
             {
                 game.SetHostName(nameBuffer);
+                game.Remote.SendLoadout();
                 editingName = false;
                 modeChangedFrame = Time.frameCount;
                 game.Audio.Play(Sfx.UiConfirm, 0.6f, 1f, 0f);
@@ -475,6 +550,7 @@ namespace Shura
                 case Game.Mode.Equipment: game.CloseEquipment(); break;
                 case Game.Mode.Lobby: game.CloseLobby(); break;
                 case Game.Mode.SteamJoin: game.CloseSteamJoin(); break;
+                case Game.Mode.Remote: remoteMenu = false; break;
             }
         }
 
@@ -498,6 +574,7 @@ namespace Shura
             get
             {
                 Game.Mode m = game.CurrentMode;
+                if (m == Game.Mode.Arsenal && game.Remote.Joined) return false;
                 return m == Game.Mode.Title || m == Game.Mode.MainMenu || m == Game.Mode.Credits || m == Game.Mode.Arsenal ||
                        m == Game.Mode.Altar || m == Game.Mode.Lobby || m == Game.Mode.SteamJoin || (m == Game.Mode.Settings && !game.SettingsFromPause);
             }
@@ -553,6 +630,7 @@ namespace Shura
             GUI.matrix = Matrix4x4.TRS(new Vector3(offset.x, offset.y, 0f), Quaternion.identity, new Vector3(scale, scale, 1f));
 
             HandleNameTyping();
+            HandleIpTyping();
             Game.Mode mode = game.CurrentMode;
             bool inRun = mode == Game.Mode.Playing || mode == Game.Mode.Paused || mode == Game.Mode.Reward;
             if (PaintingScreen)
@@ -592,11 +670,12 @@ namespace Shura
                 case Game.Mode.Equipment: DrawEquipment(); break;
                 case Game.Mode.Lobby: DrawLobby(); break;
                 case Game.Mode.SteamJoin: DrawSteamJoin(); break;
+                case Game.Mode.Remote: DrawRemote(); break;
             }
 
             // The reward screen has its own text blocks; room-clear toasts were already seen in play.
             if (mode != Game.Mode.Reward && mode != Game.Mode.Route) DrawToasts();
-            if (mode == Game.Mode.Playing) DrawHint();
+            if (mode == Game.Mode.Playing || (mode == Game.Mode.Remote && RemoteHintFree)) DrawHint();
             DrawOverlays();
             if (fadeAlpha > 0.001f) DrawRect(FullScreen, Color.black.WithAlpha(fadeAlpha));
             if (Event.current.type == EventType.Repaint) lastMouse = Event.current.mousePosition;
@@ -744,12 +823,13 @@ namespace Shura
             kit.PaperPanel(panel);
             Heading(new Rect(panel.x, panel.y + 36f, panel.width, 90f), Strings.SteamTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f), 420f);
             SteamLink st = game.Steam;
-            Label(new Rect(panel.x + 80f, panel.y + 130f, panel.width - 160f, 110f), st.Status, bodyCenterStyle, st.GuestConnected ? UiKit.Ai : UiKit.Ink);
-            if (st.Ready && !st.GuestConnected && !st.Searching && st.Lobbies.Count == 0)
+            bool joining = game.Remote.Active;
+            string status = joining ? game.Remote.Status : game.Remote.LastError ?? st.Status;
+            Label(new Rect(panel.x + 80f, panel.y + 130f, panel.width - 160f, 110f), status, bodyCenterStyle, joining ? UiKit.Ai : UiKit.Ink);
+            if (!joining && st.Ready && !st.Searching && st.Lobbies.Count == 0)
                 Label(new Rect(panel.x + 80f, panel.y + 240f, panel.width - 160f, 60f), Strings.SteamNoLobbies, cardBodyStyle, UiKit.InkSoft);
-            if (st.Searching) Label(new Rect(panel.x + 80f, panel.y + 240f, panel.width - 160f, 60f), Strings.SteamSearching, cardBodyStyle, UiKit.InkSoft);
-            if (st.GuestConnected && st.ProxyUrl != null)
-                Label(new Rect(panel.x + 80f, panel.y + 240f, panel.width - 160f, 60f), st.ProxyUrl, urlStyle, UiKit.Shu);
+            if (!joining && st.Searching) Label(new Rect(panel.x + 80f, panel.y + 240f, panel.width - 160f, 60f), Strings.SteamSearching, cardBodyStyle, UiKit.InkSoft);
+            if (editingIp) Label(new Rect(panel.x + 80f, panel.yMax - 110f, panel.width - 160f, 80f), Strings.JoinIpHint, cardBodyStyle, UiKit.Shu);
             DrawMenuList(panel.y + 320f, 64f, 760f, panel.center.x, true);
         }
 
@@ -1156,7 +1236,7 @@ namespace Shura
             DrawEnvironment();
             DrawOfferings();
             DrawAllyLabels();
-            if (game.World.Standoff.Active) DrawStandoff(game.World.Standoff);
+            if (game.World.Standoff.Active) DrawStandoffBars(game.World.Standoff.Advancing);
             if (p.AimingCut) DrawFinisherAim(p);
             DrawAffixLabels();
             if (p.InMushin)
@@ -1166,8 +1246,9 @@ namespace Shura
                 return;
             }
 
-            DrawDuelistCard(p, run);
-            DrawBelt(p, run);
+            hud.From(p);
+            DrawDuelistCard(hud);
+            DrawBelt(hud);
 
             RoomDef room = game.World.CurrentRoom;
             if (room != null)
@@ -1187,34 +1268,32 @@ namespace Shura
                 DrawRoadLine(room);
             }
 
-            DrawFlow(run.Flow);
+            DrawFlow(run.Flow.Level, run.Flow.MaxLevel, run.Flow.ProgressInLevel, MetaRules.EcosForRun(run), run.PerfectStreak);
             DrawParty();
         }
 
-        void DrawFlow(FlowMeter flow)
+        void DrawFlow(int level, int maxLevel, float progress, int ecosEarned, int streak)
         {
             const float w = 360f;
             float fx = VW - 52f - w, fy = 30f;
             kit.InkPanel(new Rect(VW - 470f, 2f, 460f, 230f), 0.82f);
-            int level = flow.Level;
             Label(new Rect(fx, fy, w, 26), Strings.HudFlow, capsRightStyle, level > 0 ? Pal.gold : UiKit.PaperDim);
             // Each Flow level is an ensō; lit ones are gold with a filled heart.
-            for (int i = 0; i < flow.MaxLevel; i++)
+            for (int i = 0; i < maxLevel; i++)
             {
-                float cx = fx + w - 34f - (flow.MaxLevel - 1 - i) * 76f;
+                float cx = fx + w - 34f - (maxLevel - 1 - i) * 76f;
                 var r = new Rect(cx - 34f, fy + 30f, 68f, 68f);
                 bool lit = level > i;
                 float spin = lit ? Time.unscaledTime * 20f + i * 40f : i * 50f;
                 kit.Enso(r, lit ? Pal.gold : UiKit.PaperText.WithAlpha(0.28f), spin);
                 if (lit) kit.Dab(new Rect(r.center.x - 13f, r.center.y - 13f, 26f, 26f), Pal.gold);
             }
-            kit.Bar(new Rect(fx + w - 230f, fy + 104f, 230f, 22f), flow.ProgressInLevel, Pal.gold, Color.black.WithAlpha(0.6f));
-            string ecos = string.Format(Strings.HudEcos, MetaRules.EcosForRun(game.Run));
+            kit.Bar(new Rect(fx + w - 230f, fy + 104f, 230f, 22f), progress, Pal.gold, Color.black.WithAlpha(0.6f));
+            string ecos = string.Format(Strings.HudEcos, ecosEarned);
             Label(new Rect(fx, fy + 128f, w, 40f), ecos, ecosHudStyle, Pal.gold.WithAlpha(0.9f));
             float ew = ecosHudStyle.CalcSize(new GUIContent(ecos)).x;
             Icon(new Rect(fx + w - ew - 40f, fy + 132f, 32f, 32f), HudArt.Soul(), Color.white);
 
-            int streak = game.Run.PerfectStreak;
             if (streak >= 2)
             {
                 // Pops on every new perfect action; brighter the longer it runs.
@@ -1248,14 +1327,14 @@ namespace Shura
                 game.Audio.Play(Sfx.UiMove, 0.5f, 1f, 0f);
             }
             if (input.Submit) ActivateArsenal(arsenalIndex);
-            else if (input.Cancel) game.GoToMainMenu();
+            else if (input.Cancel) game.CancelArsenal();
         }
 
         void ActivateArsenal(int index)
         {
             if (index == ArsenalBackIndex)
             {
-                game.GoToMainMenu();
+                game.CancelArsenal();
                 return;
             }
             if (index == ArsenalStartIndex)

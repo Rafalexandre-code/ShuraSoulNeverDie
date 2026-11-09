@@ -66,7 +66,9 @@ namespace Shura
                 case Game.Mode.MainMenu:
                     if (ShotThenAct("menu", wait))
                     {
-                        if (game.Launch.SteamGuest) game.OpenSteamJoin();
+                        if (remoteDone) Finish("o anfitrião encerrou");
+                        else if (game.Launch.JoinAddress != null) game.JoinByAddress(game.Launch.JoinAddress);
+                        else if (game.Launch.SteamGuest) game.OpenSteamJoin();
                         else if (game.Launch.Host) game.OpenLobby();
                         else if (shots) game.OpenArsenal();
                         else game.StartRun();
@@ -88,18 +90,26 @@ namespace Shura
                     break;
                 case Game.Mode.SteamJoin:
                     // Test guest: refresh until a duel shows up, join it, then just keep the tunnel open.
-                    if (game.Steam.GuestConnected || steamJoinAsked) break;
+                    if (remoteDone && !game.Remote.Active)
+                    {
+                        Finish("o anfitrião encerrou");
+                        break;
+                    }
+                    if (game.Remote.Active || steamJoinAsked || game.Launch.JoinAddress != null) break;
                     if (game.Steam.Lobbies.Count > 0)
                     {
                         steamJoinAsked = true;
                         Debug.Log("[Shura][Auto] entrando na sala Steam de " + game.Steam.Lobbies[0].host);
-                        game.Steam.Join(game.Steam.Lobbies[0].id);
+                        game.JoinSteamLobby(game.Steam.Lobbies[0].id);
                     }
                     else if (!game.Steam.Searching && modeTime > 3f)
                     {
                         modeTime = 0f;
                         game.Steam.RefreshLobbies();
                     }
+                    break;
+                case Game.Mode.Remote:
+                    UpdateRemote();
                     break;
                 case Game.Mode.Route:
                     if (ShotThenAct("route", wait) && game.RouteOptions.Count > 0)
@@ -160,6 +170,32 @@ namespace Shura
             }
 
             if (!finished && elapsed > MaxSeconds) Finish("tempo esgotado");
+        }
+
+        bool remoteDone;
+        float remoteShotTimer;
+        int remoteShots;
+        float remoteLogTimer;
+
+        /// <summary>A native test guest: it plays by itself (RemoteSession.AutoPlay); this takes pictures and logs.</summary>
+        void UpdateRemote()
+        {
+            RemoteSession r = game.Remote;
+            remoteDone = true;
+            remoteLogTimer += Time.unscaledDeltaTime;
+            if (remoteLogTimer > 5f)
+            {
+                remoteLogTimer = 0f;
+                System.Collections.Generic.List<object> me = r.Me;
+                Debug.Log("[Shura][Auto][Remoto] modo=" + r.Mode + " ping=" + Mathf.RoundToInt(r.Ping * 1000f) + "ms atraso=" + Mathf.RoundToInt(r.InterpolationDelayMs) +
+                          "ms jogadores=" + (r.Latest?.P?.Count ?? 0) + " inimigos=" + (r.Latest?.E?.Count ?? 0) +
+                          (me != null ? " vida=" + MiniJson.I(me, 26) + " pos=" + r.OwnPosition.ToString("0.0") : ""));
+            }
+            if (!shots) return;
+            remoteShotTimer += Time.unscaledDeltaTime;
+            if (remoteShotTimer < 3f || remoteShots >= 30) return;
+            remoteShotTimer = 0f;
+            Shot("remote_" + r.Mode + "_" + remoteShots++);
         }
 
         int burstFrames;

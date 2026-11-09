@@ -66,13 +66,13 @@ namespace Shura
         }
 
         /// <summary>The Iai standoff: black bars, silence, one instruction.</summary>
-        void DrawStandoff(Standoff s)
+        void DrawStandoffBars(bool advancing)
         {
             Rect full = FullScreen;
             float bar = 110f;
             DrawRect(new Rect(full.x, full.y, full.width, bar), Color.black.WithAlpha(0.92f));
             DrawRect(new Rect(full.x, full.yMax - bar, full.width, bar), Color.black.WithAlpha(0.92f));
-            if (s.Advancing)
+            if (advancing)
             {
                 float pulse = 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 30f);
                 Label(new Rect(0, full.yMax - bar + 20f, VW, 70f), Strings.HudStandoffNow, roomStyle, Pal.danger.WithAlpha(pulse));

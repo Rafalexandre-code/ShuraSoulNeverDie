@@ -18,7 +18,8 @@ namespace Shura
     public sealed class NetSession
     {
         public const int DefaultPort = 7777;
-        const float SnapshotInterval = 1f / 30f;
+        /// <summary>45 a second: less waiting between what the host sees and what the guests see.</summary>
+        const float SnapshotInterval = 1f / 45f;
         const float IdleSnapshotInterval = 0.1f;
         const float PingInterval = 1f;
 
@@ -52,6 +53,7 @@ namespace Shura
         float pingTimer;
         int sentRoomVersion = -1;
         string roomMessage;
+        int snapshotSeq;
 
         public bool Active { get; private set; }
         public string Error { get; private set; }
@@ -165,7 +167,11 @@ namespace Shura
 
         // ── Per frame ───────────────────────────────────────────────────────────────────
 
-        public void Update(float dt)
+        /// <summary>
+        /// Takes every message that arrived (joins, input, picks). Called before the frame's
+        /// simulation, so a guest's press acts this frame and not the next one.
+        /// </summary>
+        public void Receive()
         {
             if (!Active) return;
             while (server.Inbox.TryDequeue(out WebServer.Event ev))
@@ -183,7 +189,12 @@ namespace Shura
                         break;
                 }
             }
+        }
 
+        public void Update(float dt)
+        {
+            if (!Active) return;
+            Receive();
             PublishRoom();
             pingTimer += dt;
             if (pingTimer >= PingInterval)
@@ -256,6 +267,10 @@ namespace Shura
                     break;
                 case "inv":
                     if (r.joined) SendInventory(r);
+                    break;
+                case "gping":
+                    // A native guest measures its own ping (it predicts its duelist that far ahead).
+                    server.Send(r.id, "{\"t\":\"gpong\",\"c\":" + m.c.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "}");
                     break;
                 case "pong":
                     double now = Time.realtimeSinceStartupAsDouble * 1000.0;
@@ -578,7 +593,15 @@ namespace Shura
             {
                 for (int x = 0; x < l.W; x++) sb.Append(l.IsFloor(x, y) ? '1' : '0');
             }
-            sb.Append("\"}}");
+            sb.Append("\"}");
+            // The native client rebuilds the very same arena from these (statues, lanterns, traps).
+            RoomDef cr = w.CurrentRoom;
+            if (cr != null)
+            {
+                sb.Append(",\"ld\":[").Num(cr.width).Append(',').Num(cr.height).Append(',').Int((int)cr.shape).Append(',').Int(cr.depth).Append(',')
+                  .Int(System.Array.IndexOf(Biomes.All, cr.biome)).Append(',').Str(cr.layoutSeed.ToString()).Append(',').Bool(cr.IsEncounter).Append(']');
+            }
+            sb.Append('}');
             roomMessage = sb.ToString();
             server.Broadcast(roomMessage);
         }
@@ -703,6 +726,12 @@ namespace Shura
             return which == 0 ? p.Weapon.name : p.OtherWeapon.name;
         }
 
+        string WeaponIdOf(PlayerController p, int which)
+        {
+            if (p == game.World.Host && game.Run == null) return which == 0 ? game.Settings.weaponA : game.Settings.weaponB;
+            return which == 0 ? p.Weapon.id : p.OtherWeapon.id;
+        }
+
         bool ReadyOf(PlayerController p)
         {
             foreach (Remote r in remotes.Values)
@@ -718,13 +747,16 @@ namespace Shura
             RunState run = game.Run;
             sb.Clear();
             sb.Append("{\"t\":\"s\",\"m\":").Str(ModeName()).Append(",\"k\":").Int(w.TrapTick).Append(",\"rv\":").Int(w.ArenaVersion);
+            // Sequence and the host's clock: native guests drop stale snapshots and interpolate on the host's timeline.
+            sb.Append(",\"q\":").Int(++snapshotSeq).Append(",\"ht\":").Append((Time.realtimeSinceStartupAsDouble * 1000.0).ToString("0", System.Globalization.CultureInfo.InvariantCulture));
             if (run != null && w.CurrentRoom != null)
             {
                 sb.Append(",\"room\":").Str(string.Format(Strings.HudRoom, run.RoomIndex + 1, w.CurrentRoom.name));
                 sb.Append(",\"wave\":").Str(w.CurrentRoom.waves.Length == 0 ? "" : string.Format(Strings.HudWave, Mathf.Max(1, w.WaveIndex + 1), w.CurrentRoom.waves.Length));
                 sb.Append(",\"fl\":").Int(run.Flow.Level).Append(",\"fp\":").Num(run.Flow.ProgressInLevel)
                   .Append(",\"st\":").Int(run.PerfectStreak).Append(",\"cb\":").Bool(w.ActiveEnemyCount > 0)
-                  .Append(",\"guard\":").Bool(w.CurrentRoom.guardian);
+                  .Append(",\"guard\":").Bool(w.CurrentRoom.guardian)
+                  .Append(",\"ec\":").Int(MetaRules.EcosForRun(run)).Append(",\"fm\":").Int(run.Flow.MaxLevel);
             }
             AppendRoad(w, run);
             // The Iai standoff: [active, advancing, leader x, leader y].
@@ -765,7 +797,9 @@ namespace Shura
                   .Int(b != null ? b.Mon : 0).Append(',').Str(b != null && b.CurseRooms > 0 ? RunCurses.Name(b.Curse) : "").Append(',')
                   .Int(b != null ? b.CurseRooms : 0).Append(',').Bool(w.InZone(ZoneKind.Spores, p.Position)).Append(',')
                   // [58] the other blade's art, [59] state, [60] moving (the HUD portrait's pose).
-                  .Str(b != null ? b.OtherWeapon.art : "").Append(',').Int((int)p.CurrentState).Append(',').Bool(p.Velocity.sqrMagnitude > 0.5f).Append(']');
+                  .Str(b != null ? b.OtherWeapon.art : "").Append(',').Int((int)p.CurrentState).Append(',').Bool(p.Velocity.sqrMagnitude > 0.5f).Append(',')
+                  // [61] blade id, [62] the other blade's id, [63] Links' cycle, [64] Muramasa (the native HUD's belt and status).
+                  .Str(WeaponIdOf(p, 0)).Append(',').Str(WeaponIdOf(p, 1)).Append(',').Bool(p.CycleFramesLeft > 0).Append(',').Bool(b != null && b.Muramasa).Append(']');
             }
             sb.Append("],\"E\":[");
             bool first = true;
@@ -795,7 +829,10 @@ namespace Shura
                 Projectile pr = w.Projectiles[i];
                 if (i > 0) sb.Append(',');
                 sb.Append('[').Num(pr.Position.x).Append(',').Num(pr.Position.y).Append(',').Num(pr.Direction.x).Append(',').Num(pr.Direction.y).Append(',')
-                  .Bool(pr.Reflected).Append(',').Bool(pr.IsArrow).Append(',').Str(pr.Art).Append(']');
+                  .Bool(pr.Reflected).Append(',').Bool(pr.IsArrow).Append(',').Str(pr.Art).Append(',')
+                  // [7] size, [8] art angle, [9] spin, [10] speed, [11] colour, [12] passed the player.
+                  .Num(pr.Size).Append(',').Num(pr.ArtAngle, 1).Append(',').Num(pr.Spin, 0).Append(',').Num(pr.Speed, 1).Append(',')
+                  .Hex(pr.View != null ? pr.View.color : Color.white).Append(',').Bool(pr.PassedPlayer).Append(']');
             }
             sb.Append("],\"B\":[");
             for (int i = 0; i < w.Blasts.Count; i++)
@@ -810,7 +847,8 @@ namespace Shura
             {
                 ItemPickup it = w.Pickups[i];
                 if (i > 0) sb.Append(',');
-                sb.Append('[').Num(it.Position.x).Append(',').Num(it.Position.y).Append(',').Hex(Rarities.Color(it.Item.rarity)).Append(',').Int((int)it.Item.rarity).Append(']');
+                sb.Append('[').Num(it.Position.x).Append(',').Num(it.Position.y).Append(',').Hex(Rarities.Color(it.Item.rarity)).Append(',').Int((int)it.Item.rarity).Append(',')
+                  .Int((int)it.Item.slot).Append(',').Int((int)it.Item.element).Append(']');
             }
             sb.Append("],\"T\":[");
             if (w.Layout != null)

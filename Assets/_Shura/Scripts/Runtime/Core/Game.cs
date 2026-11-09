@@ -32,6 +32,8 @@ namespace Shura
             Route,
             /// <summary>Joining a friend's duel over Steam.</summary>
             SteamJoin,
+            /// <summary>A guest in a friend's duel: the host's game runs it, this window draws it and plays.</summary>
+            Remote,
         }
 
         const int RoomClearDelayFrames = 75;
@@ -71,8 +73,11 @@ namespace Shura
         public NetSession Net { get; private set; }
         /// <summary>Online over the internet through Steam (Spacewar): hosting and joining.</summary>
         public SteamLink Steam { get; private set; }
+        /// <summary>This game as a guest in someone else's duel (native client, no browser).</summary>
+        public RemoteSession Remote { get; private set; }
         bool feelMuted;
         bool arsenalForLobby;
+        bool arsenalForRemote;
 
         /// <summary>While a teammate's moment plays: no hit-stop, shake, slow motion or flashes here.</summary>
         public bool FeelMuted
@@ -165,15 +170,16 @@ namespace Shura
             Feedback = new FeedbackRouter(this);
             Tap = new FeedbackTap(Feedback);
             World = new World(Config, Tap);
+            Tap.Actor = () => World.ActorNetId;
             Net = new NetSession(this, Tap);
             World.RoomClearedEvent += OnRoomCleared;
             World.PlayerDiedEvent += OnPlayerDied;
 
             Steam = new SteamLink();
             Steam.AllowSelf = Launch.SteamGuest;
-            Steam.NoBrowser = Launch.NoBrowser;
             Steam.ListenLocal = Launch.Automated && Launch.Steam;
             if ((!Launch.Automated || Launch.Steam) && !Launch.Headless) Steam.Init();
+            Remote = new RemoteSession(this);
 
             if (Launch.Bot) bot = new BotInput { EncounterLinger = Launch.ShotDir != null ? 150 : 0 };
             if (Launch.Automated) autoDriver = new AutoDriver(this);
@@ -185,7 +191,11 @@ namespace Shura
 
         void Update()
         {
-            Controls.Poll(Config.player, CurrentMode == Mode.Playing && bot == null);
+            bool remotePlay = CurrentMode == Mode.Remote && Remote.Joined && !Remote.InputBlocked && !Remote.Between;
+            Controls.Poll(Config.player, (CurrentMode == Mode.Playing || remotePlay) && bot == null);
+            // Guests' input first (Steam tunnels feed the server): it acts in this very frame.
+            Steam.Update();
+            Net.Receive();
 
             switch (CurrentMode)
             {
@@ -215,15 +225,16 @@ namespace Shura
             // Online, the duel goes on behind the host's menus.
             if (WorldKeepsRunning) Simulate();
 
+            // Right after the simulation: the snapshot leaves as fresh as it can be.
             Net.Update(Time.unscaledDeltaTime);
-            Steam.Update();
+            Remote.Update(Time.unscaledDeltaTime);
             // A Steam invite accepted (or "+connect_lobby" at launch): straight to joining.
             if (Steam.TakeJoinRequest(out Steamworks.CSteamID invite))
             {
                 if (CurrentMode == Mode.MainMenu || CurrentMode == Mode.Title || CurrentMode == Mode.SteamJoin)
                 {
                     SetMode(Mode.SteamJoin);
-                    Steam.Join(invite);
+                    JoinSteamLobby(invite);
                 }
             }
 
@@ -268,6 +279,18 @@ namespace Shura
             bool frozen = Clock.HitstopFrames > 0 || !Simulating;
             World.Render(frozen ? 1f : Clock.Alpha, frozen ? 0f : realDt, ShowHitboxes);
             Vfx.Paused = CurrentMode == Mode.Paused && !WorldKeepsRunning;
+            if (Remote.Joined)
+            {
+                // A guest: the host's duel, posed for this frame; the camera follows this duelist.
+                Remote.Render(realDt);
+                List<object> me = Remote.Me;
+                int flow = me != null ? MiniJson.I(me, 29) : 0;
+                CameraRig.SetZoomOffset(Remote.Between ? 0f : flow * Config.feel.flowZoomPerLevel);
+                if (Remote.HasOwn && !Remote.Between) CameraRig.Follow(Remote.OwnPosition, Remote.Aim, World.Bounds, realDt);
+                else CameraRig.Follow(World.Bounds.center, Vector2.zero, World.Bounds, realDt);
+                CameraRig.Tick(realDt);
+                return;
+            }
             CameraRig.SetZoomOffset(Run != null ? FlowLevel * Config.feel.flowZoomPerLevel : 0f);
             // Outside a run the camera frames the whole arena behind the menus.
             PlayerController focus = World.CameraFocus;
@@ -338,7 +361,17 @@ namespace Shura
         public void OpenArsenal()
         {
             arsenalForLobby = CurrentMode == Mode.Lobby;
+            arsenalForRemote = CurrentMode == Mode.Remote;
             SetMode(Mode.Arsenal);
+        }
+
+        /// <summary>Back from the arsenal without choosing: to wherever it was opened from.</summary>
+        public void CancelArsenal()
+        {
+            if (arsenalForRemote && Remote.Joined) SetMode(Mode.Remote);
+            else if (arsenalForLobby && Net.Active) SetMode(Mode.Lobby);
+            else SetMode(Mode.MainMenu);
+            arsenalForLobby = arsenalForRemote = false;
         }
 
         // ── Online ────────────────────────────────────────────────────────────────────
@@ -376,6 +409,13 @@ namespace Shura
             Settings.weaponA = weaponA;
             Settings.weaponB = weaponB;
             if (!Launch.Automated) Settings.Save();
+            if (arsenalForRemote && Remote.Joined)
+            {
+                arsenalForRemote = false;
+                SetMode(Mode.Remote);
+                Remote.SendLoadout();
+                return;
+            }
             if (arsenalForLobby && Net.Active)
             {
                 arsenalForLobby = false;
@@ -422,7 +462,7 @@ namespace Shura
         }
 
         /// <summary>Settings opened from the pause menu sit over the frozen game, not the title painting.</summary>
-        public bool SettingsFromPause => settingsReturnMode == Mode.Paused;
+        public bool SettingsFromPause => settingsReturnMode == Mode.Paused || settingsReturnMode == Mode.Remote;
 
         public void OpenSettings()
         {
@@ -777,6 +817,16 @@ namespace Shura
 
         void UpdateMusic()
         {
+            if (Remote.Joined)
+            {
+                RemoteSession.Snap s = Remote.Latest;
+                bool fight = s != null && !Remote.Between && MiniJson.I(s.d, "cb") != 0;
+                List<object> me = Remote.Me;
+                int lvl = me != null ? MiniJson.I(me, 29) : 0;
+                Audio.SetMusicMood(fight ? 0f : Remote.Between ? 0.55f : 0.6f, fight ? (lvl >= 2 ? 0.8f : 0.7f) : 0f);
+                Audio.MusicMuffled = !Remote.Between && ((me != null && MiniJson.B(me, 44)) || (s != null && s.so != null && MiniJson.B(s.so, 0)));
+                return;
+            }
             bool inRun = CurrentMode == Mode.Playing || CurrentMode == Mode.Paused || CurrentMode == Mode.Reward || CurrentMode == Mode.Equipment || CurrentMode == Mode.Route;
             bool menu = CurrentMode == Mode.Title || CurrentMode == Mode.MainMenu ||
                         CurrentMode == Mode.Settings || CurrentMode == Mode.Credits || CurrentMode == Mode.Altar || CurrentMode == Mode.Arsenal;
@@ -799,18 +849,64 @@ namespace Shura
 
         public void OpenSteamJoin()
         {
+            Remote.LastError = null;
             SetMode(Mode.SteamJoin);
             Steam.RefreshLobbies();
         }
 
         public void CloseSteamJoin()
         {
+            Remote.Leave(false);
             Steam.LeaveGuest();
             SetMode(Mode.MainMenu);
         }
 
+        /// <summary>Into a friend's Steam lobby; this window becomes the game once the host welcomes us.</summary>
+        public void JoinSteamLobby(Steamworks.CSteamID lobby)
+        {
+            Remote.Begin(new SteamRemoteLink(Steam));
+            Steam.Join(lobby);
+        }
+
+        /// <summary>Straight to a host on the same network or Radmin VPN ("192.168.0.10" or "26.1.2.3:7777").</summary>
+        public void JoinByAddress(string address)
+        {
+            address = (address ?? "").Trim();
+            if (address.StartsWith("http://")) address = address.Substring(7);
+            address = address.TrimEnd('/');
+            if (address.Length == 0) return;
+            if (address.IndexOf(':') < 0) address += ":" + NetSession.DefaultPort;
+            if (CurrentMode != Mode.SteamJoin) SetMode(Mode.SteamJoin);
+            Remote.Begin(new SocketRemoteLink(address));
+        }
+
+        /// <summary>The host welcomed this guest: the duel takes the window.</summary>
+        public void OnRemoteJoined()
+        {
+            Vfx.Clear();
+            Vfx.ClearDecals();
+            SetMode(Mode.Remote);
+            UI.OnRemoteJoined();
+        }
+
+        /// <summary>The duel is over for this guest (left, lost, or full): back to the menus.</summary>
+        public void OnRemoteEnded()
+        {
+            arsenalForRemote = false;
+            if (settingsReturnMode == Mode.Remote) settingsReturnMode = Mode.MainMenu;
+            Vfx.Clear();
+            Vfx.ClearDecals();
+            if (CurrentMode != Mode.SteamJoin) SetMode(Mode.MainMenu);
+        }
+
+        public void LeaveRemote()
+        {
+            Remote.Leave();
+        }
+
         void OnApplicationQuit()
         {
+            Remote?.Leave(false);
             Net?.Stop();
             Steam?.Shutdown();
         }

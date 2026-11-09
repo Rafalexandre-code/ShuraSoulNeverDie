@@ -55,6 +55,12 @@ namespace Shura
         public bool EquipmentPressed { get; private set; }
         public int NavX { get; private set; }
         public int NavY { get; private set; }
+        /// <summary>
+        /// Every gameplay press ever made, per action (attack, parry, dodge, swap, detonate, kiai,
+        /// tool, tool cycle, gourd, bandage): a guest sends these counters to the host, so a
+        /// lost packet can never lose a press.
+        /// </summary>
+        public readonly int[] PressCounts = new int[10];
 
         /// <summary>Screen → world conversion, provided by the camera.</summary>
         public Func<Vector2, Vector2> ScreenToWorld { get; set; }
@@ -202,6 +208,7 @@ namespace Shura
             UpdateNavigation();
 
             if (!gameplayActive) return;
+            CountPresses();
             if (attack.WasPressedThisFrame()) Buffer.Press(BufferedAction.Attack, tuning.actionBufferFrames);
             if (dodge.WasPressedThisFrame()) Buffer.Press(BufferedAction.Dodge, tuning.actionBufferFrames);
             if (parry.WasPressedThisFrame()) Buffer.Press(BufferedAction.Parry, tuning.parryBufferFrames);
@@ -215,6 +222,15 @@ namespace Shura
             for (int k = 0; k < 4; k++)
             {
                 if (kamae[k].WasPressedThisFrame()) pendingKamae = k;
+            }
+        }
+
+        void CountPresses()
+        {
+            InputAction[] order = { attack, parry, dodge, swap, detonate, kiai, tool, toolCycle, gourd, bandage };
+            for (int i = 0; i < order.Length; i++)
+            {
+                if (order[i].WasPressedThisFrame()) PressCounts[i]++;
             }
         }
 

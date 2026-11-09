@@ -31,6 +31,8 @@ namespace Shura
         public string playerName = "Anfitrião";
         /// <summary>Which samurai the host plays (index into PlayerController.PartyArt).</summary>
         public int playerArt;
+        /// <summary>The last host typed in "Entrar por IP".</summary>
+        public string lastAddress = string.Empty;
 
         public static GameSettings Load()
         {

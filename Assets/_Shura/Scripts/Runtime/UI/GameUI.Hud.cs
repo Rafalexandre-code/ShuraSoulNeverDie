@@ -28,9 +28,10 @@ namespace Shura
         const int LogShown = 8;
 
         /// <summary>During a run, notices go to the log; on menus they still appear as toasts.</summary>
-        bool LogsNotices => game.Run != null &&
-                            (game.CurrentMode == Game.Mode.Playing || game.CurrentMode == Game.Mode.Paused || game.CurrentMode == Game.Mode.Reward ||
-                             game.CurrentMode == Game.Mode.Route || game.CurrentMode == Game.Mode.Equipment);
+        bool LogsNotices => (game.Run != null &&
+                             (game.CurrentMode == Game.Mode.Playing || game.CurrentMode == Game.Mode.Paused || game.CurrentMode == Game.Mode.Reward ||
+                              game.CurrentMode == Game.Mode.Route || game.CurrentMode == Game.Mode.Equipment)) ||
+                            (game.Remote.Joined && !game.Remote.Between);
 
         public void Log(string text, Color color)
         {
@@ -41,13 +42,17 @@ namespace Shura
                 log[log.Count - 1].born = Time.unscaledTime;
                 return;
             }
-            float t = game.Run != null ? game.Run.Elapsed : 0f;
+            float t = game.Run != null ? game.Run.Elapsed : Time.unscaledTime - logEpoch;
             int s = Mathf.FloorToInt(t);
             log.Add(new LogEntry { text = text, color = color, born = Time.unscaledTime, stamp = (s / 60).ToString("00") + ":" + (s % 60).ToString("00") });
             if (log.Count > LogKeep) log.RemoveAt(0);
         }
 
-        public void ClearLog() => log.Clear();
+        public void ClearLog()
+        {
+            log.Clear();
+            logEpoch = Time.unscaledTime;
+        }
 
         GUIStyle logStyle;
 
@@ -94,6 +99,126 @@ namespace Shura
             }
         }
 
+        // ── What the HUD shows ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// One duelist as the HUD reads them: filled from the local player, or from the host's
+        /// snapshot when this game is a guest in a friend's duel. The drawing never touches
+        /// the simulation, so both look exactly the same.
+        /// </summary>
+        public sealed class HudData
+        {
+            public string name = "";
+            public int art;
+            public bool alive = true;
+            public float health = 1f, maxHealth = 1f, posture, stamina = 1f;
+            public bool exhausted, asura, mushin, moving, cycle, muramasa;
+            public float shura;
+            public int shuraLevel;
+            public Kamae stance = Kamae.Chudan;
+            public float dodge;
+            public int maxDodge;
+            public int charge;
+            public string curse;
+            public int curseRooms;
+            public int woundMask;
+            public PlayerController.State state;
+            /// <summary>The blade in hand.</summary>
+            public WeaponDef weapon = WeaponDefs.Katana;
+            /// <summary>The two blades as the belt shows them, and which one is in hand.</summary>
+            public readonly WeaponDef[] belt = { WeaponDefs.Katana, WeaponDefs.Montante };
+            public int activeSlot;
+            public int flow;
+            public int sips, maxSips, bandages, papers, mon;
+            public ToolKind tool;
+            public bool hasBuild = true;
+
+            public bool HasWound(WoundRegion r) => (woundMask & (1 << (int)r)) != 0;
+
+            public void From(PlayerController p)
+            {
+                PlayerBuild b = p.Build;
+                name = p.DisplayName;
+                art = p.ArtIndex;
+                alive = p.IsAlive;
+                health = p.Health;
+                maxHealth = Mathf.Max(1f, p.MaxHealth);
+                posture = p.Posture.Ratio;
+                stamina = p.Stamina / PlayerController.MaxStamina;
+                exhausted = p.Exhausted;
+                asura = p.InAsura;
+                mushin = p.InMushin;
+                moving = p.Velocity.sqrMagnitude > 0.5f;
+                cycle = p.CycleFramesLeft > 0;
+                shura = b != null ? b.Shura / ShuraRules.Max : 0f;
+                shuraLevel = p.ShuraLevel;
+                stance = p.Stance;
+                dodge = p.DodgeCharges;
+                maxDodge = p.MaxDodgeCharges;
+                charge = p.Charge;
+                woundMask = p.WoundMask;
+                state = p.CurrentState;
+                weapon = p.Weapon;
+                hasBuild = b != null;
+                flow = b != null ? b.Flow.Level : 0;
+                curse = b != null && b.CurseRooms > 0 ? RunCurses.Name(b.Curse) : null;
+                curseRooms = b != null ? b.CurseRooms : 0;
+                muramasa = b != null && b.Muramasa;
+                sips = p.Sips;
+                maxSips = p.MaxSips;
+                if (b == null) return;
+                belt[0] = b.Weapons[0] ?? WeaponDefs.Katana;
+                belt[1] = b.Weapons[1] ?? WeaponDefs.Montante;
+                activeSlot = b.ActiveWeapon;
+                bandages = b.Bandages;
+                papers = b.SpiritPapers;
+                mon = b.Mon;
+                tool = b.Tool;
+            }
+
+            /// <summary>A row of the host's snapshot ("P"), as NetSession writes it.</summary>
+            public void FromRow(List<object> r)
+            {
+                name = MiniJson.S(r, 1);
+                art = MiniJson.I(r, 33);
+                alive = MiniJson.B(r, 21);
+                maxHealth = Mathf.Max(1f, MiniJson.F(r, 27, 1f));
+                health = MiniJson.F(r, 26);
+                posture = MiniJson.F(r, 18);
+                dodge = MiniJson.F(r, 19);
+                maxDodge = MiniJson.I(r, 20);
+                flow = MiniJson.I(r, 29);
+                stamina = MiniJson.F(r, 34, 1f);
+                exhausted = MiniJson.B(r, 35);
+                shura = MiniJson.F(r, 36);
+                shuraLevel = MiniJson.I(r, 37);
+                stance = (Kamae)Mathf.Clamp(MiniJson.I(r, 38), 0, 3);
+                sips = MiniJson.I(r, 39);
+                maxSips = MiniJson.I(r, 40);
+                tool = (ToolKind)Mathf.Clamp(MiniJson.I(r, 41), 0, PlayerController.ToolNames.Length - 1);
+                papers = MiniJson.I(r, 42);
+                woundMask = MiniJson.I(r, 43);
+                mushin = MiniJson.B(r, 44);
+                asura = MiniJson.B(r, 45);
+                charge = MiniJson.I(r, 52);
+                bandages = MiniJson.I(r, 53);
+                mon = MiniJson.I(r, 54);
+                string c = MiniJson.S(r, 55);
+                curse = string.IsNullOrEmpty(c) ? null : c;
+                curseRooms = MiniJson.I(r, 56);
+                state = (PlayerController.State)MiniJson.I(r, 59);
+                moving = MiniJson.B(r, 60);
+                string a = MiniJson.S(r, 61), o = MiniJson.S(r, 62);
+                weapon = WeaponDefs.Exists(a) ? WeaponDefs.Get(a) : WeaponDefs.Katana;
+                belt[0] = weapon;
+                belt[1] = WeaponDefs.Exists(o) ? WeaponDefs.Get(o) : WeaponDefs.Montante;
+                activeSlot = 0;
+                cycle = MiniJson.B(r, 63);
+                muramasa = MiniJson.B(r, 64);
+                hasBuild = true;
+            }
+        }
+
         // ── The duelist's card ───────────────────────────────────────────────────────
 
         static readonly string[] KamaeKanji = { "上段", "中段", "下段", "脇構" };
@@ -102,36 +227,36 @@ namespace Shura
         /// <summary>Where the hands hold the grip, as a fraction of the body sprite (x from left, y from top).</summary>
         static readonly Vector2[] KamaeHands = { new Vector2(0.48f, 0.2f), new Vector2(0.66f, 0.58f), new Vector2(0.62f, 0.66f), new Vector2(0.34f, 0.66f) };
 
-        void DrawDuelistCard(PlayerController p, RunState run)
+        void DrawDuelistCard(HudData p)
         {
             var card = new Rect(8f, 4f, 632f, 330f);
             kit.InkPanel(card, 0.86f);
 
             // Medallion with the duelist in their guard.
             var med = new Rect(30f, 26f, 196f, 196f);
-            int flow = p.Build != null ? p.Build.Flow.Level : 0;
-            Color ring = p.InAsura ? Pal.shu : flow > 0 ? Pal.gold : UiKit.PaperDim.WithAlpha(0.55f);
+            int flow = p.flow;
+            Color ring = p.asura ? Pal.shu : flow > 0 ? Pal.gold : UiKit.PaperDim.WithAlpha(0.55f);
             kit.Dab(new Rect(med.x + 8f, med.y + 8f, med.width - 16f, med.height - 16f), new Color(0.05f, 0.04f, 0.06f, 0.85f));
             DrawPortrait(new Rect(med.x + 18f, med.y + 10f, med.width - 36f, med.height - 28f), p);
             kit.Enso(new Rect(med.x - 6f, med.y - 6f, med.width + 12f, med.height + 12f), ring, Time.unscaledTime * (6f + 10f * flow));
-            int k = (int)p.Stance;
-            Label(new Rect(med.x - 10f, med.yMax - 10f, med.width + 20f, 34f), KamaeKanji[k] + "  " + PlayerController.KamaeName(p.Stance), capsCenterStyle, Pal.playerAccent);
+            int k = (int)p.stance;
+            Label(new Rect(med.x - 10f, med.yMax - 10f, med.width + 20f, 34f), KamaeKanji[k] + "  " + PlayerController.KamaeName(p.stance), capsCenterStyle, Pal.playerAccent);
             DrawStanceRow(new Rect(med.x - 10f, med.yMax + 26f, med.width + 20f, 64f), p);
 
             // Name and the four meters.
             float x = 252f, w = 300f;
-            Label(new Rect(x, 16f, w + 60f, 44f), p.DisplayName, weaponHudStyle, UiKit.PaperText);
+            Label(new Rect(x, 16f, w + 60f, 44f), p.name, weaponHudStyle, UiKit.PaperText);
             DrawRect(new Rect(x, 56f, w, 2f), Pal.gold.WithAlpha(0.3f));
-            float lowHp = p.Health / p.MaxHealth < 0.3f ? 1f + 0.15f * Mathf.Sin(Time.unscaledTime * 10f) : 1f;
+            float lowHp = p.health / p.maxHealth < 0.3f ? 1f + 0.15f * Mathf.Sin(Time.unscaledTime * 10f) : 1f;
             Icon(new Rect(x - 2f, 61f, 26f * lowHp, 26f * lowHp), HudArt.Heart(), Color.white);
             Label(new Rect(x + 30f, 62f, w, 24f), Strings.HudHealth, capsStyle, UiKit.PaperDim);
-            Label(new Rect(x, 62f, w, 24f), Mathf.CeilToInt(p.Health) + " / " + Mathf.RoundToInt(p.MaxHealth), smallRightStyle, UiKit.PaperText);
-            float hpRatio = Mathf.Clamp01(p.Health / p.MaxHealth);
-            float ghostRatio = Mathf.Clamp01(ghostHp / p.MaxHealth);
+            Label(new Rect(x, 62f, w, 24f), Mathf.CeilToInt(p.health) + " / " + Mathf.RoundToInt(p.maxHealth), smallRightStyle, UiKit.PaperText);
+            float hpRatio = Mathf.Clamp01(p.health / p.maxHealth);
+            float ghostRatio = Mathf.Clamp01(ghostHp / p.maxHealth);
             Color hpColor = hpRatio < 0.3f ? Color.Lerp(UiKit.ShuBright, Color.white, 0.25f + 0.25f * Mathf.Sin(Time.unscaledTime * 8f)) : UiKit.ShuBright;
             kit.Bar(new Rect(x - 8f, 86f, w + 16f, 38f), hpRatio, hpColor, Color.black.WithAlpha(0.7f), ghostRatio, UiKit.PaperText.WithAlpha(0.8f));
 
-            float pr = p.Posture.Ratio;
+            float pr = p.posture;
             Color pc = Color.Lerp(Pal.postureLow, Pal.postureHigh, pr);
             if (pr > 0.8f) pc = Color.Lerp(pc, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 14f));
             Icon(new Rect(x - 2f, 127f, 26f, 26f), HudArt.Tsuba(), pr > 0.8f ? pc : Color.white);
@@ -140,27 +265,27 @@ namespace Shura
 
             // Breath and Shura side by side.
             float half = (w - 20f) * 0.5f;
-            float st = p.Stamina / PlayerController.MaxStamina;
-            Color sc = p.Exhausted ? Color.Lerp(Pal.danger, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 16f)) : Pal.breath;
-            Icon(new Rect(x - 2f, 181f, 24f, 24f), HudArt.Wind(), p.Exhausted ? Pal.danger : Color.white);
-            Label(new Rect(x + 28f, 182f, half, 24f), Strings.HudBreath, capsStyle, p.Exhausted ? Pal.danger : UiKit.PaperDim);
+            float st = p.stamina;
+            Color sc = p.exhausted ? Color.Lerp(Pal.danger, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 16f)) : Pal.breath;
+            Icon(new Rect(x - 2f, 181f, 24f, 24f), HudArt.Wind(), p.exhausted ? Pal.danger : Color.white);
+            Label(new Rect(x + 28f, 182f, half, 24f), Strings.HudBreath, capsStyle, p.exhausted ? Pal.danger : UiKit.PaperDim);
             kit.Bar(new Rect(x - 6f, 206f, half + 6f, 14f), st, sc, Color.black.WithAlpha(0.7f));
-            float sh = p.Build != null ? p.Build.Shura / ShuraRules.Max : 0f;
-            int lvl = p.ShuraLevel;
+            float sh = p.shura;
+            int lvl = p.shuraLevel;
             float sx = x + half + 20f;
             float rage = lvl > 0 ? 1f + 0.08f * lvl * Mathf.Sin(Time.unscaledTime * (4f + 3f * lvl)) : 1f;
             Icon(new Rect(sx - 2f, 181f, 24f * rage, 24f * rage), HudArt.Oni(), lvl > 0 ? Color.white : new Color(1f, 1f, 1f, 0.45f));
             FitLabel(new Rect(sx + 28f, 182f, half - 28f, 24f), lvl > 0 ? Strings.HudShura + " · " + ShuraRules.LevelName(lvl) : Strings.HudShura, capsStyle, lvl > 0 ? Pal.shu : UiKit.PaperDim);
-            Color shc = p.InAsura ? Color.Lerp(Pal.shu, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 10f)) : Pal.shu;
+            Color shc = p.asura ? Color.Lerp(Pal.shu, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 10f)) : Pal.shu;
             kit.Bar(new Rect(sx - 6f, 206f, half + 6f, 14f), sh, shc, Color.black.WithAlpha(0.7f));
 
             // Dodges: wind marks.
             Icon(new Rect(x - 2f, 231f, 24f, 24f), HudArt.Feather(), Color.white);
             Label(new Rect(x + 28f, 232f, 140f, 24f), Strings.HudDodge, capsStyle, UiKit.PaperDim);
-            for (int i = 0; i < p.MaxDodgeCharges; i++)
+            for (int i = 0; i < p.maxDodge; i++)
             {
                 var r = new Rect(x + 130f + i * 36f, 228f, 30f, 30f);
-                float fill = Mathf.Clamp01(p.DodgeCharges - i);
+                float fill = Mathf.Clamp01(p.dodge - i);
                 kit.Enso(r, Pal.playerAccent.WithAlpha(fill >= 1f ? 0.95f : 0.3f), i * 70f);
                 if (fill > 0f) kit.Dab(new Rect(r.x + 8f, r.y + 8f, 14f, 14f), Pal.playerAccent.WithAlpha(fill >= 1f ? 1f : 0.35f));
             }
@@ -168,39 +293,39 @@ namespace Shura
             // Combo charge, the Links' cycle and the curse under the meters.
             string status = null;
             Color statusColor = UiKit.PaperText;
-            if (p.CycleFramesLeft > 0)
+            if (p.cycle)
             {
                 status = Strings.PopupCycle;
                 statusColor = Pal.gold;
             }
-            else if (p.Charge > 0)
+            else if (p.charge > 0)
             {
-                status = string.Format(Strings.PopupCharge, p.Charge);
-                statusColor = p.Weapon.trail;
+                status = string.Format(Strings.PopupCharge, p.charge);
+                statusColor = p.weapon.trail;
             }
-            if (p.Build != null && p.Build.CurseRooms > 0)
+            if (p.curse != null && p.curseRooms > 0)
             {
-                status = (status != null ? status + "  ·  " : "") + RunCurses.Name(p.Build.Curse) + " (" + p.Build.CurseRooms + ")";
+                status = (status != null ? status + "  ·  " : "") + p.curse + " (" + p.curseRooms + ")";
                 statusColor = ColorUtil.Hex("#C08CFF");
             }
-            if (p.Build != null && p.Build.Muramasa) status = (status != null ? status + "  ·  " : "") + "Muramasa";
+            if (p.muramasa) status = (status != null ? status + "  ·  " : "") + "Muramasa";
             if (status != null) FitLabel(new Rect(x, 266f, w + 50f, 30f), status, smallStyle, statusColor);
 
             DrawWoundDoll(new Rect(card.xMax - 66f, 66f, 50f, 90f), p);
         }
 
         /// <summary>The duelist themself, in the pose of their guard, or swinging, dodging, drinking, down.</summary>
-        void DrawPortrait(Rect r, PlayerController p)
+        void DrawPortrait(Rect r, HudData p)
         {
-            CharacterArt art = PixelArt.Character(PlayerController.PartyArt[Mathf.Clamp(p.ArtIndex, 0, PlayerController.PartyArt.Length - 1)]);
+            CharacterArt art = PixelArt.Character(PlayerController.PartyArt[Mathf.Clamp(p.art, 0, PlayerController.PartyArt.Length - 1)]);
             if (art == null) return;
             const int right = (int)ArtDir.Right;
-            PlayerController.State s = p.CurrentState;
+            PlayerController.State s = p.state;
             Sprite body;
             bool attacking = s == PlayerController.State.Attack || s == PlayerController.State.SwapStrike || s == PlayerController.State.Finisher;
             if (s == PlayerController.State.Dead) body = art.dead ?? art.idle[right];
             else if (attacking) body = art.attack[right];
-            else if (s == PlayerController.State.Dodge || p.Velocity.sqrMagnitude > 0.5f)
+            else if (s == PlayerController.State.Dodge || p.moving)
             {
                 Sprite[] walk = art.walk[right];
                 body = walk[Mathf.FloorToInt(Time.unscaledTime * (s == PlayerController.State.Dodge ? 14f : 8f)) % walk.Length];
@@ -218,19 +343,19 @@ namespace Shura
             kit.Dab(new Rect(cell.x + size * 0.2f, cell.yMax - size * 0.1f, size * 0.6f, size * 0.12f), new Color(0f, 0f, 0f, 0.55f));
 
             // The guard's blade (swinging forward while attacking).
-            int k = (int)p.Stance;
+            int k = (int)p.stance;
             float angle = attacking ? Mathf.Lerp(-80f, 40f, Mathf.PingPong(Time.unscaledTime * 6f, 1f)) : KamaeAngle[k];
             if (s == PlayerController.State.Parry || s == PlayerController.State.Swap) angle = -60f;
             Vector2 hands = attacking ? new Vector2(0.7f, 0.5f) : KamaeHands[k];
             var grip = new Vector2(cell.x + hands.x * size, cell.y + hands.y * size);
             bool behind = k == (int)Kamae.Waki && !attacking;
             bool drawBlade = s != PlayerController.State.Dead && s != PlayerController.State.Drink;
-            if (drawBlade && behind) DrawHeldWeapon(p.Weapon, grip, angle, size / 16f);
+            if (drawBlade && behind) DrawHeldWeapon(p.weapon, grip, angle, size / 16f);
 
             Color tint = Color.white;
             if (s == PlayerController.State.Hurt) tint = Color.Lerp(Color.white, Pal.danger, 0.6f);
-            if (p.InAsura) tint = Color.Lerp(tint, Pal.shu, 0.45f + 0.15f * Mathf.Sin(Time.unscaledTime * 9f));
-            if (p.InMushin || s == PlayerController.State.Parry)
+            if (p.asura) tint = Color.Lerp(tint, Pal.shu, 0.45f + 0.15f * Mathf.Sin(Time.unscaledTime * 9f));
+            if (p.mushin || s == PlayerController.State.Parry)
             {
                 Sprite white = s == PlayerController.State.Parry ? art.idleWhite[right] : art.idleWhite[right];
                 float g = 1.08f;
@@ -238,7 +363,7 @@ namespace Shura
                                  (s == PlayerController.State.Parry ? Pal.playerAccent : Pal.gold).WithAlpha(0.5f));
             }
             DrawSpriteTinted(cell, body, tint);
-            if (drawBlade && !behind) DrawHeldWeapon(p.Weapon, grip, angle, size / 16f);
+            if (drawBlade && !behind) DrawHeldWeapon(p.weapon, grip, angle, size / 16f);
             if (s == PlayerController.State.Drink)
             {
                 Sprite gourd = HudArt.Gourd(true);
@@ -278,16 +403,16 @@ namespace Shura
         }
 
         /// <summary>The four guards as small figures of the duelist; the one held is lit.</summary>
-        void DrawStanceRow(Rect r, PlayerController p)
+        void DrawStanceRow(Rect r, HudData p)
         {
-            CharacterArt art = PixelArt.Character(PlayerController.PartyArt[Mathf.Clamp(p.ArtIndex, 0, PlayerController.PartyArt.Length - 1)]);
+            CharacterArt art = PixelArt.Character(PlayerController.PartyArt[Mathf.Clamp(p.art, 0, PlayerController.PartyArt.Length - 1)]);
             if (art == null) return;
             float cw = r.width / 4f;
             bool pad = game.Controls.UsingGamepad;
             string[] keys = pad ? new[] { "↑", "→", "↓", "←" } : new[] { "1", "2", "3", "4" };
             for (int i = 0; i < 4; i++)
             {
-                bool on = (int)p.Stance == i;
+                bool on = (int)p.stance == i;
                 Color c = on ? Pal.gold : UiKit.PaperDim.WithAlpha(0.4f);
                 var cell = new Rect(r.x + i * cw + (cw - 44f) * 0.5f, r.y, 44f, 44f);
                 if (on) kit.Dab(new Rect(cell.x - 6f, cell.y - 4f, 56f, 52f), Pal.gold.WithAlpha(0.18f));
@@ -306,7 +431,7 @@ namespace Shura
         }
 
         /// <summary>A paper doll: the regions lit red are wounded (the eyes, when blinded).</summary>
-        void DrawWoundDoll(Rect r, PlayerController p)
+        void DrawWoundDoll(Rect r, HudData p)
         {
             Color ok = UiKit.PaperDim.WithAlpha(0.45f);
             Color hurt = Color.Lerp(Pal.danger, Color.white, 0.15f + 0.15f * Mathf.Sin(Time.unscaledTime * 6f));
@@ -315,15 +440,14 @@ namespace Shura
             DrawSpriteTinted(r, HudArt.DollPart('A'), p.HasWound(WoundRegion.Arm) ? hurt : ok);
             DrawSpriteTinted(r, HudArt.DollPart('L'), p.HasWound(WoundRegion.Leg) ? hurt : ok);
             DrawSpriteTinted(r, HudArt.DollPart('E'), p.HasWound(WoundRegion.Eyes) ? hurt : new Color(0.1f, 0.1f, 0.12f, 0.9f));
-            if (p.WoundMask != 0) Label(new Rect(r.x - 30f, r.yMax + 2f, r.width + 60f, 22f), Strings.HudWounded, capsCenterStyle, Pal.danger);
+            if (p.woundMask != 0) Label(new Rect(r.x - 30f, r.yMax + 2f, r.width + 60f, 22f), Strings.HudWounded, capsCenterStyle, Pal.danger);
         }
 
         // ── The belt ─────────────────────────────────────────────────────────────────
 
-        void DrawBelt(PlayerController p, RunState run)
+        void DrawBelt(HudData p)
         {
-            PlayerBuild b = p.Build;
-            if (b == null) return;
+            if (!p.hasBuild) return;
             bool pad = game.Controls.UsingGamepad;
             var belt = new Rect(8f, VH - 150f, 900f, 142f);
             kit.InkPanel(belt, 0.86f);
@@ -332,15 +456,15 @@ namespace Shura
             // Two blades: the one in hand lit, the other with its swap key.
             for (int i = 0; i < 2; i++)
             {
-                WeaponDef w = b.Weapons[i] ?? WeaponDefs.Katana;
-                bool active = i == b.ActiveWeapon;
+                WeaponDef w = p.belt[i] ?? WeaponDefs.Katana;
+                bool active = i == p.activeSlot;
                 var slot = new Rect(x, y, 118f, 106f);
                 Slot(slot, active ? Pal.gold : UiKit.PaperDim.WithAlpha(0.35f), active);
                 DrawWeaponArt(w, new Rect(slot.x + 12f, slot.y + 10f, slot.width - 24f, 54f), active ? Color.white : new Color(1f, 1f, 1f, 0.55f));
                 FitLabel(new Rect(slot.x + 4f, slot.y + 66f, slot.width - 8f, 24f), w.name, smallStyleCenter, active ? UiKit.PaperText : UiKit.PaperDim);
-                if (active && p.Charge > 0)
+                if (active && p.charge > 0)
                 {
-                    for (int c = 0; c < 3; c++) kit.Dab(new Rect(slot.x + 34f + c * 18f, slot.yMax - 16f, 12f, 12f), (c < p.Charge ? w.trail : Color.black).WithAlpha(c < p.Charge ? 1f : 0.5f));
+                    for (int c = 0; c < 3; c++) kit.Dab(new Rect(slot.x + 34f + c * 18f, slot.yMax - 16f, 12f, 12f), (c < p.charge ? w.trail : Color.black).WithAlpha(c < p.charge ? 1f : 0.5f));
                 }
                 if (!active) Key(new Rect(slot.xMax - 30f, slot.y - 8f, 34f, 26f), pad ? "Y" : "Q");
                 x += slot.width + 12f;
@@ -348,13 +472,13 @@ namespace Shura
             x += 14f;
 
             // The gourd: one hyōtan per sip.
-            int sips = p.Sips, max = p.MaxSips;
+            int sips = p.sips, max = p.maxSips;
             var gourds = new Rect(x, y, 30f + max * 40f, 106f);
             Slot(gourds, Pal.blessing.WithAlpha(0.4f), false);
             for (int i = 0; i < max; i++)
             {
                 bool full = i < sips;
-                float wob = full && p.CurrentState == PlayerController.State.Drink && i == sips - 1 ? Mathf.Sin(Time.unscaledTime * 20f) * 3f : 0f;
+                float wob = full && p.state == PlayerController.State.Drink && i == sips - 1 ? Mathf.Sin(Time.unscaledTime * 20f) * 3f : 0f;
                 DrawSpriteTinted(new Rect(gourds.x + 15f + i * 40f, gourds.y + 12f + wob, 38f, 56f), HudArt.Gourd(full), Color.white);
             }
             Label(new Rect(gourds.x, gourds.y + 72f, gourds.width, 26f), Strings.HudGourd, capsCenterStyle, sips > 0 ? Pal.blessing : UiKit.PaperDim);
@@ -364,25 +488,25 @@ namespace Shura
             // Bandages.
             var band = new Rect(x, y, 96f, 106f);
             Slot(band, UiKit.PaperDim.WithAlpha(0.35f), false);
-            DrawSpriteTinted(new Rect(band.x + 22f, band.y + 14f, 52f, 44f), HudArt.Bandage(), b.Bandages > 0 ? Color.white : new Color(1f, 1f, 1f, 0.35f));
-            Label(new Rect(band.x, band.y + 62f, band.width, 30f), "× " + b.Bandages, cardKindStyleSmall, b.Bandages > 0 ? UiKit.PaperText : UiKit.PaperDim);
+            DrawSpriteTinted(new Rect(band.x + 22f, band.y + 14f, 52f, 44f), HudArt.Bandage(), p.bandages > 0 ? Color.white : new Color(1f, 1f, 1f, 0.35f));
+            Label(new Rect(band.x, band.y + 62f, band.width, 30f), "× " + p.bandages, cardKindStyleSmall, p.bandages > 0 ? UiKit.PaperText : UiKit.PaperDim);
             Key(new Rect(band.xMax - 30f, band.y - 8f, 34f, 26f), pad ? "L3" : "H");
             x = band.xMax + 12f;
 
             // The tool and its spirit papers.
             var tool = new Rect(x, y, 196f, 106f);
             Slot(tool, Pal.gold.WithAlpha(0.35f), false);
-            DrawSpriteTinted(new Rect(tool.x + 14f, tool.y + 12f, 56f, 56f), HudArt.Tool(b.Tool), Color.white);
-            FitLabel(new Rect(tool.x + 6f, tool.y + 72f, 110f, 26f), PlayerController.ToolNames[(int)b.Tool], smallStyleCenter, UiKit.PaperText);
-            DrawSpriteTinted(new Rect(tool.x + 122f, tool.y + 14f, 30f, 52f), HudArt.Ofuda(), b.SpiritPapers > 0 ? Color.white : new Color(1f, 1f, 1f, 0.35f));
-            Label(new Rect(tool.x + 112f, tool.y + 66f, 80f, 30f), "× " + b.SpiritPapers, cardKindStyleSmall, b.SpiritPapers > 0 ? UiKit.PaperText : Pal.danger);
+            DrawSpriteTinted(new Rect(tool.x + 14f, tool.y + 12f, 56f, 56f), HudArt.Tool(p.tool), Color.white);
+            FitLabel(new Rect(tool.x + 6f, tool.y + 72f, 110f, 26f), PlayerController.ToolNames[(int)p.tool], smallStyleCenter, UiKit.PaperText);
+            DrawSpriteTinted(new Rect(tool.x + 122f, tool.y + 14f, 30f, 52f), HudArt.Ofuda(), p.papers > 0 ? Color.white : new Color(1f, 1f, 1f, 0.35f));
+            Label(new Rect(tool.x + 112f, tool.y + 66f, 80f, 30f), "× " + p.papers, cardKindStyleSmall, p.papers > 0 ? UiKit.PaperText : Pal.danger);
             Key(new Rect(tool.xMax - 66f, tool.y - 8f, 34f, 26f), pad ? "LT" : "T");
             Key(new Rect(tool.xMax - 30f, tool.y - 8f, 34f, 26f), pad ? "RT" : "R");
             x = tool.xMax + 18f;
 
             // The purse.
             DrawSpriteTinted(new Rect(x, y + 20f, 40f, 40f), HudArt.Coin(), Color.white);
-            Label(new Rect(x - 20f, y + 64f, 80f, 30f), b.Mon.ToString(), cardKindStyleSmall, Pal.gold);
+            Label(new Rect(x - 20f, y + 64f, 80f, 30f), p.mon.ToString(), cardKindStyleSmall, Pal.gold);
             Label(new Rect(x - 20f, y - 6f, 80f, 24f), "MON", capsCenterStyle, UiKit.PaperDim);
         }
 

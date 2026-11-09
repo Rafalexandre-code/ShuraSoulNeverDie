@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using UnityEngine;
 
@@ -6,7 +7,8 @@ namespace Shura
     /// <summary>
     /// Sits between the world and the real feedback router: everything still plays on the
     /// host, and while hosting, each moment (hits, parries, blood, popups, toasts) is also
-    /// written down for the next snapshot so browser players see and hear it too.
+    /// written down for the next snapshot so the other players see and hear it too. Each
+    /// moment carries who caused it, so a guest's screen only freezes and shakes for its own.
     /// </summary>
     public sealed class FeedbackTap : IFeedback
     {
@@ -17,11 +19,15 @@ namespace Shura
         int count;
 
         public bool Recording { get; set; }
+        /// <summary>Who is acting right now (-1 the world, 0 the host, otherwise a guest's id).</summary>
+        public Func<int> Actor { get; set; }
 
         public FeedbackTap(IFeedback inner)
         {
             this.inner = inner;
         }
+
+        int ActorId => Actor != null ? Actor() : -1;
 
         /// <summary>The recorded events as the inside of a JSON array, then cleared.</summary>
         public string Take()
@@ -46,13 +52,13 @@ namespace Shura
             if (type == FxType.TimingCue) return;
             StringBuilder sb = Begin("fx");
             sb?.Str(type.ToString()).Append(',').Num(position.x).Append(',').Num(position.y).Append(',')
-              .Num(direction.x).Append(',').Num(direction.y).Append(',').Num(magnitude).Append(',').Hex(color ?? Color.white).Append(']');
+              .Num(direction.x).Append(',').Num(direction.y).Append(',').Num(magnitude).Append(',').Hex(color ?? Color.white).Append(',').Int(ActorId).Append(']');
         }
 
         public void Popup(string text, Vector2 worldPosition, Color color)
         {
             inner.Popup(text, worldPosition, color);
-            Begin("pop")?.Str(text).Append(',').Num(worldPosition.x).Append(',').Num(worldPosition.y).Append(',').Hex(color).Append(']');
+            Begin("pop")?.Str(text).Append(',').Num(worldPosition.x).Append(',').Num(worldPosition.y).Append(',').Hex(color).Append(',').Int(ActorId).Append(']');
         }
 
         public void Toast(string text, Color color)
@@ -64,6 +70,7 @@ namespace Shura
         public void Hint(HintId hint)
         {
             inner.Hint(hint);
+            Begin("hint")?.Int((int)hint).Append(']');
         }
 
         public void Blood(Vector2 position, Vector2 direction, float amount, Color color)
@@ -77,7 +84,7 @@ namespace Shura
         {
             inner.Gore(style, position, direction, body, bodyColor, blood, radius);
             Begin("gore")?.Str(style.ToString()).Append(',').Num(position.x).Append(',').Num(position.y).Append(',')
-                         .Num(direction.x).Append(',').Num(direction.y).Append(',').Hex(blood).Append(']');
+                         .Num(direction.x).Append(',').Num(direction.y).Append(',').Hex(blood).Append(',').Num(radius).Append(',').Int(ActorId).Append(']');
         }
 
         public void ItemCollected(Item item, bool equipped, Vector2 position)

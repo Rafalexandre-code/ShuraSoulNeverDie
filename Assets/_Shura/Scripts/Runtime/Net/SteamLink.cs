@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
 using Steamworks;
@@ -11,22 +12,26 @@ namespace Shura
     /// <summary>
     /// Online over the internet through Steam (Spacewar, AppID 480: anyone with Steam can use it).
     ///
-    /// The host's game opens a Steam lobby and listens for Steam P2P connections, which go
-    /// through Valve's relay network: no VPN, no open ports, any NAT. A guest's game finds the
-    /// lobby (or accepts an invite), connects, and starts a small local server that serves the
-    /// browser client from its own files and tunnels only the duel's WebSocket (and the arena
-    /// image) to the host. The guest plays in the browser window it opens — the same client the
-    /// local-network online uses, so everything online already does works here too.
+    /// The host's game opens a Steam lobby and listens for Steam P2P connections. A guest's
+    /// game finds the lobby (or accepts an invite), connects, and plays in its own window: the
+    /// native client (<see cref="RemoteSession"/>) draws the host's duel and sends its input.
+    ///
+    /// Latency comes first:
+    ///   * ICE is enabled, so two PCs talk directly whenever their NATs allow it; Valve's relay
+    ///     is only the fallback (it never needs open ports or a VPN).
+    ///   * Nothing waits for Nagle: every message leaves at once.
+    ///   * Snapshots and input go unreliable (a newer one replaces a lost one, and nothing
+    ///     queues behind a retransmission); everything else is reliable.
+    ///   * Large texts (snapshots) are deflated: 4–5× fewer bytes, fewer fragments to lose.
     ///
     /// Wire format: one Steam message per frame, first byte the kind —
-    /// 'O' open (guest → host), 'T' text (both ways), 'C' close, 'P' arena image chunk.
+    /// 'O' open (guest → host), 'T' text, 'Z' deflated text, 'C' close.
     /// </summary>
     public sealed class SteamLink
     {
         public const uint SpacewarAppId = 480;
         const string LobbyKey = "shura";
-        const int ProxyFirstPort = 7790;
-        const int PngChunk = 300 * 1024;
+        const int CompressAbove = 600;
 
         public struct LobbyInfo
         {
@@ -38,23 +43,26 @@ namespace Shura
         }
 
         public bool Ready { get; private set; }
-        /// <summary>Tests: a guest may join a lobby of its own account (two copies on one PC).</summary>
-        public bool AllowSelf { get; set; }
-        /// <summary>Tests: do not open the system browser for the guest.</summary>
-        public bool NoBrowser { get; set; }
-        /// <summary>Tests: the host also listens on 127.0.0.1 (Steam will not connect an account to itself P2P).</summary>
-        public bool ListenLocal { get; set; }
-        const ushort LocalTestPort = 27020;
-        HSteamListenSocket listenLocal = HSteamListenSocket.Invalid;
         public string Status { get; private set; } = string.Empty;
         public bool Hosting => lobby.IsValid() && hostServer != null;
         public bool Searching { get; private set; }
         public bool GuestConnected { get; private set; }
-        public string ProxyUrl { get; private set; }
         public string JoinedHost { get; private set; }
         public readonly List<LobbyInfo> Lobbies = new List<LobbyInfo>();
+        /// <summary>Tests: a guest may join a lobby of its own account (two copies on one PC).</summary>
+        public bool AllowSelf { get; set; }
+        /// <summary>Tests: the host also listens on 127.0.0.1 (Steam will not connect an account to itself P2P).</summary>
+        public bool ListenLocal { get; set; }
+        const ushort LocalTestPort = 27020;
+
         /// <summary>The lobby list or the connection changed: menus rebuild.</summary>
         public event Action Changed;
+        /// <summary>Guest: the tunnel to the host is up (send "join" now).</summary>
+        public event Action GuestOpened;
+        /// <summary>Guest: a text message from the host.</summary>
+        public event Action<string> GuestText;
+        /// <summary>Guest: the host is gone.</summary>
+        public event Action GuestLost;
 
         Callback<SteamNetConnectionStatusChangedCallback_t> statusCallback;
         Callback<GameLobbyJoinRequested_t> joinRequested;
@@ -66,16 +74,13 @@ namespace Shura
         // Host side.
         CSteamID lobby = CSteamID.Nil;
         HSteamListenSocket listen = HSteamListenSocket.Invalid;
+        HSteamListenSocket listenLocal = HSteamListenSocket.Invalid;
         WebServer hostServer;
         readonly Dictionary<HSteamNetConnection, Peer> peers = new Dictionary<HSteamNetConnection, Peer>();
 
         // Guest side.
         HSteamNetConnection guest = HSteamNetConnection.Invalid;
         CSteamID guestLobby = CSteamID.Nil;
-        WebServer proxy;
-        byte[][] pngParts;
-        int pngReceived;
-        byte[] pendingPng;
 
         static readonly IntPtr[] Messages = new IntPtr[64];
 
@@ -87,7 +92,7 @@ namespace Shura
             public int pipe = -1;
 
             public void Deliver(string text) => link.SendText(conn, text);
-            public void Close() => link.SendKind(conn, (byte)'C');
+            public void Close() => SendRaw(conn, new[] { (byte)'C' }, true);
         }
 
         // ── Lifecycle ───────────────────────────────────────────────────────────────────
@@ -111,6 +116,8 @@ namespace Shura
                 return false;
             }
             SteamNetworkingUtils.InitRelayNetworkAccess();
+            // Direct connections whenever the two networks allow it (lower ping than the relay).
+            SetGlobalInt(ESteamNetworkingConfigValue.k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, Constants.k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All);
             statusCallback = Callback<SteamNetConnectionStatusChangedCallback_t>.Create(OnConnectionStatus);
             joinRequested = Callback<GameLobbyJoinRequested_t>.Create(r => pendingJoin = r.m_steamIDLobby);
             lobbyCreated = CallResult<LobbyCreated_t>.Create(OnLobbyCreated);
@@ -125,6 +132,21 @@ namespace Shura
             Status = string.Format(Strings.SteamReady, SteamFriends.GetPersonaName());
             Debug.Log("[Shura][Steam] Steam pronta como " + SteamFriends.GetPersonaName());
             return true;
+        }
+
+        static void SetGlobalInt(ESteamNetworkingConfigValue key, int value)
+        {
+            IntPtr p = Marshal.AllocHGlobal(4);
+            try
+            {
+                Marshal.WriteInt32(p, value);
+                SteamNetworkingUtils.SetConfigValue(key, ESteamNetworkingConfigScope.k_ESteamNetworkingConfig_Global, IntPtr.Zero,
+                                                    ESteamNetworkingConfigDataType.k_ESteamNetworkingConfig_Int32, p);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(p);
+            }
         }
 
         /// <summary>Outside Steam, the API finds the app id in steam_appid.txt next to the game.</summary>
@@ -148,12 +170,8 @@ namespace Shura
         {
             if (!Ready) return;
             SteamAPI.RunCallbacks();
-            foreach (Peer p in peers.Values)
-            {
-                Pump(p.conn, data => OnHostMessage(p, data));
-            }
+            foreach (Peer p in peers.Values) Pump(p.conn, data => OnHostMessage(p, data));
             if (guest != HSteamNetConnection.Invalid) Pump(guest, OnGuestMessage);
-            PumpProxy();
         }
 
         /// <summary>A Steam invite (or "+connect_lobby") waiting to be answered by the menus.</summary>
@@ -179,7 +197,6 @@ namespace Shura
         {
             if (!Ready || server == null || Hosting) return;
             hostServer = server;
-            hostServer.DynamicChanged += OnDynamicChanged;
             listen = SteamNetworkingSockets.CreateListenSocketP2P(0, 0, null);
             if (ListenLocal)
             {
@@ -230,7 +247,6 @@ namespace Shura
             listenLocal = HSteamListenSocket.Invalid;
             if (lobby.IsValid()) SteamMatchmaking.LeaveLobby(lobby);
             lobby = CSteamID.Nil;
-            if (hostServer != null) hostServer.DynamicChanged -= OnDynamicChanged;
             hostServer = null;
             SteamFriends.ClearRichPresence();
             Status = string.Format(Strings.SteamReady, SteamFriends.GetPersonaName());
@@ -243,8 +259,6 @@ namespace Shura
             {
                 case 'O':
                     if (p.pipe >= 0) hostServer.DetachPipe(p.pipe);
-                    // The arena image first, so the room message finds it waiting.
-                    SendPng(p.conn, hostServer.Dynamic);
                     p.pipe = hostServer.AttachPipe(p, "Steam · " + p.name);
                     break;
                 case 'T':
@@ -254,28 +268,6 @@ namespace Shura
                     if (p.pipe >= 0) hostServer.DetachPipe(p.pipe);
                     p.pipe = -1;
                     break;
-            }
-        }
-
-        void OnDynamicChanged(Dictionary<string, byte[]> files)
-        {
-            foreach (Peer p in peers.Values) SendPng(p.conn, files);
-        }
-
-        void SendPng(HSteamNetConnection conn, Dictionary<string, byte[]> files)
-        {
-            if (files == null || !files.TryGetValue("/arena.png", out byte[] png) || png == null) return;
-            int parts = Mathf.Max(1, (png.Length + PngChunk - 1) / PngChunk);
-            for (int i = 0; i < parts; i++)
-            {
-                int offset = i * PngChunk;
-                int len = Mathf.Min(PngChunk, png.Length - offset);
-                var buf = new byte[1 + 8 + len];
-                buf[0] = (byte)'P';
-                BitConverter.GetBytes(parts).CopyTo(buf, 1);
-                BitConverter.GetBytes(i).CopyTo(buf, 5);
-                Buffer.BlockCopy(png, offset, buf, 9, len);
-                SendRaw(conn, buf, true);
             }
         }
 
@@ -328,6 +320,7 @@ namespace Shura
             if (failure || r.m_EChatRoomEnterResponse != (uint)EChatRoomEnterResponse.k_EChatRoomEnterResponseSuccess)
             {
                 Status = Strings.SteamJoinFailed;
+                GuestLost?.Invoke();
                 Changed?.Invoke();
                 return;
             }
@@ -349,56 +342,21 @@ namespace Shura
                 identity.SetSteamID(owner);
                 guest = SteamNetworkingSockets.ConnectP2P(ref identity, 0, 0, null);
             }
-            Debug.Log("[Shura][Steam] conectando P2P a " + owner.m_SteamID + " → " + guest.m_HSteamNetConnection);
+            Debug.Log("[Shura][Steam] conectando a " + owner.m_SteamID + " → " + guest.m_HSteamNetConnection);
             Status = string.Format(Strings.SteamConnecting, JoinedHost);
             Changed?.Invoke();
         }
 
-        void StartProxy()
+        /// <summary>Guest → host. Input goes unreliable and immediate; everything else reliable.</summary>
+        public void SendToHost(string text)
         {
-            string root = Path.Combine(Application.streamingAssetsPath, "web");
-            for (int port = ProxyFirstPort; port < ProxyFirstPort + 10; port++)
-            {
-                var server = new WebServer(root);
-                if (!server.Start(port)) continue;
-                proxy = server;
-                ProxyUrl = "http://127.0.0.1:" + port + "/";
-                break;
-            }
-            if (proxy == null)
-            {
-                Status = Strings.SteamProxyFailed;
-                return;
-            }
-            if (pendingPng != null) proxy.Dynamic = new Dictionary<string, byte[]> { { "/arena.png", pendingPng } };
-            Application.runInBackground = true;
-            OpenBrowser();
-        }
-
-        public void OpenBrowser()
-        {
-            if (!string.IsNullOrEmpty(ProxyUrl) && !NoBrowser) Application.OpenURL(ProxyUrl);
-            Debug.Log("[Shura][Steam] Duelo local em " + ProxyUrl);
-        }
-
-        void PumpProxy()
-        {
-            if (proxy == null || guest == HSteamNetConnection.Invalid) return;
-            while (proxy.Inbox.TryDequeue(out WebServer.Event e))
-            {
-                switch (e.kind)
-                {
-                    case WebServer.EventKind.Connected:
-                        SendKind(guest, (byte)'O');
-                        break;
-                    case WebServer.EventKind.Message:
-                        SendText(guest, e.text);
-                        break;
-                    case WebServer.EventKind.Disconnected:
-                        if (proxy.LocalClientCount == 0) SendKind(guest, (byte)'C');
-                        break;
-                }
-            }
+            if (guest == HSteamNetConnection.Invalid || !GuestConnected) return;
+            byte[] utf8 = Encoding.UTF8.GetBytes(text);
+            var buf = new byte[utf8.Length + 1];
+            buf[0] = (byte)'T';
+            Buffer.BlockCopy(utf8, 0, buf, 1, utf8.Length);
+            bool input = text.StartsWith("{\"t\":\"in\"", StringComparison.Ordinal);
+            SendRaw(guest, buf, !input);
         }
 
         void OnGuestMessage(byte[] data)
@@ -407,30 +365,11 @@ namespace Shura
             switch ((char)data[0])
             {
                 case 'T':
-                    proxy?.Broadcast(Encoding.UTF8.GetString(data, 1, data.Length - 1));
+                    GuestText?.Invoke(Encoding.UTF8.GetString(data, 1, data.Length - 1));
                     break;
-                case 'P':
-                {
-                    if (data.Length < 9) return;
-                    int parts = BitConverter.ToInt32(data, 1), index = BitConverter.ToInt32(data, 5);
-                    if (index == 0 || pngParts == null || pngParts.Length != parts)
-                    {
-                        pngParts = new byte[parts][];
-                        pngReceived = 0;
-                    }
-                    if (index < 0 || index >= parts) return;
-                    var chunk = new byte[data.Length - 9];
-                    Buffer.BlockCopy(data, 9, chunk, 0, chunk.Length);
-                    if (pngParts[index] == null) pngReceived++;
-                    pngParts[index] = chunk;
-                    if (pngReceived < parts) return;
-                    var all = new List<byte>();
-                    foreach (byte[] p in pngParts) all.AddRange(p);
-                    pendingPng = all.ToArray();
-                    if (proxy != null) proxy.Dynamic = new Dictionary<string, byte[]> { { "/arena.png", pendingPng } };
-                    pngParts = null;
+                case 'Z':
+                    GuestText?.Invoke(Inflate(data, 1));
                     break;
-                }
             }
         }
 
@@ -441,11 +380,7 @@ namespace Shura
             guest = HSteamNetConnection.Invalid;
             if (guestLobby.IsValid()) SteamMatchmaking.LeaveLobby(guestLobby);
             guestLobby = CSteamID.Nil;
-            proxy?.Stop();
-            proxy = null;
-            ProxyUrl = null;
             GuestConnected = false;
-            pendingPng = null;
             Status = string.Format(Strings.SteamReady, SteamFriends.GetPersonaName());
         }
 
@@ -458,6 +393,7 @@ namespace Shura
             bool ours = (listen != HSteamListenSocket.Invalid && info.m_hListenSocket == listen) ||
                         (listenLocal != HSteamListenSocket.Invalid && info.m_hListenSocket == listenLocal);
             Debug.Log("[Shura][Steam] conexão " + conn.m_HSteamNetConnection + ": " + info.m_eState + (ours ? " (anfitrião)" : conn == guest ? " (convidado)" : "") +
+                      (string.IsNullOrEmpty(info.m_szConnectionDescription) ? "" : " " + info.m_szConnectionDescription) +
                       (string.IsNullOrEmpty(info.m_szEndDebug) ? "" : " — " + info.m_szEndDebug));
             switch (info.m_eState)
             {
@@ -474,8 +410,9 @@ namespace Shura
                     else if (conn == guest)
                     {
                         GuestConnected = true;
-                        StartProxy();
-                        if (proxy != null) Status = string.Format(Strings.SteamConnected, JoinedHost);
+                        Status = string.Format(Strings.SteamConnected, JoinedHost);
+                        SendRaw(guest, new[] { (byte)'O' }, true);
+                        GuestOpened?.Invoke();
                         Changed?.Invoke();
                     }
                     break;
@@ -492,9 +429,8 @@ namespace Shura
                     {
                         guest = HSteamNetConnection.Invalid;
                         GuestConnected = false;
-                        proxy?.Stop();
-                        proxy = null;
                         Status = Strings.SteamLost;
+                        GuestLost?.Invoke();
                         Changed?.Invoke();
                     }
                     break;
@@ -514,25 +450,55 @@ namespace Shura
             }
         }
 
+        /// <summary>Host → guest: snapshots unreliable and immediate, the rest reliable; big texts deflated.</summary>
         void SendText(HSteamNetConnection conn, string text)
         {
             byte[] utf8 = Encoding.UTF8.GetBytes(text);
-            var buf = new byte[utf8.Length + 1];
-            buf[0] = (byte)'T';
-            Buffer.BlockCopy(utf8, 0, buf, 1, utf8.Length);
-            // Snapshots go unreliable: a late one is worth nothing, and it must not hold the others back.
-            bool snapshot = text.StartsWith("{\"t\":\"s\"", StringComparison.Ordinal) && buf.Length < 400 * 1024;
-            SendRaw(conn, buf, !snapshot);
+            byte[] buf;
+            if (utf8.Length > CompressAbove)
+            {
+                byte[] packed = Deflate(utf8);
+                buf = new byte[packed.Length + 1];
+                buf[0] = (byte)'Z';
+                Buffer.BlockCopy(packed, 0, buf, 1, packed.Length);
+            }
+            else
+            {
+                buf = new byte[utf8.Length + 1];
+                buf[0] = (byte)'T';
+                Buffer.BlockCopy(utf8, 0, buf, 1, utf8.Length);
+            }
+            // A snapshot with no moments in it may be lost (the next one replaces it); one that
+            // carries hits, blood or popups goes reliable so nobody misses a parry's flash.
+            bool lossy = text.StartsWith("{\"t\":\"s\"", StringComparison.Ordinal) && text.EndsWith("\"F\":[]}", StringComparison.Ordinal) && buf.Length < 400 * 1024;
+            SendRaw(conn, buf, !lossy);
         }
 
-        void SendKind(HSteamNetConnection conn, byte kind) => SendRaw(conn, new[] { kind }, true);
+        static byte[] Deflate(byte[] data)
+        {
+            using (var ms = new MemoryStream())
+            {
+                using (var z = new DeflateStream(ms, System.IO.Compression.CompressionLevel.Fastest, true)) z.Write(data, 0, data.Length);
+                return ms.ToArray();
+            }
+        }
+
+        static string Inflate(byte[] data, int offset)
+        {
+            using (var input = new MemoryStream(data, offset, data.Length - offset))
+            using (var z = new DeflateStream(input, CompressionMode.Decompress))
+            using (var reader = new StreamReader(z, Encoding.UTF8))
+            {
+                return reader.ReadToEnd();
+            }
+        }
 
         static void SendRaw(HSteamNetConnection conn, byte[] buf, bool reliable)
         {
             GCHandle h = GCHandle.Alloc(buf, GCHandleType.Pinned);
             try
             {
-                int flags = reliable ? Constants.k_nSteamNetworkingSend_Reliable : Constants.k_nSteamNetworkingSend_Unreliable;
+                int flags = reliable ? Constants.k_nSteamNetworkingSend_ReliableNoNagle : Constants.k_nSteamNetworkingSend_UnreliableNoNagle;
                 SteamNetworkingSockets.SendMessageToConnection(conn, h.AddrOfPinnedObject(), (uint)buf.Length, flags, out long _);
             }
             finally

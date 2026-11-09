@@ -30,6 +30,56 @@ namespace Shura
         /// moments keep particles and (quieter) sound; hit-stop, shake, slow motion and screen
         /// flashes belong to whoever is at this computer.
         /// </summary>
+        /// <summary>
+        /// As a guest in a friend's duel: given who caused a moment (the host's id for them),
+        /// true when it was someone other than this player (their moments play quieter here).
+        /// </summary>
+        public System.Func<int, bool> GuestActor { get; set; }
+
+        /// <summary>As a guest: where this player's duelist is drawn (the host's world is not simulated here).</summary>
+        public System.Func<Vector2> FocusOverride { get; set; }
+
+        Vector2 FocusPosition
+        {
+            get
+            {
+                if (FocusOverride != null) return FocusOverride();
+                return game.World != null && game.World.CameraFocus != null ? game.World.CameraFocus.Position : Vector2.zero;
+            }
+        }
+
+        /// <summary>A moment replayed from the host's snapshot, caused by <paramref name="actor"/>.</summary>
+        public void EmitAs(int actor, FxType type, Vector2 pos, Vector2 dir, float magnitude, Color color)
+        {
+            Muffled(GuestActor != null && GuestActor(actor), clock => EmitCore(type, pos, dir, magnitude, color, clock));
+        }
+
+        public void GoreAs(int actor, FinisherStyle style, Vector2 pos, Vector2 dir, Sprite body, Color bodyColor, Color blood, float radius)
+        {
+            Muffled(GuestActor != null && GuestActor(actor), _ => Gore(style, pos, dir, body, bodyColor, blood, radius));
+        }
+
+        void Muffled(bool remote, System.Action<SimClock> play)
+        {
+            if (!remote)
+            {
+                play(game.Clock);
+                return;
+            }
+            game.FeelMuted = true;
+            game.Audio.VolumeScale = 0.55f;
+            try
+            {
+                play(mutedClock);
+            }
+            finally
+            {
+                game.FeelMuted = false;
+                game.Audio.VolumeScale = 1f;
+                mutedClock.Reset();
+            }
+        }
+
         public void Emit(FxType type, Vector2 pos, Vector2 dir, float magnitude = 1f, Color? color = null)
         {
             bool remote = game.World != null && game.World.ActorIsRemote;
@@ -105,7 +155,7 @@ namespace Shura
                 case FxType.Explosion:
                 {
                     // The pack's explosion strip, scaled so its blast fills the marked circle.
-                    float near = game.World != null && game.World.CameraFocus != null ? Vector2.Distance(game.World.CameraFocus.Position, pos) : 0f;
+                    float near = Vector2.Distance(FocusPosition, pos);
                     cam.Shake(Feel.shakeHit * Mathf.Lerp(2.2f, 0.6f, Mathf.Clamp01(near / 8f)));
                     vfx.Animated(FxStrips.Explosion, pos + Vector2.up * 0.3f, magnitude * 0.85f, 0.55f, Color.white);
                     vfx.Ring(pos, 0.2f, magnitude * 1.1f, col.WithAlpha(0.8f), 0.3f);
@@ -471,7 +521,7 @@ namespace Shura
                     break;
 
                 case FxType.TechniqueAbsorbed:
-                    vfx.Stream(pos, game.World.Player.Position, 26, Pal.gold);
+                    vfx.Stream(pos, FocusOverride != null ? FocusOverride() : game.World.Player.Position, 26, Pal.gold);
                     audio.Play(Sfx.Absorb, 1f);
                     break;
 

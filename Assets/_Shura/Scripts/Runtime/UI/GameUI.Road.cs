@@ -19,82 +19,13 @@ namespace Shura
             int count = game.RouteOptions.Count;
             if (count == 0) return;
             menuIndex = Mathf.Clamp(menuIndex, 0, count - 1);
-            if (input.NavX != 0)
+            int nav = input.NavY != 0 ? -input.NavY : input.NavX;
+            if (nav != 0)
             {
-                menuIndex = (menuIndex + input.NavX + count) % count;
+                menuIndex = (menuIndex + nav + count) % count;
                 game.Audio.Play(Sfx.UiMove, 0.5f, 1f, 0f);
             }
             if (input.Submit) game.VoteRoute(-1, menuIndex);
-        }
-
-        void DrawRoute()
-        {
-            DrawRect(FullScreen, UiKit.Ink.WithAlpha(0.55f));
-            var scroll = new Rect(110f, 60f, VW - 220f, VH - 130f);
-            kit.PaperPanel(scroll, 0.97f);
-            Heading(new Rect(0, 80, VW, 90), Strings.RouteTitle, UiKit.Ink, UiKit.Shu, 520f);
-            RunState run = game.Run;
-            string sub = string.Format(Strings.ToastDepth, run.RoomIndex + 2) + "  ·  Kalpa " + KalpaRules.Numeral(run.Kalpa) +
-                         (run.KalpaRules.Count > 0 ? "  ·  " + KalpaNames(run) : "");
-            Label(new Rect(0, 170, VW, 34), sub, smallStyleCenter, UiKit.InkSoft);
-
-            IReadOnlyList<RouteNode> options = game.RouteOptions;
-            int n = options.Count;
-            const float gap = 40f;
-            float cardW = Mathf.Min(420f, (scroll.width - 160f - gap * (n - 1)) / Mathf.Max(1, n));
-            float cardH = 330f;
-            float startX = (VW - (n * cardW + (n - 1) * gap)) * 0.5f;
-            float top = 230f;
-            Event e = Event.current;
-            bool online = game.Net.Active && game.Net.JoinedCount > 0;
-            for (int i = 0; i < n; i++)
-            {
-                RouteNode node = options[i];
-                var rect = new Rect(startX + i * (cardW + gap), top, cardW, cardH);
-                bool selected = i == menuIndex;
-                if (!game.Launch.Automated && rect.Contains(e.mousePosition))
-                {
-                    if (e.type == EventType.Repaint && (e.mousePosition - lastMouse).sqrMagnitude > 1f) menuIndex = i;
-                    if (e.type == EventType.MouseDown && e.button == 0)
-                    {
-                        e.Use();
-                        game.VoteRoute(-1, i);
-                        return;
-                    }
-                }
-                Color kc = RouteMap.KindColor(node.kind);
-                kit.InkPanel(rect, selected ? 0.98f : 0.86f);
-                kit.Enso(new Rect(rect.center.x - 70f, rect.y + 22f, 140f, 140f), kc.WithAlpha(selected ? 1f : 0.7f), i * 40f + (selected ? Time.unscaledTime * 25f : 0f));
-                Label(new Rect(rect.x, rect.y + 52f, rect.width, 84f), RouteMap.KindGlyph(node.kind), titleStyle, kc);
-                FitLabel(new Rect(rect.x + 20f, rect.y + 172f, rect.width - 40f, 44f), RouteMap.Describe(node), cardKindStyle, UiKit.PaperText);
-                Label(new Rect(rect.x + 26f, rect.y + 220f, rect.width - 52f, 90f), RouteMap.KindText(node.kind), smallStyleCenter, UiKit.PaperDim);
-                if (online)
-                {
-                    int votes = game.RouteVotesFor(i);
-                    Label(new Rect(rect.x, rect.yMax - 40f, rect.width, 32f), votes > 0 ? new string('●', votes) : "", smallStyleCenter, Pal.gold);
-                }
-                if (game.HostRouteVote == i) kit.Seal(new Rect(rect.xMax - 64f, rect.y - 22f, 78f, 78f), 0.95f);
-            }
-
-            // What lies further ahead: two more layers, small.
-            int depth = n > 0 ? options[0].depth : run.RoomIndex + 1;
-            float ay = top + cardH + 40f;
-            for (int d = 1; d < RouteMap.Lookahead; d++)
-            {
-                List<RouteNode> layer = RouteMap.Layer(run.Seed, depth + d);
-                float w = 230f;
-                float sx = (VW - (layer.Count * w + (layer.Count - 1) * 20f)) * 0.5f;
-                FitLabel(new Rect(sx - 300f, ay + 8f, 280f, 30f), string.Format(Strings.ToastDepth, depth + d + 1), smallRightStyle, UiKit.InkSoft);
-                for (int i = 0; i < layer.Count; i++)
-                {
-                    var r = new Rect(sx + i * (w + 20f), ay, w, 46f);
-                    kit.Stroke(r, RouteMap.KindColor(layer[i].kind).WithAlpha(0.55f));
-                    FitLabel(new Rect(r.x + 10f, r.y + 6f, r.width - 20f, 34f), RouteMap.KindName(layer[i].kind), smallStyleCenter, UiKit.Ink);
-                }
-                ay += 62f;
-            }
-            string foot = online ? string.Format(Strings.RouteVotes, Mathf.CeilToInt(game.RouteTimeLeft)) : Strings.RouteSolo;
-            Label(new Rect(0, VH - 120f, VW, 36f), foot, bodyCenterStyle, UiKit.InkSoft);
         }
 
         static string KalpaNames(RunState run)

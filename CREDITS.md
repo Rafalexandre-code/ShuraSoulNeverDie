@@ -1,5 +1,7 @@
 # Créditos de assets — SHURA
 
+**Direção criativa:** Rafael Alexandre de Pinho Lopes  ·  **Design, programação e efeitos:** Claude (Anthropic)  ·  **Motor:** Unity 6
+
 Todos os assets de terceiros estão em `Assets/_Shura/Resources/`. CC0 = domínio público (uso
 comercial livre, sem obrigação de crédito, creditamos por gentileza). CC-BY = uso comercial
 livre **com crédito obrigatório** (já presente na tela de Créditos do jogo).

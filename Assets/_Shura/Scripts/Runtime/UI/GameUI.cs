@@ -27,6 +27,10 @@ namespace Shura
             public Func<string> value;
             public Action activate;
             public Action<int> adjust;
+            /// <summary>Sliders and switches: where they stand (0..1), and how a click sets them.</summary>
+            public Func<float> ratio;
+            public Action<float> setRatio;
+            public bool toggle;
         }
 
         sealed class FloatingText
@@ -273,6 +277,8 @@ namespace Shura
         void BuildMenu()
         {
             items.Clear();
+            settingSections.Clear();
+            settingHelp.Clear();
             GameSettings s = game.Settings;
             switch (game.CurrentMode)
             {
@@ -345,14 +351,16 @@ namespace Shura
                     AddItem(Strings.MainMenu, game.QuitToMenu);
                     break;
                 case Game.Mode.Settings:
+                    Section(Strings.SectionAudio);
                     AddSlider(Strings.MasterVolume, () => s.master, v => s.master = v);
+                    Help(Strings.HelpMaster);
                     AddSlider(Strings.MusicVolume, () => s.music, v => s.music = v);
+                    Help(Strings.HelpMusic);
                     AddSlider(Strings.SfxVolume, () => s.sfx, v => s.sfx = v);
-                    AddSlider(Strings.ScreenShake, () => s.shake, v => s.shake = v);
-                    AddToggle(Strings.TimingIndicator, () => s.timingIndicator, v => s.timingIndicator = v);
-                    AddToggle(Strings.Blood, () => s.blood, v => s.blood = v);
-                    AddToggle(Strings.ReduceFlashes, () => s.reduceFlashes, v => s.reduceFlashes = v);
+                    Help(Strings.HelpSfx);
+                    Section(Strings.SectionVideo);
                     AddToggle(Strings.Fullscreen, () => s.fullscreen, v => s.fullscreen = v);
+                    Help(Strings.HelpFullscreen);
                     items.Add(new MenuItem
                     {
                         label = Strings.Resolution,
@@ -360,15 +368,31 @@ namespace Shura
                         activate = () => CycleResolution(1),
                         adjust = CycleResolution,
                     });
+                    Help(Strings.HelpResolution);
                     AddStep(Strings.UiScale, () => s.uiScale, v => s.uiScale = v, GameSettings.MinUiScale, GameSettings.MaxUiScale, 0.05f);
+                    Help(Strings.HelpUiScale);
                     AddStep(Strings.ViewScale, () => s.view, v => s.view = v, GameSettings.MinView, GameSettings.MaxView, 0.05f);
+                    Help(Strings.HelpView);
+                    AddSlider(Strings.ScreenShake, () => s.shake, v => s.shake = v);
+                    Help(Strings.HelpShake);
+                    Section(Strings.SectionGame);
+                    AddToggle(Strings.TimingIndicator, () => s.timingIndicator, v => s.timingIndicator = v);
+                    Help(Strings.HelpTiming);
                     AddToggle(Strings.Hints, () => s.hints, v => s.hints = v);
+                    Help(Strings.HelpHints);
+                    AddToggle(Strings.Blood, () => s.blood, v => s.blood = v);
+                    Help(Strings.HelpBlood);
+                    AddToggle(Strings.ReduceFlashes, () => s.reduceFlashes, v => s.reduceFlashes = v);
+                    Help(Strings.HelpFlashes);
+                    Section(null);
                     AddItem(Strings.ResetControls, () =>
                     {
                         game.Controls.ResetOverrides();
                         Toast(Strings.ControlsReset, Pal.uiText);
                     });
+                    Help(Strings.HelpResetControls);
                     AddItem(Strings.Back, game.CloseSettings);
+                    Help(Strings.HelpBack);
                     break;
                 case Game.Mode.Credits:
                     AddItem(Strings.Back, game.GoToMainMenu);
@@ -413,6 +437,12 @@ namespace Shura
                     set(v > 1.001f ? 0f : v);
                     game.ApplySettings();
                 },
+                ratio = get,
+                setRatio = v =>
+                {
+                    set(Mathf.Round(v * 20f) / 20f);
+                    game.ApplySettings();
+                },
             });
         }
 
@@ -434,6 +464,12 @@ namespace Shura
                 {
                     if (get() >= max - 0.001f) set(min);
                     else move(1);
+                    game.ApplySettings();
+                },
+                ratio = () => (get() - min) / (max - min),
+                setRatio = k =>
+                {
+                    set(Mathf.Clamp(Mathf.Round((min + k * (max - min)) / step) * step, min, max));
                     game.ApplySettings();
                 },
             });
@@ -469,6 +505,8 @@ namespace Shura
                 value = () => get() ? Strings.On : Strings.Off,
                 activate = toggle,
                 adjust = _ => toggle(),
+                ratio = () => get() ? 1f : 0f,
+                toggle = true,
             });
         }
 
@@ -809,17 +847,6 @@ namespace Shura
             Label(new Rect(VW - 460, VH - 56, 420, 40), Strings.BuildLabel, smallRightStyle, UiKit.PaperText.WithAlpha(0.7f));
         }
 
-        void DrawMainMenu()
-        {
-            kit.Logo(new Rect(90f, 40f, 640f, 326f), UiKit.Ink);
-            kit.Seal(new Rect(660f, 280f, 92f, 92f), 0.95f);
-            var panel = new Rect(110f, 395f, 620f, 590f);
-            kit.PaperPanel(panel);
-            Label(new Rect(panel.x, panel.y + 44f, panel.width, 34f), Strings.Tagline, taglineSmallStyle, UiKit.InkSoft);
-            DrawMenuList(panel.y + 104f, 76f, 520f, panel.center.x, true);
-            Label(new Rect(VW - 460, VH - 56, 420, 40), Strings.BuildLabel, smallRightStyle, UiKit.PaperText.WithAlpha(0.7f));
-        }
-
         /// <summary>
         /// Menu entries. The selected one is painted over with a vermilion stroke (it sweeps in
         /// when the selection moves) and its text turns to paper.
@@ -1004,26 +1031,6 @@ namespace Shura
             return new Vector2((sp.x - offset.x) / scale, (Screen.height - sp.y - offset.y) / scale);
         }
 
-        void DrawSettings()
-        {
-            if (game.SettingsFromPause) DimGame(1f);
-            var panel = new Rect(300f, 28f, 900f, 1024f);
-            kit.PaperPanel(panel);
-            Heading(new Rect(panel.x, panel.y + 40f, panel.width, 90f), Strings.SettingsTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f));
-            DrawMenuList(panel.y + 150f, 60f, 760f, panel.center.x, true);
-            DrawControlsPanel(new Rect(1250f, 280f, 620f, 380f), false);
-        }
-
-        void DrawCredits()
-        {
-            var panel = new Rect(300f, 80f, 1320f, 920f);
-            kit.PaperPanel(panel);
-            Heading(new Rect(panel.x, panel.y + 50f, panel.width, 90f), Strings.CreditsTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f));
-            Label(new Rect(panel.x + 100f, panel.y + 190f, panel.width - 200f, 520f), Strings.CreditsBody, bodyCenterStyle, UiKit.Ink);
-            kit.Seal(new Rect(panel.xMax - 190f, panel.yMax - 200f, 110f, 110f), 0.9f);
-            DrawMenuList(panel.yMax - 170f, 86f, 420f, panel.center.x, true);
-        }
-
         /// <summary>The host chose; every teammate chooses their own card in their browser.</summary>
         void DrawPartyChoosing()
         {
@@ -1055,7 +1062,7 @@ namespace Shura
             kit.Seal(new Rect(panel.xMax - 120f, panel.y + 40f, 76f, 76f), 0.85f);
         }
 
-        void DrawControlsPanel(Rect r, bool onPaper)
+        void DrawControlsPanel(Rect r, bool onPaper, int columns = 2)
         {
             Color title = onPaper ? UiKit.Shu : Pal.gold;
             Color key = onPaper ? UiKit.InkSoft : UiKit.PaperDim;
@@ -1065,8 +1072,8 @@ namespace Shura
             Label(new Rect(r.x + 10, r.y + 10, r.width - 20, 32), Strings.ControlsTitle, smallStyle, title);
             // Two columns: the list grew with Detonar, Kiai, ferramenta, cabaça and bandagem.
             List<KeyValuePair<string, string>> binds = game.Controls.DescribeBindings();
-            int perColumn = Mathf.CeilToInt(binds.Count / 2f);
-            float colW = (r.width - 20f) * 0.5f;
+            int perColumn = Mathf.CeilToInt(binds.Count / (float)columns);
+            float colW = (r.width - 20f) / columns;
             float rowH = Mathf.Min(30f, (r.height - 50f) / Mathf.Max(1, perColumn));
             for (int i = 0; i < binds.Count; i++)
             {
@@ -1876,6 +1883,7 @@ namespace Shura
             urlStyle = MakeStyle(36, TextAnchor.MiddleLeft, bold);
             hintStyleCenter = MakeStyle(27, TextAnchor.MiddleCenter, text);
             cardKindStyleSmall = MakeStyle(28, TextAnchor.MiddleCenter, brush);
+            EnsureScreenStyles(brush, text, bold);
         }
 
         static GUIStyle MakeStyle(int size, TextAnchor anchor, Font font, FontStyle fontStyle = FontStyle.Normal)

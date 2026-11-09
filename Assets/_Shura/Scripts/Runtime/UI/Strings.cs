@@ -212,7 +212,13 @@ namespace Shura
         public const string ToastCorrupted = "Zona corrompida: destrua a pedra-núcleo para dissipar a névoa.";
         public const string RouteTitle = "Escolha o caminho";
         public const string RouteVotes = "Cada um vota com um clique; empate, decide o anfitrião ({0} s).";
-        public const string RouteSolo = "Setas ou mouse para escolher · Enter para seguir";
+        public const string RouteSolo = "↑ ↓ ou o mouse para escolher a porta  ·  Enter ou clique para seguir";
+        public const string RouteRemoteSub = "Cada duelista vota na próxima porta";
+        public const string RouteYou = "VOCÊ";
+        public const string RouteNow = "PRÓXIMA PORTA";
+        public const string RouteThen = "DEPOIS DELA";
+        public const string RouteLater = "MAIS ADIANTE";
+        public const string RouteVoteCount = "{0} voto(s)";
         public const string HudChallenge = "DESAFIO: {0}";
         public const string HudChallengeFailed = "DESAFIO PERDIDO";
         public const string HudHold = "segure E";
@@ -268,6 +274,41 @@ namespace Shura
         public const string ViewScale = "Campo de visão";
         public const string Hints = "Dicas durante o jogo";
         public const string HintTitle = "DICA";
+        public const string SectionAudio = "SOM";
+        public const string SectionVideo = "IMAGEM";
+        public const string SectionGame = "JOGO E ACESSIBILIDADE";
+        public const string SettingsControls = "↑ ↓ escolher  ·  ← → ajustar  ·  Enter alterna  ·  clique e arraste as barras  ·  Esc volta";
+        public const string HelpMaster = "O volume de tudo: música, golpes e interface.";
+        public const string HelpMusic = "A trilha, que muda com o Fluxo e com o combate.";
+        public const string HelpSfx = "Lâminas, parries, passos, sangue e a interface.";
+        public const string HelpFullscreen = "Ligado: o jogo ocupa a tela toda. Desligado: abre numa janela.";
+        public const string HelpResolution = "\"A do monitor\" é a recomendada. Resoluções menores deixam o jogo mais leve em PCs fracos.";
+        public const string HelpUiScale = "O tamanho do HUD durante a luta (retrato, cinto, Fluxo, registro). Os menus não mudam.";
+        public const string HelpView = "Quanto da arena a câmera mostra. Mais alto: câmera mais afastada e personagens menores.";
+        public const string HelpShake = "A força da tremida de tela nos golpes, parries e explosões.";
+        public const string HelpTiming = "O anel que se fecha sobre o inimigo marcando a hora de aparar (azul) ou esquivar (vermelho).";
+        public const string HelpHints = "As dicas curtas que aparecem no canto esquerdo quando algo novo acontece.";
+        public const string HelpBlood = "Desligado, o sangue vira faíscas e as finalizações ficam limpas.";
+        public const string HelpFlashes = "Diminui os clarões de tela (parries, golpes recebidos). Recomendado para quem é sensível à luz.";
+        public const string HelpResetControls = "Volta todas as teclas e botões para o padrão.";
+        public const string HelpBack = "Salva e volta.";
+        public const string CreditDirectionTitle = "DIREÇÃO CRIATIVA";
+        public const string CreditDirection = "Rafael Alexandre de Pinho Lopes";
+        public const string CreditCodeTitle = "DESIGN, PROGRAMAÇÃO E EFEITOS";
+        public const string CreditCode = "Claude (Anthropic)";
+        public const string CreditEngineTitle = "MOTOR";
+        public const string CreditEngine = "Unity 6";
+        public const string CreditInspirationTitle = "INSPIRAÇÕES";
+        public const string CreditInspiration = "Sekiro, Nine Sols, Dead Cells, Hades, Hollow Knight, Katana ZERO";
+        public const string CreditArtTitle = "ARTE";
+        public const string CreditArt = "\"Ninja Adventure\" de Pixel-Boy e AAA (CC0)";
+        public const string CreditMusicTitle = "TRILHA";
+        public const string CreditMusic = "Tozan e Yoiyami (CC0)\n\"Self Discipline\" de Tsorthan Grove e \"Samurai\" de TAD (CC-BY 4.0)\n\"Taiko Drums\" de jobro e \"Blackmoor Ninjas\" de Matthew Pablo, matthewpablo.com (CC-BY 3.0)";
+        public const string CreditSoundTitle = "SONS";
+        public const string CreditSound = "StarNinjas, EZduzziteh, Still North Media e coleções CC0 do OpenGameArt.org";
+        public const string CreditFontsTitle = "FONTES";
+        public const string CreditFonts = "Kaushan Script (Impallari Type) e Spectral (Production Type), SIL OFL";
+        public const string CreditFull = "Lista completa das licenças em CREDITS.md";
         public const string HudLogFold = "clique para recolher";
         public const string SteamLost = "A conexão com o anfitrião caiu.";
         public const string SteamProxyFailed = "Não foi possível abrir a porta local (7790–7799).";
@@ -313,7 +354,7 @@ namespace Shura
 
         public const string CreditsBody =
             "SHURA  ·  Protótipo M1\n\n" +
-            "Direção criativa: [seu nome aqui]\n" +
+            "Direção criativa: Rafael Alexandre de Pinho Lopes\n" +
             "Design, programação e efeitos: Claude (Anthropic)  ·  Feito com Unity 6\n\n" +
             "Arte: \"Ninja Adventure\" de Pixel-Boy e AAA (CC0)\n" +
             "Trilha: Tozan e Yoiyami (CC0); \"Self Discipline\" de Tsorthan Grove e \"Samurai\" de TAD (CC-BY 4.0);\n" +

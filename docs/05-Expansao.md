@@ -137,6 +137,13 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **Registro começa recolhido** numa aba no canto (com o número de linhas novas); clique ou C / R3 abre e fecha.
 - Configurações novas: **Resolução** (a do monitor ou qualquer outra que ele ofereça), tamanho da interface, campo de visão, dicas. Textos flutuantes no mesmo ponto agora se empilham em vez de se sobrepor.
 
+## Telas refeitas (v0.4.2) — ✅
+
+- **Menu inicial**: o quadro cresce com a lista; nada sai para fora. A versão aparece no canto.
+- **Mapa de rotas**: lido da esquerda para a direita — você (o seu samurai), as portas de agora em cartões grandes, e mais duas camadas em círculos de tinta. Caminhos de tinta ligam cada porta às que ela leva; os caminhos da porta destacada ficam vermelhos. Cima/baixo, setas ou mouse escolhem; online mostra os votos e o tempo. O mesmo mapa para o convidado.
+- **Configurações**: seções (Som, Imagem, Jogo e acessibilidade), barras de tinta que se arrastam com o mouse, interruptores, escolha de resolução com setas, os controles à direita e uma nota explicando a opção destacada.
+- **Créditos**: em duas colunas (quem fez / do que é feito), com a direção criativa de Rafael Alexandre de Pinho Lopes.
+
 ## Apresentação e acessibilidade (§10) — ⏳
 
 10.1 tabela de impacto · 10.2 câmera e finalizações em tinta · 10.3 som que informa · 10.4 música adaptativa (🟡 música abafada em Mushin/Iai já feita) · 10.5 interface diegética · 10.6 luz 2D (provável adiamento: o projeto usa Built-in RP; luz 2D exige URP) · 10.7 acessibilidade (🟡 anéis com padrão próprio por tipo) · 10.8 replay e foto.

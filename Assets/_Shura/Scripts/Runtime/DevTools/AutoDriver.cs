@@ -70,6 +70,7 @@ namespace Shura
                         else if (game.Launch.JoinAddress != null) game.JoinByAddress(game.Launch.JoinAddress);
                         else if (game.Launch.SteamGuest) game.OpenSteamJoin();
                         else if (game.Launch.Host) game.OpenLobby();
+                        else if (shots && !creditsShotDone) game.OpenCredits();
                         else if (shots) game.OpenArsenal();
                         else game.StartRun();
                     }
@@ -83,6 +84,13 @@ namespace Shura
                             Debug.Log("[Shura][Auto] começando online com " + game.World.Players.Count + " jogadores");
                             game.StartRun();
                         }
+                    }
+                    break;
+                case Game.Mode.Credits:
+                    if (ShotThenAct("credits", wait))
+                    {
+                        creditsShotDone = true;
+                        game.GoToMainMenu();
                     }
                     break;
                 case Game.Mode.Arsenal:
@@ -173,6 +181,7 @@ namespace Shura
         }
 
         bool remoteDone;
+        bool creditsShotDone;
         float remoteShotTimer;
         int remoteShots;
         float remoteLogTimer;

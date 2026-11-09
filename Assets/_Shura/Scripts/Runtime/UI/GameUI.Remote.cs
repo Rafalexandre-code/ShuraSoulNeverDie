@@ -93,9 +93,10 @@ namespace Shura
         void HandlePick(InputService input, int count, System.Action<int> pick, bool cards)
         {
             remoteIndex = Mathf.Clamp(remoteIndex, 0, count - 1);
-            if (input.NavX != 0)
+            int nav = input.NavX != 0 ? input.NavX : cards ? 0 : -input.NavY;
+            if (nav != 0)
             {
-                remoteIndex = (remoteIndex + input.NavX + count) % count;
+                remoteIndex = (remoteIndex + nav + count) % count;
                 game.Audio.Play(Sfx.UiMove, 0.5f, 1f, 0f);
             }
             if (input.Submit)
@@ -573,63 +574,6 @@ namespace Shura
             kit.PaperPanel(panel);
             Heading(new Rect(panel.x, panel.y + 40f, panel.width, 90f), Strings.PartyChoosingTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f), 520f);
             Label(new Rect(panel.x + 60f, panel.y + 170f, panel.width - 120f, 80f), Strings.RemoteWaitingParty, bodyCenterStyle, UiKit.Ink);
-        }
-
-        void DrawRemoteRoute()
-        {
-            RemoteSession r = Remote;
-            RemoteSession.Snap s = r.Latest;
-            DrawRect(FullScreen, UiKit.Ink.WithAlpha(0.55f));
-            var scroll = new Rect(110f, 60f, VW - 220f, VH - 130f);
-            kit.PaperPanel(scroll, 0.97f);
-            Heading(new Rect(0, 80, VW, 90), Strings.RouteTitle, UiKit.Ink, UiKit.Shu, 520f);
-            int n = r.Doors.Count;
-            const float gap = 40f;
-            float cardW = Mathf.Min(420f, (scroll.width - 160f - gap * (n - 1)) / Mathf.Max(1, n));
-            float cardH = 330f;
-            float startX = (VW - (n * cardW + (n - 1) * gap)) * 0.5f;
-            float top = 230f;
-            Event e = Event.current;
-            for (int i = 0; i < n; i++)
-            {
-                RemoteSession.Door d = r.Doors[i];
-                var rect = new Rect(startX + i * (cardW + gap), top, cardW, cardH);
-                bool selected = i == remoteIndex;
-                if (!game.Launch.Automated && rect.Contains(e.mousePosition))
-                {
-                    if (e.type == EventType.Repaint && (e.mousePosition - lastMouse).sqrMagnitude > 1f) remoteIndex = i;
-                    if (e.type == EventType.MouseDown && e.button == 0)
-                    {
-                        e.Use();
-                        game.Audio.Play(Sfx.UiConfirm, 0.6f, 1.1f, 0f);
-                        r.Vote(i);
-                        return;
-                    }
-                }
-                kit.InkPanel(rect, selected ? 0.98f : 0.86f);
-                kit.Enso(new Rect(rect.center.x - 70f, rect.y + 22f, 140f, 140f), d.color.WithAlpha(selected ? 1f : 0.7f), i * 40f + (selected ? Time.unscaledTime * 25f : 0f));
-                Label(new Rect(rect.x, rect.y + 52f, rect.width, 84f), d.glyph, titleStyle, d.color);
-                FitLabel(new Rect(rect.x + 20f, rect.y + 172f, rect.width - 40f, 44f), d.text, cardKindStyle, UiKit.PaperText);
-                Label(new Rect(rect.x + 26f, rect.y + 220f, rect.width - 52f, 90f), d.kindText, smallStyleCenter, UiKit.PaperDim);
-                int votes = s.rt != null ? MiniJson.I(s.rt, i + 1) : 0;
-                Label(new Rect(rect.x, rect.yMax - 40f, rect.width, 32f), votes > 0 ? new string('●', votes) : "", smallStyleCenter, Pal.gold);
-                if (r.MyVote == i) kit.Seal(new Rect(rect.xMax - 64f, rect.y - 22f, 78f, 78f), 0.95f);
-            }
-            float ay = top + cardH + 40f;
-            foreach (List<RemoteSession.Door> layer in r.DoorsAhead)
-            {
-                float w = 230f;
-                float sx = (VW - (layer.Count * w + (layer.Count - 1) * 20f)) * 0.5f;
-                for (int i = 0; i < layer.Count; i++)
-                {
-                    var rr = new Rect(sx + i * (w + 20f), ay, w, 46f);
-                    kit.Stroke(rr, layer[i].color.WithAlpha(0.55f));
-                    FitLabel(new Rect(rr.x + 10f, rr.y + 6f, rr.width - 20f, 34f), RouteMap.KindName(layer[i].kind), smallStyleCenter, UiKit.Ink);
-                }
-                ay += 62f;
-            }
-            float left = s.rt != null ? MiniJson.F(s.rt, 0) : 0f;
-            Label(new Rect(0, VH - 120f, VW, 36f), string.Format(Strings.RouteVotes, Mathf.CeilToInt(left)), bodyCenterStyle, UiKit.InkSoft);
         }
 
         // ── Menu and equipment ───────────────────────────────────────────────────────

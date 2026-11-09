@@ -48,6 +48,8 @@ namespace Shura
             public RoomKind kind;
             public string glyph, text, kindText;
             public Color color;
+            /// <summary>0..2 across the map: a door leads to the next layer's doors within one column.</summary>
+            public int column;
         }
 
         public sealed class Gear
@@ -354,7 +356,7 @@ namespace Shura
         static Door DoorOf(List<object> n) => new Door
         {
             kind = (RoomKind)MiniJson.I(n, 0), glyph = MiniJson.S(n, 1), text = MiniJson.S(n, 2), kindText = MiniJson.S(n, 3),
-            color = MiniJson.Color(MiniJson.S(n, 4), Color.white),
+            color = MiniJson.Color(MiniJson.S(n, 4), Color.white), column = MiniJson.I(n, 5, 1),
         };
 
         void OnInventory(Dictionary<string, object> m)

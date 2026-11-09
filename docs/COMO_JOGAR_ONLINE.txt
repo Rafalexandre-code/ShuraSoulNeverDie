@@ -8,7 +8,11 @@ O que cada um precisa
    O Shura usa o "Spacewar" (AppID 480), o app de testes público da Valve, para
    conectar os jogadores pelos servidores da Steam: funciona em qualquer rede,
    sem VPN e sem abrir portas no roteador.
-3. Extraia o zip numa pasta qualquer (não rode de dentro do zip) e abra Shura.exe.
+3. Baixe o jogo de um destes jeitos:
+   - Shura.exe (arquivo único): só clicar. Na primeira vez ele prepara o jogo
+     sozinho (alguns segundos, com uma barrinha); depois abre na hora.
+   - Shura-Windows.zip: extraia numa pasta e clique em Shura.exe (o ícone com
+     o círculo e a espada). A pasta "jogo" ao lado guarda os arquivos do jogo.
    Se o Windows avisar "o Windows protegeu o computador", clique em
    "Mais informações" → "Executar assim mesmo" (o jogo não é assinado).
 

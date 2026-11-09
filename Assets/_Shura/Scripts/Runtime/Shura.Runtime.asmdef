@@ -2,7 +2,8 @@
     "name": "Shura.Runtime",
     "rootNamespace": "Shura",
     "references": [
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "com.rlabrecque.steamworks.net"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

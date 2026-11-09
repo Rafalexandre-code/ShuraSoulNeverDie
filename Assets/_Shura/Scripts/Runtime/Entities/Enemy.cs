@@ -509,6 +509,10 @@ namespace Shura
             {
                 world.HintOnce(HintId.Projectile);
             }
+            else if (attack.kind == AttackKind.Spirit)
+            {
+                world.HintOnce(HintId.SpiritBlow);
+            }
             else if (attack.ShowsTimingRing)
             {
                 world.HintOnce(HintId.Parry);

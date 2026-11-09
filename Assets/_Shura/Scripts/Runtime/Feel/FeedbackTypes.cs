@@ -156,6 +156,7 @@ namespace Shura
         Dispute,
         Ally,
         Kalpa,
+        SpiritBlow,
     }
 
     /// <summary>

@@ -71,6 +71,18 @@ namespace Shura.Tests
         }
 
         [Test]
+        public void SpiritBlow_ATalismanLetsAPerfectParryHold()
+        {
+            DefenderState d = Facing(Vector2.right, Vector2.right);
+            d.parryWindow = true;
+            d.guarding = true;
+            d.spiritWard = true;
+            Assert.AreEqual(HitOutcome.PerfectParry, HitResolver.Resolve(Spirit(), d));
+            d.parryWindow = false;
+            Assert.AreEqual(HitOutcome.Hit, HitResolver.Resolve(Spirit(), d), "blocking still does not hold it");
+        }
+
+        [Test]
         public void SpiritBlow_IsNotDangerous_NorParryable()
         {
             Assert.IsFalse(Spirit().IsDangerous);

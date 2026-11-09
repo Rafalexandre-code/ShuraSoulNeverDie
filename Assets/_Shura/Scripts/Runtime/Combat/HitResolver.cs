@@ -53,6 +53,8 @@ namespace Shura
         public float counterDot;
         /// <summary>For group blows: enough duelists answered at once for parries to count.</summary>
         public bool groupAnswered;
+        /// <summary>Wears a talisman: a perfect parry also stops spirit blows.</summary>
+        public bool spiritWard;
     }
 
     /// <summary>
@@ -77,7 +79,10 @@ namespace Shura
             // A spirit blow goes through steel: only the swap's sleight of hand answers it.
             if (attack.kind == AttackKind.Spirit)
             {
-                return d.swapWindow && CombatMath.WithinArc(d.facing, d.toAttacker, d.parryArcDegrees) ? HitOutcome.SwapParry : HitOutcome.Hit;
+                bool front = CombatMath.WithinArc(d.facing, d.toAttacker, d.parryArcDegrees);
+                if (front && d.swapWindow) return HitOutcome.SwapParry;
+                if (front && d.parryWindow && d.spiritWard) return HitOutcome.PerfectParry;
+                return HitOutcome.Hit;
             }
 
             // Parry is directional: a swing from outside the guarded arc (e.g. from behind) lands.

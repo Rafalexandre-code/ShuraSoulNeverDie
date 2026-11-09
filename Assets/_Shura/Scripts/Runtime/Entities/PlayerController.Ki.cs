@@ -109,6 +109,15 @@ namespace Shura
 
         // ── Directed finishing cut ────────────────────────────────────────────────────
         public float AimLineAngle { get; private set; }
+        /// <summary>Where the golden line ends: a point on the enemy's body.</summary>
+        public Vector2 AimPoint { get; private set; }
+        /// <summary>0..1 how close the last finishing cut followed the line (1 = exactly on it).</summary>
+        public float CutPrecision { get; private set; }
+        /// <summary>Degrees between where the duelist is aiming and the golden line, right now.</summary>
+        public float AimError => Mathf.Abs(Mathf.DeltaAngle(CombatMath.AngleDegrees(Facing), AimLineAngle));
+        public const float CutPerfectDegrees = 4f;
+        public const float CutLineDegrees = 12f;
+        public const float CutCleanDegrees = 24f;
         public bool AimingCut => CurrentState == State.FinisherAim;
         public Enemy AimTarget => finisherTarget;
 
@@ -654,11 +663,42 @@ namespace Shura
         {
             float cutAngle = CombatMath.AngleDegrees(Facing);
             float armAngle = CombatMath.AngleDegrees(CombatMath.Perpendicular(e.Facing) * -1f);
-            if (LineDiff(cutAngle, AimLineAngle) < 22f)
+            float error = AimError;
+            // The closer to the line, the more blood — and the better the reward.
+            CutPrecision = Mathf.Clamp01(1f - error / (CutCleanDegrees + 6f));
+            var along = (AimPoint - Position).normalized;
+            float gush = CutPrecision * CutPrecision;
+            world.Fx.Blood(AimPoint, along, 12f + 140f * gush, e.Def.bloodColor);
+            if (gush > 0.3f)
+            {
+                world.Fx.Blood(AimPoint, CombatMath.Perpendicular(along), 60f * gush, e.Def.bloodColor);
+                world.Fx.Blood(AimPoint, -CombatMath.Perpendicular(along), 60f * gush, e.Def.bloodColor);
+            }
+            if (error <= CutPerfectDegrees)
+            {
+                // Exactly on the line: the perfect cut.
+                Heal(25f);
+                world.AddFlow(12f);
+                e.DropsDouble = true;
+                if (Build != null) Build.Mon += 15;
+                world.Run.BonusEcos += MetaRules.RoomEcos(world.Depth) / 2;
+                CalmShura(10f);
+                world.Fx.Popup(Strings.PopupCutPerfect, e.Position + Vector2.up * 1.6f, pal.gold);
+                world.Fx.Emit(FxType.Mushin, AimPoint, along, 1f, pal.gold);
+                world.Fx.Emit(FxType.Crit, AimPoint, along, 1f, e.Def.bloodColor);
+                world.Fx.Toast(Strings.ToastCutPerfect, pal.gold);
+            }
+            else if (error <= CutLineDegrees)
             {
                 Heal(10f);
-                world.AddFlow(4f);
+                world.AddFlow(5f);
+                if (Build != null) Build.Mon += 5;
                 world.Fx.Popup(Strings.PopupCutLine, e.Position + Vector2.up * 1.4f, pal.gold);
+            }
+            else if (error <= CutCleanDegrees)
+            {
+                world.AddFlow(2f);
+                world.Fx.Popup(Strings.PopupCutClean, e.Position + Vector2.up * 1.4f, pal.uiText);
             }
             else if (Mathf.Abs(Mathf.DeltaAngle(cutAngle, armAngle)) < 28f)
             {
@@ -672,12 +712,6 @@ namespace Shura
             }
         }
 
-        /// <summary>Angle between two undirected lines (0..90°): a cut either way along the line counts.</summary>
-        static float LineDiff(float a, float b)
-        {
-            float d = Mathf.Abs(Mathf.DeltaAngle(a, b)) % 180f;
-            return d > 90f ? 180f - d : d;
-        }
 
         // ── Iai standoff ──────────────────────────────────────────────────────────────
 

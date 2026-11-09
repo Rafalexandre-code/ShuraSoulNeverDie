@@ -73,6 +73,15 @@ namespace Shura.EditorTools
             };
             BuildReport report = BuildPipeline.BuildPlayer(buildOptions);
             BuildSummary summary = report.summary;
+            // Online through Steam: the Spacewar app id must sit next to the executable.
+            try
+            {
+                System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(BuildPath), "steam_appid.txt"), "480");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[Shura] steam_appid.txt: " + e.Message);
+            }
             Debug.Log("[Shura] Build " + summary.result + " em " + summary.totalTime + " (" + summary.totalErrors + " erros) → " + BuildPath);
             if (Application.isBatchMode && summary.result != BuildResult.Succeeded) EditorApplication.Exit(1);
         }

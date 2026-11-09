@@ -1109,9 +1109,15 @@ function drawPlayerOverlay(p, snap) {
   const isMe = p[0] === S.myId;
   const alive = p[21] === 1;
   if (isMe && p[46] === 1) {
-    const a = p[47] * Math.PI / 180, lx = Math.cos(a) * 2.6, ly = Math.sin(a) * 2.6;
-    dotted(p[48] - lx, p[49] - ly, p[48] + lx, p[49] + ly, GOLD, Math.max(4, PPU * 0.12));
-    dotted(p[3], p[4], p[3] + p[5] * 3.2, p[4] + p[6] * 3.2, "rgba(241,232,214,.8)", Math.max(3, PPU * 0.08));
+    // The golden line runs from you to a point of the enemy's body; follow it with your blade.
+    const dx = p[48] - p[3], dy = p[49] - p[4], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+    dotted(p[3], p[4], p[48] + ux * 0.8, p[49] + uy * 0.8, GOLD, Math.max(4, PPU * 0.13));
+    circle(p[48], p[49], 0.32, GOLD, null, 3);
+    let err = Math.abs(Math.atan2(p[6], p[5]) - Math.atan2(dy, dx)) * 180 / Math.PI;
+    if (err > 180) err = 360 - err;
+    const aimCol = err <= 4 ? GOLD : err <= 12 ? "#f6dfa0" : "rgba(241,232,214,.7)";
+    dotted(p[3], p[4], p[3] + p[5] * (len + 0.8), p[4] + p[6] * (len + 0.8), aimCol, Math.max(3, PPU * 0.08));
+    if (err <= 4) { ctx.font = Math.round(PPU * 0.4) + "px Kaushan, serif"; ctx.textAlign = "center"; ctx.fillStyle = GOLD; ctx.fillText("PERFEITO", sx(p[48]), sy(p[49] + 1.6)); }
   }
   if (p[45] === 1) circle(p[3], p[4], 0.9 + 0.08 * Math.sin(performance.now() / 70), null, "rgba(215,38,61,.25)");
   if (!isMe) {
@@ -1206,6 +1212,7 @@ function updateHud() {
   const s = S.last;
   if (!s || !S.joined) return;
   const me = (s.P || []).find((p) => p[0] === S.myId);
+  if (!S.iconsPainted) { paintIcons(); S.iconsPainted = true; }
   if (me) {
     $("myName").textContent = me[1];
     $("ping").textContent = "~" + Math.max(5, Math.round(me[28] * 16.7 - 33)) + " ms";
@@ -1338,6 +1345,13 @@ const HUD = {
     ".AA.TTTT.AA.", ".AA.TTTT.AA.", ".AA.TTTT.AA.", ".AA.TTTT.AA.", "AA..TTTT..AA", "AA..TTTT..AA", "....LLLL....", "...LL..LL...",
     "...LL..LL...", "...LL..LL...", "...LL..LL...", "...LL..LL...", "..LLL..LLL.."],
 };
+const ICONS = {"heart": {"rows": [".....oo.....", "....orro....", "...orHrro...", "...orHrro...", "..orHrrrro..", "..orHrrrro..", ".orrrrrrrso.", ".orrrrrrrso.", ".orrrrrrsso.", "..orrrrsso..", "...ossssoo..", "....oooo...."], "pal": {"o": "#3a0a0e", "r": "#d63a2c", "H": "#ff9a8a", "s": "#8e0f1e"}}, "tsuba": {"rows": ["...oooooo...", "..oyyyyyyo..", ".oyYyyyyyso.", "oyYyoooyyyso", "oyYo...oyyso", "oyyo...oyyso", "oyyo...oyyso", "oyyyoooyyyso", ".oyyyyyyyso.", "..osssssso..", "...oooooo...", "............"], "pal": {"o": "#3d2a0e", "y": "#e9c46a", "Y": "#fbe29a", "s": "#b07a2a"}}, "wind": {"rows": ["............", "..bbbbbbb...", ".b.......b..", ".......bb.b.", "..bbbbb...b.", ".b.....b..b.", "..bb...b.b..", ".....bb.b...", ".bbbbbb.....", "b...........", ".bbbbbbbbb..", "............"], "pal": {"b": "#a8d8c8"}}, "oni": {"rows": [".h........h.", ".hh.oooo.hh.", "..hoRRRRoh..", "..oRRRRRRo..", ".oRwRRRRwRo.", ".oRkwRRwkRo.", ".oRRRRRRRRo.", ".oRRwwwwRRo.", "..oRwkkwRo..", "..oRRRRRRo..", "...oRRRRo...", "....oooo...."], "pal": {"o": "#2a0508", "R": "#d7263d", "w": "#f1e8d6", "k": "#120204", "h": "#e8dcc0"}}, "soul": {"rows": [".....g......", "....gG......", "...gGg..g...", "...gGGg.gg..", "..gGGGGggg..", "..gGWWGGgg..", ".gGWWWWGGg..", ".gGWWWWWGg..", ".gGGWWWGGg..", "..gGGGGGg...", "...gggggg...", "............"], "pal": {"g": "#b8862a", "G": "#f2c14e", "W": "#fff4cf"}}, "feather": {"rows": ["..........b.", ".........bB.", "........bBb.", ".......bBb..", "......bBbb..", ".....bBbb...", "....bBbb....", "...bBbb.....", "..bBbb......", "..Bbb.......", ".B..........", "B..........."], "pal": {"b": "#6fc3df", "B": "#d6f1fa"}}};
+function paintIcons() {
+  document.querySelectorAll("canvas.ic").forEach((c) => {
+    const ic = ICONS[c.dataset.ic];
+    if (ic) blit(c.id || (c.id = "ic_" + Math.random().toString(36).slice(2)), gridCanvas("ic_" + c.dataset.ic, ic.rows, ic.pal), 1);
+  });
+}
 const gridCache = {};
 function gridCanvas(key, rows, pal) {
   if (gridCache[key]) return gridCache[key];

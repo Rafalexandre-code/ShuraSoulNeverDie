@@ -37,12 +37,21 @@ namespace Shura
             Enemy e = p.AimTarget;
             Camera cam = game.CameraRig.Cam;
             if (e == null || cam == null) return;
-            float a = p.AimLineAngle * Mathf.Deg2Rad;
-            var line = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
-            DottedLine(cam, e.Position - line * 2.6f, e.Position + line * 2.6f, Pal.gold, 0.32f, 9f);
-            DottedLine(cam, p.Position, p.Position + p.Facing * 3.2f, UiKit.PaperText.WithAlpha(0.8f), 0.4f, 6f);
-            Vector2 g = WorldToGui(cam, e.Position + Vector2.up * 1.8f);
-            Label(new Rect(g.x - 300f, g.y - 30f, 600f, 30f), Strings.HudCutAim, smallStyleCenter, Pal.gold);
+            // The golden line: from the duelist to a point of the enemy's body (and a little past it).
+            Vector2 to = p.AimPoint - p.Position;
+            float len = to.magnitude;
+            Vector2 dir = len > 1e-3f ? to / len : p.Facing;
+            DottedLine(cam, p.Position, p.AimPoint + dir * 0.8f, Pal.gold, 0.28f, 10f);
+            Vector2 hit = WorldToGui(cam, p.AimPoint);
+            kit.Enso(new Rect(hit.x - 22f, hit.y - 22f, 44f, 44f), Pal.gold, Time.unscaledTime * 120f);
+            // Where the blade is pointing now: white, then gold as it meets the line.
+            float err = p.AimError;
+            Color aim = err <= PlayerController.CutPerfectDegrees ? Pal.gold
+                      : err <= PlayerController.CutLineDegrees ? Color.Lerp(Pal.gold, UiKit.PaperText, 0.5f) : UiKit.PaperText.WithAlpha(0.7f);
+            DottedLine(cam, p.Position, p.Position + p.Facing * (len + 0.8f), aim, 0.4f, 6f);
+            Vector2 g = WorldToGui(cam, e.Position + Vector2.up * 2f);
+            Label(new Rect(g.x - 420f, g.y - 30f, 840f, 30f), Strings.HudCutAim, smallStyleCenter, Pal.gold);
+            if (err <= PlayerController.CutPerfectDegrees) Label(new Rect(g.x - 200f, g.y - 64f, 400f, 36f), Strings.HudCutPerfect, cardKindStyle, Pal.gold);
         }
 
         void DottedLine(Camera cam, Vector2 from, Vector2 to, Color c, float spacing, float size)

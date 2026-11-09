@@ -262,12 +262,35 @@ namespace Shura
                         adjust = dir => game.CycleHostArt(dir),
                     });
                     AddItem(Strings.LobbyWeapons, game.OpenArsenal);
+                    if (game.Steam.Hosting) AddItem(Strings.SteamInvite, game.Steam.Invite);
                     AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.LobbyClose, game.CloseLobby);
                     break;
+                case Game.Mode.SteamJoin:
+                {
+                    SteamLink st = game.Steam;
+                    if (st.GuestConnected) AddItem(Strings.SteamOpenBrowser, st.OpenBrowser);
+                    else
+                    {
+                        foreach (SteamLink.LobbyInfo l in st.Lobbies)
+                        {
+                            SteamLink.LobbyInfo lobby = l;
+                            items.Add(new MenuItem
+                            {
+                                label = string.IsNullOrEmpty(l.host) ? "?" : l.host,
+                                value = () => lobby.players + " / " + lobby.max,
+                                activate = () => st.Join(lobby.id),
+                            });
+                        }
+                        if (st.Ready) AddItem(Strings.SteamRefresh, st.RefreshLobbies);
+                    }
+                    AddItem(Strings.Back, game.CloseSteamJoin);
+                    break;
+                }
                 case Game.Mode.MainMenu:
                     AddItem(Strings.Play, game.OpenArsenal);
                     AddItem(Strings.PlayOnline, game.OpenLobby);
+                    AddItem(Strings.JoinSteam, game.OpenSteamJoin);
                     AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.Settings, game.OpenSettings);
                     AddItem(Strings.Credits, game.OpenCredits);
@@ -451,6 +474,7 @@ namespace Shura
                 case Game.Mode.Altar: game.CloseAltar(); break;
                 case Game.Mode.Equipment: game.CloseEquipment(); break;
                 case Game.Mode.Lobby: game.CloseLobby(); break;
+                case Game.Mode.SteamJoin: game.CloseSteamJoin(); break;
             }
         }
 
@@ -475,7 +499,7 @@ namespace Shura
             {
                 Game.Mode m = game.CurrentMode;
                 return m == Game.Mode.Title || m == Game.Mode.MainMenu || m == Game.Mode.Credits || m == Game.Mode.Arsenal ||
-                       m == Game.Mode.Altar || m == Game.Mode.Lobby || (m == Game.Mode.Settings && !game.SettingsFromPause);
+                       m == Game.Mode.Altar || m == Game.Mode.Lobby || m == Game.Mode.SteamJoin || (m == Game.Mode.Settings && !game.SettingsFromPause);
             }
         }
 
@@ -567,6 +591,7 @@ namespace Shura
                 case Game.Mode.Arsenal: DrawArsenal(); break;
                 case Game.Mode.Equipment: DrawEquipment(); break;
                 case Game.Mode.Lobby: DrawLobby(); break;
+                case Game.Mode.SteamJoin: DrawSteamJoin(); break;
             }
 
             // The reward screen has its own text blocks; room-clear toasts were already seen in play.
@@ -673,7 +698,9 @@ namespace Shura
             kit.PaperPanel(left);
             Heading(new Rect(left.x, left.y + 36f, left.width, 90f), Strings.LobbyTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f), 360f);
             DrawMenuList(left.y + 160f, 64f, 560f, left.center.x, true);
-            Label(new Rect(left.x + 60f, left.yMax - 200f, left.width - 120f, 150f), Strings.LobbyRadminHint, cardBodyStyle, UiKit.InkSoft);
+            // Steam first (any network), then the local-network fallback.
+            Label(new Rect(left.x + 60f, left.yMax - 250f, left.width - 120f, 110f), game.Steam.Status, cardBodyStyle, game.Steam.Hosting ? UiKit.Ai : UiKit.Shu);
+            Label(new Rect(left.x + 60f, left.yMax - 140f, left.width - 120f, 120f), Strings.LobbyRadminHint, cardBodyStyle, UiKit.InkSoft);
 
             var right = new Rect(780f, 60f, 1080f, 970f);
             kit.PaperPanel(right);
@@ -707,6 +734,23 @@ namespace Shura
                 shown++;
             }
             if (shown == 0) Label(new Rect(right.x + 80f, y + 6f, right.width - 160f, 40f), Strings.LobbyEmpty, taglineStyle, UiKit.InkSoft);
+        }
+
+        /// <summary>Friends' duels open on Steam; once in, the duel plays in the browser this opened.</summary>
+        void DrawSteamJoin()
+        {
+            kit.Logo(new Rect(70f, 30f, 420f, 214f), UiKit.Ink);
+            var panel = new Rect(VW * 0.5f - 560f, 220f, 1120f, 800f);
+            kit.PaperPanel(panel);
+            Heading(new Rect(panel.x, panel.y + 36f, panel.width, 90f), Strings.SteamTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f), 420f);
+            SteamLink st = game.Steam;
+            Label(new Rect(panel.x + 80f, panel.y + 130f, panel.width - 160f, 110f), st.Status, bodyCenterStyle, st.GuestConnected ? UiKit.Ai : UiKit.Ink);
+            if (st.Ready && !st.GuestConnected && !st.Searching && st.Lobbies.Count == 0)
+                Label(new Rect(panel.x + 80f, panel.y + 240f, panel.width - 160f, 60f), Strings.SteamNoLobbies, cardBodyStyle, UiKit.InkSoft);
+            if (st.Searching) Label(new Rect(panel.x + 80f, panel.y + 240f, panel.width - 160f, 60f), Strings.SteamSearching, cardBodyStyle, UiKit.InkSoft);
+            if (st.GuestConnected && st.ProxyUrl != null)
+                Label(new Rect(panel.x + 80f, panel.y + 240f, panel.width - 160f, 60f), st.ProxyUrl, urlStyle, UiKit.Shu);
+            DrawMenuList(panel.y + 320f, 64f, 760f, panel.center.x, true);
         }
 
         void DrawLobbyPlayer(Rect r, string art, string name, string weapons, float rtt)
@@ -1165,7 +1209,10 @@ namespace Shura
                 if (lit) kit.Dab(new Rect(r.center.x - 13f, r.center.y - 13f, 26f, 26f), Pal.gold);
             }
             kit.Bar(new Rect(fx + w - 230f, fy + 104f, 230f, 22f), flow.ProgressInLevel, Pal.gold, Color.black.WithAlpha(0.6f));
-            Label(new Rect(fx, fy + 128f, w, 40f), string.Format(Strings.HudEcos, MetaRules.EcosForRun(game.Run)), ecosHudStyle, Pal.gold.WithAlpha(0.9f));
+            string ecos = string.Format(Strings.HudEcos, MetaRules.EcosForRun(game.Run));
+            Label(new Rect(fx, fy + 128f, w, 40f), ecos, ecosHudStyle, Pal.gold.WithAlpha(0.9f));
+            float ew = ecosHudStyle.CalcSize(new GUIContent(ecos)).x;
+            Icon(new Rect(fx + w - ew - 40f, fy + 132f, 32f, 32f), HudArt.Soul(), Color.white);
 
             int streak = game.Run.PerfectStreak;
             if (streak >= 2)

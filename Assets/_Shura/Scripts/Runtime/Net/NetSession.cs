@@ -82,6 +82,9 @@ namespace Shura
 
         // ── Lifecycle ───────────────────────────────────────────────────────────────────
 
+        /// <summary>The HTTP/WebSocket server (Steam tunnels attach their players to it).</summary>
+        public WebServer Server => server;
+
         public bool Start(int port)
         {
             if (Active) return true;
@@ -751,12 +754,12 @@ namespace Shura
                 sb.Int(b != null ? b.Flow.Level : 0).Append(',').Num(b != null ? b.Flow.ProgressInLevel : 0f).Append(',')
                   .Int(b != null ? b.PerfectStreak : 0).Append(',').Bool(p == w.Host || ReadyOf(p)).Append(',').Int(p.ArtIndex).Append(',');
                 // The combat layers: [34] breath … [53] bandages.
-                Enemy aimAt = p.AimTarget;
+                Vector2 aimPoint = p.AimingCut ? p.AimPoint : Vector2.zero;
                 sb.Num(p.Stamina / PlayerController.MaxStamina).Append(',').Bool(p.Exhausted).Append(',')
                   .Num(b != null ? b.Shura / ShuraRules.Max : 0f).Append(',').Int(p.ShuraLevel).Append(',').Int((int)p.Stance).Append(',')
                   .Int(p.Sips).Append(',').Int(p.MaxSips).Append(',').Int(b != null ? (int)b.Tool : 0).Append(',').Int(b != null ? b.SpiritPapers : 0).Append(',')
                   .Int(p.WoundMask).Append(',').Bool(p.InMushin).Append(',').Bool(p.InAsura).Append(',').Bool(p.AimingCut).Append(',')
-                  .Num(p.AimLineAngle, 1).Append(',').Num(aimAt != null ? aimAt.Position.x : 0f).Append(',').Num(aimAt != null ? aimAt.Position.y : 0f).Append(',')
+                  .Num(p.AimLineAngle, 1).Append(',').Num(aimPoint.x).Append(',').Num(aimPoint.y).Append(',')
                   .Bool(p.RingsHidden).Append(',').Num(p.RingScale).Append(',').Int(p.Charge).Append(',').Int(b != null ? b.Bandages : 0).Append(',')
                   // [54] Mon, [55] curse, [56] curse rooms, [57] in spores.
                   .Int(b != null ? b.Mon : 0).Append(',').Str(b != null && b.CurseRooms > 0 ? RunCurses.Name(b.Curse) : "").Append(',')

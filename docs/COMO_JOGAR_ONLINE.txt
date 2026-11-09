@@ -1,0 +1,53 @@
+SHURA — COMO JOGAR ONLINE COM OS AMIGOS
+=======================================
+
+O que cada um precisa
+---------------------
+1. Windows 10/11 (64 bits).
+2. Steam instalada, ABERTA e logada (qualquer conta serve; não precisa comprar nada).
+   O Shura usa o "Spacewar" (AppID 480), o app de testes público da Valve, para
+   conectar os jogadores pelos servidores da Steam: funciona em qualquer rede,
+   sem VPN e sem abrir portas no roteador.
+3. Extraia o zip numa pasta qualquer (não rode de dentro do zip) e abra Shura.exe.
+   Se o Windows avisar "o Windows protegeu o computador", clique em
+   "Mais informações" → "Executar assim mesmo" (o jogo não é assinado).
+
+Quem hospeda (o anfitrião)
+--------------------------
+1. Abra o Shura → "Jogar online (até 8)".
+2. Na sala aparece "Sala aberta na Steam". Pronto: os amigos já podem entrar.
+3. Se quiser, use "Convidar amigos (Steam)" para mandar o convite pela Steam.
+4. Quando todos estiverem na lista, "Começar a run".
+   (Se o Windows perguntar sobre o firewall, permita — é para a rede local.)
+
+Quem entra (os amigos)
+----------------------
+1. Abra o Shura → "Entrar num duelo (Steam)".
+2. O duelo do anfitrião aparece na lista (use "Atualizar lista" se não aparecer).
+   Clique nele. (Ou aceite o convite da Steam: o Shura abre e entra sozinho.)
+3. O jogo abre o duelo no seu NAVEGADOR (Chrome/Edge/Firefox). Jogue por lá e
+   deixe a janela do Shura aberta — é ela que faz a ponte com o anfitrião.
+   Se o navegador não abrir, use o botão "Abrir o duelo no navegador"
+   (endereço http://127.0.0.1:7790/).
+4. Escolha nome, aparência e armas e clique em "Entrar no duelo".
+
+Controles no navegador
+----------------------
+WASD mover · mouse mirar · botão esquerdo atacar · botão direito aparar
+(segurar bloqueia) · Espaço esquivar · Q trocar arma (no anel = Troca Perfeita)
+1–4 guarda (kamae) · G detonar selos · V kiai · F cabaça · H bandagem
+R ferramenta · T trocar ferramenta · E usar objetos / reviver aliado
+Esc equipamento e som (o duelo continua!) · controle de videogame também funciona.
+
+Na mesma casa / rede (sem Steam)
+--------------------------------
+O anfitrião abre "Jogar online" e os outros abrem no navegador o endereço
+mostrado na sala (ex.: http://192.168.x.x:7777). Pela internet sem Steam,
+todos precisam estar na mesma rede do Radmin VPN.
+
+Problemas comuns
+----------------
+- "Steam não encontrada": abra a Steam, faça login e reinicie o Shura.
+- A sala não aparece na lista: confira se o anfitrião está na tela da sala
+  online e clique em "Atualizar lista".
+- Travou/caiu: feche o navegador, volte ao Shura e entre de novo.

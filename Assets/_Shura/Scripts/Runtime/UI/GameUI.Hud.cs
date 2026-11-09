@@ -121,7 +121,10 @@ namespace Shura
             // Name and the four meters.
             float x = 252f, w = 300f;
             Label(new Rect(x, 16f, w + 60f, 44f), p.DisplayName, weaponHudStyle, UiKit.PaperText);
-            Label(new Rect(x, 62f, w, 24f), Strings.HudHealth, capsStyle, UiKit.PaperDim);
+            DrawRect(new Rect(x, 56f, w, 2f), Pal.gold.WithAlpha(0.3f));
+            float lowHp = p.Health / p.MaxHealth < 0.3f ? 1f + 0.15f * Mathf.Sin(Time.unscaledTime * 10f) : 1f;
+            Icon(new Rect(x - 2f, 61f, 26f * lowHp, 26f * lowHp), HudArt.Heart(), Color.white);
+            Label(new Rect(x + 30f, 62f, w, 24f), Strings.HudHealth, capsStyle, UiKit.PaperDim);
             Label(new Rect(x, 62f, w, 24f), Mathf.CeilToInt(p.Health) + " / " + Mathf.RoundToInt(p.MaxHealth), smallRightStyle, UiKit.PaperText);
             float hpRatio = Mathf.Clamp01(p.Health / p.MaxHealth);
             float ghostRatio = Mathf.Clamp01(ghostHp / p.MaxHealth);
@@ -131,24 +134,29 @@ namespace Shura
             float pr = p.Posture.Ratio;
             Color pc = Color.Lerp(Pal.postureLow, Pal.postureHigh, pr);
             if (pr > 0.8f) pc = Color.Lerp(pc, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 14f));
-            Label(new Rect(x, 128f, w, 24f), Strings.HudPosture, capsStyle, UiKit.PaperDim);
+            Icon(new Rect(x - 2f, 127f, 26f, 26f), HudArt.Tsuba(), pr > 0.8f ? pc : Color.white);
+            Label(new Rect(x + 30f, 128f, w, 24f), Strings.HudPosture, capsStyle, UiKit.PaperDim);
             kit.Bar(new Rect(x - 8f, 152f, w + 16f, 22f), pr, pc, Color.black.WithAlpha(0.7f));
 
             // Breath and Shura side by side.
             float half = (w - 20f) * 0.5f;
             float st = p.Stamina / PlayerController.MaxStamina;
             Color sc = p.Exhausted ? Color.Lerp(Pal.danger, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 16f)) : Pal.breath;
-            Label(new Rect(x, 182f, half, 24f), Strings.HudBreath, capsStyle, p.Exhausted ? Pal.danger : UiKit.PaperDim);
+            Icon(new Rect(x - 2f, 181f, 24f, 24f), HudArt.Wind(), p.Exhausted ? Pal.danger : Color.white);
+            Label(new Rect(x + 28f, 182f, half, 24f), Strings.HudBreath, capsStyle, p.Exhausted ? Pal.danger : UiKit.PaperDim);
             kit.Bar(new Rect(x - 6f, 206f, half + 6f, 14f), st, sc, Color.black.WithAlpha(0.7f));
             float sh = p.Build != null ? p.Build.Shura / ShuraRules.Max : 0f;
             int lvl = p.ShuraLevel;
             float sx = x + half + 20f;
-            Label(new Rect(sx, 182f, half, 24f), lvl > 0 ? Strings.HudShura + " · " + ShuraRules.LevelName(lvl) : Strings.HudShura, capsStyle, lvl > 0 ? Pal.shu : UiKit.PaperDim);
+            float rage = lvl > 0 ? 1f + 0.08f * lvl * Mathf.Sin(Time.unscaledTime * (4f + 3f * lvl)) : 1f;
+            Icon(new Rect(sx - 2f, 181f, 24f * rage, 24f * rage), HudArt.Oni(), lvl > 0 ? Color.white : new Color(1f, 1f, 1f, 0.45f));
+            FitLabel(new Rect(sx + 28f, 182f, half - 28f, 24f), lvl > 0 ? Strings.HudShura + " · " + ShuraRules.LevelName(lvl) : Strings.HudShura, capsStyle, lvl > 0 ? Pal.shu : UiKit.PaperDim);
             Color shc = p.InAsura ? Color.Lerp(Pal.shu, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 10f)) : Pal.shu;
             kit.Bar(new Rect(sx - 6f, 206f, half + 6f, 14f), sh, shc, Color.black.WithAlpha(0.7f));
 
             // Dodges: wind marks.
-            Label(new Rect(x, 232f, 140f, 24f), Strings.HudDodge, capsStyle, UiKit.PaperDim);
+            Icon(new Rect(x - 2f, 231f, 24f, 24f), HudArt.Feather(), Color.white);
+            Label(new Rect(x + 28f, 232f, 140f, 24f), Strings.HudDodge, capsStyle, UiKit.PaperDim);
             for (int i = 0; i < p.MaxDodgeCharges; i++)
             {
                 var r = new Rect(x + 130f + i * 36f, 228f, 30f, 30f);
@@ -249,6 +257,8 @@ namespace Shura
             var rect = new Rect(grip.x - gripX * pixel, grip.y - thick * 0.5f, len, thick);
             UiKit.Rotated(grip, angle, () => DrawSpriteTinted(rect, s, Color.white, false));
         }
+
+        void Icon(Rect r, Sprite s, Color c) => DrawSpriteTinted(new Rect(r.center.x - r.width * 0.5f, r.center.y - r.height * 0.5f, r.width, r.height), s, c);
 
         void DrawSpriteTinted(Rect r, Sprite s, Color c, bool fit = true)
         {

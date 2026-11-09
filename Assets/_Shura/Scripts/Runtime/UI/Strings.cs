@@ -145,7 +145,7 @@ namespace Shura
         public const string HudShura = "SHURA";
         public const string HudPapers = "papéis {0}";
         public const string HudWounds = "Ferido: {0}  ·  bandagens {1}";
-        public const string HudCutAim = "Mire o corte: na linha dourada, no braço ou na cabeça";
+        public const string HudCutAim = "Siga a linha dourada até o inimigo — quanto mais exato, mais sangue e mais recompensa";
         public const string HudStandoffTitle = "居合  ·  IAI";
         public const string HudStandoffHold = "Segure {0}. Solte só quando ele AVANÇAR.";
         public const string HudStandoffNow = "AGORA!";
@@ -169,6 +169,11 @@ namespace Shura
         public const string PopupCharge = "CARGA {0}";
         public const string PopupCycle = "CICLO DAS DUAS LÂMINAS";
         public const string PopupCutLine = "CORTE EM LINHA";
+        public const string PopupCutPerfect = "CORTE PERFEITO";
+        public const string PopupSpiritThrough = "ATRAVESSOU! Troca (Q) ou esquiva";
+        public const string PopupCutClean = "corte limpo";
+        public const string ToastCutPerfect = "Corte perfeito: +25 vida, Fluxo, 15 Mon, ecos e saque em dobro.";
+        public const string HudCutPerfect = "PERFEITO";
         public const string PopupCutArm = "BRAÇO DECEPADO";
         public const string PopupCutHead = "DECAPITADO";
         public const string PopupStomp = "PISÃO!";
@@ -219,6 +224,24 @@ namespace Shura
 
         // Online
         public const string PlayOnline = "Jogar online (até 8)";
+        public const string JoinSteam = "Entrar num duelo (Steam)";
+        public const string SteamTitle = "Duelos na Steam";
+        public const string SteamRefresh = "Atualizar lista";
+        public const string SteamOpenBrowser = "Abrir o duelo no navegador";
+        public const string SteamInvite = "Convidar amigos (Steam)";
+        public const string SteamOff = "Steam não encontrada: abra a Steam (logada) e reinicie o Shura para jogar pela internet. Pela mesma rede/Radmin continua funcionando.";
+        public const string SteamReady = "Steam conectada como {0}.";
+        public const string SteamOpening = "Abrindo a sala na Steam…";
+        public const string SteamHosting = "Sala aberta na Steam: seus amigos abrem o Shura → \"Entrar num duelo (Steam)\", ou use \"Convidar amigos\".";
+        public const string SteamLobbyFailed = "A Steam não conseguiu abrir a sala. A rede local continua funcionando.";
+        public const string SteamJoining = "Entrando na sala…";
+        public const string SteamJoinFailed = "Não foi possível entrar nessa sala (cheia ou fechada).";
+        public const string SteamConnecting = "Conectando ao duelo de {0} pela Steam…";
+        public const string SteamConnected = "Conectado ao duelo de {0}! O jogo abriu no seu navegador — jogue por lá e deixe esta janela aberta.";
+        public const string SteamLost = "A conexão com o anfitrião caiu.";
+        public const string SteamProxyFailed = "Não foi possível abrir a porta local (7790–7799).";
+        public const string SteamNoLobbies = "Nenhum duelo aberto agora. Peça para o anfitrião abrir \"Jogar online\" e clique em Atualizar.";
+        public const string SteamSearching = "Procurando duelos…";
         public const string LobbyTitle = "SALA ONLINE";
         public const string LobbyLinks = "Mande um destes links para os amigos (abre no navegador, sem instalar nada):";
         public const string LobbyRadminHint = "Todos precisam estar na mesma rede do Radmin VPN que você. Se o Windows perguntar, permita o Shura no firewall.";
@@ -388,7 +411,7 @@ namespace Shura
                 case HintId.Elo:
                     return "ELO: trocar de arma no meio do combo dá um golpe de transição com nome próprio. Três elos seguidos abrem o Ciclo das Duas Lâminas.";
                 case HintId.FinisherCut:
-                    return "CORTE DIRIGIDO: na finalização, mire. Na horizontal derruba quem estiver na linha, no braço desarma os próximos, na cabeça é o fim limpo.";
+                    return "CORTE DIRIGIDO: na finalização, uma linha dourada sai de você até um ponto do inimigo. Mire a lâmina sobre ela e ataque: quanto mais exato, mais sangue e mais recompensa — exatamente na linha é o CORTE PERFEITO (vida, Fluxo, Mon, ecos e saque em dobro).";
                 case HintId.MasterAnswers:
                     return "RESPOSTAS DE MESTRE: esquive PARA CIMA de uma varredura (descida), PARA TRÁS de uma agarrada (arremesso), e apare a investida em Chūdan para empurrar.";
                 case HintId.Feint:
@@ -421,6 +444,10 @@ namespace Shura
                     return "DISPUTA: yokai e humanos já estão se matando. Deixe que se enfraqueçam — ou aproveite.";
                 case HintId.Ally:
                     return "O RONIN luta ao seu lado por algumas salas. Seus golpes não o ferem.";
+                case HintId.SpiritBlow:
+                    return gamepad
+                        ? "ANEL ROXO PONTILHADO = golpe espiritual: a lâmina atravessa e o aparar comum NÃO segura. Responda com a TROCA PERFEITA (Y no fechar do anel) ou esquive. Com um TALISMÃ equipado, o aparar volta a funcionar."
+                        : "ANEL ROXO PONTILHADO = golpe espiritual: a lâmina atravessa e o aparar comum NÃO segura. Responda com a TROCA PERFEITA (Q no fechar do anel) ou esquive. Com um TALISMÃ equipado, o aparar volta a funcionar.";
                 case HintId.Kalpa:
                     return "KALPA: a cada 25 salas, um ciclo novo com uma regra permanente. Os números sobem menos — as regras é que apertam.";
                 case HintId.EliteAffixes:

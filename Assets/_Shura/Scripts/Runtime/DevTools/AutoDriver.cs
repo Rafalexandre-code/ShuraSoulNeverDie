@@ -66,7 +66,8 @@ namespace Shura
                 case Game.Mode.MainMenu:
                     if (ShotThenAct("menu", wait))
                     {
-                        if (game.Launch.Host) game.OpenLobby();
+                        if (game.Launch.SteamGuest) game.OpenSteamJoin();
+                        else if (game.Launch.Host) game.OpenLobby();
                         else if (shots) game.OpenArsenal();
                         else game.StartRun();
                     }
@@ -84,6 +85,21 @@ namespace Shura
                     break;
                 case Game.Mode.Arsenal:
                     if (ShotThenAct("arsenal", wait)) game.StartRun();
+                    break;
+                case Game.Mode.SteamJoin:
+                    // Test guest: refresh until a duel shows up, join it, then just keep the tunnel open.
+                    if (game.Steam.GuestConnected || steamJoinAsked) break;
+                    if (game.Steam.Lobbies.Count > 0)
+                    {
+                        steamJoinAsked = true;
+                        Debug.Log("[Shura][Auto] entrando na sala Steam de " + game.Steam.Lobbies[0].host);
+                        game.Steam.Join(game.Steam.Lobbies[0].id);
+                    }
+                    else if (!game.Steam.Searching && modeTime > 3f)
+                    {
+                        modeTime = 0f;
+                        game.Steam.RefreshLobbies();
+                    }
                     break;
                 case Game.Mode.Route:
                     if (ShotThenAct("route", wait) && game.RouteOptions.Count > 0)
@@ -189,6 +205,7 @@ namespace Shura
             return sb.ToString();
         }
         int routePick;
+        bool steamJoinAsked;
 
         void UpdatePlaying()
         {

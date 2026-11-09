@@ -758,7 +758,11 @@ namespace Shura
             finisherAnchor = target.Position;
             finisherKilled = false;
             Velocity = Vector2.zero;
-            AimLineAngle = world.Run.Rng.Range(0f, 180f);
+            // The golden line runs from the duelist to a random point of the enemy's body.
+            float r = target.Radius;
+            AimPoint = target.Position + new Vector2(world.Run.Rng.Range(-r * 0.8f, r * 0.8f), world.Run.Rng.Range(0.1f, r * 2.2f));
+            AimLineAngle = CombatMath.AngleDegrees(AimPoint - Position);
+            CutPrecision = 0f;
             Enter(State.FinisherAim);
             world.HintOnce(HintId.FinisherCut);
             Squash(0.8f, 1.2f);
@@ -851,6 +855,8 @@ namespace Shura
                 hurtInvulnerable = hurtInvuln > 0 || CurrentState == State.Finisher || CurrentState == State.FinisherAim || CurrentState == State.SwapStrike,
                 parryWindow = CurrentState == State.Parry && StateFrame < parryWindow,
                 swapWindow = CurrentState == State.Swap && StateFrame < swapWindow,
+                // A talisman worn lets an ordinary parry stop a spirit blow.
+                spiritWard = Build != null && Build.Equipped[(int)ItemSlot.Talisman] != null,
                 guarding = CurrentState == State.Parry,
                 facing = Facing,
                 toAttacker = toAttacker,
@@ -949,6 +955,12 @@ namespace Shura
                     break;
 
                 case HitOutcome.Hit:
+                    // Parried a spirit blow with bare steel: say why it went through.
+                    if (attack.kind == AttackKind.Spirit && CurrentState == State.Parry)
+                    {
+                        world.Fx.Popup(Strings.PopupSpiritThrough, Position + Vector2.up * 1.5f, ColorUtil.Hex("#B07CFF"));
+                        world.HintOnce(HintId.SpiritBlow);
+                    }
                     if (attack.cursed) Curse();
                     TakeHit(attack, toDir, power);
                     break;

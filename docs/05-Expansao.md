@@ -114,6 +114,13 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **Registro** (canto inferior direito): itens coletados, inimigos novos, técnicas, recompensas, Fluxo, clima… tudo o que antes cruzava o centro da tela agora vira uma linha com horário; linhas iguais seguidas se juntam. A caixa de dicas foi para o centro, entre o cinto e o registro.
 - O mesmo HUD (retrato, guardas, boneco, cinto, registro) no navegador.
 
+## Ajustes do diretor (após o HUD) — ✅
+
+- **HUD com ícones**: gota de sangue (vida), tsuba (postura), redemoinho (fôlego), máscara oni que pulsa com o nível (Shura), pena (esquiva), chama de alma (ecos) — no jogo e no navegador.
+- **Corte dirigido refeito**: a linha dourada sai sempre de você até um ponto aleatório do corpo do inimigo (nunca mais "na vertical com o inimigo na horizontal"). A sua mira acende dourada ao encostar na linha. Precisão: **perfeito** (≤4°: +25 vida, +Fluxo, +15 Mon, ecos extras, saque em dobro, acalma o Shura), **na linha** (≤12°), **limpo** (≤24°). O sangue cresce muito quanto mais perto da linha.
+- **Golpe espiritual (anel roxo pontilhado)**: o aparar comum não segura (regra do documento), agora explicado por dica e por aviso "ATRAVESSOU!"; com um **Talismã** equipado, o aparar perfeito volta a funcionar.
+- **Online pela internet via Steam (Spacewar, AppID 480)**: o anfitrião abre a sala online e ela aparece na Steam; os amigos abrem o Shura → "Entrar num duelo (Steam)" (ou aceitam o convite) e o jogo deles cria um túnel pelo relay da Steam e abre o duelo no navegador local. Sem VPN e sem abrir portas. Guia para os jogadores: `docs/COMO_JOGAR_ONLINE.txt`.
+
 ## Apresentação e acessibilidade (§10) — ⏳
 
 10.1 tabela de impacto · 10.2 câmera e finalizações em tinta · 10.3 som que informa · 10.4 música adaptativa (🟡 música abafada em Mushin/Iai já feita) · 10.5 interface diegética · 10.6 luz 2D (provável adiamento: o projeto usa Built-in RP; luz 2D exige URP) · 10.7 acessibilidade (🟡 anéis com padrão próprio por tipo) · 10.8 replay e foto.

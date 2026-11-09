@@ -209,6 +209,121 @@ namespace Shura
             }
         }
 
+        // ── Meter icons (health, posture, breath, Shura, Ecos, dodge) ───────────────────
+
+        public static Sprite Heart() => Make("heart", new[]
+        {
+            ".....oo.....",
+            "....orro....",
+            "...orHrro...",
+            "...orHrro...",
+            "..orHrrrro..",
+            "..orHrrrro..",
+            ".orrrrrrrso.",
+            ".orrrrrrrso.",
+            ".orrrrrrsso.",
+            "..orrrrsso..",
+            "...ossssoo..",
+            "....oooo....",
+        }, new Dictionary<char, Color>
+        {
+            { 'o', ColorUtil.Hex("#3A0A0E") }, { 'r', ColorUtil.Hex("#D63A2C") }, { 'H', ColorUtil.Hex("#FF9A8A") }, { 's', ColorUtil.Hex("#8E0F1E") },
+        });
+
+        public static Sprite Tsuba() => Make("tsuba", new[]
+        {
+            "...oooooo...",
+            "..oyyyyyyo..",
+            ".oyYyyyyyso.",
+            "oyYyoooyyyso",
+            "oyYo...oyyso",
+            "oyyo...oyyso",
+            "oyyo...oyyso",
+            "oyyyoooyyyso",
+            ".oyyyyyyyso.",
+            "..osssssso..",
+            "...oooooo...",
+            "............",
+        }, new Dictionary<char, Color>
+        {
+            { 'o', ColorUtil.Hex("#3D2A0E") }, { 'y', ColorUtil.Hex("#E9C46A") }, { 'Y', ColorUtil.Hex("#FBE29A") }, { 's', ColorUtil.Hex("#B07A2A") },
+        });
+
+        public static Sprite Wind() => Make("wind", new[]
+        {
+            "............",
+            "..bbbbbbb...",
+            ".b.......b..",
+            ".......bb.b.",
+            "..bbbbb...b.",
+            ".b.....b..b.",
+            "..bb...b.b..",
+            ".....bb.b...",
+            ".bbbbbb.....",
+            "b...........",
+            ".bbbbbbbbb..",
+            "............",
+        }, new Dictionary<char, Color>
+        {
+            { 'b', ColorUtil.Hex("#A8D8C8") },
+        });
+
+        public static Sprite Oni() => Make("oni", new[]
+        {
+            ".h........h.",
+            ".hh.oooo.hh.",
+            "..hoRRRRoh..",
+            "..oRRRRRRo..",
+            ".oRwRRRRwRo.",
+            ".oRkwRRwkRo.",
+            ".oRRRRRRRRo.",
+            ".oRRwwwwRRo.",
+            "..oRwkkwRo..",
+            "..oRRRRRRo..",
+            "...oRRRRo...",
+            "....oooo....",
+        }, new Dictionary<char, Color>
+        {
+            { 'o', ColorUtil.Hex("#2A0508") }, { 'R', ColorUtil.Hex("#D7263D") }, { 'w', ColorUtil.Hex("#F1E8D6") }, { 'k', ColorUtil.Hex("#120204") }, { 'h', ColorUtil.Hex("#E8DCC0") },
+        });
+
+        public static Sprite Soul() => Make("soul", new[]
+        {
+            ".....g......",
+            "....gG......",
+            "...gGg..g...",
+            "...gGGg.gg..",
+            "..gGGGGggg..",
+            "..gGWWGGgg..",
+            ".gGWWWWGGg..",
+            ".gGWWWWWGg..",
+            ".gGGWWWGGg..",
+            "..gGGGGGg...",
+            "...gggggg...",
+            "............",
+        }, new Dictionary<char, Color>
+        {
+            { 'g', ColorUtil.Hex("#B8862A") }, { 'G', ColorUtil.Hex("#F2C14E") }, { 'W', ColorUtil.Hex("#FFF4CF") },
+        });
+
+        public static Sprite Feather() => Make("feather", new[]
+        {
+            "..........b.",
+            ".........bB.",
+            "........bBb.",
+            ".......bBb..",
+            "......bBbb..",
+            ".....bBbb...",
+            "....bBbb....",
+            "...bBbb.....",
+            "..bBbb......",
+            "..Bbb.......",
+            ".B..........",
+            "B...........",
+        }, new Dictionary<char, Color>
+        {
+            { 'b', ColorUtil.Hex("#6FC3DF") }, { 'B', ColorUtil.Hex("#D6F1FA") },
+        });
         // ── The paper doll ───────────────────────────────────────────────────────────
 
         public static readonly string[] DollRows =

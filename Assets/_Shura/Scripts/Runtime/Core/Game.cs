@@ -30,6 +30,8 @@ namespace Shura
             Lobby,
             /// <summary>The route map between rooms: choose (or vote for) the next door.</summary>
             Route,
+            /// <summary>Joining a friend's duel over Steam.</summary>
+            SteamJoin,
         }
 
         const int RoomClearDelayFrames = 75;
@@ -67,6 +69,8 @@ namespace Shura
         public FeedbackRouter Feedback { get; private set; }
         public FeedbackTap Tap { get; private set; }
         public NetSession Net { get; private set; }
+        /// <summary>Online over the internet through Steam (Spacewar): hosting and joining.</summary>
+        public SteamLink Steam { get; private set; }
         bool feelMuted;
         bool arsenalForLobby;
 
@@ -165,6 +169,12 @@ namespace Shura
             World.RoomClearedEvent += OnRoomCleared;
             World.PlayerDiedEvent += OnPlayerDied;
 
+            Steam = new SteamLink();
+            Steam.AllowSelf = Launch.SteamGuest;
+            Steam.NoBrowser = Launch.NoBrowser;
+            Steam.ListenLocal = Launch.Automated && Launch.Steam;
+            if ((!Launch.Automated || Launch.Steam) && !Launch.Headless) Steam.Init();
+
             if (Launch.Bot) bot = new BotInput { EncounterLinger = Launch.ShotDir != null ? 150 : 0 };
             if (Launch.Automated) autoDriver = new AutoDriver(this);
 
@@ -206,6 +216,16 @@ namespace Shura
             if (WorldKeepsRunning) Simulate();
 
             Net.Update(Time.unscaledDeltaTime);
+            Steam.Update();
+            // A Steam invite accepted (or "+connect_lobby" at launch): straight to joining.
+            if (Steam.TakeJoinRequest(out Steamworks.CSteamID invite))
+            {
+                if (CurrentMode == Mode.MainMenu || CurrentMode == Mode.Title || CurrentMode == Mode.SteamJoin)
+                {
+                    SetMode(Mode.SteamJoin);
+                    Steam.Join(invite);
+                }
+            }
 
             autoDriver?.Update();
             UpdateMusic();
@@ -332,10 +352,13 @@ namespace Shura
                 return;
             }
             SetMode(Mode.Lobby);
+            // Over the internet too: a Steam lobby tunnels friends into this same room.
+            Steam.Host(Net.Server);
         }
 
         public void CloseLobby()
         {
+            Steam.StopHost();
             Net.Stop();
             SetMode(Mode.MainMenu);
         }
@@ -772,14 +795,30 @@ namespace Shura
             if (!hasFocus && CurrentMode == Mode.Playing && !Launch.Automated && !Net.Active) Pause();
         }
 
+        // ── Joining over Steam ────────────────────────────────────────────────────────
+
+        public void OpenSteamJoin()
+        {
+            SetMode(Mode.SteamJoin);
+            Steam.RefreshLobbies();
+        }
+
+        public void CloseSteamJoin()
+        {
+            Steam.LeaveGuest();
+            SetMode(Mode.MainMenu);
+        }
+
         void OnApplicationQuit()
         {
             Net?.Stop();
+            Steam?.Shutdown();
         }
 
         void OnDestroy()
         {
             Net?.Stop();
+            Steam?.Shutdown();
             Controls?.Disable();
         }
     }

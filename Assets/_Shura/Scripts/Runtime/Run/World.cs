@@ -1000,7 +1000,9 @@ namespace Shura
         public void FinisherImpact(Enemy enemy, Vector2 dir, float intensity)
         {
             Fx.Emit(FxType.FinisherHit, enemy.Position, dir, intensity, enemy.Def.bloodColor);
-            Fx.Blood(enemy.Position, dir, 10f + 18f * intensity, enemy.Def.bloodColor);
+            // A cut that followed the golden line opens the enemy up.
+            float gush = 1f + 5f * Player.CutPrecision * Player.CutPrecision;
+            Fx.Blood(enemy.Position, dir, (10f + 18f * intensity) * gush, enemy.Def.bloodColor);
         }
 
         public void ExecuteFinisher(Enemy enemy, FinisherStyle style, Vector2 dir)
@@ -1015,6 +1017,12 @@ namespace Shura
             Fx.Emit(FxType.Finisher, enemy.Position, dir, lastOne ? 2f : 1f, enemy.Def.bloodColor);
             Fx.Popup(Player.Weapon.finisherName.ToUpperInvariant(), enemy.Position + Vector2.up * 1f, Color.white);
             Fx.Gore(style, enemy.Position, dir, enemy.BodySprite, enemy.BodyColor, enemy.Def.bloodColor, enemy.Radius);
+            float precise = Player.CutPrecision * Player.CutPrecision;
+            if (precise > 0.05f)
+            {
+                Fx.Blood(enemy.Position, dir, 30f + 160f * precise, enemy.Def.bloodColor);
+                Fx.Blood(enemy.Position, -dir, 40f * precise, enemy.Def.bloodColor);
+            }
             bool absorb = enemy.Mastered && Player.Build.CanAbsorb(enemy.Def.techniqueId);
             enemy.DieByFinisher();
             AddFlow(Config.flow.finisherPoints);

@@ -28,3 +28,7 @@ crashlytics-build.properties
 .vs/
 .idea/
 .DS_Store
+
+# Unity crash recovery
+/[Aa]ssets/_Recovery/
+/[Aa]ssets/_Recovery.meta

@@ -27,6 +27,12 @@ namespace Shura
         public int EventId = -1;
         /// <summary>Automated runs only: "-shuraWeather Storm" forces the first room's weather.</summary>
         public string Weather;
+        /// <summary>"-shuraSteam": automated runs also start Steam (online tests).</summary>
+        public bool Steam;
+        /// <summary>"-shuraSteamGuest": a test guest that joins the first Steam duel it finds (even its own account's).</summary>
+        public bool SteamGuest;
+        /// <summary>"-shuraNoBrowser": the Steam guest does not open the system browser.</summary>
+        public bool NoBrowser;
 
         /// <summary>"-shuraHost N": open the online room and start once N browser players joined (or after 40 s).</summary>
         public bool Host;
@@ -58,6 +64,16 @@ namespace Shura
                     case "-shuraEvent":
                         if (i + 1 < args.Length && int.TryParse(args[i + 1], out int ev)) options.EventId = ev;
                         i++;
+                        break;
+                    case "-shuraSteam":
+                        options.Steam = true;
+                        break;
+                    case "-shuraSteamGuest":
+                        options.SteamGuest = true;
+                        options.Steam = true;
+                        break;
+                    case "-shuraNoBrowser":
+                        options.NoBrowser = true;
                         break;
                     case "-shuraWeather":
                         if (i + 1 < args.Length) options.Weather = args[++i];

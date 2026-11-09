@@ -55,6 +55,7 @@ h1 { font-family: "Kaushan"; font-weight: normal; font-size: 46px; text-align: c
 #portrait.asura { box-shadow: 0 0 0 3px #d7263d, 0 0 26px rgba(215,38,61,.7); }
 .kamae { margin-top: 6px; color: #6fc3df; font: 14px "SpectralBold"; letter-spacing: 1px; }
 #stances { width: 160px; height: 53px; image-rendering: pixelated; }
+canvas.ic { width: 18px; height: 18px; vertical-align: -4px; image-rendering: pixelated; }
 #me .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .dollBox { text-align: center; padding-top: 34px; }
 #doll { width: 48px; height: 84px; image-rendering: pixelated; }

@@ -140,7 +140,7 @@ namespace Shura.Tests
                     Assert.IsTrue(names.Add(n), "Nome repetido: " + n);
                 }
             }
-            Assert.AreEqual(15, names.Count);
+            Assert.AreEqual(45, names.Count);
         }
 
         // ── Rings ────────────────────────────────────────────────────────────────────

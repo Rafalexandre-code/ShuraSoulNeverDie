@@ -38,7 +38,7 @@ namespace Shura
         readonly InputActionMap gameplay = new InputActionMap("Gameplay");
         readonly InputActionMap ui = new InputActionMap("UI");
         readonly InputAction move, aim, attack, parry, dodge, swap, pause, interact;
-        readonly InputAction detonate, kiai, tool, toolCycle, gourd, bandage;
+        readonly InputAction detonate, kiai, tool, toolCycle, gourd, bandage, soul;
         readonly InputAction[] kamae = new InputAction[4];
         readonly InputAction navigate, submit, cancel;
 
@@ -60,7 +60,7 @@ namespace Shura
         /// tool, tool cycle, gourd, bandage): a guest sends these counters to the host, so a
         /// lost packet can never lose a press.
         /// </summary>
-        public readonly int[] PressCounts = new int[10];
+        public readonly int[] PressCounts = new int[11];
 
         /// <summary>Screen → world conversion, provided by the camera.</summary>
         public Func<Vector2, Vector2> ScreenToWorld { get; set; }
@@ -118,6 +118,9 @@ namespace Shura
             bandage = gameplay.AddAction("Bandagem", InputActionType.Button);
             bandage.AddBinding("<Keyboard>/h");
             bandage.AddBinding("<Gamepad>/leftStickPress");
+            soul = gameplay.AddAction("Alma", InputActionType.Button);
+            soul.AddBinding("<Keyboard>/b");
+            soul.AddBinding("<Gamepad>/rightStickPress");
             // Kamae: 1 Jōdan (alta), 2 Chūdan (média), 3 Gedan (baixa), 4 Waki (oculta); d-pad on a gamepad.
             for (int k = 0; k < 4; k++)
             {
@@ -219,6 +222,7 @@ namespace Shura
             if (toolCycle.WasPressedThisFrame()) Buffer.Press(BufferedAction.ToolCycle, tuning.actionBufferFrames);
             if (gourd.WasPressedThisFrame()) Buffer.Press(BufferedAction.Gourd, tuning.actionBufferFrames);
             if (bandage.WasPressedThisFrame()) Buffer.Press(BufferedAction.Bandage, tuning.actionBufferFrames);
+            if (soul.WasPressedThisFrame()) Buffer.Press(BufferedAction.Soul, tuning.actionBufferFrames);
             for (int k = 0; k < 4; k++)
             {
                 if (kamae[k].WasPressedThisFrame()) pendingKamae = k;
@@ -227,7 +231,7 @@ namespace Shura
 
         void CountPresses()
         {
-            InputAction[] order = { attack, parry, dodge, swap, detonate, kiai, tool, toolCycle, gourd, bandage };
+            InputAction[] order = { attack, parry, dodge, swap, detonate, kiai, tool, toolCycle, gourd, bandage, soul };
             for (int i = 0; i < order.Length; i++)
             {
                 if (order[i].WasPressedThisFrame()) PressCounts[i]++;
@@ -326,7 +330,7 @@ namespace Shura
         public List<KeyValuePair<string, string>> DescribeBindings()
         {
             var list = new List<KeyValuePair<string, string>>();
-            foreach (InputAction action in new[] { move, attack, parry, dodge, swap, detonate, kiai, tool, gourd, bandage, pause })
+            foreach (InputAction action in new[] { move, attack, parry, dodge, swap, detonate, kiai, tool, gourd, bandage, soul, pause })
             {
                 string display;
                 try

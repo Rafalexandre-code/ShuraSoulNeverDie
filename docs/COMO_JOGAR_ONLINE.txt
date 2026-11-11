@@ -44,7 +44,7 @@ Durante o duelo
 Os controles são os mesmos de jogar sozinho (teclado+mouse ou controle):
 WASD mover · mouse mirar · botão esquerdo atacar · botão direito aparar
 (segurar bloqueia) · Espaço esquivar · Q trocar arma (no anel = Troca Perfeita)
-1–4 guarda (kamae) · G detonar selos · V kiai · F cabaça · H bandagem
+1–4 guarda (kamae) · G detonar selos · V kiai · B alma · F cabaça · H bandagem
 R ferramenta · T trocar ferramenta · E usar objetos / reviver aliado
 Esc menu (o duelo continua!) · Tab equipamento · C (ou R3) abre/fecha o registro.
 Cada um escolhe a SUA recompensa depois da sala, e todos votam na próxima porta.

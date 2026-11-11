@@ -275,6 +275,8 @@ namespace Shura
         public static Sprite Weapon(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
+            // The war fan has no pack art: it is drawn procedurally.
+            if (name == "weapon_Fan") return ShapeLibrary.Get(Shape.Fan);
             string key = name + "#weapon";
             if (Sprites.TryGetValue(key, out Sprite cached)) return cached;
             Texture2D rotated = Rotate(Texture(name), true, key);

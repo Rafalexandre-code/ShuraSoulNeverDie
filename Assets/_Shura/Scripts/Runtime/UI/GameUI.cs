@@ -163,6 +163,7 @@ namespace Shura
                 arsenalPicks.Add(game.Settings.weaponA);
                 arsenalPicks.Add(game.Settings.weaponB);
                 arsenalIndex = 0;
+                forgeOpen = false;
             }
             if (mode == Game.Mode.Equipment) equipIndex = 0;
             modeChangedFrame = Time.frameCount;
@@ -1410,22 +1411,51 @@ namespace Shura
 
         // ── Arsenal ───────────────────────────────────────────────────────────────────
 
-        const int ArsenalStartIndex = 6;
-        const int ArsenalBackIndex = 7;
+        // Ten weapons in two rows of five; then Forja, Começar and Voltar.
+        const int ArsenalCols = 5;
+        static int ArsenalCount => WeaponDefs.All.Length;
+        static int ArsenalStartIndex => ArsenalCount;
+        static int ArsenalBackIndex => ArsenalCount + 1;
+        static int ArsenalForgeIndex => ArsenalCount + 2;
+
+        bool forgeOpen;
+        int forgeIndex;
 
         void HandleArsenal(InputService input)
         {
-            if (input.NavX != 0 && arsenalIndex < 6)
+            if (forgeOpen)
             {
-                int row = arsenalIndex / 3;
-                arsenalIndex = row * 3 + (arsenalIndex % 3 + input.NavX + 3) % 3;
+                HandleForge(input);
+                return;
+            }
+            int n = ArsenalCount;
+            if (input.NavX != 0)
+            {
+                if (arsenalIndex < n)
+                {
+                    int row = arsenalIndex / ArsenalCols;
+                    int col = (arsenalIndex % ArsenalCols + input.NavX + ArsenalCols) % ArsenalCols;
+                    arsenalIndex = Mathf.Min(n - 1, row * ArsenalCols + col);
+                }
+                else if (arsenalIndex == ArsenalStartIndex || arsenalIndex == ArsenalForgeIndex)
+                {
+                    arsenalIndex = arsenalIndex == ArsenalStartIndex ? ArsenalForgeIndex : ArsenalStartIndex;
+                }
                 game.Audio.Play(Sfx.UiMove, 0.5f, 1f, 0f);
             }
             if (input.NavY != 0)
             {
-                arsenalIndex = input.NavY < 0
-                    ? (arsenalIndex < 3 ? arsenalIndex + 3 : arsenalIndex < 6 ? ArsenalStartIndex : ArsenalBackIndex)
-                    : (arsenalIndex == ArsenalBackIndex ? ArsenalStartIndex : arsenalIndex == ArsenalStartIndex ? 4 : arsenalIndex >= 3 ? arsenalIndex - 3 : arsenalIndex);
+                if (input.NavY < 0)
+                {
+                    if (arsenalIndex < n) arsenalIndex = arsenalIndex + ArsenalCols < n ? arsenalIndex + ArsenalCols : ArsenalStartIndex;
+                    else if (arsenalIndex == ArsenalStartIndex || arsenalIndex == ArsenalForgeIndex) arsenalIndex = ArsenalBackIndex;
+                }
+                else
+                {
+                    if (arsenalIndex == ArsenalBackIndex) arsenalIndex = ArsenalStartIndex;
+                    else if (arsenalIndex >= n) arsenalIndex = Mathf.Min(n - 1, ArsenalCols + ArsenalCols / 2);
+                    else if (arsenalIndex >= ArsenalCols) arsenalIndex -= ArsenalCols;
+                }
                 game.Audio.Play(Sfx.UiMove, 0.5f, 1f, 0f);
             }
             if (input.Submit) ActivateArsenal(arsenalIndex);
@@ -1437,6 +1467,18 @@ namespace Shura
             if (index == ArsenalBackIndex)
             {
                 game.CancelArsenal();
+                return;
+            }
+            if (index == ArsenalForgeIndex)
+            {
+                if (arsenalPicks.Count == 0)
+                {
+                    game.Audio.Play(Sfx.Denied, 0.6f, 1f, 0f);
+                    return;
+                }
+                forgeOpen = true;
+                forgeIndex = 0;
+                game.Audio.Play(Sfx.Unsheathe, 0.5f, 0.9f, 0f);
                 return;
             }
             if (index == ArsenalStartIndex)
@@ -1452,56 +1494,199 @@ namespace Shura
             game.Audio.Play(Sfx.Unsheathe, 0.5f, 1.2f, 0f);
         }
 
+        /// <summary>Opens the forge on the current picks (the automated tour photographs it).</summary>
+        public void OpenForgeForShots()
+        {
+            forgeOpen = arsenalPicks.Count > 0;
+            forgeIndex = 0;
+        }
+
+        public void CloseForgeForShots() => forgeOpen = false;
+
         void DrawArsenal()
         {
             DrawRect(FullScreen, UiKit.Ink.WithAlpha(0.42f));
+            if (forgeOpen)
+            {
+                DrawForge();
+                return;
+            }
             Heading(new Rect(0, 10, VW, 100), Strings.ArsenalTitle, UiKit.PaperText, UiKit.Shu.WithAlpha(0.9f));
             Label(new Rect(0, 112, VW, 40), Strings.ArsenalSubtitle, taglineStyle, UiKit.PaperText);
 
-            const float cardW = 560f, cardH = 322f, gap = 26f;
-            float startX = (VW - (3 * cardW + 2 * gap)) * 0.5f;
+            const float cardW = 344f, cardH = 338f, gap = 14f, pad = 32f;
+            float startX = (VW - (ArsenalCols * cardW + (ArsenalCols - 1) * gap)) * 0.5f;
             Event e = Event.current;
             bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
-            for (int i = 0; i < WeaponDefs.All.Length; i++)
+            for (int i = 0; i < ArsenalCount; i++)
             {
-                WeaponDef w = WeaponDefs.All[i];
+                WeaponDef blade = WeaponDefs.All[i];
+                WeaponDef w = WeaponDefs.Get(game.Settings.Loadout(blade.id));
                 bool selected = i == arsenalIndex;
                 float lift = selected ? -10f * CombatMath.EaseOutCubic(selAnim) : 0f;
-                var r = new Rect(startX + (i % 3) * (cardW + gap), 166f + (i / 3) * (cardH + gap) + lift, cardW, cardH);
+                var r = new Rect(startX + (i % ArsenalCols) * (cardW + gap), 158f + (i / ArsenalCols) * (cardH + gap) + lift, cardW, cardH);
                 if (ArsenalMouse(r, i, e, mouseMoved)) return;
-                int pick = arsenalPicks.IndexOf(w.id);
+                int pick = arsenalPicks.IndexOf(blade.id);
                 kit.PaperPanel(r, selected || pick >= 0 ? 1f : 0.92f);
 
                 // The weapon lies on an ink swatch; chosen weapons get a vermilion one.
-                var swatch = new Rect(r.x + 26f, r.y + 34f, 240f, 86f);
+                var swatch = new Rect(r.x + pad, r.y + 30f, cardW - 2f * pad, 58f);
                 kit.Stroke(swatch, (pick >= 0 ? UiKit.Shu : UiKit.Ink).WithAlpha(selected ? 0.95f : 0.82f));
-                DrawWeaponArt(w, new Rect(swatch.x + 30f, swatch.y + 18f, 180f, 50f), Color.white);
-                if (w.dual) DrawWeaponArt(w, new Rect(swatch.x + 50f, swatch.y + 30f, 180f, 50f), new Color(0.85f, 0.85f, 0.85f, 1f));
-                FitLabel(new Rect(r.x + 280f, r.y + 34f, cardW - 370f, 86f), w.name, cardNameLeftStyle, pick >= 0 ? UiKit.Shu : UiKit.Ink);
+                DrawWeaponArt(blade, new Rect(swatch.x + 50f, swatch.y + 10f, swatch.width - 100f, 38f), Color.white);
+                if (blade.dual) DrawWeaponArt(blade, new Rect(swatch.x + 64f, swatch.y + 20f, swatch.width - 100f, 38f), new Color(0.85f, 0.85f, 0.85f, 1f));
                 if (pick >= 0)
                 {
-                    var dab = new Rect(r.xMax - 92f, r.y + 22f, 60f, 60f);
+                    var dab = new Rect(r.xMax - 64f, r.y + 14f, 44f, 44f);
                     kit.Dab(dab, UiKit.Shu);
                     Label(dab, (pick + 1).ToString(), pickStyle, UiKit.PaperText);
                 }
-                Label(new Rect(r.x + 36f, r.y + 126f, cardW - 72f, 70f), w.description, cardBodyStyle, UiKit.Ink);
-                Label(new Rect(r.x + 36f, r.y + 204f, cardW - 72f, 28f), string.Format(Strings.WeaponCombo, w.combo.Length), smallStyle, UiKit.InkSoft);
-                DrawMasteryRow(w, new Rect(r.x + 36f, r.y + 204f, cardW - 72f, 28f));
-                Label(new Rect(r.x + 36f, r.y + 232f, cardW - 72f, 28f), string.Format(Strings.WeaponSwapStrike, w.swapStrike.name), smallStyle, UiKit.Ai);
-                Label(new Rect(r.x + 36f, r.y + 260f, cardW - 72f, 28f), string.Format(Strings.WeaponFinisher, w.finisherName), smallStyle, UiKit.Shu);
-                if (selected) kit.Underline(new Rect(r.x + 40f, r.yMax - 34f, cardW - 80f, 16f), UiKit.Shu.WithAlpha(0.8f));
+                float inner = cardW - 2f * pad;
+                FitLabel(new Rect(r.x + pad, r.y + 92f, inner, 42f), w.name, cardNameLeftStyle, pick >= 0 ? UiKit.Shu : UiKit.Ink);
+                int smallSize = smallStyle.fontSize;
+                smallStyle.fontSize = Mathf.RoundToInt(smallSize * 0.82f);
+                Label(new Rect(r.x + pad, r.y + 136f, inner, 92f), blade.description, smallStyle, UiKit.Ink);
+                DrawMasteryRow(blade, new Rect(r.x + pad, r.y + 230f, inner, 24f));
+                FitLabel(new Rect(r.x + pad, r.y + 256f, inner, 24f), string.Format(Strings.WeaponSwapStrike, w.swapStrike.name), smallStyle, UiKit.Ai);
+                FitLabel(new Rect(r.x + pad, r.y + 280f, inner, 24f), string.Format(Strings.WeaponFinisher, w.finisherName), smallStyle, UiKit.Shu);
+                smallStyle.fontSize = smallSize;
+                if (selected) kit.Underline(new Rect(r.x + 36f, r.yMax - 26f, cardW - 72f, 10f), UiKit.Shu.WithAlpha(0.8f));
             }
 
-            var start = new Rect((VW - 560f) * 0.5f, 872f, 560f, 88f);
-            var back = new Rect((VW - 400f) * 0.5f, 964f, 400f, 68f);
-            if (ArsenalMouse(start, ArsenalStartIndex, e, mouseMoved) || ArsenalMouse(back, ArsenalBackIndex, e, mouseMoved)) return;
+            var start = new Rect((VW - 520f) * 0.5f, 872f, 520f, 80f);
+            var forge = new Rect(start.x - 400f, 876f, 330f, 72f);
+            var back = new Rect((VW - 400f) * 0.5f, 966f, 400f, 66f);
+            if (ArsenalMouse(start, ArsenalStartIndex, e, mouseMoved) || ArsenalMouse(back, ArsenalBackIndex, e, mouseMoved)
+                || ArsenalMouse(forge, ArsenalForgeIndex, e, mouseMoved)) return;
             bool ready = arsenalPicks.Count == 2;
             bool onStart = arsenalIndex == ArsenalStartIndex;
             bool onBack = arsenalIndex == ArsenalBackIndex;
+            bool onForge = arsenalIndex == ArsenalForgeIndex;
             kit.Stroke(new Rect(start.x - 40f, start.y - 10f, start.width + 80f, start.height + 20f), (onStart && ready ? UiKit.Shu : UiKit.Ink).WithAlpha(ready ? 0.95f : 0.5f));
             Label(start, ready ? Strings.ArsenalStart : Strings.ArsenalNeedTwo, itemStyle, ready ? UiKit.PaperText : UiKit.PaperDim);
+            kit.Stroke(new Rect(forge.x - 24f, forge.y - 6f, forge.width + 48f, forge.height + 12f), (onForge ? UiKit.Shu : UiKit.Ink).WithAlpha(arsenalPicks.Count > 0 ? 0.9f : 0.45f));
+            Label(forge, Strings.ArsenalForge, itemStyle, arsenalPicks.Count > 0 ? UiKit.PaperText : UiKit.PaperDim);
             if (onBack) kit.Stroke(new Rect(back.x - 30f, back.y - 6f, back.width + 60f, back.height + 12f), UiKit.Shu.WithAlpha(0.95f), CombatMath.EaseOutCubic(selAnim));
             Label(back, Strings.Back, itemStyle, UiKit.PaperText);
+        }
+
+        // ── The forge (design doc §4.1) ─────────────────────────────────────────────
+        // Rows: for each picked blade, its grip and its tsuba; the last row closes the forge.
+
+        int ForgeRows => arsenalPicks.Count * 2 + 1;
+
+        void HandleForge(InputService input)
+        {
+            int rows = ForgeRows;
+            if (input.NavY != 0)
+            {
+                forgeIndex = (forgeIndex - input.NavY + rows) % rows;
+                game.Audio.Play(Sfx.UiMove, 0.5f, 1f, 0f);
+            }
+            if (input.NavX != 0 && forgeIndex < rows - 1)
+            {
+                CycleForge(forgeIndex, input.NavX);
+                game.Audio.Play(Sfx.Unsheathe, 0.4f, 1.3f, 0f);
+            }
+            if ((input.Submit && forgeIndex == rows - 1) || input.Cancel) CloseForge();
+        }
+
+        void CloseForge()
+        {
+            forgeOpen = false;
+            arsenalIndex = ArsenalForgeIndex;
+            if (!game.Launch.Automated) game.Settings.Save();
+        }
+
+        void CycleForge(int row, int step)
+        {
+            string blade = arsenalPicks[row / 2];
+            WeaponForge.Split(game.Settings.Loadout(blade), out _, out string grip, out string tsuba);
+            if (row % 2 == 0)
+            {
+                int gi = 0;
+                for (int i = 0; i < ArsenalCount; i++)
+                {
+                    if (WeaponDefs.All[i].id == grip) gi = i;
+                }
+                grip = WeaponDefs.All[(gi + step + ArsenalCount) % ArsenalCount].id;
+            }
+            else
+            {
+                int n = WeaponForge.Tsubas.Length;
+                tsuba = WeaponForge.Tsubas[(WeaponForge.TsubaIndex(tsuba) + step + n) % n].id;
+            }
+            game.Settings.SetForge(blade, grip, tsuba);
+        }
+
+        void DrawForge()
+        {
+            Heading(new Rect(0, 10, VW, 100), Strings.ForgeTitle, UiKit.PaperText, UiKit.Shu.WithAlpha(0.9f));
+            Label(new Rect(160f, 112, VW - 320f, 70), Strings.ForgeSubtitle, taglineSmallStyle, UiKit.PaperText);
+            Event e = Event.current;
+            bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
+            float colW = 820f, gap = 40f;
+            float x0 = (VW - (arsenalPicks.Count * colW + (arsenalPicks.Count - 1) * gap)) * 0.5f;
+            for (int c = 0; c < arsenalPicks.Count; c++)
+            {
+                string bladeId = arsenalPicks[c];
+                WeaponDef blade = WeaponDefs.Get(bladeId);
+                WeaponDef w = WeaponDefs.Get(game.Settings.Loadout(bladeId));
+                WeaponForge.Split(w.id, out _, out string gripId, out string tsubaId);
+                WeaponDef grip = WeaponDefs.Get(gripId);
+                TsubaDef tsuba = WeaponForge.Tsuba(tsubaId) ?? WeaponForge.Tsubas[0];
+                var panel = new Rect(x0 + c * (colW + gap), 196f, colW, 620f);
+                kit.PaperPanel(panel);
+                var swatch = new Rect(panel.x + 40f, panel.y + 34f, colW - 80f, 84f);
+                kit.Stroke(swatch, UiKit.Ink.WithAlpha(0.85f));
+                DrawWeaponArt(blade, new Rect(swatch.x + 120f, swatch.y + 16f, swatch.width - 240f, 52f), Color.white);
+                FitLabel(new Rect(panel.x + 40f, panel.y + 126f, colW - 80f, 56f), w.name, cardNameStyle, UiKit.Shu);
+                Label(new Rect(panel.x + 50f, panel.y + 190f, colW - 100f, 30f), Strings.ForgeBlade, capsStyle, UiKit.Ink);
+                Label(new Rect(panel.x + 50f, panel.y + 220f, colW - 100f, 30f), string.Format(Strings.ForgeBladeText, blade.name, blade.combo.Length), smallStyle, UiKit.InkSoft);
+
+                for (int k = 0; k < 2; k++)
+                {
+                    int row = c * 2 + k;
+                    var rr = new Rect(panel.x + 30f, panel.y + 270f + k * 150f, colW - 60f, 136f);
+                    bool sel = row == forgeIndex;
+                    if (sel) kit.Stroke(rr, UiKit.Shu.WithAlpha(0.22f));
+                    if (!game.Launch.Automated && rr.Contains(e.mousePosition))
+                    {
+                        if (e.type == EventType.Repaint && mouseMoved) forgeIndex = row;
+                        if (e.type == EventType.MouseDown && e.button == 0)
+                        {
+                            forgeIndex = row;
+                            CycleForge(row, e.mousePosition.x < rr.center.x ? -1 : 1);
+                            game.Audio.Play(Sfx.Unsheathe, 0.4f, 1.3f, 0f);
+                            e.Use();
+                            return;
+                        }
+                    }
+                    string caption = k == 0 ? Strings.ForgeGrip : Strings.ForgeTsuba;
+                    string value = k == 0 ? grip.name : tsuba.name;
+                    string detail = k == 0
+                        ? string.Format(Strings.ForgeGripText, grip.swapStrike.name, grip.finisherName)
+                        : tsuba.text;
+                    Label(new Rect(rr.x + 20f, rr.y + 8f, rr.width - 40f, 30f), caption, capsStyle, UiKit.Ink);
+                    Label(new Rect(rr.x, rr.y + 38f, rr.width, 50f), "◀   " + value + "   ▶", itemStyle, sel ? UiKit.Shu : UiKit.Ink);
+                    FitLabel(new Rect(rr.x + 20f, rr.y + 92f, rr.width - 40f, 34f), detail, smallStyleCenter, UiKit.InkSoft);
+                }
+            }
+
+            int done = ForgeRows - 1;
+            var doneRect = new Rect((VW - 420f) * 0.5f, 860f, 420f, 80f);
+            if (!game.Launch.Automated && doneRect.Contains(e.mousePosition))
+            {
+                if (e.type == EventType.Repaint && mouseMoved) forgeIndex = done;
+                if (e.type == EventType.MouseDown && e.button == 0)
+                {
+                    e.Use();
+                    CloseForge();
+                    return;
+                }
+            }
+            kit.Stroke(new Rect(doneRect.x - 40f, doneRect.y - 8f, doneRect.width + 80f, doneRect.height + 16f), (forgeIndex == done ? UiKit.Shu : UiKit.Ink).WithAlpha(0.95f));
+            Label(doneRect, Strings.ForgeDone, itemStyle, UiKit.PaperText);
+            Label(new Rect(0, VH - 52f, VW, 40), Strings.ForgeControls, bodyCenterStyle, UiKit.PaperDim);
         }
 
         bool ArsenalMouse(Rect r, int index, Event e, bool mouseMoved)
@@ -1707,7 +1892,7 @@ namespace Shura
             string text = next < 0
                 ? string.Format(Strings.MasteryCardMax, WeaponMastery.Numeral(level))
                 : string.Format(Strings.MasteryCard, WeaponMastery.Numeral(level), count, next);
-            float textW = smallStyle.CalcSize(new GUIContent(text)).x;
+            float textW = smallStyle.CalcSize(new GUIContent(text)).x + 10f;
             Label(new Rect(r.xMax - textW, r.y, textW, r.height), text, smallStyle, level > 0 ? UiKit.Shu : UiKit.InkSoft);
             float x0 = r.xMax - textW - 14f - WeaponMastery.MaxLevel * 18f;
             for (int i = 0; i < WeaponMastery.MaxLevel; i++)

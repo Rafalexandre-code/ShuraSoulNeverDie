@@ -35,6 +35,28 @@ namespace Shura
         HeartBreak,
     }
 
+    /// <summary>What a weapon's swap strike or finisher does on top of the blow (the new arsenal, design doc §4.2).</summary>
+    public enum WeaponPower
+    {
+        None,
+        /// <summary>Tessen: every enemy projectile on screen flies back; allies' posture eases.</summary>
+        FoldedWind,
+        /// <summary>Kanabō: the ground shakes and everyone near is stunned.</summary>
+        Earthquake,
+        /// <summary>Shakujō: the bell makes every spirit solid and stuns the yokai near.</summary>
+        Toll,
+        /// <summary>Wakizashi: a step through the shadows to the back of the nearest enemy.</summary>
+        DoubleShadow,
+        /// <summary>Tessen finisher: the fan snaps shut and a gust cuts the line ahead.</summary>
+        CloseFan,
+        /// <summary>Kanabō finisher: the blow cracks the floor around the body.</summary>
+        CrushOni,
+        /// <summary>Shakujō finisher: yokai near are banished (minions vanish, the rest are scorched).</summary>
+        Exorcism,
+        /// <summary>Wakizashi finisher: you vanish; those near lose you for a while.</summary>
+        HiddenTruth,
+    }
+
     /// <summary>One player strike: a combo step or a weapon's swap strike.</summary>
     public sealed class PlayerAttackDef
     {
@@ -86,6 +108,33 @@ namespace Shura
         public float swingPitch = 1f;
         /// <summary>Degrees of the flourish after the last combo hit (the katana's chiburi blade flick).</summary>
         public float flourish;
+
+        // ── The new arsenal's traits (design doc §4.2) ───────────────────────────────
+        /// <summary>Every hit stuns for this many frames (Kanabō).</summary>
+        public int stunOnHit;
+        /// <summary>Holding parry does not block with this in hand (the perfect window still parries).</summary>
+        public bool noBlock;
+        /// <summary>Strikes make ethereal enemies solid (Shakujō).</summary>
+        public bool exposes;
+        /// <summary>Damage multiplier on yokai.</summary>
+        public float spiritMult = 1f;
+        /// <summary>Damage multiplier on a blow from behind.</summary>
+        public float backstabMult = 1f;
+        /// <summary>Swings knock enemy projectiles back (Tessen).</summary>
+        public bool deflects;
+        /// <summary>The combo step that also throws a kunai that comes back (-1 = none).</summary>
+        public int kunaiStep = -1;
+        public WeaponPower swapPower;
+        public WeaponPower finisherPower;
+
+        // ── The modular forge (design doc §4.1) ──────────────────────────────────────
+        /// <summary>The blade's own id (mastery and the Ougi follow the blade); null = this id.</summary>
+        public string baseId;
+        public string gripId;
+        public string tsubaId;
+        public string BaseId => baseId ?? id;
+
+        public WeaponDef Clone() => (WeaponDef)MemberwiseClone();
     }
 
     /// <summary>
@@ -244,7 +293,74 @@ namespace Shura
             finisher = FinisherStyle.HeartBreak, finisherName = "Coração Partido",
         };
 
-        public static readonly WeaponDef[] All = { Katana, Montante, Gemeas, Naginata, Kusarigama, Manoplas };
+        public static readonly WeaponDef Tessen = new WeaponDef
+        {
+            id = "tessen", art = "weapon_Fan", name = "Tessen",
+            description = "Leque de guerra. Cada abano rebate flechas; a troca devolve todas e alivia a guarda do grupo.",
+            sprite = Shape.Fan, color = ColorUtil.Hex("#E8D9B5"), length = 0.85f, moveMult = 1.06f,
+            trail = ColorUtil.Hex("#C9F2D4"), swingPitch = 1.2f, deflects = true,
+            combo = new[]
+            {
+                Sweep(4, 4, 10, 7f, 8f, 1.5f, 130f, 0.25f, 80f, -80f),
+                Sweep(4, 4, 10, 7f, 8f, 1.5f, 130f, 0.25f, -80f, 80f),
+                Spin(5, 6, 16, 9f, 10f, 1.7f, 1),
+            },
+            swapStrike = Named(Spin(4, 8, 14, 10f, 22f, 2.4f, 1), "Vento Dobrado"),
+            swapPower = WeaponPower.FoldedWind,
+            finisher = FinisherStyle.CleanCut, finisherName = "Fechar o Leque", finisherPower = WeaponPower.CloseFan, flourish = 50f,
+        };
+
+        public static readonly WeaponDef Kanabo = new WeaponDef
+        {
+            id = "kanabo", art = "weapon_Club", name = "Kanabō",
+            description = "Clava de oni. Lentíssima e sem bloqueio, mas todo golpe atordoa.",
+            sprite = Shape.Greatsword, color = ColorUtil.Hex("#8C6E54"), length = 1.45f, moveMult = 0.8f,
+            trail = ColorUtil.Hex("#FF8A5C"), swingPitch = 0.55f, stunOnHit = 40, noBlock = true,
+            combo = new[]
+            {
+                Slam(18, 6, 30, 34f, 30f, HitShape.Arc(2.0f, 90f), 0.6f),
+                Sweep(20, 6, 32, 30f, 26f, 2.1f, 170f, 0.5f, 130f, -130f),
+            },
+            swapStrike = Named(Slam(12, 5, 24, 30f, 45f, HitShape.Circle(3.2f), 0f), "Terremoto"),
+            swapPower = WeaponPower.Earthquake,
+            finisher = FinisherStyle.Execution, finisherName = "Esmagar o Oni", finisherPower = WeaponPower.CrushOni,
+        };
+
+        public static readonly WeaponDef Shakujo = new WeaponDef
+        {
+            id = "shakujo", art = "weapon_Stick", name = "Shakujō",
+            description = "Cajado de monge com anéis. Torna sólidos os etéreos e fere mais os yokai.",
+            sprite = Shape.Staff, color = ColorUtil.Hex("#D9C27A"), length = 1.75f, moveMult = 0.97f,
+            trail = ColorUtil.Hex("#FFE9A8"), swingPitch = 0.95f, exposes = true, spiritMult = 1.3f,
+            combo = new[]
+            {
+                Thrust(6, 4, 14, 9f, 10f, 2.2f, 0.6f, 0.35f, 0.5f),
+                Sweep(7, 5, 16, 10f, 10f, 2.1f, 180f, 0.3f, 110f, -110f),
+                Spin(8, 8, 20, 11f, 12f, 2.0f, 2),
+            },
+            swapStrike = Named(Spin(5, 10, 16, 10f, 26f, 2.8f, 2), "Badalada"),
+            swapPower = WeaponPower.Toll,
+            finisher = FinisherStyle.Impale, finisherName = "Exorcismo", finisherPower = WeaponPower.Exorcism, flourish = 30f,
+        };
+
+        public static readonly WeaponDef Wakizashi = new WeaponDef
+        {
+            id = "wakizashi", art = "weapon_Ninjaku", name = "Wakizashi + Kunai",
+            description = "Lâmina curta e kunai que voltam à mão. Golpes pelas costas causam o dobro.",
+            sprite = Shape.Blade, color = ColorUtil.Hex("#DDE3EA"), length = 0.9f, moveMult = 1.1f,
+            trail = ColorUtil.Hex("#9D8CFF"), swingPitch = 1.25f, backstabMult = 2f, kunaiStep = 2,
+            combo = new[]
+            {
+                Sweep(3, 3, 8, 7f, 5f, 1.2f, 100f, 0.25f, 60f, -60f),
+                Jab(3, 3, 8, 7f, 5f, 1.3f, 0.6f, 0.3f, 0.4f),
+                Sweep(4, 4, 12, 9f, 6f, 1.3f, 120f, 0.3f, -70f, 70f),
+            },
+            swapStrike = Named(Sweep(2, 6, 14, 18f, 22f, 1.6f, 220f, 0f, 110f, -110f), "Sombra Dupla", hits: 2),
+            swapPower = WeaponPower.DoubleShadow,
+            finisher = FinisherStyle.CleanCut, finisherName = "Golpe da Verdade Oculta", finisherPower = WeaponPower.HiddenTruth, flourish = 60f,
+        };
+
+        public static readonly WeaponDef[] All = { Katana, Montante, Gemeas, Naginata, Kusarigama, Manoplas, Tessen, Kanabo, Shakujo, Wakizashi };
 
         static readonly Dictionary<string, WeaponDef> ById = BuildIndex();
 
@@ -257,9 +373,14 @@ namespace Shura
 
         public static WeaponDef Get(string id)
         {
-            return id != null && ById.TryGetValue(id, out WeaponDef w) ? w : Katana;
+            if (id != null && ById.TryGetValue(id, out WeaponDef w)) return w;
+            return WeaponForge.TryCompose(id, out WeaponDef forged) ? forged : Katana;
         }
 
-        public static bool Exists(string id) => id != null && ById.ContainsKey(id);
+        /// <summary>A blade of the arsenal, or a forged weapon ("blade+grip+tsuba").</summary>
+        public static bool Exists(string id) => id != null && (ById.ContainsKey(id) || WeaponForge.TryCompose(id, out _));
+
+        /// <summary>Only the arsenal's own blades (no forged ids).</summary>
+        public static bool IsBlade(string id) => id != null && ById.ContainsKey(id);
     }
 }

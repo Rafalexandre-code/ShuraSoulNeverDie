@@ -48,7 +48,7 @@ namespace Shura
             partySlots.Add(new PartySlot
             {
                 art = PlayerController.PartyArt[game.Settings.playerArt], name = game.Settings.playerName, you = true,
-                weapons = WeaponDefs.Get(game.Settings.weaponA).name + "  ·  " + WeaponDefs.Get(game.Settings.weaponB).name,
+                weapons = WeaponDefs.Get(game.Settings.Loadout(game.Settings.weaponA)).name + "  ·  " + WeaponDefs.Get(game.Settings.Loadout(game.Settings.weaponB)).name,
                 tag = Strings.SlotHost, tagColor = UiKit.Shu, ping = -1f,
             });
             foreach (NetSession.Remote r in net.Remotes)

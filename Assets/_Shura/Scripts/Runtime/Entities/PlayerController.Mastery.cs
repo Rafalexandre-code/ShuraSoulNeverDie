@@ -14,7 +14,7 @@ namespace Shura
         public int MasteryOf(WeaponDef w)
         {
             MetaProgress m = MasteryMeta;
-            return m != null && w != null ? WeaponMastery.LevelFor(m.MasteryFinishers(w.id)) : 0;
+            return m != null && w != null ? WeaponMastery.LevelFor(m.MasteryFinishers(w.BaseId)) : 0;
         }
 
         float MasteryPostureMult => MasteryOf(Weapon) >= 1 ? 1.15f : 1f;
@@ -44,12 +44,12 @@ namespace Shura
             if (this != world.Host)
             {
                 // An online guest: their own game keeps the record; this copy only keeps the effects current.
-                Build?.OwnMeta?.AddMasteryFinisher(Weapon.id);
+                Build?.OwnMeta?.AddMasteryFinisher(Weapon.BaseId);
                 return;
             }
             if (world.Run?.Meta == null) return;
-            int level = world.Run.Meta.AddMasteryFinisher(Weapon.id);
-            if (level > 0) world.RaiseMastery(Weapon, level);
+            int level = world.Run.Meta.AddMasteryFinisher(Weapon.BaseId);
+            if (level > 0) world.RaiseMastery(WeaponDefs.Get(Weapon.BaseId), level);
         }
 
         void ResetMasteryForRoom()

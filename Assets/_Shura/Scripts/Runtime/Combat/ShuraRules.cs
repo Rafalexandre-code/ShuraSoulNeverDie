@@ -59,10 +59,36 @@ namespace Shura
             new[] { "kanabo", "shakujo", "Badalada de Ferro" },
             new[] { "kanabo", "wakizashi", "Oni e Raposa" },
             new[] { "shakujo", "wakizashi", "Sutra Oculto" },
+            new[] { "tessen", "montante", "Vendaval de Aço" },
+            new[] { "tessen", "gemeas", "Leque de Espinhos" },
+            new[] { "tessen", "naginata", "Garça ao Vento" },
+            new[] { "tessen", "kusarigama", "Corrente de Brisa" },
+            new[] { "tessen", "manoplas", "Palma do Tufão" },
+            new[] { "kanabo", "katana", "Trovão e Fio" },
+            new[] { "kanabo", "montante", "Dois Rochedos" },
+            new[] { "kanabo", "gemeas", "Pedra e Vespas" },
+            new[] { "kanabo", "naginata", "Marreta do Horizonte" },
+            new[] { "kanabo", "kusarigama", "Mangual do Oni" },
+            new[] { "kanabo", "manoplas", "Fúria dos Ogros" },
+            new[] { "shakujo", "katana", "Prece Cortante" },
+            new[] { "shakujo", "montante", "Sino da Montanha" },
+            new[] { "shakujo", "gemeas", "Rosário de Lâminas" },
+            new[] { "shakujo", "naginata", "Peregrino Armado" },
+            new[] { "shakujo", "kusarigama", "Corrente de Contas" },
+            new[] { "shakujo", "manoplas", "Punho do Monge" },
+            new[] { "wakizashi", "katana", "Daishō Desperto" },
+            new[] { "wakizashi", "montante", "Sombra do Gigante" },
+            new[] { "wakizashi", "gemeas", "Três Presas" },
+            new[] { "wakizashi", "naginata", "Lança e Punhal" },
+            new[] { "wakizashi", "kusarigama", "Laço da Noite" },
+            new[] { "wakizashi", "manoplas", "Punhal no Punho" },
         };
 
         public static string For(string a, string b)
         {
+            // A forged weapon links by its blade.
+            a = WeaponDefs.Get(a).BaseId;
+            b = WeaponDefs.Get(b).BaseId;
             foreach (string[] p in Pairs)
             {
                 if ((p[0] == a && p[1] == b) || (p[0] == b && p[1] == a)) return p[2];
@@ -70,7 +96,7 @@ namespace Shura
             return "Elo " + WeaponDefs.Get(a).name + " · " + WeaponDefs.Get(b).name;
         }
 
-        /// <summary>The 15 Links between the six original weapons all have their own name.</summary>
+        /// <summary>The 45 Links between the ten weapons all have their own name.</summary>
         public static int NamedPairs => Pairs.Length;
     }
 }

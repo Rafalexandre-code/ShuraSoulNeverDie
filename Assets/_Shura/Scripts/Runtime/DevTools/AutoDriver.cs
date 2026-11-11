@@ -111,7 +111,25 @@ namespace Shura
                     }
                     break;
                 case Game.Mode.Arsenal:
-                    if (ShotThenAct("arsenal", wait)) game.StartRun();
+                    if (!arsenalShotDone)
+                    {
+                        if (!ShotThenAct("arsenal", wait)) break;
+                        arsenalShotDone = true;
+                        if (!shots)
+                        {
+                            game.StartRun();
+                            break;
+                        }
+                        // The forge's tour: a Nagamaki (katana blade on a naginata grip) with the Moon tsuba.
+                        game.Settings.SetForge(game.Settings.weaponA, "naginata", "lua");
+                        game.UI.OpenForgeForShots();
+                        break;
+                    }
+                    if (ShotThenAct("forge", 0f))
+                    {
+                        game.UI.CloseForgeForShots();
+                        game.StartRun();
+                    }
                     break;
                 case Game.Mode.SteamJoin:
                     // Test guest: refresh until a duel shows up, join it, then just keep the tunnel open.
@@ -297,6 +315,13 @@ namespace Shura
         void UpdatePlaying()
         {
             if (shots) UpdateBursts();
+            // The soul form, twice: as it takes the body and halfway through.
+            PlayerController host = game.World != null ? game.World.Host : null;
+            if (shots && host != null && host.InSoul && soulShots < 2 && host.SoulFramesLeft < PlayerController.SoulFrames - 20 - soulShots * 200)
+            {
+                Shot("soul");
+                soulShots++;
+            }
             // Endless runs: an automated run stops at the target depth.
             if (!shots && game.Run != null && game.Run.RoomsCleared >= game.Launch.TargetDepth)
             {
@@ -339,6 +364,9 @@ namespace Shura
         }
 
         /// <summary>Takes the screenshot first and acts two frames later, so the capture shows this screen.</summary>
+        bool arsenalShotDone;
+        int soulShots;
+
         bool ShotThenAct(string name, float wait)
         {
             if (modeTime < wait) return false;

@@ -233,6 +233,7 @@ namespace Shura
         {
             ResetKiForRoom();
             ResetMasteryForRoom();
+            ResetSoulForRoom();
             Teleport(spawn);
             Facing = Vector2.right;
             Posture.Reset();
@@ -304,6 +305,7 @@ namespace Shura
             RechargeDodge();
             RegenPosture();
             TickKi();
+            TickSoul();
             if (world.Standoff.Active && CurrentState != State.Standoff && IsAlive) BeginStandoff();
 
             switch (CurrentState)
@@ -335,7 +337,7 @@ namespace Shura
             StateFrame = 0;
         }
 
-        float MoveSpeed => t.moveSpeed * Mods.moveSpeedMult * Weapon.moveMult * KiMoveMult;
+        float MoveSpeed => t.moveSpeed * Mods.moveSpeedMult * Weapon.moveMult * KiMoveMult * SoulMoveMult;
 
         // ── States ──────────────────────────────────────────────────────────────────────
 
@@ -389,7 +391,7 @@ namespace Shura
                 return;
             }
             // A tap keeps its full perfect window even if released immediately.
-            if (windowOver && (!input.ParryHeld || Mods.noBlock))
+            if (windowOver && (!input.ParryHeld || Mods.noBlock || Weapon.noBlock))
             {
                 Enter(State.Free);
                 return;
@@ -418,6 +420,8 @@ namespace Shura
                 world.Fx.Emit(swapStrike ? FxType.SwapStrike : FxType.PlayerSwing, Position, Facing, Weapon.swingPitch, TrailColor());
                 Squash(1.28f, 0.8f);
                 if (!swapStrike) for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnSwing(world, ComboIndex, Facing);
+                if (!swapStrike && ComboIndex == Weapon.kunaiStep) world.ThrowKunai(this, Facing, 8f * DamageDealtMult, 6f);
+                if (!swapStrike) SoulSwing();
                 if (step.style == SwingStyle.Thrust || step.style == SwingStyle.Jab)
                 {
                     world.Fx.Emit(FxType.ThrustTrail, Position, Facing, step.shape.range, TrailColor());
@@ -430,9 +434,10 @@ namespace Shura
                 if (step.hits > 1 && f > 0 && f % Mathf.Max(1, step.active / step.hits) == 0) hitThisSwing.Clear();
                 float move = (step.lunge * (swapStrike ? 1f : StanceLungeMult) + step.dash) / step.active;
                 Position += Facing * move;
-                float damage = step.damage * DamageDealtMult * (swapStrike ? MasterySwapDamageMult * OugiMult : 1f);
+                float damage = step.damage * DamageDealtMult * SoulDamageMult * (swapStrike ? MasterySwapDamageMult * OugiMult : 1f);
                 float posture = step.posture * PostureDealtMult * MasteryPostureMult * (swapStrike ? OugiMult : 1f) * Mods.normalAttackPostureMult * (descendFrames > 0 ? 2f : 1f);
-                world.PlayerStrike(step.shape, damage, posture, hitThisSwing, step.pull, swapStrike || InAsura);
+                world.PlayerStrike(step.shape, damage, posture * SoulDamageMult, hitThisSwing, step.pull + SoulPull, swapStrike || InAsura);
+                if (Weapon.deflects) world.DeflectProjectiles(Position, Facing, step.shape);
                 if (step.style == SwingStyle.Slam && f == step.active - 1) world.Fx.Emit(FxType.SlamImpact, Position + Facing * step.shape.range * 0.6f, Facing, step.shape.range);
                 // A deflect inside PlayerStrike ends the swing immediately.
                 if (CurrentState != (swapStrike ? State.SwapStrike : State.Attack)) return;
@@ -698,6 +703,7 @@ namespace Shura
             Enter(State.SwapStrike);
             world.Fx.Popup(Weapon.swapStrike.name.ToUpperInvariant(), Position + Vector2.up * 1.1f, pal.gold);
             BeginSwapStrikeMastery();
+            world.WeaponSwapPower(this, Weapon.swapPower);
         }
 
         void StartAttack(int index)
@@ -898,7 +904,7 @@ namespace Shura
                     if (attacker != null)
                     {
                         // Each perfect parry plants a Ki seal and steals the attacker's breath.
-                        attacker.AddSeal(1 + (Build?.ExtraSealsPerParry ?? 0));
+                        attacker.AddSeal(1 + (Build?.ExtraSealsPerParry ?? 0) + Mods.extraSealsPerParry);
                         attacker.DrainStamina(10f);
                         world.RegisterResonance(attacker, this);
                     }

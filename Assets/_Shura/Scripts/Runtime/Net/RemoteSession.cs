@@ -448,7 +448,7 @@ namespace Shura
             Snap s = Latest;
             if (s == null || !s.players.TryGetValue(MyId, out List<object> row)) return;
             string weapon = MiniJson.S(row, 61);
-            if (!string.IsNullOrEmpty(weapon)) game.RecordGuestFinisher(weapon);
+            if (!string.IsNullOrEmpty(weapon)) game.RecordGuestFinisher(WeaponDefs.Get(weapon).BaseId);
         }
 
         bool IsMine(List<object> ev)
@@ -702,7 +702,7 @@ namespace Shura
               .Append(",\"p\":").Bool(parry).Append(",\"r\":").Bool(revive)
               .Append(",\"atk\":").Int(p[0]).Append(",\"par\":").Int(p[1]).Append(",\"dod\":").Int(p[2]).Append(",\"swp\":").Int(p[3])
               .Append(",\"det\":").Int(p[4]).Append(",\"kia\":").Int(p[5]).Append(",\"tl\":").Int(p[6]).Append(",\"tc\":").Int(p[7])
-              .Append(",\"gd\":").Int(p[8]).Append(",\"bd\":").Int(p[9]).Append(",\"km\":").Int(kamae).Append(",\"ah\":").Bool(held).Append('}');
+              .Append(",\"gd\":").Int(p[8]).Append(",\"bd\":").Int(p[9]).Append(",\"sou\":").Int(p[10]).Append(",\"km\":").Int(kamae).Append(",\"ah\":").Bool(held).Append('}');
             string msg = sb.ToString();
             inputTimer += dt;
             if (msg != lastInput)
@@ -731,7 +731,7 @@ namespace Shura
         {
             GameSettings s = game.Settings;
             sb.Clear();
-            sb.Append("{\"t\":\"join\",\"name\":").Str(GuestName).Append(",\"a\":").Str(s.weaponA).Append(",\"b\":").Str(s.weaponB)
+            sb.Append("{\"t\":\"join\",\"name\":").Str(GuestName).Append(",\"a\":").Str(s.Loadout(s.weaponA)).Append(",\"b\":").Str(s.Loadout(s.weaponB))
               .Append(",\"art\":").Int(s.playerArt).Append(",\"mt\":").Str(game.Meta.LevelsCode()).Append('}');
             Send(sb.ToString());
         }
@@ -742,7 +742,7 @@ namespace Shura
             if (!Joined) return;
             GameSettings s = game.Settings;
             sb.Clear();
-            sb.Append("{\"t\":\"loadout\",\"name\":").Str(GuestName).Append(",\"a\":").Str(s.weaponA).Append(",\"b\":").Str(s.weaponB)
+            sb.Append("{\"t\":\"loadout\",\"name\":").Str(GuestName).Append(",\"a\":").Str(s.Loadout(s.weaponA)).Append(",\"b\":").Str(s.Loadout(s.weaponB))
               .Append(",\"art\":").Int(s.playerArt).Append(",\"mt\":").Str(game.Meta.LevelsCode()).Append('}');
             Send(sb.ToString());
         }
@@ -776,7 +776,7 @@ namespace Shura
 
         Vector2 botMove, botAim = Vector2.right;
         bool botParry;
-        readonly int[] botPresses = new int[10];
+        readonly int[] botPresses = new int[11];
         int botTick;
         int botAnswered;
 

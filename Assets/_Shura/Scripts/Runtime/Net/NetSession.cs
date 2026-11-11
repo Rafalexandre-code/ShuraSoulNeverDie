@@ -746,14 +746,14 @@ namespace Shura
         {
             if (p == game.World.Host && game.Run == null)
             {
-                return WeaponDefs.Get(which == 0 ? game.Settings.weaponA : game.Settings.weaponB).name;
+                return WeaponDefs.Get(game.Settings.Loadout(which == 0 ? game.Settings.weaponA : game.Settings.weaponB)).name;
             }
             return which == 0 ? p.Weapon.name : p.OtherWeapon.name;
         }
 
         string WeaponIdOf(PlayerController p, int which)
         {
-            if (p == game.World.Host && game.Run == null) return which == 0 ? game.Settings.weaponA : game.Settings.weaponB;
+            if (p == game.World.Host && game.Run == null) return game.Settings.Loadout(which == 0 ? game.Settings.weaponA : game.Settings.weaponB);
             return which == 0 ? p.Weapon.id : p.OtherWeapon.id;
         }
 
@@ -796,7 +796,7 @@ namespace Shura
                 PlayerController p = w.Players[i];
                 if (i > 0) sb.Append(',');
                 Color g = p.NetGlow;
-                sb.Append('[').Int(p == w.Host ? 0 : p.NetId).Append(',').Str(p.DisplayName).Append(',').Str(PlayerController.PartyArt[p.ArtIndex]).Append(',')
+                sb.Append('[').Int(p == w.Host ? 0 : p.NetId).Append(',').Str(p.DisplayName).Append(',').Str(p.NetArt).Append(',')
                   .Num(p.RenderPosition.x).Append(',').Num(p.RenderPosition.y).Append(',').Num(p.Facing.x).Append(',').Num(p.Facing.y).Append(',')
                   .Int((int)p.NetDir).Append(',').Int(p.NetPose).Append(',').Int(p.NetFrame).Append(',')
                   .Num(p.NetWeaponAngle, 1).Append(',').Num(p.NetWeaponReach).Append(',').Num(p.NetWeaponLength).Append(',').Bool(p.NetWeaponVisible).Append(',')
@@ -824,7 +824,10 @@ namespace Shura
                   // [58] the other blade's art, [59] state, [60] moving (the HUD portrait's pose).
                   .Str(b != null ? b.OtherWeapon.art : "").Append(',').Int((int)p.CurrentState).Append(',').Bool(p.Velocity.sqrMagnitude > 0.5f).Append(',')
                   // [61] blade id, [62] the other blade's id, [63] Links' cycle, [64] Muramasa (the native HUD's belt and status).
-                  .Str(WeaponIdOf(p, 0)).Append(',').Str(WeaponIdOf(p, 1)).Append(',').Bool(p.CycleFramesLeft > 0).Append(',').Bool(b != null && b.Muramasa).Append(']');
+                  .Str(WeaponIdOf(p, 0)).Append(',').Str(WeaponIdOf(p, 1)).Append(',').Bool(p.CycleFramesLeft > 0).Append(',').Bool(b != null && b.Muramasa).Append(',')
+                  // [65] the soul's name, [66] ready this room, [67] seconds left in soul form.
+                  .Str((p.InSoul ? p.SoulForm : p.SoulAvailable)?.displayName ?? "").Append(',').Bool(p.SoulReady).Append(',')
+                  .Int(p.InSoul ? Mathf.CeilToInt(p.SoulFramesLeft / (float)SimClock.TickRate) : 0).Append(']');
             }
             sb.Append("],\"E\":[");
             bool first = true;

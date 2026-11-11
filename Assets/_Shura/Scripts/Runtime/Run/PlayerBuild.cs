@@ -268,6 +268,11 @@ namespace Shura
                 }
             }
             for (int i = 0; i < Effects.Count; i++) Effects[i].Apply(m);
+            // The forge's tsubas: both carried blades lend their guard's passive.
+            foreach (WeaponDef w in Weapons)
+            {
+                if (w?.tsubaId != null) WeaponForge.Tsuba(w.tsubaId)?.apply(m);
+            }
             if (Muramasa) m.damageMult *= 1.35f;
             m.damageMult *= 1f + Sharpened;
             if (Cursed(RunCurse.Fragile)) m.damageTakenMult *= 1.3f;

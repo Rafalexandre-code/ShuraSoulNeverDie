@@ -158,6 +158,7 @@ namespace Shura
         Kalpa,
         SpiritBlow,
         Reactions,
+        Soul,
     }
 
     /// <summary>

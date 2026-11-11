@@ -37,6 +37,8 @@ namespace Shura
         public string JoinAddress;
         /// <summary>"-shuraStance N": automated runs hold this guard (0 Jōdan, 1 Chūdan, 2 Gedan, 3 Waki).</summary>
         public int Stance = -1;
+        /// <summary>"-shuraSoul tecId": automated runs start with this technique at level III (its soul ready).</summary>
+        public string Soul;
         /// <summary>"-shuraTutorial [N]": automated runs play the dojo (from lesson N, 0-based).</summary>
         public bool Tutorial;
         public int TutorialStep = -1;
@@ -92,6 +94,9 @@ namespace Shura
                             options.TutorialStep = lesson;
                             i++;
                         }
+                        break;
+                    case "-shuraSoul":
+                        if (i + 1 < args.Length) options.Soul = args[++i];
                         break;
                     case "-shuraStance":
                         if (i + 1 < args.Length && int.TryParse(args[i + 1], out int stance)) options.Stance = Mathf.Clamp(stance, 0, 3);

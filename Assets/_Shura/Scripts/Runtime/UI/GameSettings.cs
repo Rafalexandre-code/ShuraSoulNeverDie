@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Shura
@@ -35,6 +36,30 @@ namespace Shura
         public bool samuraiNights;
         public string weaponA = "katana";
         public string weaponB = "montante";
+        /// <summary>The forge: one "blade+grip+tsuba" per blade that was changed.</summary>
+        public List<string> forge = new List<string>();
+
+        /// <summary>The weapon actually carried for a blade: forged if the forge changed it.</summary>
+        public string Loadout(string blade)
+        {
+            if (forge != null)
+            {
+                foreach (string f in forge)
+                {
+                    WeaponForge.Split(f, out string b, out _, out _);
+                    if (b == blade) return f;
+                }
+            }
+            return blade;
+        }
+
+        public void SetForge(string blade, string grip, string tsuba)
+        {
+            if (forge == null) forge = new List<string>();
+            forge.RemoveAll(f => { WeaponForge.Split(f, out string b, out _, out _); return b == blade; });
+            string id = WeaponForge.Compose(blade, grip, tsuba);
+            if (id != blade) forge.Add(id);
+        }
         public string bindings = string.Empty;
         /// <summary>Name shown to the party when hosting (and in the lobby).</summary>
         public string playerName = "Anfitrião";
@@ -97,8 +122,10 @@ namespace Shura
             uiScale = Mathf.Clamp(float.IsNaN(uiScale) ? defaults.uiScale : uiScale, MinUiScale, MaxUiScale);
             view = Mathf.Clamp(float.IsNaN(view) ? defaults.view : view, MinView, MaxView);
             if (resolutionWidth < 640 || resolutionHeight < 360) resolutionWidth = resolutionHeight = 0;
-            if (!WeaponDefs.Exists(weaponA)) weaponA = "katana";
-            if (!WeaponDefs.Exists(weaponB) || weaponB == weaponA) weaponB = weaponA == "montante" ? "katana" : "montante";
+            if (!WeaponDefs.IsBlade(weaponA)) weaponA = "katana";
+            if (forge == null) forge = new List<string>();
+            forge.RemoveAll(f => !WeaponDefs.Exists(f));
+            if (!WeaponDefs.IsBlade(weaponB) || weaponB == weaponA) weaponB = weaponA == "montante" ? "katana" : "montante";
             playerName = CleanName(playerName, defaults.playerName);
             playerArt = Mathf.Clamp(playerArt, 0, PlayerController.PartyArt.Length - 1);
             version = CurrentVersion;

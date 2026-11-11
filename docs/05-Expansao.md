@@ -62,20 +62,20 @@ Também: HUD do anfitrião e do navegador mostram fôlego, Shura, kamae, cabaça
 
 Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o navegador recebe tudo (mapa e votação, zonas, objetos, escuridão, neblina, clima, Mon e maldição) e usa os objetos dos encontros com E. Correções feitas no caminho: salas escaladas para o grupo perdiam o tipo e o impasse (bug também da Fase 1); um grupo que caía no instante da vitória não leva mais "fim de jogo" na sala seguinte.
 
-## Fase 3 — Armas, técnicas e builds (§4) — 🟡 (parte 1 na v0.5.0)
+## Fase 3 — Armas, técnicas e builds (§4) — ✅ (v0.5.0 e v0.6.0; só o editor de kata ficou para depois)
 
 | § | Item | Estado | Notas |
 |---|---|---|---|
-| 4.1 | Forja modular | ⏳ | |
-| 4.2 | Quatro armas novas (Tessen, Kanabō, Shakujō, Wakizashi + Kunai) | ⏳ | A maestria e o Ougi delas já estão prontos. |
+| 4.1 | Forja modular | ✅ | Botão **Forja** no Arsenal: cada arma escolhida troca a **empunhadura** (golpe da troca e finalização de qualquer uma das 10 armas) e a **tsuba** (12 passivos: Lua = +1 selo por parry, Sol, Ferro, Garça, Vento, Sangue, Trovão, Raposa, Dragão, Bronze, Carpa, Lótus). 10 lâminas × 10 empunhaduras = 100 armas, com nomes próprios para algumas (Katana + cabo de Naginata = **Nagamaki**; Daishō, Kodachi, Punhos de Oni...). Fica salvo por lâmina; a maestria segue a lâmina. Online, cada um leva a sua arma forjada. |
+| 4.2 | Quatro armas novas (Tessen, Kanabō, Shakujō, Wakizashi + Kunai) | ✅ | **Tessen**: cada abano rebate flechas; troca **Vento Dobrado** (devolve todos os projéteis da sala e alivia a postura do grupo); finalização **Fechar o Leque** (rajada cortante). **Kanabō**: lentíssimo, sem bloqueio, todo golpe atordoa; troca **Terremoto**; finalização **Esmagar o Oni**. **Shakujō**: torna sólidos os etéreos, +30% de dano em yokai; troca **Badalada**; finalização **Exorcismo** (lacaios yokai somem, os outros queimam). **Wakizashi + Kunai**: o 3º golpe lança uma kunai que volta à mão, golpes pelas costas causam o dobro; troca **Sombra Dupla** (aparece nas costas do inimigo); finalização **Golpe da Verdade Oculta** (você some e os inimigos perdem você). O Arsenal agora mostra as 10 armas, e os 45 Elos entre elas têm nome próprio. |
 | 4.3 | Maestria de arma | ✅ | 5 níveis por arma, por finalizações feitas com ela (5, 15, 30, 50, 80), salvos no seu progresso. I: +15% de postura; II: finalizar devolve 1 papel espiritual; III: golpe da troca +20% de dano; IV: o rastro ganha a cor do estilo; V: o **Ougi** — o primeiro golpe da troca de cada sala vira o golpe secreto da arma (2,5× dano e postura, com nome próprio). Os cartões do Arsenal mostram o nível e o caminho até o próximo. Online, cada convidado sobe a própria maestria (e a leva para a sala). |
 | 4.4 | Técnicas com níveis, ramos, marcas e 8 fusões | ✅ | Absorver de novo o mesmo inimigo sobe a técnica. **II**: o preço some e as marcas se fortalecem. **III**: duas cartas lado a lado, um ramo para sempre — **Forma Plena** (números da técnica 50% maiores) ou **Eco** (sempre que a técnica age, suas marcas respondem). **Marcas** (1–2 por técnica, mostradas na carta): 斬 Corte, 守 Guarda, 影 Sombra, 霊 Espírito, 血 Sangue, 火 Fogo, 風 Vento, 雷 Trovão — cada nível acima de I dá o bônus da marca; o Eco de cada marca é um efeito (corte de vento, 0,4 s intocável, explosão de sombra, fogo-fátuo, sangria + cura, queimadura, lua de vento, raio em cadeia). **8 fusões** (carta rara quando as duas metades são suas, sem preço): Lua Sangrenta, Corvo Duplo, Sino Tempestuoso, Pavio do Oni, Lanterna Fantasma, Muralha Viva, Olho do Trovão, Correnteza Faminta. |
-| 4.5 | Transformação em alma | ⏳ | Depende das técnicas III (já existem). |
+| 4.5 | Transformação em alma | ✅ | Uma técnica no nível III guarda a alma do inimigo. **B** (ou R3), uma vez por sala: por 8 s você vira esse inimigo (o corpo dele, também para os outros online), com +35% de dano e de postura e o jeito dele de lutar: o Onryō fica intocável, o Carrasco e o Kappa puxam o que acertam, o Olho Vigia e o Raijin soltam raios, o Arqueiro e a Kunoichi atiram, a Lanterna e o Onmyōji lançam fogos-fátuos, os voadores andam 25% mais rápido. O HUD mostra a alma pronta e o tempo que falta. |
 | 4.6 | Itens com identidade (afixos únicos, sets de clã, corrompidos, forja de itens) | ✅ | **Afixo Único** em todo item Lendário ou melhor: Rosa de Ferro (bloquear vale meio parry), Olho de Hannya (anéis avisam 30% antes), Pena do Tengu (a esquiva vira teleporte curto), Sino Rachado (o Mushin aguenta o primeiro dano), Lágrima da Kitsune (o 1º golpe em cada inimigo +60%), Âncora do Kappa (finalizar devolve esquiva e 1 s intocável). **Clãs** (30% dos itens Incomuns+): Takeda, Hattori, Minamoto, Shimazu, com bônus de 2 e de 4 peças (Hattori 4 = esquivar deixa uma cópia de sombra). **Corrompidos** (12% dos Épicos+): atributos ×1,4 e um defeito (anéis invisíveis, frágil, pesado, −1 esquiva) que some ao finalizar 5 inimigos sem tomar dano. **Forja** no Ferreiro: Fundir 3 itens da mesma raridade → um acima; Gravar um kanji (2 Aço Celeste) troca o atributo mais fraco; Quebrar um item dá **Aço Celeste**. |
 | 4.7 | Reações elementais | ✅ | Um inimigo marcado por um elemento (pip colorido sobre ele, ~4 s) e atingido por outro reage: Fogo+Gelo = Vapor (cega quem está perto), Gelo+Raio = Estilhaço (60 de postura), Fogo+Vento = Tornado Ígneo (puxa e queima), Sangue+Sombra = Maldição (cada golpe dele te cura), Raio+Sangue = Sobrecarga (o sangramento salta para 3), Gelo+Vento = Nevasca (cone que congela). Aço puro sobre um elemento = Ressonância (o elemento dura o dobro). |
 | 4.8 | 8 relíquias novas | ✅ | Máscara Hannya (Shura 2× / Asura Interior +50% vida), Pergaminho em Branco (copia a última técnica absorvida / −1 opção), Sandálias de Palha (esquiva infinita / sem bloqueio), Voto de Silêncio (Mushin com 6 / sem interface), Corrente do Carrasco (agarrar com E / −15% velocidade), Ampulheta Quebrada (parry desacelera o tempo / anéis 10% mais rápidos), Moeda de Seis Mon (revive uma vez / metade dos Ecos), Olho do Dragão (vê o próximo golpe de cada inimigo / a IA aprende 2× mais rápido). |
 | 4.9 | Editor de kata | ⏳ | Provável adiamento: exige UI de edição de combos. |
-| 4.10 | Arquétipos de build | 🟡 | Marcas, fusões, clãs e afixos únicos já formam caminhos; falta fechar com as armas novas. |
+| 4.10 | Arquétipos de build | ✅ | Marcas, fusões, clãs, afixos únicos, as 10 armas, a forja e as almas formam os caminhos (parry e selos, esquiva e sombra, peso e atordoamento, espírito e yokai...). |
 
 ## Fase 4 — Progressão, meta e narrativa (§7, §8) — ⏳
 
@@ -164,7 +164,11 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 ## Fase 3, parte 1 (v0.5.0) — ✅
 
 - **Maestria de arma** (4.3), **técnicas que evoluem e se fundem** (4.4), **itens com identidade** (4.6), **reações elementais** (4.7) e **8 relíquias novas** (4.8) — detalhes na tabela da Fase 3 acima.
-- Ficam para a parte 2: as quatro armas novas (4.2), a forja modular (4.1) e a transformação em alma (4.5).
+- A parte 2 veio na v0.6.0.
+
+## Fase 3, parte 2 (v0.6.0) — ✅
+
+- **Quatro armas novas** (4.2), **forja modular** (4.1) e **transformação em alma** (4.5) — detalhes na tabela da Fase 3.
 
 ## Apresentação e acessibilidade (§10) — ⏳
 

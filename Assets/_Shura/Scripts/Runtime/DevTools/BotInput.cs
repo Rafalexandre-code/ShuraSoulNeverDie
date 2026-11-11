@@ -97,6 +97,8 @@ namespace Shura
                 }
             }
 
+            // A kept soul is spent as soon as there is a fight close by.
+            if (p.SoulReady && threat != null) Buffer.Press(BufferedAction.Soul, 3);
             if (threat != null && AnswerThreat(p, threat, soonest)) return;
 
             // Drink when hurt and nothing is about to land.

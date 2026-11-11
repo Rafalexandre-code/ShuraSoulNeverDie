@@ -372,8 +372,8 @@ namespace Shura
             }
             Run = new RunState(20261111UL, Config.flow, Meta);
             Run.Banked = true;
-            Run.Weapons[0] = WeaponDefs.Get(Settings.weaponA);
-            Run.Weapons[1] = WeaponDefs.Get(Settings.weaponB);
+            Run.Weapons[0] = WeaponDefs.Get(Settings.Loadout(Settings.weaponA));
+            Run.Weapons[1] = WeaponDefs.Get(Settings.Loadout(Settings.weaponB));
             roomClearTimer = -1;
             deathTimer = -1;
             rewardChoices.Clear();
@@ -437,8 +437,8 @@ namespace Shura
             if (Run != null && !Run.Banked) BankRun();
             ulong seed = Launch.Seed ?? (ulong)DateTime.UtcNow.Ticks;
             Run = new RunState(seed, Config.flow, Meta);
-            string weaponA = Launch.Automated && Launch.WeaponA != null ? Launch.WeaponA : Settings.weaponA;
-            string weaponB = Launch.Automated && Launch.WeaponB != null ? Launch.WeaponB : Settings.weaponB;
+            string weaponA = Launch.Automated && Launch.WeaponA != null ? Launch.WeaponA : Settings.Loadout(Settings.weaponA);
+            string weaponB = Launch.Automated && Launch.WeaponB != null ? Launch.WeaponB : Settings.Loadout(Settings.weaponB);
             Run.Weapons[0] = WeaponDefs.Get(weaponA);
             Run.Weapons[1] = WeaponDefs.Get(weaponB);
             if (Run.Modifiers.startFlowPoints > 0f) Run.Flow.Add(Run.Modifiers.startFlowPoints);
@@ -462,6 +462,12 @@ namespace Shura
             }
             if (Launch.Automated && Enum.TryParse(Launch.Weather ?? "", out Weather weather)) first.weather = weather;
             if (Launch.Automated && Launch.Stance >= 0) Run.Main.DefaultStance = (Kamae)Launch.Stance;
+            if (Launch.Automated && Launch.Soul != null && RewardRegistry.Create(Launch.Soul) is TechniqueDef soulTech)
+            {
+                soulTech.Level = TechniqueDef.MaxLevel;
+                soulTech.Branch = TechniqueDef.BranchEcho;
+                Run.Main.Acquire(soulTech);
+            }
             World.StartRoom(first, startDepth == 0);
             announcedReadings.Clear();
             tempo = Config.feel.baseTempo;

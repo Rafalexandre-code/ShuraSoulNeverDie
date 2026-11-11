@@ -76,6 +76,8 @@ namespace Shura
         public bool mushinSurvivesHit;
         /// <summary>A corrupted item's flaw: the timing rings are not drawn.</summary>
         public bool hiddenRings;
+        /// <summary>Tsuba da Lua: seals planted per perfect parry.</summary>
+        public int extraSealsPerParry;
     }
 
     /// <summary>

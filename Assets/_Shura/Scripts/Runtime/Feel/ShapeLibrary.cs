@@ -34,6 +34,8 @@ namespace Shura
         Glaive,
         Sickle,
         Gauntlet,
+        /// <summary>The war fan (tessen): ribs opening from the rivet.</summary>
+        Fan,
     }
 
     /// <summary>
@@ -100,6 +102,9 @@ namespace Shura
                     break;
                 case Shape.Gauntlet:
                     sprite = RasterizeLong(GauntletTexel);
+                    break;
+                case Shape.Fan:
+                    sprite = RasterizeLong(FanTexel);
                     break;
                 default:
                     sprite = Rasterize(Resolution, p => Coverage(shape, p, Resolution));
@@ -268,6 +273,19 @@ namespace Shura
             float half = 0.22f * (1f - x * 0.8f);
             float blade = AaV(half - Mathf.Abs(v - centre));
             return blade > handle.a ? Shade(v > centre ? 1f : 0.85f, blade) : handle;
+        }
+
+        static Color FanTexel(float u, float v)
+        {
+            float av = Mathf.Abs(v);
+            if (u < 0.06f) return Shade(0.9f, AaV(0.2f - av));                               // rivet
+            if (u < 0.3f) return Shade(0.45f, AaV(0.16f + (u - 0.06f) * 0.6f - av));        // closed guard ribs
+            // The open leaf: wider toward the edge, iron ribs every few degrees, a dark rim.
+            float t = (u - 0.3f) / 0.7f;
+            float half = 0.3f + 0.7f * Mathf.Sqrt(t);
+            float rib = Mathf.Repeat(v / Mathf.Max(0.2f, half) * 3.5f + 0.5f, 1f) < 0.16f ? 0.55f : 1f;
+            float rim = u > 0.93f ? 0.6f : rib;
+            return Shade(rim, AaV(Mathf.Min(half - av, (1f - u) * 6f + 0.02f)));
         }
 
         static Color GauntletTexel(float u, float v)

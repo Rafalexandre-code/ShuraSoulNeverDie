@@ -39,6 +39,16 @@ namespace Shura
         public const string ArsenalSubtitle = "Escolha duas armas. Trocar (Q / Y) no instante do anel é uma TROCA PERFEITA.";
         public const string ArsenalStart = "Começar";
         public const string ArsenalNeedTwo = "Escolha duas armas";
+        public const string ArsenalForge = "Forja";
+        public const string ForgeTitle = "Forja";
+        public const string ForgeSubtitle = "Toda arma é lâmina, empunhadura e tsuba. A lâmina dá o dano, o alcance e o combo; a empunhadura, o golpe da troca e a finalização; a tsuba, um passivo.";
+        public const string ForgeBlade = "LÂMINA";
+        public const string ForgeBladeText = "{0} — combo de {1} golpes (escolha outra lâmina no Arsenal)";
+        public const string ForgeGrip = "EMPUNHADURA";
+        public const string ForgeGripText = "Troca: {0}  ·  Finalização: {1}";
+        public const string ForgeTsuba = "TSUBA";
+        public const string ForgeDone = "Pronto";
+        public const string ForgeControls = "Cima / Baixo escolher  ·  Esquerda / Direita trocar a peça  ·  Enter / Esc pronto";
         public const string WeaponSwapStrike = "Golpe de troca: {0}";
         public const string WeaponFinisher = "Finalização: {0}";
         public const string WeaponCombo = "Combo de {0} golpes";
@@ -138,6 +148,14 @@ namespace Shura
         public const string PopupReassembled = "REMONTADO";
         public const string PopupStunned = "ATORDOADO!";
         public const string PopupExposed = "SÓLIDO!";
+        public const string PopupBackstab = "PELAS COSTAS";
+        public const string PopupSoul = "ALMA · {0}";
+        public const string HudSoulReady = "Alma: {0} [B]";
+        public const string HudSoulActive = "Alma de {0}: {1} s";
+        public const string PopupSoulEnds = "a alma se vai";
+        public const string PopupNoSoul = "nenhuma alma (técnica no nível III)";
+        public const string PopupSoulSpent = "a alma já agiu nesta sala";
+        public const string PopupExorcism = "EXORCISMO";
         public const string PopupStanceCounter = "CONTRA-SAQUE!";
         public const string PopupEnraged = "FÚRIA!";
 
@@ -574,6 +592,8 @@ namespace Shura
                     return "DISPUTA: yokai e humanos já estão se matando. Deixe que se enfraqueçam — ou aproveite.";
                 case HintId.Ally:
                     return "O RONIN luta ao seu lado por algumas salas. Seus golpes não o ferem.";
+                case HintId.Soul:
+                    return "ALMA: uma técnica no nível III guardou a alma do inimigo. Aperte B (ou R3) para virar esse inimigo por 8 s, uma vez por sala: mais força e o jeito dele de lutar.";
                 case HintId.Reactions:
                     return "REAÇÃO ELEMENTAL: um inimigo marcado por um elemento e atingido por outro reage. Fogo+Gelo = Vapor (cega) · Gelo+Raio = Estilhaço (postura) · Fogo+Vento = Tornado Ígneo · Sangue+Sombra = Maldição (ele te cura) · Raio+Sangue = Sobrecarga · Gelo+Vento = Nevasca (congela). Aço puro faz o elemento durar o dobro.";
                 case HintId.SpiritBlow:

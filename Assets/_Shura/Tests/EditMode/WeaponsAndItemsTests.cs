@@ -27,13 +27,13 @@ namespace Shura.Tests
         [Test]
         public void Arsenal_SixDistinctWeapons_WithCompleteData()
         {
-            Assert.AreEqual(6, WeaponDefs.All.Length);
+            Assert.AreEqual(10, WeaponDefs.All.Length);
             var ids = new HashSet<string>();
-            var finishers = new HashSet<FinisherStyle>();
+            var finishers = new HashSet<string>();
             foreach (WeaponDef w in WeaponDefs.All)
             {
                 Assert.IsTrue(ids.Add(w.id), "Duplicate weapon id " + w.id);
-                Assert.IsTrue(finishers.Add(w.finisher), w.id + " must have its own finisher");
+                Assert.IsTrue(finishers.Add(w.finisherName), w.id + " must have its own finisher");
                 Assert.IsFalse(string.IsNullOrEmpty(w.finisherName), w.id);
                 Assert.Greater(w.combo.Length, 0, w.id);
                 Assert.IsNotNull(w.swapStrike, w.id);

@@ -245,6 +245,10 @@ namespace Shura
             public int charge;
             public string curse;
             public int curseRooms;
+            /// <summary>The soul a level-III technique keeps: its name, ready this room, seconds left in it.</summary>
+            public string soulName;
+            public bool soulReady;
+            public int soulSeconds;
             public int woundMask;
             public PlayerController.State state;
             /// <summary>The blade in hand.</summary>
@@ -288,6 +292,10 @@ namespace Shura
                 curse = b != null && b.CurseRooms > 0 ? RunCurses.Name(b.Curse) : null;
                 curseRooms = b != null ? b.CurseRooms : 0;
                 muramasa = b != null && b.Muramasa;
+                EnemyDef soul = p.InSoul ? p.SoulForm : p.SoulAvailable;
+                soulName = soul?.displayName;
+                soulReady = p.SoulReady;
+                soulSeconds = p.InSoul ? Mathf.CeilToInt(p.SoulFramesLeft / (float)SimClock.TickRate) : 0;
                 sips = p.Sips;
                 maxSips = p.MaxSips;
                 if (b == null) return;
@@ -339,6 +347,10 @@ namespace Shura
                 activeSlot = 0;
                 cycle = MiniJson.B(r, 63);
                 muramasa = MiniJson.B(r, 64);
+                string sn = MiniJson.S(r, 65);
+                soulName = string.IsNullOrEmpty(sn) ? null : sn;
+                soulReady = MiniJson.B(r, 66);
+                soulSeconds = MiniJson.I(r, 67);
                 hasBuild = true;
             }
         }
@@ -433,6 +445,12 @@ namespace Shura
                 statusColor = ColorUtil.Hex("#C08CFF");
             }
             if (p.muramasa) status = (status != null ? status + "  ·  " : "") + "Muramasa";
+            if (p.soulName != null && (p.soulReady || p.soulSeconds > 0))
+            {
+                string soul = p.soulSeconds > 0 ? string.Format(Strings.HudSoulActive, p.soulName, p.soulSeconds) : string.Format(Strings.HudSoulReady, p.soulName);
+                status = (status != null ? status + "  ·  " : "") + soul;
+                if (p.soulSeconds > 0) statusColor = ColorUtil.Hex("#B07CFF");
+            }
             if (status != null) FitLabel(new Rect(x, 266f, w + 50f, 30f), status, smallStyle, statusColor);
 
             DrawWoundDoll(new Rect(card.xMax - 66f, 66f, 50f, 90f), p);

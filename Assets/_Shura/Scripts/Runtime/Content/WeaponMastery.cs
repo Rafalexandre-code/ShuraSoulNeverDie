@@ -44,7 +44,7 @@ namespace Shura
 
         public static string OugiName(WeaponDef w)
         {
-            switch (w.id)
+            switch (w.BaseId)
             {
                 case "katana": return "Ougi · Lua Partida";
                 case "montante": return "Ougi · Montanha que Cai";
@@ -63,7 +63,7 @@ namespace Shura
         /// <summary>The colour of a mastered blade's trail.</summary>
         public static Color BladeColor(WeaponDef w)
         {
-            switch (w.id)
+            switch (w.BaseId)
             {
                 case "katana": return ColorUtil.Hex("#BFE3FF");
                 case "montante": return ColorUtil.Hex("#FFB347");

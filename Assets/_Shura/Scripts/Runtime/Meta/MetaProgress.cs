@@ -129,7 +129,7 @@ namespace Shura
                 if (id.StartsWith("m."))
                 {
                     id = id.Substring(2);
-                    if (WeaponDefs.Exists(id) && p.MasteryFinishers(id) == 0) p.SetMastery(id, Mathf.Clamp(level, 0, 9999));
+                    if (WeaponDefs.IsBlade(id) && p.MasteryFinishers(id) == 0) p.SetMastery(id, Mathf.Clamp(level, 0, 9999));
                     continue;
                 }
                 MetaUpgradeDef def = MetaUpgrades.Get(kv[0].Trim());

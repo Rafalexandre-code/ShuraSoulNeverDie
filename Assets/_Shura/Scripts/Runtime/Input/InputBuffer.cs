@@ -19,6 +19,8 @@ namespace Shura
         Bandage = 8,
         /// <summary>Switch to the next tool.</summary>
         ToolCycle = 9,
+        /// <summary>Become the soul a level-III technique keeps (design doc §4.5).</summary>
+        Soul = 10,
     }
 
     /// <summary>
@@ -32,13 +34,13 @@ namespace Shura
     /// </summary>
     public sealed class InputBuffer
     {
-        public const int Count = 10;
+        public const int Count = 11;
         /// <summary>Ticks two presses may be apart and still count as one chord.</summary>
         public const int ChordFrames = 5;
 
         readonly int[] remaining = new int[Count];
         /// <summary>Ticks since each action was last pressed (not cleared by consuming it).</summary>
-        readonly int[] since = { 999, 999, 999, 999, 999, 999, 999, 999, 999, 999 };
+        readonly int[] since = { 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999 };
 
         public void Press(BufferedAction action, int frames)
         {

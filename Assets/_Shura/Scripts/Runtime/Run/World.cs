@@ -51,6 +51,9 @@ namespace Shura
         public string Art;
         /// <summary>The element it carries onto whoever it cuts (wind crescents).</summary>
         public Element Element;
+        /// <summary>A kunai that comes back to whoever threw it.</summary>
+        public PlayerController Thrower;
+        public bool Returning;
         /// <summary>Degrees per second the art turns (shuriken).</summary>
         public float Spin;
         public readonly HashSet<Enemy> Struck = new HashSet<Enemy>();
@@ -909,7 +912,11 @@ namespace Shura
         void Strike(Vector2 origin, Vector2 direction, HitShape shape, float damage, float posture,
                     HashSet<Enemy> alreadyHit, bool unblockable, bool applyRewardHooks, float pull = 0f)
         {
-            if (applyRewardHooks) StrikeArena(origin, direction, shape, damage);
+            if (applyRewardHooks)
+            {
+                StrikeArena(origin, direction, shape, damage);
+                ExposeInReach(origin, direction, shape);
+            }
             for (int i = 0; i < Enemies.Count; i++)
             {
                 Enemy e = Enemies[i];
@@ -936,8 +943,10 @@ namespace Shura
                 }
                 Vector2 hitDir = e.Position - origin;
                 hitDir = hitDir.sqrMagnitude > 1e-4f ? hitDir.normalized : direction;
+                if (applyRewardHooks) ApplyWeaponTraits(e, hitDir, ref finalDamage);
                 StrikeResult result = e.ReceivePlayerHit(finalDamage, finalPosture, hitDir, unblockable);
                 if (result != StrikeResult.Hit || !applyRewardHooks) continue;
+                AfterWeaponHit(e);
 
                 if (crit) Fx.Emit(FxType.Crit, e.Position, hitDir, finalDamage, e.Def.bloodColor);
                 if (crit && Player.Build.Modifiers.trailElement == Element.Shadow) e.Wound(WoundRegion.Eyes);
@@ -1097,6 +1106,7 @@ namespace Shura
             Fx.Emit(FxType.Finisher, enemy.Position, dir, lastOne ? 2f : 1f, enemy.Def.bloodColor);
             Fx.Popup(Player.Weapon.finisherName.ToUpperInvariant(), enemy.Position + Vector2.up * 1f, Color.white);
             Fx.Gore(style, enemy.Position, dir, enemy.BodySprite, enemy.BodyColor, enemy.Def.bloodColor, enemy.Radius);
+            WeaponFinisherPower(enemy, dir);
             float precise = Player.CutPrecision * Player.CutPrecision;
             if (precise > 0.05f)
             {
@@ -1537,6 +1547,7 @@ namespace Shura
 
         bool TickFriendlyProjectile(Projectile p)
         {
+            if (TickReturningKunai(p)) return true;
             for (int i = 0; i < Enemies.Count; i++)
             {
                 Enemy e = Enemies[i];

@@ -322,6 +322,7 @@ namespace Shura
                 input.Buffer.Drop(BufferedAction.Dodge);
                 Kiai();
             }
+            if (input.Buffer.Consume(BufferedAction.Soul)) TrySoul();
             if (input.Buffer.Consume(BufferedAction.ToolCycle)) CycleTool();
             if (input.Buffer.Consume(BufferedAction.Tool)) UseTool();
             if (input.Buffer.Consume(BufferedAction.Gourd) && StartDrink(false)) return true;
@@ -675,6 +676,7 @@ namespace Shura
             world.Fx.Popup(eloStep.name.ToUpperInvariant(), Position + Vector2.up * 1.1f, pal.gold);
             world.Fx.Emit(FxType.Elo, Position, Facing, eloChain, to.trail);
             BeginSwapStrikeMastery();
+            world.WeaponSwapPower(this, Weapon.swapPower);
             world.HintOnce(HintId.Elo);
             if (eloChain >= 3 && CycleFramesLeft <= 0)
             {

@@ -347,26 +347,35 @@ namespace Shura
         void BuildSmith()
         {
             Color steel = ColorUtil.Hex("#C8C2B8");
-            Tile(Add("Fundir", "Funde os dois itens mais fracos da mochila num item de raridade acima do melhor deles.", 30, steel, p =>
+            Tile(Add("Fundir", "Funde 3 itens da mesma raridade da mochila num item uma raridade acima.", 30, steel, p =>
             {
                 List<Item> bag = p.Build.Bag;
-                if (bag.Count < 2)
+                if (!ItemIdentity.FindTrio(bag, out Rarity trio))
                 {
-                    Say(p, "precisa de 2 itens na mochila", Config.palette.uiDim);
+                    Say(p, "precisa de 3 itens da mesma raridade", Config.palette.uiDim);
                     return false;
                 }
-                bag.Sort((x, y) => x.rarity.CompareTo(y.rarity));
-                Item a = bag[0], c = bag[1];
-                bag.RemoveRange(0, 2);
-                var rarity = (Rarity)Mathf.Min(Rarities.Count - 1, Mathf.Max((int)a.rarity, (int)c.rarity) + 1);
+                int taken = 0;
+                for (int i = bag.Count - 1; i >= 0 && taken < 3; i--)
+                {
+                    if (bag[i].rarity != trio) continue;
+                    bag.RemoveAt(i);
+                    taken++;
+                }
+                var rarity = (Rarity)Mathf.Min(Rarities.Count - 1, (int)trio + 1);
                 Item fused = ItemGenerator.RollAt(p.Build.Rng, rarity, null);
                 bool eq = p.Build.AddItem(fused);
                 p.ApplyStats(false);
                 Fx.ItemCollected(fused, eq, p.Position);
                 return true;
             }), "tiles_house", 19, 14, 1, 1);
-            Tile(Add("Gravar", "Grava de novo o seu melhor item usado: mesmo espaço e raridade, atributos novos.", 25, steel, p =>
+            Tile(Add("Gravar um kanji", "2 Aço Celeste: o atributo mais fraco do seu melhor item usado vira outro (e mais forte).", 0, steel, p =>
             {
+                if (p.Build.CelestialSteel < 2)
+                {
+                    Say(p, "precisa de 2 Aço Celeste (quebre itens)", Config.palette.uiDim);
+                    return false;
+                }
                 int best = -1;
                 for (int i = 0; i < p.Build.Equipped.Length; i++)
                 {
@@ -379,12 +388,32 @@ namespace Shura
                     return false;
                 }
                 Item old = p.Build.Equipped[best];
-                p.Build.Equipped[best] = ItemGenerator.RollAt(p.Build.Rng, old.rarity, old.slot);
+                p.Build.CelestialSteel -= 2;
+                ItemGenerator.Engrave(old, p.Build.Rng);
                 p.Build.RecomputeModifiers();
                 p.ApplyStats(false);
-                Say(p, "GRAVADO: " + p.Build.Equipped[best].Name, Rarities.Color(old.rarity));
+                Say(p, "GRAVADO: " + old.Name, Rarities.Color(old.rarity));
                 return true;
             }), "tiles_house", 14, 11, 1, 2);
+            Tile(Add("Quebrar", "Quebra o item mais fraco da mochila: Aço Celeste (1 + metade da raridade).", 0, steel, p =>
+            {
+                List<Item> bag = p.Build.Bag;
+                if (bag.Count == 0)
+                {
+                    Say(p, "mochila vazia", Config.palette.uiDim);
+                    return false;
+                }
+                int weakest = 0;
+                for (int i = 1; i < bag.Count; i++)
+                {
+                    if (bag[i].rarity < bag[weakest].rarity) weakest = i;
+                }
+                int steelGot = ItemIdentity.SteelFrom(bag[weakest]);
+                bag.RemoveAt(weakest);
+                p.Build.CelestialSteel += steelGot;
+                Say(p, "+" + steelGot + " AÇO CELESTE (" + p.Build.CelestialSteel + ")", ColorUtil.Hex("#9FE7FF"));
+                return true;
+            }), "tiles_element", 7, 2, 1, 1);
             Tile(Add("Afiar", "+6% de dano até o fim da run.", 40, steel, p =>
             {
                 p.Build.Sharpened += 0.06f;

@@ -773,7 +773,7 @@ namespace Shura
                 {
                     DrawHud();
                     DrawPopups();
-                    if (game.World.Player == null || !game.World.Player.InMushin) DrawLog();
+                    if ((game.World.Player == null || !game.World.Player.InMushin) && !SilentHud) DrawLog();
                     if (game.Tutorial.Active) DrawTutorial();
                 }
                 if (mode == Game.Mode.Playing || (remoteDuel && RemoteHintFree)) DrawHint();
@@ -1186,7 +1186,14 @@ namespace Shura
                 float y = rect.y + 104 + nameH;
                 if (r.SourceEnemy != null)
                 {
-                    Label(new Rect(rect.x, y, cardW, 30), string.Format(Strings.AbsorbedFrom, r.SourceEnemy), smallStyleCenter, UiKit.InkSoft);
+                    string source = r is FusionDef ? r.SourceEnemy : string.Format(Strings.AbsorbedFrom, r.SourceEnemy);
+                    Label(new Rect(rect.x, y, cardW, 30), source, smallStyleCenter, UiKit.InkSoft);
+                    y += 32;
+                }
+                Mark[] marks = MarksOf(r);
+                if (marks != null)
+                {
+                    Label(new Rect(rect.x, y, cardW, 30), Marks.Label(marks), smallStyleCenter, UiKit.Shu);
                     y += 32;
                 }
                 y += 10;
@@ -1206,10 +1213,20 @@ namespace Shura
             Label(new Rect(0, VH - 52f, VW, 40), Strings.RewardControls, bodyCenterStyle, UiKit.PaperDim);
         }
 
+        /// <summary>The kanji a technique card carries (null for everything else).</summary>
+        static Mark[] MarksOf(RewardDef r)
+        {
+            if (r is TechniqueDef t) return t.MarkSet;
+            if (r is TechniqueLevelUp up) return up.Target.MarkSet;
+            if (r is FusionDef f) return f.MarkSet;
+            return null;
+        }
+
         float RewardCardHeight(RewardDef r, float cardW, float bodyW)
         {
             float h = 104f + cardNameStyle.CalcHeight(new GUIContent(r.Name), cardW - 60f);
             if (r.SourceEnemy != null) h += 32f;
+            if (MarksOf(r) != null) h += 32f;
             h += 28f;
             h += 28f + cardBodyStyle.CalcHeight(new GUIContent(r.Gain), bodyW) + 16f;
             h += 28f + cardBodyStyle.CalcHeight(new GUIContent(r.Cost), bodyW) + 40f;
@@ -1313,6 +1330,9 @@ namespace Shura
             if (game.World.Standoff.Active) DrawStandoffBars(game.World.Standoff.Advancing);
             if (p.AimingCut) DrawFinisherAim(p);
             DrawAffixLabels();
+            if (p.Build != null && p.Build.Modifiers.dragonEye) DrawDragonEye();
+            // Voto de Silêncio: nothing on screen but the fight.
+            if (SilentHud) return;
             if (p.InMushin)
             {
                 DrawMushinHud();
@@ -1466,6 +1486,7 @@ namespace Shura
                 }
                 Label(new Rect(r.x + 36f, r.y + 126f, cardW - 72f, 70f), w.description, cardBodyStyle, UiKit.Ink);
                 Label(new Rect(r.x + 36f, r.y + 204f, cardW - 72f, 28f), string.Format(Strings.WeaponCombo, w.combo.Length), smallStyle, UiKit.InkSoft);
+                DrawMasteryRow(w, new Rect(r.x + 36f, r.y + 204f, cardW - 72f, 28f));
                 Label(new Rect(r.x + 36f, r.y + 232f, cardW - 72f, 28f), string.Format(Strings.WeaponSwapStrike, w.swapStrike.name), smallStyle, UiKit.Ai);
                 Label(new Rect(r.x + 36f, r.y + 260f, cardW - 72f, 28f), string.Format(Strings.WeaponFinisher, w.finisherName), smallStyle, UiKit.Shu);
                 if (selected) kit.Underline(new Rect(r.x + 40f, r.yMax - 34f, cardW - 80f, 16f), UiKit.Shu.WithAlpha(0.8f));
@@ -1674,6 +1695,26 @@ namespace Shura
             float k = Mathf.Min(r.width / tex.width, r.height / tex.height);
             var fit = new Rect(r.center.x - tex.width * k * 0.5f, r.center.y - tex.height * k * 0.5f, tex.width * k, tex.height * k);
             DrawTex(fit, tex, color);
+        }
+
+        /// <summary>Five pips of weapon mastery and the way to the next one (finishers with this blade).</summary>
+        void DrawMasteryRow(WeaponDef w, Rect r)
+        {
+            // Right-aligned on the combo line: "Maestria II · 18/30" and five pips before it.
+            int count = game.Meta != null ? game.Meta.MasteryFinishers(w.id) : 0;
+            int level = WeaponMastery.LevelFor(count);
+            int next = WeaponMastery.NextAt(level);
+            string text = next < 0
+                ? string.Format(Strings.MasteryCardMax, WeaponMastery.Numeral(level))
+                : string.Format(Strings.MasteryCard, WeaponMastery.Numeral(level), count, next);
+            float textW = smallStyle.CalcSize(new GUIContent(text)).x;
+            Label(new Rect(r.xMax - textW, r.y, textW, r.height), text, smallStyle, level > 0 ? UiKit.Shu : UiKit.InkSoft);
+            float x0 = r.xMax - textW - 14f - WeaponMastery.MaxLevel * 18f;
+            for (int i = 0; i < WeaponMastery.MaxLevel; i++)
+            {
+                var pip = new Rect(x0 + i * 18f, r.y + r.height * 0.5f - 6f, 12f, 12f);
+                kit.Dab(pip, i < level ? UiKit.Shu : UiKit.Ink.WithAlpha(0.22f));
+            }
         }
 
         void DrawWeaponArt(WeaponDef w, Rect r, Color color)

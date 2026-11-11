@@ -232,6 +232,7 @@ namespace Shura
         public void ResetForRoom(Vector2 spawn)
         {
             ResetKiForRoom();
+            ResetMasteryForRoom();
             Teleport(spawn);
             Facing = Vector2.right;
             Posture.Reset();
@@ -342,6 +343,7 @@ namespace Shura
         {
             UpdateFacing(false);
             if (TryKiActions()) return;
+            if (TryGrab()) return;
             if (TryStartDodge()) return;
             if (TryStartSwap()) return;
             if (input.Buffer.Consume(BufferedAction.Parry))
@@ -387,7 +389,7 @@ namespace Shura
                 return;
             }
             // A tap keeps its full perfect window even if released immediately.
-            if (windowOver && !input.ParryHeld)
+            if (windowOver && (!input.ParryHeld || Mods.noBlock))
             {
                 Enter(State.Free);
                 return;
@@ -428,8 +430,8 @@ namespace Shura
                 if (step.hits > 1 && f > 0 && f % Mathf.Max(1, step.active / step.hits) == 0) hitThisSwing.Clear();
                 float move = (step.lunge * (swapStrike ? 1f : StanceLungeMult) + step.dash) / step.active;
                 Position += Facing * move;
-                float damage = step.damage * DamageDealtMult;
-                float posture = step.posture * PostureDealtMult * Mods.normalAttackPostureMult * (descendFrames > 0 ? 2f : 1f);
+                float damage = step.damage * DamageDealtMult * (swapStrike ? MasterySwapDamageMult * OugiMult : 1f);
+                float posture = step.posture * PostureDealtMult * MasteryPostureMult * (swapStrike ? OugiMult : 1f) * Mods.normalAttackPostureMult * (descendFrames > 0 ? 2f : 1f);
                 world.PlayerStrike(step.shape, damage, posture, hitThisSwing, step.pull, swapStrike || InAsura);
                 if (step.style == SwingStyle.Slam && f == step.active - 1) world.Fx.Emit(FxType.SlamImpact, Position + Facing * step.shape.range * 0.6f, Facing, step.shape.range);
                 // A deflect inside PlayerStrike ends the swing immediately.
@@ -695,6 +697,7 @@ namespace Shura
             Velocity = Vector2.zero;
             Enter(State.SwapStrike);
             world.Fx.Popup(Weapon.swapStrike.name.ToUpperInvariant(), Position + Vector2.up * 1.1f, pal.gold);
+            BeginSwapStrikeMastery();
         }
 
         void StartAttack(int index)
@@ -729,7 +732,7 @@ namespace Shura
             if (TryBreathe()) return true;
             if (!input.Buffer.Peek(BufferedAction.Dodge) || DodgeCharges < 1f) return false;
             input.Buffer.Consume(BufferedAction.Dodge);
-            DodgeCharges -= 1f;
+            if (!Mods.infiniteDodge) DodgeCharges -= 1f;
             SpendStamina(DodgeStamina);
             run.Profile.OnDodge();
             Vector2 move = input.Move;
@@ -823,6 +826,8 @@ namespace Shura
         {
             if (EmpoweredFrames > 0 || FlowLevel >= 3) return pal.gold;
             if (Mods.trailElement != Element.None) return Elements.Color(Mods.trailElement);
+            if (ougiActive && CurrentState == State.SwapStrike) return WeaponMastery.BladeColor(Weapon);
+            if (MasteryOf(Weapon) >= 4) return WeaponMastery.BladeColor(Weapon);
             return Weapon.trail;
         }
 
@@ -923,6 +928,12 @@ namespace Shura
                     if (!incoming.projectile)
                     {
                         for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnBlock(world, attacker);
+                        if (Mods.ironRose && attacker != null)
+                        {
+                            // Rosa de Ferro: the block is half a parry.
+                            attacker.AddSeal(1);
+                            attacker.OnParried(attack.postureOnParried * PostureDealtMult * 0.5f);
+                        }
                     }
                     SpendStamina(attack.postureDamage * power);
                     if (attack.cursed) Curse();
@@ -1007,7 +1018,8 @@ namespace Shura
                 for (int i = 0; i < Build.Effects.Count; i++)
                 {
                     if (!Build.Effects[i].OnLethalHit(world)) continue;
-                    Health = 1f;
+                    Health = Mathf.Max(1f, Build.PendingReviveHealth);
+                    Build.PendingReviveHealth = 0f;
                     hurtInvuln = Mathf.Max(hurtInvuln, 60);
                     break;
                 }
@@ -1017,6 +1029,7 @@ namespace Shura
             world.Fx.Blood(Position, -toAttacker, 6f + damage * 0.3f, ColorUtil.Hex("#8E0F1E"));
             world.DropFlow(1 + Mods.extraFlowLossOnHurt);
             Build.BreakStreak();
+            for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnHurt(world);
             OnHurtKi(toAttacker, lastAttacker);
             lastAttacker = null;
             hurtInvuln = t.hurtInvulnFrames;

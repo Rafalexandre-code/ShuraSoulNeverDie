@@ -49,6 +49,8 @@ namespace Shura
         public bool Interrupts;
         /// <summary>Sprite name for browser players (empty = arrow).</summary>
         public string Art;
+        /// <summary>The element it carries onto whoever it cuts (wind crescents).</summary>
+        public Element Element;
         /// <summary>Degrees per second the art turns (shuriken).</summary>
         public float Spin;
         public readonly HashSet<Enemy> Struck = new HashSet<Enemy>();
@@ -175,6 +177,13 @@ namespace Shura
         public bool ShowTimingIndicator { get; set; } = true;
 
         public event Action RoomClearedEvent;
+        /// <summary>A relic asks the game to slow time (seconds).</summary>
+        public event Action<float> SlowMoRequested;
+        /// <summary>The host's own weapon mastery went up (shown only on the host's screen).</summary>
+        public event Action<WeaponDef, int> MasteryRaised;
+        public void RaiseMastery(WeaponDef weapon, int level) => MasteryRaised?.Invoke(weapon, level);
+
+        public void RequestSlowMo(float seconds) => SlowMoRequested?.Invoke(seconds);
         public event Action PlayerDiedEvent;
 
         public World(GameConfig config, IFeedback fx)
@@ -422,6 +431,7 @@ namespace Shura
             TickPickups();
             ResolveCollisions();
             RemoveDead();
+            FlushDivides();
             FlushSpawns();
             FlushTwins();
             TickRevives();
@@ -671,7 +681,9 @@ namespace Shura
         void RefreshAdaptation()
         {
             adaptationTimer = 0;
-            Adaptation = Run != null ? Run.Profile.Traits(DifficultyRules.AdaptStrength(Depth)) : default;
+            float learn = 1f;
+            foreach (PlayerController p in Players) learn = Mathf.Max(learn, p.Build != null ? p.Build.Modifiers.adaptMult : 1f);
+            Adaptation = Run != null ? Run.Profile.Traits(Mathf.Clamp01(DifficultyRules.AdaptStrength(Depth) * learn)) : default;
         }
 
         /// <summary>
@@ -814,6 +826,7 @@ namespace Shura
             }
             Enemies.Clear();
             pendingSpawns.Clear();
+            pendingDivides.Clear();
             resonance.Clear();
             kiaiTimes.Clear();
             bursts.Clear();
@@ -929,6 +942,8 @@ namespace Shura
                 if (crit) Fx.Emit(FxType.Crit, e.Position, hitDir, finalDamage, e.Def.bloodColor);
                 if (crit && Player.Build.Modifiers.trailElement == Element.Shadow) e.Wound(WoundRegion.Eyes);
                 if (pull > 0f) e.Pull(Player.Position, pull);
+                // Plain steel on an element: Ressonância.
+                if (Player.Build.Modifiers.trailElement == Element.None && e.ActiveElement != Element.None) e.Resonate();
                 if (Player.ConsumeOil()) e.ApplyDot(8f, 3f, Element.Fire);
                 float lifesteal = Player.Build.Modifiers.lifesteal + Player.KiLifesteal;
                 if (lifesteal > 0f) Player.Heal(finalDamage * lifesteal);
@@ -1169,6 +1184,7 @@ namespace Shura
         /// <summary>Lightning jumps from the struck enemy to the nearest others.</summary>
         public void ChainLightning(Enemy from, int jumps, float damage, float posture)
         {
+            from?.MarkElement(Element.Lightning);
             Enemy current = from;
             var struck = new HashSet<Enemy> { from };
             for (int j = 0; j < jumps; j++)
@@ -1190,6 +1206,7 @@ namespace Shura
                 Vector2 dir = next.Position - current.Position;
                 Fx.Emit(FxType.Lightning, current.Position, dir.normalized, dir.magnitude, Elements.Color(Element.Lightning));
                 next.ReceivePlayerHit(damage, posture, dir.normalized, true);
+                next.MarkElement(Element.Lightning);
                 current = next;
             }
         }
@@ -1204,12 +1221,14 @@ namespace Shura
             p.Damage = damage;
             p.Posture = posture;
             p.Life = 50;
+            p.Element = Element.Wind;
         }
 
         /// <summary>Shadow items: a blade of darkness falls on whoever was parried.</summary>
         public void ShadowStrike(Enemy target, float damage, float posture)
         {
             if (target == null || !target.CanBeHit) return;
+            target.MarkElement(Element.Shadow);
             ScheduleBurst(target.Position, 12, 1.1f, damage, posture, Elements.Color(Element.Shadow));
         }
 
@@ -1528,6 +1547,7 @@ namespace Shura
                 // A reflected arrow that hits someone else turns them on the archer.
                 if (p.Owner != null && p.Owner != e) e.StartBrawl(p.Owner);
                 e.ReceivePlayerHit(p.Damage, p.Posture, p.Direction, true);
+                if (p.Element != Element.None) e.MarkElement(p.Element);
                 if (!p.Piercing) return true;
             }
             return false;

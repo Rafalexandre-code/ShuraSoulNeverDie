@@ -176,6 +176,12 @@ namespace Shura
             Tap.Actor = () => World.ActorNetId;
             Net = new NetSession(this, Tap);
             World.RoomClearedEvent += OnRoomCleared;
+            World.SlowMoRequested += seconds => SlowMo(seconds, 0.3f);
+            World.MasteryRaised += (weapon, level) =>
+            {
+                ShowMasteryUp(weapon, level);
+                SaveMeta();
+            };
             World.PlayerDiedEvent += OnPlayerDied;
 
             Steam = new SteamLink();
@@ -741,6 +747,21 @@ namespace Shura
         }
 
         /// <summary>A guest's run ended: what it was worth goes to this player's own Altar.</summary>
+        void ShowMasteryUp(WeaponDef weapon, int level)
+        {
+            UI.Toast(string.Format(Strings.MasteryUp, weapon.name, WeaponMastery.Numeral(level), WeaponMastery.Unlock(level)), WeaponMastery.BladeColor(weapon));
+        }
+
+        /// <summary>An online guest finished an enemy: the mastery is theirs, kept in their own progress.</summary>
+        public void RecordGuestFinisher(string weaponId)
+        {
+            int level = Meta.AddMasteryFinisher(weaponId);
+            if (level <= 0) return;
+            SaveMeta();
+            WeaponDef w = WeaponDefs.Get(weaponId);
+            if (w != null) ShowMasteryUp(w, level);
+        }
+
         public void BankGuestRun(int ecos)
         {
             if (ecos <= 0) return;

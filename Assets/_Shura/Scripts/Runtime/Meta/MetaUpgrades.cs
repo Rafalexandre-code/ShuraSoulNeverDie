@@ -97,7 +97,7 @@ namespace Shura
             ecos += run.ElitesKilled * EcosPerGuardian;
             ecos += run.BonusEcos;
             // Oaths (Juramentos) multiply what the run is worth.
-            return Mathf.RoundToInt(ecos * run.EcosMult);
+            return Mathf.RoundToInt(ecos * run.EcosMult * run.Main.Modifiers.ecosMult);
         }
     }
 }

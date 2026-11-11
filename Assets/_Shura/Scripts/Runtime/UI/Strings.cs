@@ -275,6 +275,31 @@ namespace Shura
         public const string ViewScale = "Campo de visão";
         public const string Hints = "Dicas durante o jogo";
         public const string HintTitle = "DICA";
+        public const string PopupGrab = "AGARRÃO";
+        public const string TechniqueNoCost = "Nenhum (o nível II apagou o preço).";
+        public const string TechniqueLevel2 = "Nível II: o preço da técnica some, e as marcas se fortalecem ({0}).";
+        public const string TechniqueBranchFull = "Ramo Forma Plena: os números da técnica ficam 50% mais fortes, e as marcas sobem de novo ({0}).";
+        public const string TechniqueBranchEcho = "Ramo Eco: sempre que a técnica age, as marcas respondem — {0}.";
+        public const string TechniqueLevelCost = "Nenhum.";
+        public const string TechniqueBranchCost = "O outro ramo se fecha para sempre nesta jornada.";
+        public const string FusionCost = "Nenhum. As duas técnicas continuam com você.";
+        public const string FusionOf = "Técnica fundida: {0}";
+        public const string CorruptedPrefix = "Corrompido · ";
+        public const string CorruptedFlaw = "CORROMPIDO: {0}. O defeito some ao finalizar 5 inimigos sem tomar dano ({1}/{2}).";
+        public const string CorruptedPurified = "Purificado: o defeito se foi, o poder ficou.";
+        public const string PopupPurified = "PURIFICADO";
+        public const string PopupKitsune = "LÁGRIMA";
+        public const string ItemPurified = "{0}: o defeito se foi.";
+        public const string MasteryUp = "MAESTRIA · {0} {1} — {2}";
+        public const string MasteryCard = "Maestria {0} · {1}/{2}";
+        public const string MasteryCardMax = "Maestria {0} · Ougi";
+        public const string ReactionSteam = "VAPOR";
+        public const string ReactionShatter = "ESTILHAÇO";
+        public const string ReactionFireTornado = "TORNADO ÍGNEO";
+        public const string ReactionCurse = "MALDIÇÃO";
+        public const string ReactionOverload = "SOBRECARGA";
+        public const string ReactionBlizzard = "NEVASCA";
+        public const string ReactionResonance = "RESSONÂNCIA";
         public const string GuestEcosBanked = "+{0} Ecos no seu Altar das Almas (total {1})";
         public const string LobbyAlone = "Ninguém entrou ainda. Você pode começar sozinho ou esperar os amigos.";
         public const string LobbyAllReady = "Todos prontos! Pode começar a run.";
@@ -549,6 +574,8 @@ namespace Shura
                     return "DISPUTA: yokai e humanos já estão se matando. Deixe que se enfraqueçam — ou aproveite.";
                 case HintId.Ally:
                     return "O RONIN luta ao seu lado por algumas salas. Seus golpes não o ferem.";
+                case HintId.Reactions:
+                    return "REAÇÃO ELEMENTAL: um inimigo marcado por um elemento e atingido por outro reage. Fogo+Gelo = Vapor (cega) · Gelo+Raio = Estilhaço (postura) · Fogo+Vento = Tornado Ígneo · Sangue+Sombra = Maldição (ele te cura) · Raio+Sangue = Sobrecarga · Gelo+Vento = Nevasca (congela). Aço puro faz o elemento durar o dobro.";
                 case HintId.SpiritBlow:
                     return gamepad
                         ? "ANEL ROXO PONTILHADO = golpe espiritual: a lâmina atravessa e o aparar comum NÃO segura. Responda com a TROCA PERFEITA (Y no fechar do anel) ou esquive. Com um TALISMÃ equipado, o aparar volta a funcionar."

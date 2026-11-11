@@ -442,6 +442,15 @@ namespace Shura
             OnModeSeen(s.mode);
         }
 
+        /// <summary>My blade finished an enemy: my own weapon mastery grows.</summary>
+        void RecordMyFinisher()
+        {
+            Snap s = Latest;
+            if (s == null || !s.players.TryGetValue(MyId, out List<object> row)) return;
+            string weapon = MiniJson.S(row, 61);
+            if (!string.IsNullOrEmpty(weapon)) game.RecordGuestFinisher(weapon);
+        }
+
         bool IsMine(List<object> ev)
         {
             string kind = MiniJson.S(ev, 0);
@@ -519,6 +528,7 @@ namespace Shura
                 {
                     case "fx":
                         if (!Enum.TryParse(MiniJson.S(e, 1), out FxType type)) return;
+                        if (type == FxType.Finisher && MyId >= 0 && MiniJson.I(e, 8, -1) == MyId) RecordMyFinisher();
                         fx.EmitAs(MiniJson.I(e, 8, -1), type, new Vector2(MiniJson.F(e, 2), MiniJson.F(e, 3)), new Vector2(MiniJson.F(e, 4), MiniJson.F(e, 5)),
                                   MiniJson.F(e, 6, 1f), MiniJson.Color(MiniJson.S(e, 7), Color.white));
                         break;

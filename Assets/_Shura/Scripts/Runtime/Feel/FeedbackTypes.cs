@@ -157,6 +157,7 @@ namespace Shura
         Ally,
         Kalpa,
         SpiritBlow,
+        Reactions,
     }
 
     /// <summary>

@@ -250,6 +250,7 @@ namespace Shura
             EnemyDef def = EnemyDefs.InnerAsura(owner);
             Vector2 at = Layout.NearestFloor(owner.Position + owner.Facing * 3f, def.radius);
             Enemy e = CreateEnemy(def, at, false, null);
+            if (owner.Build != null) e.ScaleHealth(owner.Build.Modifiers.innerAsuraHealthMult);
             e.AsuraOwner = owner;
             e.Target = owner;
             Fx.Toast(string.Format(Strings.ToastInnerAsura, owner.DisplayName), Config.palette.danger);

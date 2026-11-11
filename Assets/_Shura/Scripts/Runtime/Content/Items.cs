@@ -156,9 +156,17 @@ namespace Shura
         static int nextId;
 
         readonly string id;
-        readonly string name;
+        readonly string baseName;
         public readonly ItemSlot slot;
         public readonly Rarity rarity;
+        /// <summary>Legendary and up: one rule-changing affix (design doc §4.6).</summary>
+        public UniqueAffix unique;
+        public Clan clan;
+        /// <summary>A corrupted item's flaw (None once purified).</summary>
+        public Corruption flaw;
+        public bool corrupted;
+        public int flawProgress;
+        readonly HashSet<Enemy> kitsuneMarked = new HashSet<Enemy>();
         public readonly Element element;
         public readonly List<Affix> affixes = new List<Affix>();
         /// <summary>Strength of the element's attack variation.</summary>
@@ -171,12 +179,22 @@ namespace Shura
             this.rarity = rarity;
             this.element = element;
             power = Rarities.PowerOf(rarity);
-            name = baseName + " " + Elements.Suffix(element);
+            this.baseName = baseName + " " + Elements.Suffix(element);
         }
 
         public override string Id => id;
         public override RewardKind Kind => RewardKind.Item;
-        public override string Name => name;
+        public override string Name
+        {
+            get
+            {
+                string n = baseName;
+                if (unique != UniqueAffix.None) n = ItemIdentity.UniqueName(unique) + " · " + n;
+                if (clan != Clan.None) n += " · " + ItemIdentity.ClanName(clan);
+                if (flaw != Corruption.None) n = Strings.CorruptedPrefix + n;
+                return n;
+            }
+        }
         public override bool Stackable => true;
         public override string Cost => "Nenhum. Dura até o fim da run.";
         public bool HasProc => Rarities.HasProc(rarity) && element != Element.None;
@@ -187,7 +205,12 @@ namespace Shura
             {
                 var sb = new StringBuilder();
                 foreach (Affix a in affixes) sb.Append(ItemGenerator.Describe(a)).Append('\n');
-                if (HasProc) sb.Append(Elements.ProcText(element, power));
+                if (HasProc) sb.Append(Elements.ProcText(element, power)).Append('\n');
+                if (unique != UniqueAffix.None) sb.Append(ItemIdentity.UniqueText(unique)).Append('\n');
+                if (clan != Clan.None) sb.Append(ItemIdentity.ClanSetText(clan)).Append('\n');
+                if (flaw != Corruption.None)
+                    sb.Append(string.Format(Strings.CorruptedFlaw, ItemIdentity.FlawText(flaw), flawProgress, ItemIdentity.PurifyFinishers));
+                else if (corrupted) sb.Append(Strings.CorruptedPurified);
                 return sb.ToString().TrimEnd();
             }
         }
@@ -213,6 +236,56 @@ namespace Shura
                 }
             }
             if (HasProc && m.trailElement == Element.None) m.trailElement = element;
+            switch (unique)
+            {
+                case UniqueAffix.IronRose: m.ironRose = true; break;
+                case UniqueAffix.HannyaEye: m.ringWarningMult *= 1.3f; break;
+                case UniqueAffix.TenguFeather: m.tenguDodge = true; m.dodgeDistanceMult *= 0.6f; break;
+                case UniqueAffix.CrackedBell: m.mushinSurvivesHit = true; break;
+            }
+            ItemIdentity.ApplyFlaw(flaw, m);
+        }
+
+        public override void OnDodge(World world, Vector2 from)
+        {
+            if (unique != UniqueAffix.TenguFeather || world.Layout == null) return;
+            PlayerController p = world.Player;
+            Vector2 to = world.Layout.NearestFloor(from + p.Facing * 2.4f, p.Radius);
+            world.Fx.Emit(FxType.Smoke, from, Vector2.up, p.Radius, Color.white);
+            p.Teleport(to);
+            world.Fx.Emit(FxType.Smoke, to, Vector2.up, p.Radius, Color.white);
+        }
+
+        public override void ModifyAttackDamage(World world, Enemy target, ref float damage)
+        {
+            if (unique != UniqueAffix.KitsuneTear || target == null) return;
+            if (kitsuneMarked.Count > 256) kitsuneMarked.Clear();
+            if (!kitsuneMarked.Add(target)) return;
+            damage *= 1.6f;
+            world.Fx.Popup(Strings.PopupKitsune, target.Position + Vector2.up * 1f, ColorUtil.Hex("#FFB86B"));
+        }
+
+        public override void OnFinisher(World world, Enemy target)
+        {
+            PlayerController p = world.Player;
+            if (unique == UniqueAffix.KappaAnchor)
+            {
+                p.RefundDodge();
+                p.GrantInvulnerable(60);
+            }
+            if (flaw == Corruption.None) return;
+            if (++flawProgress < ItemIdentity.PurifyFinishers) return;
+            // The feat is done: the flaw falls away, the power stays.
+            flaw = Corruption.None;
+            p.Build?.RecomputeModifiers();
+            p.ApplyStats(false);
+            world.Fx.Popup(Strings.PopupPurified, p.Position + Vector2.up * 1.4f, Rarities.Color(rarity));
+            world.Fx.Toast(string.Format(Strings.ItemPurified, Name), Rarities.Color(rarity));
+        }
+
+        public override void OnHurt(World world)
+        {
+            if (flaw != Corruption.None) flawProgress = 0;
         }
 
         public override void OnDealtDamage(World world, Enemy target, float damage)
@@ -300,7 +373,44 @@ namespace Shura
                 pool.RemoveAt(index);
                 item.affixes.Add(new Affix { stat = stat, value = BaseValue(stat) * item.power * rng.Range(0.8f, 1.2f) });
             }
+
+            // Identity (design doc §4.6): a unique rule from Legendary up, a clan's crest, a corruption.
+            if (rarity >= Rarity.Legendary) item.unique = (UniqueAffix)(1 + rng.Range(0, ItemIdentity.UniqueCount));
+            if (rarity >= Rarity.Uncommon && rng.NextFloat() < 0.3f) item.clan = (Clan)(1 + rng.Range(0, 4));
+            if (rarity >= Rarity.Epic && rng.NextFloat() < 0.12f) Corrupt(item, rng);
             return item;
+        }
+
+        /// <summary>Much more power, and a flaw that a feat removes.</summary>
+        public static void Corrupt(Item item, SeededRandom rng)
+        {
+            item.flaw = (Corruption)(1 + rng.Range(0, 4));
+            item.corrupted = true;
+            item.flawProgress = 0;
+            for (int i = 0; i < item.affixes.Count; i++)
+            {
+                Affix a = item.affixes[i];
+                a.value *= 1.4f;
+                item.affixes[i] = a;
+            }
+        }
+
+        /// <summary>The smith engraves a kanji: the weakest attribute becomes another.</summary>
+        public static void Engrave(Item item, SeededRandom rng)
+        {
+            if (item.affixes.Count == 0) return;
+            int weakest = 0;
+            for (int i = 1; i < item.affixes.Count; i++)
+            {
+                if (item.affixes[i].value / BaseValue(item.affixes[i].stat) < item.affixes[weakest].value / BaseValue(item.affixes[weakest].stat)) weakest = i;
+            }
+            var pool = new List<AffixStat>(CommonStats);
+            if (item.rarity >= Rarity.Legendary) pool.Add(AffixStat.ParryWindow);
+            foreach (Affix a in item.affixes) pool.Remove(a.stat);
+            if (pool.Count == 0) return;
+            AffixStat stat = pool[rng.Range(0, pool.Count)];
+            float mult = item.corrupted ? 1.4f : 1f;
+            item.affixes[weakest] = new Affix { stat = stat, value = BaseValue(stat) * item.power * mult * rng.Range(1f, 1.2f) };
         }
 
         static float BaseValue(AffixStat stat)

@@ -48,6 +48,8 @@ WASD mover · mouse mirar · botão esquerdo atacar · botão direito aparar
 R ferramenta · T trocar ferramenta · E usar objetos / reviver aliado
 Esc menu (o duelo continua!) · Tab equipamento · C (ou R3) abre/fecha o registro.
 Cada um escolhe a SUA recompensa depois da sala, e todos votam na próxima porta.
+Cada um usa o PRÓPRIO Altar das Almas e a PRÓPRIA maestria de arma: as
+finalizações que você faz contam no seu progresso, no seu PC.
 
 Sobre o ms (latência)
 ---------------------

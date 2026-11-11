@@ -342,7 +342,7 @@ namespace Shura.Tests
             foreach (RewardDef r in choices) Assert.IsTrue(ids.Add(r.Id), "Duplicate reward offered");
 
             run.Acquire(choices[0]);
-            Assert.IsFalse(run.CanAbsorb(RewardIds.PatientBlade));
+            Assert.IsTrue(run.CanAbsorb(RewardIds.PatientBlade), "absorbing it again raises its level (I → II → III)");
             Assert.AreEqual(0, run.PendingTechniques.Count);
         }
 

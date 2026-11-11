@@ -55,6 +55,9 @@ namespace Shura
         public ToolKind Tool = ToolKind.Shuriken;
         public int Bandages = 1;
         public int FinishersForPaper;
+        /// <summary>Aço Celeste: the smith's currency, from broken items.</summary>
+        public int CelestialSteel;
+        readonly ClanSetEffect[] clanSets = { null, new ClanSetEffect(Clan.Takeda), new ClanSetEffect(Clan.Hattori), new ClanSetEffect(Clan.Minamoto), new ClanSetEffect(Clan.Shimazu) };
         public int ExtraSips;
         public int ExtraSealsPerParry;
         public float SealDamageMult = 1f;
@@ -81,6 +84,12 @@ namespace Shura
         public Kamae DefaultStance = Kamae.Chudan;
 
         public bool Cursed(RunCurse c) => CurseRooms > 0 && Curse == c;
+
+        /// <summary>Health to stand up with after a refused fall (Moeda de Seis Mon); 0 = just 1.</summary>
+        public float PendingReviveHealth;
+
+        /// <summary>Some relics only make sense in some builds (a blank scroll needs a technique to copy).</summary>
+        bool CanOffer(string id) => !Owns(id) && (id != RoadRelics.BlankScroll || PendingTechniques.Count > 0);
 
         public void ApplyCurse(RunCurse c, int rooms)
         {
@@ -173,9 +182,30 @@ namespace Shura
             return false;
         }
 
+        /// <summary>A technique not yet owned, or owned below level III (absorbing it again raises it).</summary>
         public bool CanAbsorb(string techniqueId)
         {
-            return !string.IsNullOrEmpty(techniqueId) && !Owns(techniqueId) && !PendingTechniques.Contains(techniqueId);
+            if (string.IsNullOrEmpty(techniqueId) || PendingTechniques.Contains(techniqueId)) return false;
+            TechniqueDef owned = OwnedTechnique(techniqueId);
+            return owned != null ? owned.Level < TechniqueDef.MaxLevel : !Owns(techniqueId);
+        }
+
+        public TechniqueDef OwnedTechnique(string id)
+        {
+            for (int i = 0; i < Owned.Count; i++)
+            {
+                if (Owned[i].Id == id && Owned[i] is TechniqueDef t) return t;
+            }
+            return null;
+        }
+
+        /// <summary>The card a pending technique becomes: new, or the next level of the one owned (III takes a branch).</summary>
+        public RewardDef TechniqueCard(string id, int branch = TechniqueDef.BranchFull)
+        {
+            TechniqueDef owned = OwnedTechnique(id);
+            if (owned == null) return RewardRegistry.Create(id);
+            if (owned.Level >= TechniqueDef.MaxLevel) return null;
+            return new TechniqueLevelUp(owned, owned.Level + 1, owned.Level + 1 >= TechniqueDef.MaxLevel ? branch : 0);
         }
 
         public void AddPendingTechnique(string techniqueId)
@@ -187,10 +217,23 @@ namespace Shura
 
         public void Acquire(RewardDef reward)
         {
+            if (reward is TechniqueLevelUp up)
+            {
+                TechniqueDef t = OwnedTechnique(up.Target.Id);
+                if (t == null || t.Level >= up.ToLevel) return;
+                t.Level = up.ToLevel;
+                t.Branch = up.ChosenBranch;
+                PendingTechniques.Remove(t.Id);
+                RecomputeModifiers();
+                return;
+            }
             if (reward == null || (!reward.Stackable && Owns(reward.Id))) return;
-            Owned.Add(reward);
+            // Fused techniques act first (Muralha Viva stands you up before the bones do).
+            if (reward is FusionDef) Owned.Insert(0, reward);
+            else Owned.Add(reward);
             PendingTechniques.Remove(reward.Id);
             RecomputeModifiers();
+            reward.OnAcquired(this);
         }
 
         /// <summary>
@@ -214,6 +257,16 @@ namespace Shura
             m.damageMult *= 1f + DifficultyRules.AscensionDamage * ascension;
             // A duel of honour: only the blade and the hand that holds it.
             if (HonorBound) Effects.Clear();
+            else
+            {
+                // Clan sets: two pieces, a number; four pieces, a way of fighting.
+                for (int c = 1; c < clanSets.Length; c++)
+                {
+                    int pieces = ItemIdentity.CountClan(Equipped, (Clan)c);
+                    if (pieces >= 2) ItemIdentity.ApplyTwoPieces((Clan)c, m);
+                    if (pieces >= 4) Effects.Add(clanSets[c]);
+                }
+            }
             for (int i = 0; i < Effects.Count; i++) Effects[i].Apply(m);
             if (Muramasa) m.damageMult *= 1.35f;
             m.damageMult *= 1f + Sharpened;
@@ -241,7 +294,7 @@ namespace Shura
                     {
                         bool offered = false;
                         foreach (RewardDef c in choices) offered |= c.Id == id;
-                        if (!Owns(id) && !offered) pool.Add(id);
+                        if (CanOffer(id) && !offered) pool.Add(id);
                     }
                     for (int i = 0; i < choices.Count && pool.Count > 0; i++)
                     {
@@ -283,14 +336,24 @@ namespace Shura
             var choices = new List<RewardDef>();
             for (int i = 0; i < PendingTechniques.Count && choices.Count < 2; i++)
             {
-                RewardDef t = RewardRegistry.Create(PendingTechniques[i]);
+                string id = PendingTechniques[i];
+                TechniqueDef owned = OwnedTechnique(id);
+                if (owned != null && owned.Level + 1 >= TechniqueDef.MaxLevel)
+                {
+                    // Level III: the two branches side by side (they need both technique slots).
+                    if (choices.Count > 0) continue;
+                    choices.Add(new TechniqueLevelUp(owned, TechniqueDef.MaxLevel, TechniqueDef.BranchFull));
+                    choices.Add(new TechniqueLevelUp(owned, TechniqueDef.MaxLevel, TechniqueDef.BranchEcho));
+                    continue;
+                }
+                RewardDef t = TechniqueCard(id);
                 if (t != null) choices.Add(t);
             }
 
             var pool = new List<string>();
             foreach (string id in RewardIds.Relics)
             {
-                if (!Owns(id)) pool.Add(id);
+                if (CanOffer(id)) pool.Add(id);
             }
 
             int relicSlots = depth >= 2 ? count - 1 : count;
@@ -309,6 +372,23 @@ namespace Shura
                 RewardDef b = RewardRegistry.Create(blessings[index]);
                 blessings.RemoveAt(index);
                 if (b != null) choices.Add(b);
+            }
+
+            // A fused technique: a rare card once its two halves are owned.
+            List<string> fusions = Fusions.Available(this);
+            if (fusions.Count > 0 && Rng.NextFloat() < 0.4f)
+            {
+                RewardDef f = Fusions.Create(fusions[Rng.Range(0, fusions.Count)]);
+                int slot = -1;
+                for (int i = choices.Count - 1; i >= 0 && slot < 0; i--)
+                {
+                    if (choices[i].Kind != RewardKind.Technique) slot = i;
+                }
+                if (f != null)
+                {
+                    if (slot >= 0) choices[slot] = f;
+                    else choices.Add(f);
+                }
             }
             return choices;
         }

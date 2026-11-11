@@ -46,6 +46,36 @@ namespace Shura
         public float lifesteal;
         /// <summary>Element that colours the slash trail (first equipped elemental item).</summary>
         public Element trailElement;
+
+        // ── Relics of the road (design doc §4.8) ───────────────────────────────────────
+        public float shuraGainMult = 1f;
+        public float innerAsuraHealthMult = 1f;
+        /// <summary>Dodge charges are never spent.</summary>
+        public bool infiniteDodge;
+        /// <summary>Holding parry does not block (the perfect window still parries).</summary>
+        public bool noBlock;
+        /// <summary>Perfect actions in a row that open Mushin (0 = the build's own).</summary>
+        public int mushinStreak;
+        public bool hideHud;
+        /// <summary>Interact near an enemy grabs it.</summary>
+        public bool grab;
+        /// <summary>How early the timing rings start closing (1 = normal).</summary>
+        public float ringWarningMult = 1f;
+        public float ecosMult = 1f;
+        /// <summary>See each enemy's next blow.</summary>
+        public bool dragonEye;
+        /// <summary>How fast the enemies learn this duelist.</summary>
+        public float adaptMult = 1f;
+
+        // ── Item identity (design doc §4.6) ──────────────────────────────────────────
+        /// <summary>Rosa de Ferro: a block is half a parry.</summary>
+        public bool ironRose;
+        /// <summary>Pena do Tengu: the dodge is a short teleport.</summary>
+        public bool tenguDodge;
+        /// <summary>Sino Rachado: Mushin survives the first wound.</summary>
+        public bool mushinSurvivesHit;
+        /// <summary>A corrupted item's flaw: the timing rings are not drawn.</summary>
+        public bool hiddenRings;
     }
 
     /// <summary>
@@ -83,6 +113,10 @@ namespace Shura
         public virtual void OnKill(World world, Enemy enemy) { }
         /// <summary>A blow is about to drop the player to 0: return true to survive it at 1 health.</summary>
         public virtual bool OnLethalHit(World world) => false;
+        /// <summary>The duelist took a wound (after it landed).</summary>
+        public virtual void OnHurt(World world) { }
+        /// <summary>Just taken (after the build's numbers are recomputed).</summary>
+        public virtual void OnAcquired(PlayerBuild build) { }
     }
 
     /// <summary>A blessing is a small permanent-for-this-run boost that can stack.</summary>

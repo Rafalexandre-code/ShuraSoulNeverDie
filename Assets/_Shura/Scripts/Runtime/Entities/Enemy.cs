@@ -225,6 +225,7 @@ namespace Shura
             if (guardFrames > 0) guardFrames--;
             if (exposedFrames > 0) exposedFrames--;
             TickStatus();
+            TickElement();
             if (CurrentState == State.Dead) return;
             TickKi();
             if (CurrentState == State.Dead) return;
@@ -326,6 +327,17 @@ namespace Shura
             }
         }
 
+        /// <summary>A sturdier (or frailer) foe than its kind: health scaled, kept full.</summary>
+        public void ScaleHealth(float k)
+        {
+            if (k <= 0f || Mathf.Approximately(k, 1f)) return;
+            MaxHealth *= k;
+            Health = MaxHealth;
+        }
+
+        /// <summary>The blow this enemy will throw next (rolled ahead, so the Dragon Eye can read it).</summary>
+        public MoveDef NextMove { get; private set; }
+
         /// <summary>Healed by an ally's aura: health and some posture back.</summary>
         public void Mend(float health, float posture)
         {
@@ -344,6 +356,28 @@ namespace Shura
         {
             Enter(State.Engage);
             idleTimer = idleFrames;
+            RollNextMove();
+        }
+
+        /// <summary>Picks the next blow by weight, ignoring range (range decides later whether it comes).</summary>
+        void RollNextMove()
+        {
+            NextMove = null;
+            if (moves == null || moves.Length == 0) return;
+            int total = 0;
+            foreach (MoveDef m in moves) total += MoveWeight(m);
+            if (total <= 0) return;
+            int roll = rng.Range(0, total);
+            foreach (MoveDef m in moves)
+            {
+                int w = MoveWeight(m);
+                if (roll < w)
+                {
+                    NextMove = m;
+                    return;
+                }
+                roll -= w;
+            }
         }
 
         /// <summary>The duelist this enemy is fighting (re-chosen now and then, and when they fall).</summary>
@@ -453,6 +487,14 @@ namespace Shura
                 return;
             }
 
+            // The blow read in advance comes, if it still can.
+            if (NextMove != null && Usable(NextMove, dist))
+            {
+                MoveDef chosen = NextMove;
+                NextMove = null;
+                StartMove(chosen);
+                return;
+            }
             int roll = rng.Range(0, total);
             foreach (MoveDef m in moves)
             {
@@ -469,6 +511,7 @@ namespace Shura
 
         void StartMove(MoveDef move)
         {
+            OnMoveStartedCursed();
             CurrentMove = move;
             StepIndex = 0;
             Enter(State.Attacking);
@@ -879,9 +922,10 @@ namespace Shura
 
         // ── Status effects (from equipment) ─────────────────────────────────────────────
 
-        public void ApplyDot(float damagePerSecond, float seconds, Element element)
+        public void ApplyDot(float damagePerSecond, float seconds, Element element, bool mark = true)
         {
             if (!CanBeHit) return;
+            if (mark) MarkElement(element);
             // Embers make fire last longer; rain puts it out sooner.
             if (element == Element.Fire) seconds *= world.FireDotMult;
             dotDps = Mathf.Max(dotDps, damagePerSecond);
@@ -889,9 +933,10 @@ namespace Shura
             dotElement = element;
         }
 
-        public void ApplyChill(float seconds)
+        public void ApplyChill(float seconds, bool mark = true)
         {
             if (!CanBeHit) return;
+            if (mark) MarkElement(Element.Frost);
             chillTime = Mathf.Max(chillTime, seconds);
         }
 
@@ -1280,7 +1325,7 @@ namespace Shura
         void RenderTimingIndicator(AttackDef attack)
         {
             bool ring = attack != null && (attack.ShowsTimingRing || attack.feint) && CurrentState == State.Attacking &&
-                        TelegraphTiming.ApproachVisible(StepFrame, CueWindup, feel.timingCueLeadFrames, feel.timingApproachFrames);
+                        TelegraphTiming.ApproachVisible(StepFrame, CueWindup, feel.timingCueLeadFrames, ApproachFrames);
             NetRing = 0;
             NetRingKind = (int)CurrentRingKind;
             if (!ring)
@@ -1293,7 +1338,7 @@ namespace Shura
             RingKind kind = CurrentRingKind;
             int lead = Mathf.Max(1, feel.timingCueLeadFrames);
             int cue = TelegraphTiming.CueFrame(CueWindup, lead);
-            float t = TelegraphTiming.ApproachProgress(StepFrame, CueWindup, lead, feel.timingApproachFrames);
+            float t = TelegraphTiming.ApproachProgress(StepFrame, CueWindup, lead, ApproachFrames);
             float size = Radius * 2f * 1.55f;
             NetRingSize = size;
             NetRing = StepFrame < cue ? 1 : 2;
@@ -1351,6 +1396,9 @@ namespace Shura
         }
 
         SpriteRenderer timingInner;
+
+        /// <summary>How long the ring takes to close, as this computer's duelist sees it (Ampulheta Quebrada shortens it).</summary>
+        int ApproachFrames => Mathf.Max(4, Mathf.RoundToInt(feel.timingApproachFrames * (world.Host.Build != null ? world.Host.Build.Modifiers.ringWarningMult : 1f)));
 
         public Color RingColor(RingKind kind)
         {

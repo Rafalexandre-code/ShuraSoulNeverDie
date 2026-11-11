@@ -163,7 +163,7 @@ namespace Shura
         public float KiLifesteal => (ShuraLevel >= 2 ? 0.05f : 0f) * world.LifestealMultWorld + (world.LifestealMultWorld > 1f ? 0.04f : 0f);
         bool PostureUnbreakable => ShuraLevel >= 3 || InAsura;
         /// <summary>This duelist no longer sees timing rings (Frenzy, Mushin, eyes wound).</summary>
-        public bool RingsHidden => ShuraLevel >= 3 || InMushin || RingHiddenFrames > 0 || InAsura;
+        public bool RingsHidden => ShuraLevel >= 3 || InMushin || RingHiddenFrames > 0 || InAsura || Mods.hiddenRings;
         /// <summary>In Shura "Thirst" the rings look 15% smaller to this duelist.</summary>
         public float RingScale => ShuraLevel >= 2 ? 0.85f : 1f;
 
@@ -185,6 +185,7 @@ namespace Shura
             if (kamaeCooldown > 0) kamaeCooldown--;
             if (descendFrames > 0) descendFrames--;
             if (kiaiCooldown > 0) kiaiCooldown--;
+            if (grabCooldown > 0) grabCooldown--;
             if (RingHiddenFrames > 0) RingHiddenFrames--;
             if (CycleFramesLeft > 0) CycleFramesLeft--;
             if (curseTime > 0f)
@@ -205,13 +206,39 @@ namespace Shura
             if (AsuraFramesLeft > 0 && --AsuraFramesLeft == 0) EndAsura();
 
             // Mushin: a long perfect streak at full Flow empties the mind.
-            if (!InMushin && Build != null && Build.PerfectStreak >= Build.MushinStreak && FlowLevel >= 3)
+            if (!InMushin && Build != null && Build.PerfectStreak >= (Mods.mushinStreak > 0 ? Mods.mushinStreak : Build.MushinStreak) && FlowLevel >= 3)
             {
                 InMushin = true;
                 world.Fx.Emit(FxType.Mushin, Position, Vector2.up, 1f, pal.gold);
                 world.Fx.Popup(Strings.PopupMushin, Position + Vector2.up * 1.3f, pal.gold);
                 world.HintOnce(HintId.Mushin);
             }
+        }
+
+        int grabCooldown;
+        bool interactWas;
+
+        /// <summary>
+        /// Corrente do Carrasco: a press of Interact near an enemy throws the chain — it is
+        /// dragged to you and its posture is jarred. A fallen ally to revive comes first.
+        /// </summary>
+        bool TryGrab()
+        {
+            bool pressed = input.InteractHeld && !interactWas;
+            interactWas = input.InteractHeld;
+            if (!pressed || !Mods.grab || grabCooldown > 0) return false;
+            if (world.FallenNear(this) != null) return false;
+            Enemy e = world.FindNearestEnemy(Position, null);
+            if (e == null || e.IsGone || !e.CanBeHit || e.IsAlly || Vector2.Distance(e.Position, Position) > 2.6f + e.Radius) return false;
+            grabCooldown = 50;
+            Vector2 dir = (e.Position - Position).normalized;
+            Facing = dir;
+            e.Pull(Position + dir * (Radius + e.Radius + 0.2f), 3f);
+            e.ApplyPosture(35f);
+            world.Fx.Emit(FxType.SlamImpact, e.Position, -dir, 1.2f, Color.white);
+            world.Fx.Popup(Strings.PopupGrab, e.Position + Vector2.up * 1.1f, pal.gold);
+            Squash(1.15f, 0.9f);
+            return true;
         }
 
         /// <summary>Tutorial: a controlled wound so the gourd has something to heal.</summary>
@@ -513,7 +540,7 @@ namespace Shura
         {
             if (Build == null || amount <= 0f || InAsura || FacingInnerAsura) return;
             int before = ShuraLevel;
-            Build.Shura = Mathf.Min(ShuraRules.Max, Build.Shura + amount * Build.ShuraGainMult * world.ShuraGainMult);
+            Build.Shura = Mathf.Min(ShuraRules.Max, Build.Shura + amount * Build.ShuraGainMult * world.ShuraGainMult * Mods.shuraGainMult);
             int after = ShuraLevel;
             if (after > before && after < 4)
             {
@@ -569,6 +596,7 @@ namespace Shura
                 if (Sips < 3) Sips++;
             }
             if (Build != null && Build.FinishersForPaper++ % 2 == 1 && Build.SpiritPapers < 12) Build.SpiritPapers++;
+            OnFinisherMastery();
         }
 
         // ── Swap Links (Elos) and charge ──────────────────────────────────────────────
@@ -646,6 +674,7 @@ namespace Shura
             Enter(State.SwapStrike);
             world.Fx.Popup(eloStep.name.ToUpperInvariant(), Position + Vector2.up * 1.1f, pal.gold);
             world.Fx.Emit(FxType.Elo, Position, Facing, eloChain, to.trail);
+            BeginSwapStrikeMastery();
             world.HintOnce(HintId.Elo);
             if (eloChain >= 3 && CycleFramesLeft <= 0)
             {
@@ -840,7 +869,7 @@ namespace Shura
         {
             if (InMushin)
             {
-                if (Build != null && Build.MushinSurvivesHit && !mushinGraceUsed) mushinGraceUsed = true;
+                if (Build != null && (Build.MushinSurvivesHit || Mods.mushinSurvivesHit) && !mushinGraceUsed) mushinGraceUsed = true;
                 else
                 {
                     InMushin = false;

@@ -28,6 +28,40 @@ namespace Shura
         public int victories;
         public int bestRoom;
         public List<UpgradeLevel> upgrades = new List<UpgradeLevel>();
+        /// <summary>Weapon mastery: finishers dealt with each weapon (id → count), across every run.</summary>
+        public List<UpgradeLevel> mastery = new List<UpgradeLevel>();
+
+        public int MasteryFinishers(string weaponId)
+        {
+            if (mastery == null) return 0;
+            foreach (UpgradeLevel u in mastery)
+            {
+                if (u.id == weaponId) return u.level;
+            }
+            return 0;
+        }
+
+        /// <summary>One more finisher with this weapon. Returns the new mastery level when it just went up, otherwise 0.</summary>
+        public int AddMasteryFinisher(string weaponId)
+        {
+            if (string.IsNullOrEmpty(weaponId)) return 0;
+            if (mastery == null) mastery = new List<UpgradeLevel>();
+            int before = MasteryFinishers(weaponId);
+            SetMastery(weaponId, before + 1);
+            int was = WeaponMastery.LevelFor(before), now = WeaponMastery.LevelFor(before + 1);
+            return now > was ? now : 0;
+        }
+
+        void SetMastery(string weaponId, int count)
+        {
+            foreach (UpgradeLevel u in mastery)
+            {
+                if (u.id != weaponId) continue;
+                u.level = count;
+                return;
+            }
+            mastery.Add(new UpgradeLevel { id = weaponId, level = count });
+        }
 
         public int GetLevel(string id)
         {
@@ -72,6 +106,13 @@ namespace Shura
                 int level = GetLevel(def.id);
                 if (level > 0) parts.Add(def.id + ":" + level);
             }
+            if (mastery != null)
+            {
+                foreach (UpgradeLevel u in mastery)
+                {
+                    if (u.level > 0) parts.Add("m." + u.id + ":" + u.level);
+                }
+            }
             return string.Join(",", parts);
         }
 
@@ -84,6 +125,13 @@ namespace Shura
             {
                 string[] kv = part.Split(':');
                 if (kv.Length != 2 || !int.TryParse(kv[1], out int level)) continue;
+                string id = kv[0].Trim();
+                if (id.StartsWith("m."))
+                {
+                    id = id.Substring(2);
+                    if (WeaponDefs.Exists(id) && p.MasteryFinishers(id) == 0) p.SetMastery(id, Mathf.Clamp(level, 0, 9999));
+                    continue;
+                }
                 MetaUpgradeDef def = MetaUpgrades.Get(kv[0].Trim());
                 if (def != null) p.SetLevel(def.id, Mathf.Clamp(level, 0, def.maxLevel));
             }
@@ -138,6 +186,17 @@ namespace Shura
                 }
             }
             upgrades = clean;
+
+            var cleanMastery = new List<UpgradeLevel>();
+            if (mastery != null)
+            {
+                foreach (UpgradeLevel u in mastery)
+                {
+                    if (u == null || string.IsNullOrEmpty(u.id) || cleanMastery.Exists(c => c.id == u.id)) continue;
+                    cleanMastery.Add(new UpgradeLevel { id = u.id, level = Mathf.Max(0, u.level) });
+                }
+            }
+            mastery = cleanMastery;
             version = CurrentVersion;
         }
     }

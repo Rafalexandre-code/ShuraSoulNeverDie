@@ -170,6 +170,17 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 
 - **Quatro armas novas** (4.2), **forja modular** (4.1) e **transformação em alma** (4.5) — detalhes na tabela da Fase 3.
 
+## Controle, luz e acabamento (v0.7.0) — ✅
+
+- **Controle de Xbox e PlayStation**: layout de soulslike (RB atacar, LB aparar, A esquivar, Y trocar, X interagir, R3 travar, L3 alma, B toque = cabaça / segurar = bandagem, RT/LT ferramenta, direcional = guardas, View: toque = equipamento / segurar = registro). Os nomes dos botões na tela mudam sozinhos entre Xbox (A, RB...) e PlayStation (✕, R1...), e vibração no aparar perfeito, na Troca Perfeita, ao ser ferido, na quebra de guarda e nas finalizações.
+- **Trava de mira**: no controle é sempre ligada (escolhe o alvo sozinha; R3 escolhe de novo à frente; empurrar o analógico direito pula para o inimigo daquele lado; se o alvo cai, passa para o mais próximo). No teclado e mouse é opcional nas configurações (Z / mouse 5 trava, a roda troca de alvo); desligada, a mira é pelo mouse como sempre. Retícula vermelha no alvo, câmera que enquadra os dois (opcional) e funciona também para convidados online.
+- **Configurar controles**: tela com abas Teclado e mouse (principal e alternativa) e Controle; escolha a célula e aperte a nova tecla. Se ela já era de outro comando, os dois trocam; Delete / Y limpa; cada dispositivo volta ao padrão sozinho. Salvo por espaço de tecla.
+- **Manoplas do Leão** (antes "de Ferro"): arte nova (punho de aço saindo da boca de um leão de bronze) e luta de boxeador — um punho guarda o rosto enquanto o outro soca (recolhe, gira o quadril, estica, volta), jab, direto, gancho e cruzado; finalização "Coração Partido" com oito golpes no corpo, o mundo desacelera, e um direto que solta o **Rugido do Leão**.
+- **Lanterna de pedra (tōrō)** no lugar da antiga, com versão com musgo, e colisão tirada dos pixels da base.
+- **Luz**: as lanternas são o fogo da sala. Cada uma ilumina e tremula; quebrar uma escurece a sala, mais forte do lado dela; com todas quebradas a sala fica realmente escura (resta um pequeno halo em volta de cada duelista).
+- **Pós-processamento** (opção em Imagem): brilho (bloom) no fogo e no aço, gradação de cor por hora do dia (manhã luminosa, tarde dourada, crepúsculo rosado, noite azul, aurora perolada), sombras frias e luzes quentes, vibrância, vinheta, aberração cromática leve e grão de filme.
+- **Legibilidade**: textos que saltam sobre a cabeça agora formam uma coluna (sem um em cima do outro, e repetidos se juntam); nomes longos de itens e armas não saem mais das caixas (Equipamento, cinto do HUD, Arsenal, controles).
+
 ## Apresentação e acessibilidade (§10) — ⏳
 
 10.1 tabela de impacto · 10.2 câmera e finalizações em tinta · 10.3 som que informa · 10.4 música adaptativa (🟡 música abafada em Mushin/Iai já feita) · 10.5 interface diegética · 10.6 luz 2D (provável adiamento: o projeto usa Built-in RP; luz 2D exige URP) · 10.7 acessibilidade (🟡 anéis com padrão próprio por tipo) · 10.8 replay e foto.

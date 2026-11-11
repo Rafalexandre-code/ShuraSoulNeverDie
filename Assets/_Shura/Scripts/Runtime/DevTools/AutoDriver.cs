@@ -191,9 +191,17 @@ namespace Shura
                     }
                     break;
                 case Game.Mode.Settings:
-                    if (ShotThenAct("settings", wait))
+                    if (!controlsShotDone)
+                    {
+                        if (!ShotThenAct("settings", wait)) break;
+                        controlsShotDone = true;
+                        game.UI.OpenControls();
+                        break;
+                    }
+                    if (ShotThenAct("controls", 0f))
                     {
                         settingsShotDone = true;
+                        game.UI.CloseControlsForShots();
                         game.CloseSettings();
                     }
                     break;
@@ -317,6 +325,8 @@ namespace Shura
             if (shots) UpdateBursts();
             // The soul form, twice: as it takes the body and halfway through.
             PlayerController host = game.World != null ? game.World.Host : null;
+            // The tour shows the target lock too.
+            if (shots && host != null) host.DevForceLock = true;
             if (shots && host != null && host.InSoul && soulShots < 2 && host.SoulFramesLeft < PlayerController.SoulFrames - 20 - soulShots * 200)
             {
                 Shot("soul");
@@ -365,6 +375,7 @@ namespace Shura
 
         /// <summary>Takes the screenshot first and acts two frames later, so the capture shows this screen.</summary>
         bool arsenalShotDone;
+        bool controlsShotDone;
         int soulShots;
 
         bool ShotThenAct(string name, float wait)

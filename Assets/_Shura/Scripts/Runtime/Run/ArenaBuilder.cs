@@ -124,7 +124,7 @@ namespace Shura
                 new Vector2(fb.xMin + 1.2f, fb.yMax - 1.0f), new Vector2(fb.xMax - 1.2f, fb.yMax - 1.0f),
                 new Vector2(fb.xMin + 1.2f, fb.yMin + 0.9f), new Vector2(fb.xMax - 1.2f, fb.yMin + 0.9f),
             };
-            foreach (Vector2 c in corners) AddLantern(parent, decor, layout.NearestFloor(c, 0.6f), biome);
+            foreach (Vector2 c in corners) AddLantern(parent, decor, layout, layout.NearestFloor(c, 0.6f), biome, style.moss);
             return decor;
         }
 
@@ -159,8 +159,34 @@ namespace Shura
             }
         }
 
-        /// <summary>A tall paper lantern (andon) whose light flickers on the floor.</summary>
-        static void AddLantern(Transform parent, ArenaDecor decor, Vector2 pos, Biome biome)
+        /// <summary>
+        /// The box a prop stands on, cut from its own pixels: the opaque columns of its lowest
+        /// rows (the base), as deep as those rows are tall. One texel = 1/16 of a unit.
+        /// </summary>
+        public static Rect Footprint(Sprite s, Vector2 pivotWorld, int baseRows)
+        {
+            Texture2D tex = s.texture;
+            Rect tr = s.textureRect;
+            int x0 = Mathf.RoundToInt(tr.x), y0 = Mathf.RoundToInt(tr.y), w = Mathf.RoundToInt(tr.width);
+            int minX = w, maxX = -1;
+            for (int y = 0; y < baseRows; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (tex.GetPixel(x0 + x, y0 + y).a < 0.5f) continue;
+                    minX = Mathf.Min(minX, x);
+                    maxX = Mathf.Max(maxX, x);
+                }
+            }
+            if (maxX < 0) return new Rect(pivotWorld, Vector2.zero);
+            float ppu = s.pixelsPerUnit;
+            float left = pivotWorld.x + (minX - s.pivot.x) / ppu;
+            float width = (maxX - minX + 1) / ppu;
+            return new Rect(left, pivotWorld.y, width, baseRows / ppu);
+        }
+
+        /// <summary>A stone lantern (tōrō) whose fire flickers on the floor; you bump into its base.</summary>
+        static void AddLantern(Transform parent, ArenaDecor decor, ArenaLayout layout, Vector2 pos, Biome biome, bool moss)
         {
             var root = new GameObject("Lantern").transform;
             root.SetParent(parent, false);
@@ -175,11 +201,19 @@ namespace Shura
             shadow.transform.localPosition = new Vector3(0f, 0.05f, 0f);
             shadow.transform.localScale = new Vector3(1f, 0.4f, 1f);
 
-            Sprite lantern = PixelArt.Region("tiles_element", 0, 5, 1, 2, new Vector2(0.5f, 0f));
-            var body = SpriteUtil.Make("Andon", root, lantern != null ? lantern : ShapeLibrary.Get(Shape.Capsule), Color.white, order);
-            var paper = SpriteUtil.Make("Paper", root, ShapeLibrary.Get(Shape.SoftCircle), biome.flame.WithAlpha(0.45f), order + 1);
-            paper.transform.localPosition = new Vector3(0f, 1.2f, 0f);
-            paper.transform.localScale = new Vector3(0.7f, 0.9f, 1f);
+            Sprite lantern = PixelArt.Region(moss ? "prop_toro_moss" : "prop_toro", 0, 0, 1, 2, new Vector2(0.5f, 0f));
+            var body = SpriteUtil.Make("Toro", root, lantern != null ? lantern : ShapeLibrary.Get(Shape.Capsule), Color.white, order);
+            // The fire box's window glows; a soft halo breathes around it.
+            var paper = SpriteUtil.Make("Paper", root, ShapeLibrary.Get(Shape.SoftCircle), biome.flame.WithAlpha(0.4f), order + 1);
+            paper.transform.localPosition = new Vector3(0f, 1.25f, 0f);
+            paper.transform.localScale = new Vector3(0.55f, 0.45f, 1f);
+            if (lantern != null && lantern.texture.isReadable)
+            {
+                // The base (the four lowest rows) is solid: duelists, enemies and arrows meet the stone.
+                Rect foot = Footprint(lantern, pos, 4);
+                foot.yMin -= 0.06f;
+                layout.AddSolid(foot);
+            }
 
             decor.Lanterns.Add(pos);
             decor.LanternViews.Add(root.gameObject);

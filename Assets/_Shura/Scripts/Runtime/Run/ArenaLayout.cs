@@ -154,7 +154,43 @@ namespace Shura
         public bool IsFloorAt(Vector2 p)
         {
             Vector2Int c = CellAt(p);
-            return IsFloor(c.x, c.y);
+            return IsFloor(c.x, c.y) && !InSolid(p);
+        }
+
+        // ── Solid props standing on the floor (stone lanterns): boxes cut from their pixels ──
+        readonly List<Rect> solids = new List<Rect>();
+        public IReadOnlyList<Rect> Solids => solids;
+
+        public void AddSolid(Rect r) => solids.Add(r);
+
+        public bool InSolid(Vector2 p)
+        {
+            for (int i = 0; i < solids.Count; i++)
+            {
+                if (solids[i].Contains(p)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Pushes a circle out of a box (the same rule as wall cells).</summary>
+        static bool PushOut(ref Vector2 p, float r, Vector2 min, Vector2 max)
+        {
+            var closest = new Vector2(Mathf.Clamp(p.x, min.x, max.x), Mathf.Clamp(p.y, min.y, max.y));
+            Vector2 d = p - closest;
+            float dist = d.magnitude;
+            if (dist >= r) return false;
+            if (dist > 1e-5f)
+            {
+                p += d / dist * (r - dist);
+                return true;
+            }
+            float left = p.x - min.x, right = max.x - p.x, down = p.y - min.y, up = max.y - p.y;
+            float m = Mathf.Min(Mathf.Min(left, right), Mathf.Min(down, up));
+            if (m == left) p.x = min.x - r;
+            else if (m == right) p.x = max.x + r;
+            else if (m == down) p.y = min.y - r;
+            else p.y = max.y + r;
+            return true;
         }
 
         public Vector2 CellCenter(int x, int y) => Origin + new Vector2(x + 0.5f, y + 0.5f);
@@ -209,6 +245,10 @@ namespace Shura
                         }
                         moved = true;
                     }
+                }
+                for (int i = 0; i < solids.Count; i++)
+                {
+                    if (PushOut(ref p, r, solids[i].min, solids[i].max)) moved = true;
                 }
                 if (!moved) break;
             }

@@ -31,6 +31,42 @@ namespace Shura
         public const string ReduceFlashes = "Reduzir flashes";
         public const string Fullscreen = "Tela cheia";
         public const string ResetControls = "Restaurar controles padrão";
+        public const string SectionControls = "CONTROLES";
+        public const string ConfigureControls = "Configurar controles";
+        public const string HelpConfigureControls = "Troque a tecla ou o botão de cada comando, no teclado e mouse e no controle (Xbox ou PlayStation). Se a tecla já era de outro comando, os dois trocam.";
+        public const string Rumble = "Vibração do controle";
+        public const string HelpRumble = "O controle vibra no aparar perfeito, na Troca Perfeita, ao ser ferido, na quebra de guarda e nas finalizações.";
+        public const string SectionImage = "IMAGEM";
+        public const string PostFx = "Pós-processamento";
+        public const string HelpPostFx = "Brilho (bloom) no fogo e no aço, cores vivas que mudam com a hora do dia, vinheta e grão de filme. Desligue se o computador sofrer.";
+        public const string MouseLock = "Trava de mira (teclado e mouse)";
+        public const string HelpMouseLock = "Desligada: você mira com o mouse, como sempre. Ligada: Z (ou o botão lateral do mouse) trava no inimigo e a roda troca de alvo. No controle a trava é sempre ligada: ela escolhe o alvo sozinha, R3 escolhe de novo à sua frente e o analógico direito troca de alvo.";
+        public const string LockCamera = "Câmera enquadra o alvo travado";
+        public const string HelpLockCamera = "Com a mira travada, a câmera mostra você e o alvo juntos. Desligada, ela fica em você.";
+        public const string ControlsScreenTitle = "Controles";
+        public const string ControlsTabKeyboard = "Teclado e mouse";
+        public const string ControlsTabPadXbox = "Controle (Xbox)";
+        public const string ControlsTabPadPs = "Controle (PlayStation)";
+        public const string ControlsColAction = "COMANDO";
+        public const string ControlsColPrimary = "PRINCIPAL";
+        public const string ControlsColSecondary = "ALTERNATIVA";
+        public const string ControlsColButton = "BOTÃO";
+        public const string ControlsColNote = "OBSERVAÇÃO";
+        public const string ControlsPress = "aperte…";
+        public const string ControlsListening = "Aperte a nova tecla ou botão para «{0}»  ·  Esc cancela (6 s)";
+        public const string ControlsDone = "{0} → {1}";
+        public const string ControlsCanceled = "Cancelado: nada mudou.";
+        public const string ControlsCleared = "Comando sem tecla neste espaço.";
+        public const string ControlsResetKeyboard = "Teclado e mouse de volta ao padrão.";
+        public const string ControlsResetPad = "Controle de volta ao padrão.";
+        public const string ControlsResetKeyboardButton = "Padrão do teclado";
+        public const string ControlsResetPadButton = "Padrão do controle";
+        public const string ControlsHelpKeyboard = "Enter ou clique: trocar  ·  Delete: limpar  ·  Esquerda/Direita: principal ou alternativa  ·  Esc: voltar";
+        public const string ControlsHelpPad = "A / ✕: trocar  ·  Y / △: limpar  ·  no topo, Esquerda/Direita troca a aba  ·  B / ○: voltar";
+        public const string ControlsNoteTap = "toque (dividido com a bandagem)";
+        public const string ControlsNoteHold = "segurar (dividido com a cabaça)";
+        public const string ControlsNoteChord = "também: {0} juntos";
+        public const string ControlsNoteFlick = "no controle: empurre o analógico direito";
         public const string TimingIndicator = "Indicador de tempo";
         public const string Blood = "Sangue";
 
@@ -149,6 +185,8 @@ namespace Shura
         public const string PopupStunned = "ATORDOADO!";
         public const string PopupExposed = "SÓLIDO!";
         public const string PopupBackstab = "PELAS COSTAS";
+        public const string PopupLionRoar = "RUGIDO DO LEÃO";
+        public const string PopupNoTarget = "nenhum alvo";
         public const string PopupSoul = "ALMA · {0}";
         public const string HudSoulReady = "Alma: {0} [B]";
         public const string HudSoulActive = "Alma de {0}: {1} s";
@@ -593,7 +631,7 @@ namespace Shura
                 case HintId.Ally:
                     return "O RONIN luta ao seu lado por algumas salas. Seus golpes não o ferem.";
                 case HintId.Soul:
-                    return "ALMA: uma técnica no nível III guardou a alma do inimigo. Aperte B (ou R3) para virar esse inimigo por 8 s, uma vez por sala: mais força e o jeito dele de lutar.";
+                    return "ALMA: uma técnica no nível III guardou a alma do inimigo. Aperte ALMA (B no teclado, L3 no controle) para virar esse inimigo por 8 s, uma vez por sala: mais força e o jeito dele de lutar.";
                 case HintId.Reactions:
                     return "REAÇÃO ELEMENTAL: um inimigo marcado por um elemento e atingido por outro reage. Fogo+Gelo = Vapor (cega) · Gelo+Raio = Estilhaço (postura) · Fogo+Vento = Tornado Ígneo · Sangue+Sombra = Maldição (ele te cura) · Raio+Sangue = Sobrecarga · Gelo+Vento = Nevasca (congela). Aço puro faz o elemento durar o dobro.";
                 case HintId.SpiritBlow:

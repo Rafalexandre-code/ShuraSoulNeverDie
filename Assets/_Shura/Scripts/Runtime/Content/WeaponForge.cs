@@ -100,6 +100,7 @@ namespace Shura
             weapon.finisherName = grip.finisherName;
             weapon.finisherPower = grip.finisherPower;
             weapon.name = ForgedName(blade, grip);
+            weapon.shortName = weapon.name.Length <= 12 ? weapon.name : blade.HudName;
             Forged[id] = weapon;
             return true;
         }

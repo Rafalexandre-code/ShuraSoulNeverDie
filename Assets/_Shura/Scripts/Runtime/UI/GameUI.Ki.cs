@@ -119,7 +119,7 @@ namespace Shura
             }
             else
             {
-                string key = game.Controls.UsingGamepad ? "RB" : Strings.HudMouseLeft;
+                string key = game.Controls.Glyph(ControlAction.Attack);
                 Label(new Rect(0, full.yMax - bar + 24f, VW, 60f), string.Format(Strings.HudStandoffHold, key), smallStyleCenter, UiKit.PaperText);
             }
             Label(new Rect(0, full.y + 30f, VW, 60f), Strings.HudStandoffTitle, roomStyle, UiKit.PaperText.WithAlpha(0.85f));

@@ -258,6 +258,8 @@ namespace Shura
                 case "weapon_Lance2":
                 case "weapon_Stick":
                     return 0.3f;
+                case "weapon_LionGauntlet":
+                    return 0.32f;
                 case "weapon_Club":
                 case "weapon_Hammer":
                 case "weapon_AxeTool":

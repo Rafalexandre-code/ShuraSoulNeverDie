@@ -99,6 +99,8 @@ namespace Shura
         StandoffFeint,
         /// <summary>The real advance: draw now.</summary>
         StandoffAdvance,
+        /// <summary>The target lock takes (magnitude 1) or lets go (0).</summary>
+        LockOn,
     }
 
     public enum HintId

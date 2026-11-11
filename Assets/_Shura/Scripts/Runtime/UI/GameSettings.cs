@@ -20,6 +20,14 @@ namespace Shura
         public float sfx = 0.9f;
         public float shake = 1f;
         public bool reduceFlashes;
+        /// <summary>The gamepad shakes on parries, wounds and finishers.</summary>
+        public bool rumble = true;
+        /// <summary>Locked on, the camera frames you and the target together.</summary>
+        public bool lockCamera = true;
+        /// <summary>Bloom, colour grade, vignette and grain.</summary>
+        public bool postFx = true;
+        /// <summary>Keyboard and mouse: lock on with Z (on) or aim with the mouse as always (off).</summary>
+        public bool mouseLockOn;
         public bool fullscreen = true;
         /// <summary>Size of the battle HUD (1 = the original layout, drawn for 1080p).</summary>
         public float uiScale = 0.8f;

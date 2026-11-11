@@ -199,6 +199,17 @@ namespace Shura
         public override string Cost => "Nenhum. Dura até o fim da run.";
         public bool HasProc => Rarities.HasProc(rarity) && element != Element.None;
 
+        /// <summary>One short line for lists: the unique's name, or the piece and its element; † when corrupted.</summary>
+        public string ListName
+        {
+            get
+            {
+                string n = unique != UniqueAffix.None ? ItemIdentity.UniqueName(unique) : baseName;
+                if (clan != Clan.None) n += " · " + ItemIdentity.ClanName(clan);
+                return flaw != Corruption.None ? "† " + n : n;
+            }
+        }
+
         public override string Gain
         {
             get

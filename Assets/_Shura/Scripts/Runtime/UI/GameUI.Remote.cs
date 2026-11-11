@@ -232,6 +232,7 @@ namespace Shura
             List<object> me = r.Me;
             if (me == null) return;
             hud.FromRow(me);
+            if (r.LockPosition.HasValue) DrawLockReticle(r.LockPosition.Value, 0.5f);
             DrawRemoteEnvironment(s);
             DrawRemoteOfferings(s);
             DrawRemoteLabels();
@@ -307,13 +308,8 @@ namespace Shura
             List<object> env = s.env;
             if (env == null) return;
             Rect full = FullScreen;
-            switch ((TimeOfDay)MiniJson.I(env, 1))
-            {
-                case TimeOfDay.Afternoon: DrawRect(full, new Color(1f, 0.75f, 0.4f, 0.05f)); break;
-                case TimeOfDay.Dusk: DrawRect(full, new Color(0.95f, 0.45f, 0.25f, 0.12f)); break;
-                case TimeOfDay.Night: DrawRect(full, new Color(0.05f, 0.08f, 0.25f, 0.3f)); break;
-                case TimeOfDay.Dawn: DrawRect(full, new Color(1f, 0.6f, 0.75f, 0.08f)); break;
-            }
+            // The hour now lives in the light map and the image grade (PostFx).
+            DrawRemoteLighting((TimeOfDay)MiniJson.I(env, 1));
             if (MiniJson.F(env, 5) > 0f) DrawTex(full, vignette, new Color(0.75f, 0.78f, 0.82f, 0.5f));
             float vision = MiniJson.F(env, 3);
             if (vision > 0f && Remote.HasOwn) DrawDarknessAt(Remote.OwnPosition, vision);

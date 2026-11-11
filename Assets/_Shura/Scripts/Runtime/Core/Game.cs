@@ -61,6 +61,8 @@ namespace Shura
         public GameConfig Config { get; private set; }
         public GameSettings Settings { get; private set; }
         public InputService Controls { get; private set; }
+        /// <summary>How far toward the locked target the camera leans (0 = on you, 1 = on it).</summary>
+        const float LockFraming = 0.34f;
         public SimClock Clock { get; } = new SimClock();
         public World World { get; private set; }
         public RunState Run { get; private set; }
@@ -157,6 +159,8 @@ namespace Shura
 
             Controls = new InputService();
             Controls.LoadOverrides(Settings.bindings);
+            Controls.RumbleEnabled = Settings.rumble;
+            Controls.MouseLockAllowed = Settings.mouseLockOn;
 
             CameraRig = new GameObject("Camera").AddComponent<CameraRig>();
             CameraRig.Init(Config.feel, Settings, Config.palette.background);
@@ -322,15 +326,28 @@ namespace Shura
                 List<object> me = Remote.Me;
                 int flow = me != null ? MiniJson.I(me, 29) : 0;
                 CameraRig.SetZoomOffset(Remote.Between ? 0f : flow * Config.feel.flowZoomPerLevel);
-                if (Remote.HasOwn && !Remote.Between) CameraRig.Follow(Remote.OwnPosition, Remote.Aim, World.Bounds, realDt);
+                List<object> env = Remote.Latest?.env;
+                CameraRig.Post.SetMood(PostMood.For(env != null ? (TimeOfDay)MiniJson.I(env, 1) : TimeOfDay.Morning));
+                if (Remote.HasOwn && !Remote.Between)
+                {
+                    Vector2? locked = Remote.LockPosition;
+                    if (locked.HasValue && Settings.lockCamera) CameraRig.Follow(Vector2.Lerp(Remote.OwnPosition, locked.Value, LockFraming), Vector2.zero, World.Bounds, realDt);
+                    else CameraRig.Follow(Remote.OwnPosition, Remote.Aim, World.Bounds, realDt);
+                }
                 else CameraRig.Follow(World.Bounds.center, Vector2.zero, World.Bounds, realDt);
                 CameraRig.Tick(realDt);
                 return;
             }
             CameraRig.SetZoomOffset(Run != null ? FlowLevel * Config.feel.flowZoomPerLevel : 0f);
+            CameraRig.Post.SetMood(PostMood.For(Run != null ? World.TimeOfDay : TimeOfDay.Morning));
             // Outside a run the camera frames the whole arena behind the menus.
             PlayerController focus = World.CameraFocus;
-            if (Run != null) CameraRig.Follow(focus.RenderPosition, focus.Facing, World.Bounds, realDt);
+            if (Run != null && focus.LockTarget != null && Settings.lockCamera)
+            {
+                // Locked on: the camera frames both duelists, a little nearer to you.
+                CameraRig.Follow(Vector2.Lerp(focus.RenderPosition, focus.LockTarget.RenderPosition, LockFraming), Vector2.zero, World.Bounds, realDt);
+            }
+            else if (Run != null) CameraRig.Follow(focus.RenderPosition, focus.Facing, World.Bounds, realDt);
             else CameraRig.Follow(World.Bounds.center, Vector2.zero, World.Bounds, realDt);
             CameraRig.Tick(realDt);
         }

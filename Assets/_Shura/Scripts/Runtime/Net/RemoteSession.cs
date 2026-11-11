@@ -669,6 +669,50 @@ namespace Shura
         /// <summary>Where this duelist aims, from the drawn (predicted) position.</summary>
         public Vector2 Aim { get; private set; } = Vector2.right;
 
+        /// <summary>The guest's own target lock, on the host's enemies as the snapshot shows them.</summary>
+        public readonly TargetLock Lock = new TargetLock();
+        int seenToggles = -1, seenFlicks = -1, seenNext = -1, seenPrev = -1;
+
+        /// <summary>Where the locked enemy stands (null = no lock).</summary>
+        public Vector2? LockPosition => Lock.Active ? Lock.TargetPos : (Vector2?)null;
+
+        void TickLock(InputService c, bool blocked)
+        {
+            if (seenToggles < 0)
+            {
+                seenToggles = c.LockToggles;
+                seenFlicks = c.LockFlicks;
+                seenNext = c.LockCycleNext;
+                seenPrev = c.LockCyclePrev;
+            }
+            Lock.Candidates.Clear();
+            Snap s = Latest;
+            if (s != null)
+            {
+                foreach (KeyValuePair<int, List<object>> e in s.enemies)
+                {
+                    List<object> row = e.Value;
+                    Lock.Candidates.Add(new LockCandidate { id = e.Key, pos = new Vector2(MiniJson.F(row, 2), MiniJson.F(row, 3)) });
+                }
+            }
+            Vector2 me = OwnPosition;
+            if (!blocked)
+            {
+                Vector2 look = c.Move.sqrMagnitude > 0.1f ? c.Move.normalized : Aim;
+                Lock.ApplyPolicy(c.UsingGamepad, c.MouseLockAllowed, c.LockToggles != seenToggles, me, look);
+                if (c.LockFlicks != seenFlicks && Lock.Active) Lock.Switch(me, c.LastFlick);
+                if (c.LockCycleNext != seenNext) Lock.Cycle(me, 1);
+                if (c.LockCyclePrev != seenPrev) Lock.Cycle(me, -1);
+            }
+            seenToggles = c.LockToggles;
+            seenFlicks = c.LockFlicks;
+            seenNext = c.LockCycleNext;
+            seenPrev = c.LockCyclePrev;
+            if (Between || s == null) Lock.Release();
+            else Lock.Refresh(me);
+            c.LockEngaged = Lock.Active;
+        }
+
         void SendInput(float dt)
         {
             InputService c = game.Controls;
@@ -679,7 +723,17 @@ namespace Shura
             while (moves.Count > 2 && moves[1].at < now - 1000.0) moves.RemoveAt(0);
 
             Vector2 aim = Aim;
-            if (!blocked)
+            if (!game.Launch.Automated) TickLock(c, blocked);
+            if (!blocked && Lock.Active && Lock.TargetPos != OwnPosition)
+            {
+                aim = (Lock.TargetPos - OwnPosition).normalized;
+                if (!game.Launch.Automated)
+                {
+                    int k = c.TakeKamae();
+                    if (k >= 0) kamae = k;
+                }
+            }
+            else if (!blocked)
             {
                 Vector2 a = game.Launch.Automated ? botAim : c.AimDirection(OwnPosition);
                 if (a.sqrMagnitude > 0.01f) aim = a.normalized;

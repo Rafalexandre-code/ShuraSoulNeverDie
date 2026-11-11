@@ -110,6 +110,8 @@ namespace Shura
         public float flourish;
 
         // ── The new arsenal's traits (design doc §4.2) ───────────────────────────────
+        /// <summary>Two fists that fight like a boxer (the lion gauntlets).</summary>
+        public bool boxer;
         /// <summary>Every hit stuns for this many frames (Kanabō).</summary>
         public int stunOnHit;
         /// <summary>Holding parry does not block with this in hand (the perfect window still parries).</summary>
@@ -133,6 +135,9 @@ namespace Shura
         public string gripId;
         public string tsubaId;
         public string BaseId => baseId ?? id;
+        /// <summary>A name short enough for the belt slot.</summary>
+        public string shortName;
+        public string HudName => shortName ?? (name.Length <= 12 ? name : baseId != null ? WeaponDefs.Get(baseId).HudName : name);
 
         public WeaponDef Clone() => (WeaponDef)MemberwiseClone();
     }
@@ -228,7 +233,7 @@ namespace Shura
 
         public static readonly WeaponDef Gemeas = new WeaponDef
         {
-            id = "gemeas", art = "weapon_Sai", name = "Lâminas Gêmeas",
+            id = "gemeas", art = "weapon_Sai", name = "Lâminas Gêmeas", shortName = "Gêmeas",
             description = "Duas adagas. Cinco golpes velozes; dano baixo por golpe, ritmo altíssimo.",
             sprite = Shape.Blade, color = ColorUtil.Hex("#F0E0E6"), length = 0.72f, dual = true, moveMult = 1.12f,
             trail = ColorUtil.Hex("#FFC2D1"), swingPitch = 1.35f,
@@ -278,16 +283,17 @@ namespace Shura
 
         public static readonly WeaponDef Manoplas = new WeaponDef
         {
-            id = "manoplas", art = "weapon_Hammer", name = "Manoplas de Ferro",
-            description = "Punhos blindados. Pouco dano na vida, mas destroem a postura em segundos.",
-            sprite = Shape.Gauntlet, color = ColorUtil.Hex("#B8B0A6"), length = 0.55f, dual = true, moveMult = 1.08f,
-            trail = ColorUtil.Hex("#FFB070"), swingPitch = 0.9f,
+            id = "manoplas", art = "weapon_LionGauntlet", name = "Manoplas do Leão", shortName = "Manoplas",
+            description = "Punhos de aço que saem da boca de um leão. Pouco dano na vida, mas destroem a postura em segundos.",
+            sprite = Shape.Gauntlet, color = Color.white, length = 0.62f, dual = true, moveMult = 1.08f, boxer = true,
+            trail = ColorUtil.Hex("#FFC060"), swingPitch = 0.9f,
             combo = new[]
             {
-                Jab(3, 3, 8, 5f, 11f, 1.15f, 0.7f, 0.25f, 0.45f),
-                Jab(3, 3, 8, 5f, 11f, 1.15f, 0.7f, 0.25f, 0.45f),
-                Jab(3, 3, 8, 5f, 11f, 1.15f, 0.7f, 0.25f, 0.45f),
-                Jab(6, 4, 18, 8f, 18f, 1.3f, 0.8f, 0.4f, 0.55f),
+                // Jab, direto, gancho e o direto pesado: um-dois, gancho, cruzado.
+                Named(Jab(3, 3, 8, 5f, 11f, 1.15f, 0.7f, 0.25f, 0.45f), "Jab"),
+                Named(Jab(3, 3, 9, 6f, 12f, 1.2f, 0.7f, 0.3f, 0.5f), "Direto"),
+                Named(Sweep(4, 4, 10, 6f, 13f, 1.35f, 120f, 0.3f, 85f, -15f), "Gancho", extend: 0.3f),
+                Named(Jab(6, 4, 18, 9f, 20f, 1.35f, 0.8f, 0.45f, 0.6f), "Cruzado"),
             },
             swapStrike = Named(Jab(5, 4, 20, 14f, 50f, 1.6f, 1.0f, 0f, 0.6f), "Punho do Trovão", dash: 1.2f),
             finisher = FinisherStyle.HeartBreak, finisherName = "Coração Partido",
@@ -345,7 +351,7 @@ namespace Shura
 
         public static readonly WeaponDef Wakizashi = new WeaponDef
         {
-            id = "wakizashi", art = "weapon_Ninjaku", name = "Wakizashi + Kunai",
+            id = "wakizashi", art = "weapon_Ninjaku", name = "Wakizashi + Kunai", shortName = "Wakizashi",
             description = "Lâmina curta e kunai que voltam à mão. Golpes pelas costas causam o dobro.",
             sprite = Shape.Blade, color = ColorUtil.Hex("#DDE3EA"), length = 0.9f, moveMult = 1.1f,
             trail = ColorUtil.Hex("#9D8CFF"), swingPitch = 1.25f, backstabMult = 2f, kunaiStep = 2,

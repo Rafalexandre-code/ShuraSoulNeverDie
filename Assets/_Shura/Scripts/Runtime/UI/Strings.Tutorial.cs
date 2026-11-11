@@ -98,31 +98,36 @@ namespace Shura
 
         public static string[] TutorialKeys(Tutorial.Step s, bool pad, bool sealReady)
         {
+            // The player's own buttons (remapped or not), named for the device in the hands.
+            InputService c = InputService.Active;
+            string K(ControlAction a) => c != null ? c.Glyph(a) : "?";
             switch (s)
             {
-                case Tutorial.Step.Move: return pad ? new[] { "LS" } : new[] { "W", "A", "S", "D" };
+                case Tutorial.Step.Move: return pad ? new[] { c != null && c.PadStyle == GlyphStyle.PlayStation ? "L" : "LS" } : new[] { "W", "A", "S", "D" };
                 case Tutorial.Step.Attack:
                 case Tutorial.Step.Combo:
                 case Tutorial.Step.Posture:
                 case Tutorial.Step.Finisher:
-                    return pad ? new[] { "RB" } : new[] { "Clique esq." };
+                    return new[] { K(ControlAction.Attack) };
                 case Tutorial.Step.Block:
                 case Tutorial.Step.Parry:
                 case Tutorial.Step.ParryFree:
-                    return pad ? new[] { "LB" } : new[] { "Clique dir." };
+                    return new[] { K(ControlAction.Parry) };
                 case Tutorial.Step.Dodge:
                 case Tutorial.Step.DodgeFree:
-                    return pad ? new[] { "A" } : new[] { "Espaço" };
+                    return new[] { K(ControlAction.Dodge) };
                 case Tutorial.Step.Swap:
                 case Tutorial.Step.SwapParry:
-                    return pad ? new[] { "Y" } : new[] { "Q" };
-                case Tutorial.Step.Stances: return pad ? new[] { "↑", "→", "↓", "←" } : new[] { "1", "2", "3", "4" };
-                case Tutorial.Step.Gourd: return pad ? new[] { "B" } : new[] { "F" };
-                case Tutorial.Step.Tool: return pad ? new[] { "RT", "LT" } : new[] { "R", "T" };
+                    return new[] { K(ControlAction.Swap) };
+                case Tutorial.Step.Stances:
+                    return new[] { K(ControlAction.Kamae1), K(ControlAction.Kamae2), K(ControlAction.Kamae3), K(ControlAction.Kamae4) };
+                case Tutorial.Step.Gourd: return new[] { K(ControlAction.Gourd) };
+                case Tutorial.Step.Tool: return new[] { K(ControlAction.Tool), K(ControlAction.ToolCycle) };
                 case Tutorial.Step.Seals:
-                    if (!sealReady) return pad ? new[] { "LB" } : new[] { "Clique dir." };
-                    return pad ? new[] { "RB + LB" } : new[] { "G" };
-                case Tutorial.Step.Kiai: return pad ? new[] { "LB + A" } : new[] { "V" };
+                    if (!sealReady) return new[] { K(ControlAction.Parry) };
+                    return pad ? new[] { K(ControlAction.Attack) + " + " + K(ControlAction.Parry) } : new[] { K(ControlAction.Detonate) };
+                case Tutorial.Step.Kiai:
+                    return pad ? new[] { K(ControlAction.Parry) + " + " + K(ControlAction.Dodge) } : new[] { K(ControlAction.Kiai) };
                 default: return new string[0];
             }
         }

@@ -43,7 +43,7 @@ namespace Shura
             var pad = UnityEngine.InputSystem.Gamepad.current;
             bool hudUp = game.CurrentMode == Game.Mode.Playing || (game.CurrentMode == Game.Mode.Remote && game.Remote.Joined && !game.Remote.Between);
             if (!hudUp || editingName || editingIp) return;
-            if ((kb != null && kb.cKey.wasPressedThisFrame) || (pad != null && pad.rightStickButton.wasPressedThisFrame)) ToggleLog();
+            if (game.Controls.LogTogglePressed) ToggleLog();
         }
 
         void ToggleLog()
@@ -145,7 +145,7 @@ namespace Shura
             bool fresh = logUnread > 0;
             float pulse = fresh ? 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 5f) : 0.6f;
             Label(new Rect(r.x + 26f, r.y + 11f, 170f, 24f), Strings.HudLog, capsStyle, Pal.gold.WithAlpha(pulse));
-            string right = (fresh ? "+" + logUnread + "  " : "") + (game.Controls.UsingGamepad ? "R3" : "C");
+            string right = (fresh ? "+" + logUnread + "  " : "") + (game.Controls.UsingGamepad ? (game.Controls.PadStyle == GlyphStyle.PlayStation ? "segure Create" : "segure View") : "C");
             Label(new Rect(r.x + 120f, r.y + 11f, r.width - 140f, 24f), right, capsRightStyle, fresh ? Pal.gold : UiKit.PaperDim);
             UiKit.Fade = 1f;
         }
@@ -603,12 +603,12 @@ namespace Shura
                 var slot = new Rect(x, y, 118f, 106f);
                 Slot(slot, active ? Pal.gold : UiKit.PaperDim.WithAlpha(0.35f), active);
                 DrawWeaponArt(w, new Rect(slot.x + 12f, slot.y + 10f, slot.width - 24f, 54f), active ? Color.white : new Color(1f, 1f, 1f, 0.55f));
-                FitLabel(new Rect(slot.x + 4f, slot.y + 66f, slot.width - 8f, 24f), w.name, smallStyleCenter, active ? UiKit.PaperText : UiKit.PaperDim);
+                FitLabel(new Rect(slot.x + 4f, slot.y + 66f, slot.width - 8f, 24f), w.HudName, smallStyleCenter, active ? UiKit.PaperText : UiKit.PaperDim);
                 if (active && p.charge > 0)
                 {
                     for (int c = 0; c < 3; c++) kit.Dab(new Rect(slot.x + 34f + c * 18f, slot.yMax - 16f, 12f, 12f), (c < p.charge ? w.trail : Color.black).WithAlpha(c < p.charge ? 1f : 0.5f));
                 }
-                if (!active) Key(new Rect(slot.xMax - 30f, slot.y - 8f, 34f, 26f), pad ? "Y" : "Q");
+                if (!active) Key(new Rect(slot.xMax - 30f, slot.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Swap));
                 x += slot.width + 12f;
             }
             x += 14f;
@@ -624,7 +624,7 @@ namespace Shura
                 DrawSpriteTinted(new Rect(gourds.x + 15f + i * 40f, gourds.y + 12f + wob, 38f, 56f), HudArt.Gourd(full), Color.white);
             }
             Label(new Rect(gourds.x, gourds.y + 72f, gourds.width, 26f), Strings.HudGourd, capsCenterStyle, sips > 0 ? Pal.blessing : UiKit.PaperDim);
-            Key(new Rect(gourds.xMax - 30f, gourds.y - 8f, 34f, 26f), pad ? "B" : "F");
+            Key(new Rect(gourds.xMax - 30f, gourds.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Gourd));
             x = gourds.xMax + 12f;
 
             // Bandages.
@@ -632,7 +632,7 @@ namespace Shura
             Slot(band, UiKit.PaperDim.WithAlpha(0.35f), false);
             DrawSpriteTinted(new Rect(band.x + 22f, band.y + 14f, 52f, 44f), HudArt.Bandage(), p.bandages > 0 ? Color.white : new Color(1f, 1f, 1f, 0.35f));
             Label(new Rect(band.x, band.y + 62f, band.width, 30f), "× " + p.bandages, cardKindStyleSmall, p.bandages > 0 ? UiKit.PaperText : UiKit.PaperDim);
-            Key(new Rect(band.xMax - 30f, band.y - 8f, 34f, 26f), pad ? "L3" : "H");
+            Key(new Rect(band.xMax - 30f, band.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Bandage));
             x = band.xMax + 12f;
 
             // The tool and its spirit papers.
@@ -642,8 +642,8 @@ namespace Shura
             FitLabel(new Rect(tool.x + 6f, tool.y + 72f, 110f, 26f), PlayerController.ToolNames[(int)p.tool], smallStyleCenter, UiKit.PaperText);
             DrawSpriteTinted(new Rect(tool.x + 122f, tool.y + 14f, 30f, 52f), HudArt.Ofuda(), p.papers > 0 ? Color.white : new Color(1f, 1f, 1f, 0.35f));
             Label(new Rect(tool.x + 112f, tool.y + 66f, 80f, 30f), "× " + p.papers, cardKindStyleSmall, p.papers > 0 ? UiKit.PaperText : Pal.danger);
-            Key(new Rect(tool.xMax - 66f, tool.y - 8f, 34f, 26f), pad ? "LT" : "T");
-            Key(new Rect(tool.xMax - 30f, tool.y - 8f, 34f, 26f), pad ? "RT" : "R");
+            Key(new Rect(tool.xMax - 66f, tool.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.ToolCycle));
+            Key(new Rect(tool.xMax - 30f, tool.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Tool));
             x = tool.xMax + 18f;
 
             // The purse.

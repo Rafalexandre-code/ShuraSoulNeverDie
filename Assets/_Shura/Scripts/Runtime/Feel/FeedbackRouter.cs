@@ -48,9 +48,34 @@ namespace Shura
             }
         }
 
+        /// <summary>The pad in the hands feels the blows of its own duelist.</summary>
+        void RumbleFor(FxType type)
+        {
+            InputService pad = game.Controls;
+            if (pad == null) return;
+            // (the image pass flashes even without a gamepad)
+            switch (type)
+            {
+                case FxType.PerfectParry: pad.Rumble(0.2f, 0.75f, 0.11f); break;
+                case FxType.SwapParry:
+                    pad.Rumble(0.55f, 0.95f, 0.2f);
+                    if (game.CameraRig != null && game.CameraRig.Post != null) game.CameraRig.Post.Flash = 0.45f;
+                    break;
+                case FxType.PlayerBlock: pad.Rumble(0.15f, 0.3f, 0.07f); break;
+                case FxType.PlayerHurt: pad.Rumble(0.85f, 0.45f, 0.24f); break;
+                case FxType.Finisher:
+                    pad.Rumble(0.65f, 0.85f, 0.32f);
+                    if (game.CameraRig != null && game.CameraRig.Post != null) game.CameraRig.Post.Flash = 0.7f;
+                    break;
+                case FxType.FinisherHit: pad.Rumble(0.4f, 0.6f, 0.1f); break;
+                case FxType.GuardBreak: pad.Rumble(0.9f, 0.9f, 0.3f); break;
+            }
+        }
+
         /// <summary>A moment replayed from the host's snapshot, caused by <paramref name="actor"/>.</summary>
         public void EmitAs(int actor, FxType type, Vector2 pos, Vector2 dir, float magnitude, Color color)
         {
+            if (actor >= 0 && (GuestActor == null || !GuestActor(actor))) RumbleFor(type);
             Muffled(GuestActor != null && GuestActor(actor), clock => EmitCore(type, pos, dir, magnitude, color, clock));
         }
 
@@ -83,6 +108,7 @@ namespace Shura
         public void Emit(FxType type, Vector2 pos, Vector2 dir, float magnitude = 1f, Color? color = null)
         {
             bool remote = game.World != null && game.World.ActorIsRemote;
+            if (!remote) RumbleFor(type);
             if (!remote)
             {
                 EmitCore(type, pos, dir, magnitude, color, game.Clock);
@@ -114,6 +140,10 @@ namespace Shura
 
             switch (type)
             {
+                case FxType.LockOn:
+                    audio.Play(Sfx.UiMove, 0.5f, magnitude > 0.5f ? 1.3f : 0.8f);
+                    break;
+
                 case FxType.PlayerSwing:
                     // magnitude: the weapon's swing pitch (heavy weapons whoosh low and long).
                     audio.Play(magnitude < 0.95f ? Sfx.SwingHeavy : Sfx.Swing, 0.5f + 0.08f * FlowLevel, Mathf.Max(0.8f, magnitude) * (1.05f + 0.05f * FlowLevel));

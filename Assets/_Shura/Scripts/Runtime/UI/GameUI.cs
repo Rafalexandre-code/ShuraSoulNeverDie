@@ -41,6 +41,9 @@ namespace Shura
             public float age;
             public float life;
             public bool small;
+            /// <summary>How far the column has pushed it up (GUI pixels, eased).</summary>
+            public float lift;
+            public bool placed;
         }
 
         readonly List<MenuItem> items = new List<MenuItem>();
@@ -109,14 +112,16 @@ namespace Shura
 
         public void Popup(string text, Vector2 world, Color color)
         {
-            if (popups.Count >= MaxPopups) popups.RemoveAt(0);
-            // Words born at the same spot stack upwards instead of printing over each other.
-            int near = 0;
-            foreach (FloatingText p in popups)
+            // The same word again at the same spot: the one already there is refreshed, not doubled.
+            for (int i = popups.Count - 1; i >= 0; i--)
             {
-                if (p.age < 0.7f && (p.world - world).sqrMagnitude < 4f) near++;
+                FloatingText p = popups[i];
+                if (p.text != text || p.age > 0.35f || (p.world - world).sqrMagnitude > 2.5f) continue;
+                p.age = 0f;
+                popups[i] = p;
+                return;
             }
-            world += Vector2.up * 0.85f * near;
+            if (popups.Count >= MaxPopups) popups.RemoveAt(0);
             popups.Add(new FloatingText { text = text, world = world, color = color, life = 0.9f });
         }
 
@@ -157,6 +162,7 @@ namespace Shura
         public void OnModeChanged(Game.Mode mode)
         {
             menuIndex = 0;
+            if (mode != Game.Mode.Settings && controlsOpen) CloseControls();
             if (mode == Game.Mode.Arsenal)
             {
                 arsenalPicks.Clear();
@@ -179,6 +185,7 @@ namespace Shura
 
         void Update()
         {
+            HideLightMapWhenUnused();
             if (game == null) return;
             float dt = Time.unscaledDeltaTime;
             Age(popups, dt);
@@ -236,6 +243,9 @@ namespace Shura
                     break;
                 case Game.Mode.Lobby when invitesOpen:
                     HandleInvites(input);
+                    break;
+                case Game.Mode.Settings when controlsOpen:
+                    HandleControls(input);
                     break;
                 default:
                     HandleMenu(input);
@@ -397,13 +407,32 @@ namespace Shura
                     Help(Strings.HelpBlood);
                     AddToggle(Strings.ReduceFlashes, () => s.reduceFlashes, v => s.reduceFlashes = v);
                     Help(Strings.HelpFlashes);
-                    Section(null);
-                    AddItem(Strings.ResetControls, () =>
+                    Section(Strings.SectionControls);
+                    AddItem(Strings.ConfigureControls, OpenControls);
+                    Help(Strings.HelpConfigureControls);
+                    AddToggle(Strings.Rumble, () => s.rumble, v =>
                     {
-                        game.Controls.ResetOverrides();
-                        Toast(Strings.ControlsReset, Pal.uiText);
+                        s.rumble = v;
+                        game.Controls.RumbleEnabled = v;
+                        if (v) game.Controls.Rumble(0.4f, 0.6f, 0.2f);
                     });
-                    Help(Strings.HelpResetControls);
+                    Help(Strings.HelpRumble);
+                    AddToggle(Strings.MouseLock, () => s.mouseLockOn, v =>
+                    {
+                        s.mouseLockOn = v;
+                        game.Controls.MouseLockAllowed = v;
+                    });
+                    Help(Strings.HelpMouseLock);
+                    AddToggle(Strings.LockCamera, () => s.lockCamera, v => s.lockCamera = v);
+                    Help(Strings.HelpLockCamera);
+                    Section(Strings.SectionImage);
+                    AddToggle(Strings.PostFx, () => s.postFx, v =>
+                    {
+                        s.postFx = v;
+                        if (game.CameraRig != null && game.CameraRig.Post != null) game.CameraRig.Post.Enabled = v;
+                    });
+                    Help(Strings.HelpPostFx);
+                    Section(null);
                     AddItem(Strings.Back, game.CloseSettings);
                     Help(Strings.HelpBack);
                     break;
@@ -1331,6 +1360,8 @@ namespace Shura
             if (game.World.Standoff.Active) DrawStandoffBars(game.World.Standoff.Advancing);
             if (p.AimingCut) DrawFinisherAim(p);
             DrawAffixLabels();
+            PlayerController local = game.World.Host;
+            if (local != null && local.LockTarget != null) DrawLockReticle(local.LockTarget.RenderPosition, local.LockTarget.Radius);
             if (p.Build != null && p.Build.Modifiers.dragonEye) DrawDragonEye();
             // Voto de Silêncio: nothing on screen but the fight.
             if (SilentHud) return;
@@ -1791,7 +1822,7 @@ namespace Shura
                 return;
             }
             DrawItemIcon(iconRect, item);
-            Label(textRect, item.Name, smallStyle, selected ? UiKit.PaperText : UiKit.OnPaper(Rarities.Color(item.rarity)));
+            FitLabel(textRect, item.ListName, smallStyle, selected ? UiKit.PaperText : UiKit.OnPaper(Rarities.Color(item.rarity)));
         }
 
         /// <summary>Pixel-art item on a rarity-coloured ink dab.</summary>
@@ -1822,12 +1853,25 @@ namespace Shura
             Color rcInk = UiKit.OnPaper(rc);
             kit.Enso(new Rect(r.center.x - 100f, r.y + 36f, 200f, 200f), rcInk.WithAlpha(0.8f));
             DrawItemIcon(new Rect(r.center.x - 56f, r.y + 80f, 112f, 112f), item);
-            Label(new Rect(r.x + 40f, r.y + 244f, r.width - 80f, 60f), item.Name, cardNameStyle, UiKit.Ink);
-            Label(new Rect(r.x + 40f, r.y + 306f, r.width - 80f, 30f), string.Format(Strings.Rarity, Rarities.Name(item.rarity)), smallStyleCenter, rcInk);
-            Label(new Rect(r.x + 40f, r.y + 336f, r.width - 80f, 30f), string.Format(Strings.ElementLine, ItemGenerator.SlotName(item.slot), Elements.Name(item.element)), smallStyleCenter, UiKit.OnPaper(Elements.Color(item.element)));
-            kit.Underline(new Rect(r.x + 60f, r.y + 378f, r.width - 120f, 16f), UiKit.Ink.WithAlpha(0.45f));
-            Label(new Rect(r.x + 60f, r.y + 400f, r.width - 120f, 30f), Strings.Gain, capsStyle, UiKit.Shu);
-            Label(new Rect(r.x + 60f, r.y + 434f, r.width - 120f, 380f), item.Gain, cardBodyStyle, UiKit.Ink);
+            // The full name may take two lines (unique, clan, corruption): everything below follows it.
+            int nameSize = cardNameStyle.fontSize;
+            float nameW = r.width - 80f;
+            while (cardNameStyle.fontSize > 28 && cardNameStyle.CalcHeight(new GUIContent(item.Name), nameW) > 100f) cardNameStyle.fontSize -= 2;
+            float nameH = Mathf.Min(110f, cardNameStyle.CalcHeight(new GUIContent(item.Name), nameW));
+            Label(new Rect(r.x + 40f, r.y + 240f, nameW, nameH), item.Name, cardNameStyle, UiKit.Ink);
+            cardNameStyle.fontSize = nameSize;
+            float y = r.y + 244f + nameH;
+            Label(new Rect(r.x + 40f, y, r.width - 80f, 30f), string.Format(Strings.Rarity, Rarities.Name(item.rarity)), smallStyleCenter, rcInk);
+            Label(new Rect(r.x + 40f, y + 30f, r.width - 80f, 30f), string.Format(Strings.ElementLine, ItemGenerator.SlotName(item.slot), Elements.Name(item.element)), smallStyleCenter, UiKit.OnPaper(Elements.Color(item.element)));
+            kit.Underline(new Rect(r.x + 60f, y + 70f, r.width - 120f, 16f), UiKit.Ink.WithAlpha(0.45f));
+            Label(new Rect(r.x + 60f, y + 92f, r.width - 120f, 30f), Strings.Gain, capsStyle, UiKit.Shu);
+            // The text shrinks until it fits the paper.
+            float bodyTop = y + 126f, bodyW = r.width - 120f, room = r.yMax - 40f - bodyTop;
+            GUIStyle body = cardBodyStyle.CalcHeight(new GUIContent(item.Gain), bodyW) <= room ? cardBodyStyle : smallStyle;
+            int bodySize = body.fontSize;
+            while (body.fontSize > 16 && body.CalcHeight(new GUIContent(item.Gain), bodyW) > room) body.fontSize -= 1;
+            Label(new Rect(r.x + 60f, bodyTop, bodyW, room), item.Gain, body, UiKit.Ink);
+            body.fontSize = bodySize;
         }
 
         void DrawCharacterPanel(RunState run, Rect r)
@@ -1937,22 +1981,50 @@ namespace Shura
         {
             if (active) kit.Stroke(new Rect(r.x - 20f, r.y - 8f, r.width + 40f, r.height + 16f), UiKit.Ink.WithAlpha(0.9f));
             DrawWeaponArt(w, new Rect(r.x + 10f, r.y + 10f, 100f, 36f), active ? Color.white : new Color(0.55f, 0.5f, 0.45f, 1f));
-            Label(new Rect(r.x + 118f, r.y, r.width - 118f, r.height), w.name, weaponHudStyle, active ? UiKit.PaperText : UiKit.InkSoft);
+            FitLabel(new Rect(r.x + 118f, r.y, r.width - 118f, r.height), w.name, weaponHudStyle, active ? UiKit.PaperText : UiKit.InkSoft);
         }
+
+        readonly List<Rect> placedPopups = new List<Rect>();
 
         void DrawPopups()
         {
             Camera cam = game.CameraRig.Cam;
             if (cam == null) return;
-            foreach (FloatingText p in popups)
+            // Layout: the newest word sits where it was born; older ones that would overlap it are
+            // pushed up above it, line by line, so several moments at once read as a little column.
+            placedPopups.Clear();
+            for (int i = popups.Count - 1; i >= 0; i--)
             {
+                FloatingText p = popups[i];
                 float t = p.age / p.life;
                 Vector2 world = p.world + Vector2.up * (0.5f + t * 1.1f);
                 Vector3 sp = cam.WorldToScreenPoint(new Vector3(world.x, world.y, 0f));
                 float gx = (sp.x - offset.x) / scale;
                 float gy = (Screen.height - sp.y - offset.y) / scale;
+                GUIStyle style = p.small ? damageStyle : popupStyle;
+                Vector2 size = style.CalcSize(new GUIContent(p.text));
+                var r = new Rect(gx - size.x * 0.5f - 6f, gy - size.y * 0.5f, size.x + 12f, size.y * 0.92f);
+                float baseY = r.y;
+                for (int guard = 0; guard < 24; guard++)
+                {
+                    bool moved = false;
+                    foreach (Rect o in placedPopups)
+                    {
+                        if (!r.Overlaps(o)) continue;
+                        r.y = o.y - r.height;
+                        moved = true;
+                    }
+                    if (!moved) break;
+                }
+                placedPopups.Add(r);
+                // Glide into the column instead of jumping when a new word arrives.
+                float target = r.y - baseY;
+                if (!p.placed) p.lift = target;
+                else if (Event.current.type == EventType.Repaint) p.lift = Mathf.Lerp(p.lift, target, 1f - Mathf.Exp(-22f * Time.unscaledDeltaTime));
+                p.placed = true;
                 float alpha = 1f - Mathf.Clamp01((t - 0.6f) / 0.4f);
-                Label(new Rect(gx - 260f, gy - 24f, 520f, 48f), p.text, p.small ? damageStyle : popupStyle, p.color.WithAlpha(alpha));
+                float cy = baseY + p.lift + r.height * 0.5f;
+                Label(new Rect(r.center.x - 260f, cy - 24f, 520f, 48f), p.text, style, p.color.WithAlpha(alpha));
             }
         }
 

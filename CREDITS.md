@@ -12,7 +12,8 @@ livre **com crédito obrigatório** (já presente na tela de Créditos do jogo).
 |---|---|---|---|---|
 | Ninja Adventure — Asset Pack | Pixel-Boy & AAA | CC0 | https://pixel-boy.itch.io/ninja-adventure-asset-pack | Jogador (Samurai), 24 inimigos e 3 lacaios (SamuraiBlue, GladiatorBlue, Monk2, NinjaRed, DemonRed, Skeleton, NinjaDark, Knight, NinjaMasked, NinjaBomb, Tengu, SorcererBlack, Shaman, Caveman, NinjaThunder, Vampire, SkeletonDemon, MonkeyBoxerRed, LanternRed, Spirit, KappaGreen, Cyclope, Slime, Eye, Flam), efeitos (explosão, fumaça, aura, kunai, shuriken, bomba, pergaminho), 13 armas, flecha, piso de templo, paredes, estandartes nobori, lanternas andon, 7 personagens do grupo online (SamuraiRed, NinjaBlue, Monk, Master, NinjaGreen, Hunter, FighterWhite), estátuas, piso de masmorra, chamas das armadilhas (`Resources/Art/NA`; cópia em `StreamingAssets/web/art` para o navegador) |
 
-Arte própria do projeto (pixel art desenhada em código no `PixelArt.cs`): pedaços de gore,
+Arte própria do projeto: as Manoplas do Leão (`weapon_LionGauntlet.png`), a lanterna de pedra
+tōrō (`prop_toro*.png`) e o leque de guerra (desenhado em código). Pixel art desenhada em código no `PixelArt.cs`: pedaços de gore,
 elo de corrente e ícones de itens.
 
 ## Interface (arte própria + fontes)

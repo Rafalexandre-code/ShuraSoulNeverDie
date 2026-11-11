@@ -710,8 +710,12 @@ namespace Shura
         }
 
         /// <summary>The guest's arena animates with the host's trap clock; broken statues and lanterns disappear.</summary>
+        /// <summary>A guest's view: the lanterns the host's world has broken (for the light).</summary>
+        public List<int> RemoteBrokenLanterns { get; private set; }
+
         public void RenderRemote(int tick, List<int> brokenStatues, List<int> brokenLanterns)
         {
+            RemoteBrokenLanterns = brokenLanterns;
             if (Decor == null) return;
             Decor.Animate(Time.unscaledTime);
             TrapTick = tick;

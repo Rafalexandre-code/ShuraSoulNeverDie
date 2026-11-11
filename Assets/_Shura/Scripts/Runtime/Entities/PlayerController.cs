@@ -234,6 +234,7 @@ namespace Shura
             ResetKiForRoom();
             ResetMasteryForRoom();
             ResetSoulForRoom();
+            ResetLockForRoom();
             Teleport(spawn);
             Facing = Vector2.right;
             Posture.Reset();
@@ -306,6 +307,7 @@ namespace Shura
             RegenPosture();
             TickKi();
             TickSoul();
+            TickLock();
             if (world.Standoff.Active && CurrentState != State.Standoff && IsAlive) BeginStandoff();
 
             switch (CurrentState)
@@ -427,6 +429,7 @@ namespace Shura
                     world.Fx.Emit(FxType.ThrustTrail, Position, Facing, step.shape.range, TrailColor());
                 }
             }
+            if (Boxing) BoxerImpactFrame(step, swapStrike);
 
             if (StateFrame >= step.windup && StateFrame < activeEnd)
             {
@@ -532,6 +535,7 @@ namespace Shura
                 case FinisherStyle.ThousandCuts: return 52;
                 case FinisherStyle.Impale: return 50;
                 case FinisherStyle.Reap: return 52;
+                case FinisherStyle.HeartBreak: return HeartBreakLength;
                 default: return 46;
             }
         }
@@ -609,13 +613,7 @@ namespace Shura
                         break;
 
                     case FinisherStyle.HeartBreak:
-                        if (f == 5 || f == 11 || f == 17)
-                        {
-                            finisherAnchor += finisherDir * 0.15f;
-                            Impact(e, 0.6f);
-                        }
-                        e.HoldAt(finisherAnchor, 1f);
-                        if (f == 27) Kill(e);
+                        TickHeartBreak(e, f);
                         break;
                 }
             }
@@ -785,11 +783,15 @@ namespace Shura
 
         void UpdateFacing(bool parryAssist)
         {
-            Vector2 aim = input.AimDirection(Position);
-            if (aim.sqrMagnitude < 0.01f)
+            Vector2 aim;
+            if (!LockedAim(out aim))
             {
-                Vector2 move = input.Move;
-                if (move.sqrMagnitude > 0.04f) aim = move.normalized;
+                aim = input.AimDirection(Position);
+                if (aim.sqrMagnitude < 0.01f)
+                {
+                    Vector2 move = input.Move;
+                    if (move.sqrMagnitude > 0.04f) aim = move.normalized;
+                }
             }
             if (aim.sqrMagnitude > 0.01f) Facing = aim.normalized;
 
@@ -1181,6 +1183,7 @@ namespace Shura
                 if (CurrentState == State.Attack || CurrentState == State.SwapStrike)
                 {
                     PlayerAttackDef step = CurrentStep;
+                    if (Boxing) return BoxerLean(step);
                     if (step.style == SwingStyle.Thrust || step.style == SwingStyle.Jab) return 0f;
                     float side = SwingSide(step);
                     float f = AnimFrame(StateFrame);
@@ -1191,6 +1194,7 @@ namespace Shura
                 }
                 if (CurrentState == State.Deflected) return -deflectSide * 18f * Bounce(AnimFrame(StateFrame), t.deflectedFrames, 3);
                 if (CurrentState == State.Finisher && finisherStyle == FinisherStyle.Execution && StateFrame < 18) return -10f;
+                if (CurrentState == State.Finisher && finisherStyle == FinisherStyle.HeartBreak && Boxing) return HeartBreakLean();
                 return CurrentState == State.Free ? StanceLean : 0f;
             }
         }
@@ -1233,6 +1237,7 @@ namespace Shura
         protected override WeaponPose GetWeaponPose()
         {
             var pose = new WeaponPose { tint = weaponColor };
+            offOwnPose = false;
             // Idle, the blade sits where the guard holds it (and flourishes when the guard changes).
             StanceIdlePose(ref pose);
             if (CurrentState != State.Free && CurrentState != State.Standoff)
@@ -1260,8 +1265,12 @@ namespace Shura
                 case State.Attack:
                 case State.SwapStrike:
                     pose.snap = true;
-                    pose.angle = StrikeAngle();
-                    pose.extend = StrikeExtend();
+                    if (Boxing) BoxerAttackPose(ref pose);
+                    else
+                    {
+                        pose.angle = StrikeAngle();
+                        pose.extend = StrikeExtend();
+                    }
                     if (CurrentState == State.SwapStrike) pose.tint = Color.Lerp(weaponColor, pal.gold, 0.5f);
                     break;
                 case State.Deflected:
@@ -1336,8 +1345,13 @@ namespace Shura
                     pose.extend = f < 8 ? Mathf.Lerp(0f, 1.6f, f / 8f) : 1.6f;
                     break;
                 case FinisherStyle.HeartBreak:
+                    if (Boxing)
+                    {
+                        HeartBreakPose(ref pose);
+                        break;
+                    }
                     pose.angle = 10f * Mathf.Sin(f * 0.5f);
-                    pose.extend = f >= 24 ? 0.7f : 0.35f * Mathf.Abs(Mathf.Sin(f * 0.5f));
+                    pose.extend = f >= 42 ? 0.7f : 0.35f * Mathf.Abs(Mathf.Sin(f * 0.5f));
                     break;
             }
         }
@@ -1400,6 +1414,13 @@ namespace Shura
                 float mirror = -(WeaponWorldAngle - FacingAngle) + FacingAngle;
                 bool jab = (CurrentState == State.Attack || CurrentState == State.SwapStrike) && CurrentStep.style == SwingStyle.Jab;
                 float reach = jab && ComboIndex % 2 == 1 ? WeaponReach : Radius * 0.55f;
+                if (Boxing && (offOwnPose || CurrentState == State.Free || CurrentState == State.Standoff))
+                {
+                    // The rear fist has its own life: the guard by the face, or its own punch.
+                    float rel = offOwnPose ? offAngle : -GuardAngle + 3f * Mathf.Sin(Time.time * 4f + 1f);
+                    mirror = FacingAngle + rel;
+                    reach = Radius * 0.55f + (offOwnPose ? offExtend : -0.12f);
+                }
                 float rad = mirror * Mathf.Deg2Rad;
                 var dir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
                 offhand.transform.localPosition = (Vector3)(dir * reach) + new Vector3(0f, 0f, 0f);

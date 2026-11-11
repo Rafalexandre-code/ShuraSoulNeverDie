@@ -47,6 +47,11 @@ WASD mover · mouse mirar · botão esquerdo atacar · botão direito aparar
 1–4 guarda (kamae) · G detonar selos · V kiai · B alma · F cabaça · H bandagem
 R ferramenta · T trocar ferramenta · E usar objetos / reviver aliado
 Esc menu (o duelo continua!) · Tab equipamento · C (ou R3) abre/fecha o registro.
+Controle (Xbox ou PlayStation): RB atacar · LB aparar · A esquivar · Y trocar
+· X interagir · R3 travar a mira · L3 alma · B cabaça (segure: bandagem)
+· RT/LT ferramenta · direcional guardas. No controle a mira trava sozinha no
+inimigo; empurre o analógico direito para trocar de alvo.
+Tudo pode ser trocado em Configurações → Configurar controles.
 Cada um escolhe a SUA recompensa depois da sala, e todos votam na próxima porta.
 Cada um usa o PRÓPRIO Altar das Almas e a PRÓPRIA maestria de arma: as
 finalizações que você faz contam no seu progresso, no seu PC.

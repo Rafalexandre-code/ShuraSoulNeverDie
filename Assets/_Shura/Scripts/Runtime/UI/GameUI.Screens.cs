@@ -233,6 +233,11 @@ namespace Shura
         void DrawSettings()
         {
             if (game.SettingsFromPause) DimGame(1f);
+            if (controlsOpen)
+            {
+                DrawControlsScreen();
+                return;
+            }
             var panel = new Rect(130f, 30f, 1660f, 1020f);
             kit.PaperPanel(panel);
             Heading(new Rect(panel.x, panel.y + 26f, panel.width, 90f), Strings.SettingsTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f), 520f);

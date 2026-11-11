@@ -19,6 +19,8 @@ namespace Shura
         readonly float seed = 17.3f;
 
         public Camera Cam { get; private set; }
+        /// <summary>The image pass: bloom and colour grade.</summary>
+        public PostFx Post { get; private set; }
 
         public void Init(FeelTuning feelTuning, GameSettings gameSettings, Color background)
         {
@@ -32,6 +34,8 @@ namespace Shura
             Cam.nearClipPlane = 0.1f;
             Cam.farClipPlane = 50f;
             gameObject.AddComponent<AudioListener>();
+            Post = gameObject.AddComponent<PostFx>();
+            Post.Enabled = settings == null || settings.postFx;
             transform.position = new Vector3(0f, 0f, -10f);
         }
 

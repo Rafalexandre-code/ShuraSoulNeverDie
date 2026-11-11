@@ -46,9 +46,13 @@ namespace Shura
             return events.Append('[').Str(kind).Append(',');
         }
 
+        /// <summary>Every gameplay moment as it happens (the tutorial listens for what the player just did).</summary>
+        public event Action<FxType, Vector2, float> Emitted;
+
         public void Emit(FxType type, Vector2 position, Vector2 direction, float magnitude = 1f, Color? color = null)
         {
             inner.Emit(type, position, direction, magnitude, color);
+            Emitted?.Invoke(type, position, magnitude);
             if (type == FxType.TimingCue) return;
             StringBuilder sb = Begin("fx");
             sb?.Str(type.ToString()).Append(',').Num(position.x).Append(',').Num(position.y).Append(',')

@@ -35,6 +35,11 @@ namespace Shura
         public bool NoBrowser;
         /// <summary>"-shuraJoin host[:port]": a test guest that joins that host directly (native client over WebSocket).</summary>
         public string JoinAddress;
+        /// <summary>"-shuraStance N": automated runs hold this guard (0 Jōdan, 1 Chūdan, 2 Gedan, 3 Waki).</summary>
+        public int Stance = -1;
+        /// <summary>"-shuraTutorial [N]": automated runs play the dojo (from lesson N, 0-based).</summary>
+        public bool Tutorial;
+        public int TutorialStep = -1;
 
         /// <summary>"-shuraHost N": open the online room and start once N browser players joined (or after 40 s).</summary>
         public bool Host;
@@ -79,6 +84,18 @@ namespace Shura
                         break;
                     case "-shuraJoin":
                         if (i + 1 < args.Length) options.JoinAddress = args[++i];
+                        break;
+                    case "-shuraTutorial":
+                        options.Tutorial = true;
+                        if (i + 1 < args.Length && int.TryParse(args[i + 1], out int lesson))
+                        {
+                            options.TutorialStep = lesson;
+                            i++;
+                        }
+                        break;
+                    case "-shuraStance":
+                        if (i + 1 < args.Length && int.TryParse(args[i + 1], out int stance)) options.Stance = Mathf.Clamp(stance, 0, 3);
+                        i++;
                         break;
                     case "-shuraWeather":
                         if (i + 1 < args.Length) options.Weather = args[++i];

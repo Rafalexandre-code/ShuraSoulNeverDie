@@ -268,7 +268,8 @@ namespace Shura
                 TickZone(z);
             }
 
-            if (!roomActive || ActiveEnemyCount == 0) return;
+            // The dojo is a quiet place: no eruptions, no lightning.
+            if (!roomActive || ActiveEnemyCount == 0 || TutorialRoom) return;
             if (--hazardTimer > 0) return;
             hazardTimer = envRng.Range(200, 320);
             // Ash eruptions and storm lightning: marked circles that go off after a warning.

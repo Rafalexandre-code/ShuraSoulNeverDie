@@ -1,8 +1,9 @@
 namespace Shura
 {
     /// <summary>All player-facing text in one place, ready for translation.</summary>
-    public static class Strings
+    public static partial class Strings
     {
+        public const string TutorialRoomName = "O Dojo";
         public const string Title = "SHURA";
         public const string Tagline = "No reino Shura, quem vence herda a técnica do vencido.";
         public const string PressAnyButton = "Pressione qualquer botão";

@@ -75,6 +75,9 @@ namespace Shura
         public SteamLink Steam { get; private set; }
         /// <summary>This game as a guest in someone else's duel (native client, no browser).</summary>
         public RemoteSession Remote { get; private set; }
+        /// <summary>The dojo: the guided first lesson (and replayable from the menu).</summary>
+        public Tutorial Tutorial { get; private set; }
+        float tutorialDoneTimer;
         bool feelMuted;
         bool arsenalForLobby;
         bool arsenalForRemote;
@@ -186,8 +189,9 @@ namespace Shura
                 Settings.Save();
             }
             Remote = new RemoteSession(this);
+            Tutorial = new Tutorial(this);
 
-            if (Launch.Bot) bot = new BotInput { EncounterLinger = Launch.ShotDir != null ? 150 : 0 };
+            if (Launch.Bot) bot = new BotInput { EncounterLinger = Launch.ShotDir != null ? 150 : 0, ForcedKamae = Launch.Stance };
             if (Launch.Automated) autoDriver = new AutoDriver(this);
 
             ApplySettings();
@@ -202,6 +206,15 @@ namespace Shura
             // Guests' input first (Steam tunnels feed the server): it acts in this very frame.
             Steam.Update();
             Net.Receive();
+            if (Tutorial.Active && CurrentMode == Mode.Playing)
+            {
+                Tutorial.Update(Time.unscaledDeltaTime);
+                if (Tutorial.Active && Tutorial.Current == Tutorial.Step.Done)
+                {
+                    tutorialDoneTimer += Time.unscaledDeltaTime;
+                    if (tutorialDoneTimer > 5f || (tutorialDoneTimer > 1.2f && Controls.Submit)) EndTutorial(true);
+                }
+            }
 
             switch (CurrentMode)
             {
@@ -251,6 +264,12 @@ namespace Shura
 
         void Simulate()
         {
+            // The dojo holds the world still while it waits for one button.
+            if (Tutorial.Active && Tutorial.Frozen)
+            {
+                Clock.Reset();
+                return;
+            }
             // Headless bots fast-forward, except when hosting (browser players live in real time).
             if (bot != null && Launch.Headless && !Net.Active)
             {
@@ -272,6 +291,11 @@ namespace Shura
                 if (frozen) continue;
                 bot?.Think(World);
                 World.Tick();
+                if (Tutorial.Active)
+                {
+                    Tutorial.Tick();
+                    if (Tutorial.Frozen) break;
+                }
                 ActiveInput.Buffer.Age();
                 Net.AgeInputs();
                 TickTimers();
@@ -324,8 +348,85 @@ namespace Shura
             SetMode(Mode.MainMenu);
         }
 
+        /// <summary>"Jogar": the very first time it leads through the dojo; after that, to the arsenal.</summary>
+        public void Play()
+        {
+            if (!Settings.tutorialDone && Meta.runs == 0 && !Launch.Automated) StartTutorial();
+            else OpenArsenal();
+        }
+
+        /// <summary>The dojo: one room, a master, and every lesson in order. Nothing here is banked.</summary>
+        public void StartTutorial()
+        {
+            if (Run != null && !Run.Banked) BankRun();
+            if (Net.Active)
+            {
+                Steam.StopHost();
+                Net.Stop();
+            }
+            Run = new RunState(20261111UL, Config.flow, Meta);
+            Run.Banked = true;
+            Run.Weapons[0] = WeaponDefs.Get(Settings.weaponA);
+            Run.Weapons[1] = WeaponDefs.Get(Settings.weaponB);
+            roomClearTimer = -1;
+            deathTimer = -1;
+            rewardChoices.Clear();
+            hostPicked = false;
+            tutorialDoneTimer = 0f;
+            Tutorial.Prepare();
+            World.BeginRun(Run, ActiveInput);
+            World.Player.ApplyStats(true);
+            World.StartRoom(new RoomDef(Strings.TutorialRoomName, 0, Biomes.All[0], 22f, 13f, false, new EnemySpawn[0][]), false);
+            World.TutorialRoom = true;
+            announcedReadings.Clear();
+            tempo = Config.feel.baseTempo;
+            slowMoTimer = 0f;
+            Vfx.Clear();
+            Vfx.ClearDecals();
+            Vfx.StainBounds = World.Bounds;
+            UI.ClearLog();
+            Tutorial.Begin();
+            SetMode(Mode.Playing);
+            UI.FadeFromBlack();
+        }
+
+        /// <summary>The last lesson is done: the dojo will not open by itself again.</summary>
+        public void OnTutorialFinished()
+        {
+            tutorialDoneTimer = 0f;
+            Settings.tutorialDone = true;
+            if (!Launch.Automated) Settings.Save();
+        }
+
+        /// <summary>Leaves the dojo: to the arsenal after finishing it, otherwise to the menu.</summary>
+        public void EndTutorial(bool finished)
+        {
+            Tutorial.Stop();
+            World.EndRun();
+            Run = null;
+            Vfx.Clear();
+            Vfx.ClearDecals();
+            if (finished && !Launch.Automated) OpenArsenal();
+            else SetMode(Mode.MainMenu);
+        }
+
+        /// <summary>Pause menu: never mind the dojo (it stays in the menu for later).</summary>
+        public void SkipTutorial()
+        {
+            Settings.tutorialDone = true;
+            if (!Launch.Automated) Settings.Save();
+            EndTutorial(false);
+        }
+
+        public void SkipTutorialLesson()
+        {
+            Resume();
+            Tutorial.SkipLesson();
+        }
+
         public void StartRun()
         {
+            Tutorial.Stop();
             // Restarting mid-run still banks what was earned: progress is never thrown away.
             if (Run != null && !Run.Banked) BankRun();
             ulong seed = Launch.Seed ?? (ulong)DateTime.UtcNow.Ticks;
@@ -354,6 +455,7 @@ namespace Shura
                                                    challenge = kind == RoomKind.Challenge ? ChallengeKind.Timed : ChallengeKind.None });
             }
             if (Launch.Automated && Enum.TryParse(Launch.Weather ?? "", out Weather weather)) first.weather = weather;
+            if (Launch.Automated && Launch.Stance >= 0) Run.Main.DefaultStance = (Kamae)Launch.Stance;
             World.StartRoom(first, startDepth == 0);
             announcedReadings.Clear();
             tempo = Config.feel.baseTempo;
@@ -491,6 +593,7 @@ namespace Shura
 
         public void QuitToMenu()
         {
+            Tutorial.Stop();
             if (Run != null && !Run.Banked) BankRun();
             World.EndRun();
             Run = null;
@@ -827,6 +930,12 @@ namespace Shura
 
         void OnPlayerDied()
         {
+            // Nobody dies in the dojo: up again, and the lesson goes on.
+            if (Tutorial.Active)
+            {
+                World.Host.Revive(1f);
+                return;
+            }
             deathTimer = DeathDelayFrames;
         }
 

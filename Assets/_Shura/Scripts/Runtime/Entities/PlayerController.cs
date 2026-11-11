@@ -36,7 +36,6 @@ namespace Shura
         }
 
         static readonly PlayerModifiers DefaultMods = new PlayerModifiers();
-        const float RestAngle = -55f;
         const int FootstepFrames = 15;
         const int ClashFrames = 14;
         const int FlowTrailInterval = 4;
@@ -427,7 +426,7 @@ namespace Shura
             {
                 int f = StateFrame - step.windup;
                 if (step.hits > 1 && f > 0 && f % Mathf.Max(1, step.active / step.hits) == 0) hitThisSwing.Clear();
-                float move = (step.lunge + step.dash) / step.active;
+                float move = (step.lunge * (swapStrike ? 1f : StanceLungeMult) + step.dash) / step.active;
                 Position += Facing * move;
                 float damage = step.damage * DamageDealtMult;
                 float posture = step.posture * PostureDealtMult * Mods.normalAttackPostureMult * (descendFrames > 0 ? 2f : 1f);
@@ -834,7 +833,8 @@ namespace Shura
         {
             if (CurrentState != State.Attack) return;
             deflectFromAngle = StrikeAngle();
-            deflectSide = Mathf.Sign(CurrentStep.fromAngle == 0f ? 1f : CurrentStep.fromAngle);
+            SwingAngles(CurrentStep, out float deflectedFrom, out _);
+            deflectSide = Mathf.Sign(deflectedFrom == 0f ? 1f : deflectedFrom);
             Enter(State.Deflected);
             Velocity = -Facing * 2.5f;
             Squash(0.82f, 1.15f);
@@ -1053,7 +1053,11 @@ namespace Shura
         const float Overshoot = 18f;
 
         /// <summary>+1 when the swing travels counter-clockwise, -1 clockwise.</summary>
-        float SwingSide(PlayerAttackDef step) => step.toAngle >= step.fromAngle ? 1f : -1f;
+        float SwingSide(PlayerAttackDef step)
+        {
+            SwingAngles(step, out float from, out float to);
+            return to >= from ? 1f : -1f;
+        }
 
         bool IsFinalComboStep => CurrentState == State.Attack && ComboIndex == Weapon.combo.Length - 1;
 
@@ -1078,13 +1082,17 @@ namespace Shura
                 case SwingStyle.Spin:
                 case SwingStyle.Slam:
                 {
-                    float side = SwingSide(step);
-                    float from = step.fromAngle - side * Anticipation;
-                    float to = step.toAngle + side * (step.style == SwingStyle.Spin ? 0f : Overshoot);
-                    float rest = RestAngle + (step.style == SwingStyle.Spin ? 360f : 0f);
-                    if (winding) return Mathf.Lerp(RestAngle, from, CombatMath.EaseInOutSine(tW));
+                    SwingAngles(step, out float cutFrom, out float cutTo);
+                    float side = cutTo >= cutFrom ? 1f : -1f;
+                    float from = cutFrom - side * Anticipation;
+                    float to = cutTo + side * (step.style == SwingStyle.Spin ? 0f : Overshoot);
+                    float restNow = RestNow;
+                    // From the guard to the start of the cut the short way round (never through the enemy).
+                    if (winding) return restNow + Mathf.DeltaAngle(restNow, from) * CombatMath.EaseInOutSine(tW);
                     if (active) return Mathf.Lerp(from, to, CombatMath.EaseOutCubic(tA));
-                    float settle = Mathf.Lerp(to, rest, CombatMath.EaseInOutSine(tR));
+                    float settle = step.style == SwingStyle.Spin
+                        ? Mathf.Lerp(to, to + Mathf.DeltaAngle(to, restNow), CombatMath.EaseInOutSine(tR))
+                        : to + Mathf.DeltaAngle(to, restNow) * CombatMath.EaseInOutSine(tR);
                     if (IsFinalComboStep && Weapon.flourish > 0f)
                     {
                         // Chiburi: a sharp flick of the blade before it settles.
@@ -1093,15 +1101,32 @@ namespace Shura
                     return settle;
                 }
                 case SwingStyle.Jab:
-                    return (ComboIndex % 2 == 0 ? 12f : -12f) * (winding ? CombatMath.EaseInOutSine(tW) : 1f - CombatMath.EaseInOutSine(tR));
+                {
+                    float hand = (ComboIndex % 2 == 0 ? 12f : -12f) * (winding ? CombatMath.EaseInOutSine(tW) : 1f - CombatMath.EaseInOutSine(tR));
+                    return hand + ThrustGuardAngle(step, winding, active, tW, tA, tR);
+                }
                 default:
                     if (IsFinalComboStep && Weapon.flourish > 0f && !winding && !active)
                     {
                         // Polearm twirl after the last thrust.
                         return Weapon.flourish * Mathf.Sin(tR * Mathf.PI * 2f) * (1f - tR);
                     }
-                    return 0f;
+                    return ThrustGuardAngle(step, winding, active, tW, tA, tR);
             }
+        }
+
+        /// <summary>
+        /// A thrust starts where the guard holds the blade (high, low or behind), straightens
+        /// onto the target as it lands, and goes back to the guard.
+        /// </summary>
+        float ThrustGuardAngle(PlayerAttackDef step, bool winding, bool active, float tW, float tA, float tR)
+        {
+            float start = StanceThrustStart(step);
+            if (Mathf.Abs(start) < 0.01f) return 0f;
+            float restNow = RestNow;
+            if (winding) return restNow + Mathf.DeltaAngle(restNow, start) * CombatMath.EaseInOutSine(tW);
+            if (active) return Mathf.Lerp(start, 0f, CombatMath.EaseOutCubic(Mathf.Clamp01(tA * 1.6f)));
+            return Mathf.DeltaAngle(0f, restNow) * CombatMath.EaseInOutSine(tR);
         }
 
         /// <summary>Thrusts and jabs: draw back, spring past full reach, then return.</summary>
@@ -1147,7 +1172,7 @@ namespace Shura
                 }
                 if (CurrentState == State.Deflected) return -deflectSide * 18f * Bounce(AnimFrame(StateFrame), t.deflectedFrames, 3);
                 if (CurrentState == State.Finisher && finisherStyle == FinisherStyle.Execution && StateFrame < 18) return -10f;
-                return 0f;
+                return CurrentState == State.Free ? StanceLean : 0f;
             }
         }
 
@@ -1163,6 +1188,8 @@ namespace Shura
                     return (f >= step.windup - 0.5f && f < step.windup + step.active + 1.5f) || (flourishing && f < step.windup + step.active + RecoveryFrames(step) * 0.6f);
                 }
                 if (CurrentState == State.Finisher) return StateFrame <= 8 || (StateFrame >= 16 && StateFrame <= 30);
+                // Changing guard: the blade's turn leaves a brief streak.
+                if (CurrentState == State.Free && kamaeCooldown > 0 && KamaeCooldown - kamaeCooldown < StanceFlourishFrames - 4) return true;
                 return CurrentState == State.Swap && StateFrame < 6;
             }
         }
@@ -1186,24 +1213,29 @@ namespace Shura
 
         protected override WeaponPose GetWeaponPose()
         {
-            var pose = new WeaponPose
+            var pose = new WeaponPose { tint = weaponColor };
+            // Idle, the blade sits where the guard holds it (and flourishes when the guard changes).
+            StanceIdlePose(ref pose);
+            if (CurrentState != State.Free && CurrentState != State.Standoff)
             {
-                angle = RestAngle + 4f * Mathf.Sin(Time.unscaledTime * 1.8f),
-                tint = weaponColor,
-            };
+                pose.angle = RestNow;
+                pose.extend = 0f;
+                pose.tint = weaponColor;
+                pose.snap = false;
+            }
 
             switch (CurrentState)
             {
                 case State.Parry:
                     bool perfect = StateFrame < parryWindow;
-                    pose.angle = perfect ? 78f : 64f;
-                    pose.extend = -0.1f;
+                    StanceParry(perfect, out pose.angle, out pose.extend);
+                    pose.snap = StateFrame < 4;
                     if (perfect) pose.tint = Color.Lerp(weaponColor, pal.playerAccent, 0.75f);
                     break;
                 case State.Swap:
                     // The new weapon spins into the hand.
                     pose.snap = true;
-                    pose.angle = RestAngle + 360f * (1f - CombatMath.EaseOutCubic(Mathf.Clamp01(AnimFrame(StateFrame) / t.swapFrames)));
+                    pose.angle = RestNow + 360f * (1f - CombatMath.EaseOutCubic(Mathf.Clamp01(AnimFrame(StateFrame) / t.swapFrames)));
                     if (StateFrame < swapWindow) pose.tint = Color.Lerp(weaponColor, Color.white, 0.6f);
                     break;
                 case State.Attack:
@@ -1220,7 +1252,7 @@ namespace Shura
                     float knocked = deflectFromAngle + deflectSide * 65f;
                     pose.angle = f < 4f
                         ? Mathf.Lerp(deflectFromAngle, knocked, CombatMath.EaseOutBack(f / 4f))
-                        : Mathf.Lerp(knocked, RestAngle, CombatMath.EaseInOutSine((f - 4f) / Mathf.Max(1, t.deflectedFrames - 4)));
+                        : knocked + Mathf.DeltaAngle(knocked, RestNow) * CombatMath.EaseInOutSine((f - 4f) / Mathf.Max(1, t.deflectedFrames - 4));
                     if (f < 4) pose.tint = Color.white;
                     break;
                 }
@@ -1269,7 +1301,7 @@ namespace Shura
                     pose.angle = f < 6 ? Mathf.Lerp(80f, -150f, f / 6f) : Mathf.Lerp(-150f, -95f, Mathf.Clamp01((f - 6) / 24f));
                     break;
                 case FinisherStyle.Execution:
-                    pose.angle = f < 18 ? Mathf.Lerp(RestAngle, 170f, CombatMath.EaseOutCubic(f / 18f)) : Mathf.Lerp(170f, 0f, CombatMath.EaseOutCubic(Mathf.Clamp01((f - 18) / 3f)));
+                    pose.angle = f < 18 ? RestNow + Mathf.DeltaAngle(RestNow, 170f) * CombatMath.EaseOutCubic(f / 18f) : Mathf.Lerp(170f, 0f, CombatMath.EaseOutCubic(Mathf.Clamp01((f - 18) / 3f)));
                     pose.extend = f < 18 ? -0.2f : 0.25f;
                     break;
                 case FinisherStyle.ThousandCuts:

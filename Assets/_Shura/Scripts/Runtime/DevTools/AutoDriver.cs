@@ -66,7 +66,13 @@ namespace Shura
                 case Game.Mode.MainMenu:
                     if (ShotThenAct("menu", wait))
                     {
-                        if (remoteDone) Finish("o anfitrião encerrou");
+                        if (tutorialStarted) Finish("dojo concluído");
+                        else if (game.Launch.Tutorial)
+                        {
+                            tutorialStarted = true;
+                            game.StartTutorial();
+                        }
+                        else if (remoteDone) Finish("o anfitrião encerrou");
                         else if (game.Launch.JoinAddress != null) game.JoinByAddress(game.Launch.JoinAddress);
                         else if (game.Launch.SteamGuest) game.OpenSteamJoin();
                         else if (game.Launch.Host) game.OpenLobby();
@@ -152,7 +158,8 @@ namespace Shura
                     }
                     break;
                 case Game.Mode.Playing:
-                    UpdatePlaying();
+                    if (game.Tutorial.Active) UpdateTutorial();
+                    else UpdatePlaying();
                     break;
                 case Game.Mode.Paused:
                     if (!settingsShotDone)
@@ -189,6 +196,29 @@ namespace Shura
             }
 
             if (!finished && elapsed > MaxSeconds) Finish("tempo esgotado");
+        }
+
+        bool tutorialStarted;
+        int tutorialShotStep = -1;
+        bool tutorialFreezeShot;
+
+        /// <summary>The dojo, played by the test duelist: one picture of every lesson and of every frozen moment.</summary>
+        void UpdateTutorial()
+        {
+            Tutorial t = game.Tutorial;
+            if (!shots) return;
+            int step = (int)t.Current;
+            if (t.Frozen && !tutorialFreezeShot)
+            {
+                tutorialFreezeShot = true;
+                Shot("dojo_" + step.ToString("00") + "_" + t.Current + "_agora");
+            }
+            if (!t.Frozen) tutorialFreezeShot = false;
+            if (step != tutorialShotStep && t.StepTime > 1.6f && t.Flash <= 0f && !t.Frozen)
+            {
+                tutorialShotStep = step;
+                Shot("dojo_" + step.ToString("00") + "_" + t.Current);
+            }
         }
 
         bool remoteDone;

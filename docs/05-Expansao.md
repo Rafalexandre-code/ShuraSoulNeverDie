@@ -151,6 +151,16 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **Altar das Almas de cada um**: cada convidado entra com as próprias melhorias (enviadas ao anfitrião), quem joga pelo navegador entra sem nenhuma, e os Ecos da run vão para o Altar de cada convidado ao fim dela (ou ao sair). O Altar fica acessível na sala do convidado.
 - **Nome inicial = nome da Steam** para quem nunca escolheu um nome.
 
+## Guardas que se veem e o Dojo (v0.4.4) — ✅
+
+- **Cada guarda tem o seu corpo e os seus cortes** (antes só mudavam números):
+  - **Jōdan** — a lâmina fica erguida acima da cabeça; os cortes descem em diagonal longa (kesa-giri), as estocadas vêm de cima, e o passo no golpe é 30% mais fundo.
+  - **Chūdan** — a ponta aponta para o inimigo desenhando um pequeno círculo; cortes de lado a lado, estocadas retas.
+  - **Gedan** — a lâmina pende baixa, para o chão à frente; todo corte sobe (kiri-age), no sentido contrário; passos curtos.
+  - **Waki** — a lâmina se esconde atrás do quadril, meio transparente; os cortes saem de trás num chicote largo, como um saque iai.
+  - O aparar também muda de lugar em cada guarda, e trocar de guarda gira a lâmina uma volta inteira com um rastro de luz. Alcance, dano e tempo de cada golpe não mudam com a pose (nenhuma guarda é um enfraquecimento escondido). Online, todos veem as poses.
+- **O Dojo (tutorial)**: abre sozinho na primeira vez em "Jogar" e fica no menu ("Tutorial (o dojo)"). São 18 lições, e cada uma só termina quando você faz o que ela pede: andar até as marcas, atacar, o combo, bloquear, o aparar perfeito, o golpe vermelho, quebrar a postura, finalizar com a linha dourada, trocar de arma, a Troca Perfeita, as quatro guardas, a cabaça, as ferramentas, os selos, o kiai e uma luta de verdade contra um ronin. Nos golpes de tempo (aparar, esquivar, Troca Perfeita), as primeiras vezes **param o tempo no instante exato** e esperam o botão ("AGORA!"), e depois você repete sozinho. Um Mestre do Dojo só ataca quando a lição pede, ninguém morre, não há armadilhas nem explosões. Na pausa dá para pular uma lição ou o dojo inteiro.
+
 ## Apresentação e acessibilidade (§10) — ⏳
 
 10.1 tabela de impacto · 10.2 câmera e finalizações em tinta · 10.3 som que informa · 10.4 música adaptativa (🟡 música abafada em Mushin/Iai já feita) · 10.5 interface diegética · 10.6 luz 2D (provável adiamento: o projeto usa Built-in RP; luz 2D exige URP) · 10.7 acessibilidade (🟡 anéis com padrão próprio por tipo) · 10.8 replay e foto.

@@ -391,7 +391,9 @@ namespace Shura
             Velocity = Vector2.Lerp(Velocity, desired, 0.15f);
 
             if (!player.IsAlive && !brawling) return;
-            if (--idleTimer <= 0) TryChooseAttack(dist);
+            // A training partner strikes only when the lesson asks.
+            if (Training) TickTraining(dist);
+            else if (--idleTimer <= 0) TryChooseAttack(dist);
         }
 
         int Idle(int min, int max)

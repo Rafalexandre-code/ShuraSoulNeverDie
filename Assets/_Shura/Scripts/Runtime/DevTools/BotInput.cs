@@ -28,6 +28,8 @@ namespace Shura
         public bool AttackHeld { get; private set; }
 
         int kamae = -1;
+        /// <summary>Automated inspection: hold this guard instead of Chūdan.</summary>
+        public int ForcedKamae = -1;
         int lingered;
         /// <summary>Frames to stand still on entering an encounter (screenshot tours).</summary>
         public int EncounterLinger { get; set; }
@@ -60,7 +62,7 @@ namespace Shura
             if (!settled)
             {
                 settled = true;
-                kamae = (int)Kamae.Chudan;
+                kamae = ForcedKamae >= 0 ? ForcedKamae : (int)Kamae.Chudan;
             }
 
             // The Iai standoff: hold the draw, release on the real advance (never on a feint).

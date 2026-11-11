@@ -134,7 +134,8 @@ namespace Shura
 
         public void ShowHint(string text)
         {
-            if (!game.Settings.hints) return;
+            // In the dojo the lesson scroll does the talking.
+            if (!game.Settings.hints || game.Tutorial.Active) return;
             hint = text;
             hintTimer = 6.5f;
         }
@@ -338,13 +339,21 @@ namespace Shura
                     BuildRemoteMenu();
                     break;
                 case Game.Mode.MainMenu:
-                    AddItem(Strings.Play, game.OpenArsenal);
+                    AddItem(Strings.Play, game.Play);
+                    AddItem(Strings.TutorialMenu, game.StartTutorial);
                     AddItem(Strings.PlayOnline, game.OpenLobby);
                     AddItem(Strings.JoinSteam, game.OpenSteamJoin);
                     AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.Settings, game.OpenSettings);
                     AddItem(Strings.Credits, game.OpenCredits);
                     AddItem(Strings.Quit, game.QuitGame);
+                    break;
+                case Game.Mode.Paused when game.Tutorial.Active:
+                    AddItem(Strings.Resume, game.Resume);
+                    AddItem(Strings.TutorialSkipLesson, game.SkipTutorialLesson);
+                    AddItem(Strings.Settings, game.OpenSettings);
+                    AddItem(Strings.TutorialSkip, game.SkipTutorial);
+                    AddItem(Strings.MainMenu, game.QuitToMenu);
                     break;
                 case Game.Mode.Paused:
                     AddItem(Strings.Resume, game.Resume);
@@ -765,6 +774,7 @@ namespace Shura
                     DrawHud();
                     DrawPopups();
                     if (game.World.Player == null || !game.World.Player.InMushin) DrawLog();
+                    if (game.Tutorial.Active) DrawTutorial();
                 }
                 if (mode == Game.Mode.Playing || (remoteDuel && RemoteHintFree)) DrawHint();
                 UseCanvas(false);
@@ -1320,7 +1330,7 @@ namespace Shura
             Panel(3, TitleRect);
 
             RoomDef room = game.World.CurrentRoom;
-            if (room != null)
+            if (room != null && !game.Tutorial.Active)
             {
                 Color rc = room.guardian ? Pal.gold : UiKit.PaperText;
                 Label(new Rect(0, 8, VW, 60), string.Format(Strings.HudRoom, run.RoomIndex + 1, room.name), roomStyle, rc);
@@ -1843,6 +1853,7 @@ namespace Shura
             hintStyleCenter = MakeStyle(27, TextAnchor.MiddleCenter, text);
             cardKindStyleSmall = MakeStyle(28, TextAnchor.MiddleCenter, brush);
             EnsureScreenStyles(brush, text, bold);
+            EnsureTutorialStyles(brush, text, bold);
             EnsureLobbyStyles(brush, text, bold);
         }
 

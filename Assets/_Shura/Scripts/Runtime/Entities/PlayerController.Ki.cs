@@ -214,8 +214,28 @@ namespace Shura
             }
         }
 
+        /// <summary>Tutorial: a controlled wound so the gourd has something to heal.</summary>
+        public void TrainingWound(float healthFraction)
+        {
+            if (IsAlive) Health = Mathf.Max(1f, MaxHealth * Mathf.Clamp01(healthFraction));
+        }
+
+        /// <summary>Tutorial: drops a swing or a swap in progress, so the button asked for answers at once.</summary>
+        public void TrainingInterrupt()
+        {
+            if (!IsAlive) return;
+            if (CurrentState == State.Attack || CurrentState == State.Deflected || CurrentState == State.Swap || CurrentState == State.Parry) Enter(State.Free);
+        }
+
+        /// <summary>Tutorial: a full gourd again.</summary>
+        public void TrainingRefill()
+        {
+            Sips = MaxSips;
+        }
+
         public void SetStance(Kamae k)
         {
+            previousStance = Stance;
             Stance = k;
             kamaeCooldown = KamaeCooldown;
             world.Fx.Emit(FxType.Kamae, Position, Facing, (int)k, pal.playerAccent);

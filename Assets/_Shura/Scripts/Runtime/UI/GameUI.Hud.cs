@@ -206,7 +206,7 @@ namespace Shura
         }
 
         /// <summary>Draws the next HUD panel see-through while anyone stands under it (eased, so it never flickers).</summary>
-        void Panel(int id, Rect r)
+        void Panel(int id, Rect r, float seeThrough = 0.18f)
         {
             bool covered = false;
             foreach (Rect b in bodies)
@@ -218,7 +218,7 @@ namespace Shura
                 }
             }
             if (!panelFade.TryGetValue(id, out float f)) f = 1f;
-            if (Event.current.type == EventType.Repaint) f = Mathf.MoveTowards(f, covered ? 0.18f : 1f, Time.unscaledDeltaTime * 5f);
+            if (Event.current.type == EventType.Repaint) f = Mathf.MoveTowards(f, covered ? seeThrough : 1f, Time.unscaledDeltaTime * 5f);
             panelFade[id] = f;
             UiKit.Fade = f;
         }

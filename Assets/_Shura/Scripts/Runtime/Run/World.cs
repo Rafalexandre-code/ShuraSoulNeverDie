@@ -357,6 +357,7 @@ namespace Shura
             ClearEnemies();
             // A bigger party gets a bigger arena and more enemies per wave.
             room = PartyScaling.Scale(room, PartySize);
+            TutorialRoom = false;
             CurrentRoom = room;
             RebuildArena(room);
             ApplyConditions(room);
@@ -491,6 +492,8 @@ namespace Shura
         void TickWaves()
         {
             if (!roomActive || RoomCleared || !AnyPlayerAlive) return;
+            // The dojo: the tutorial brings its own partners and never "clears".
+            if (TutorialRoom) return;
             // Encounters end at the torii, not when the (absent) waves run out.
             if (CurrentRoom != null && CurrentRoom.IsEncounter) return;
             if (ActiveEnemyCount > 0) return;
@@ -539,6 +542,17 @@ namespace Shura
             // A dispute: two factions already at each other's throats.
             if (CurrentRoom != null && CurrentRoom.kind == RoomKind.Dispute) StartDispute(list);
             return list;
+        }
+
+        /// <summary>The tutorial's dojo: no waves, no clearing; partners are brought in one at a time.</summary>
+        public bool TutorialRoom { get; set; }
+
+        /// <summary>Brings one fighter into the dojo (a training partner, or a real foe for the last trial).</summary>
+        public Enemy SpawnPartner(EnemyDef def, Vector2 at, bool training)
+        {
+            Enemy e = CreateEnemy(def, Layout.NearestFloor(at, def.radius), false, null);
+            e.Training = training;
+            return e;
         }
 
         Enemy CreateEnemy(EnemyDef def, Vector2 at, bool elite, Enemy summoner)

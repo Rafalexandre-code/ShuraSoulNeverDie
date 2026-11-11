@@ -639,7 +639,9 @@ namespace Shura
             FitLabel(new Rect(r.x + 30f, r.y, r.width - 44f, r.height), text, smallStyle, selected ? UiKit.PaperText : UiKit.Ink);
         }
 
-        void DrawDarknessAt(Vector2 world, float radius)
+        void DrawDarknessAt(Vector2 world, float radius) => DrawDarknessAt(world, radius, new Color(0f, 0f, 0.02f, 0.94f));
+
+        void DrawDarknessAt(Vector2 world, float radius, Color dark)
         {
             Camera cam = game.CameraRig.Cam;
             if (cam == null) return;
@@ -648,7 +650,6 @@ namespace Shura
             float r = Vector2.Distance(center, WorldToGui(cam, world + Vector2.right * radius));
             var hole = new Rect(center.x - r, center.y - r, r * 2f, r * 2f);
             Rect full = FullScreen;
-            var dark = new Color(0f, 0f, 0.02f, 0.94f);
             DrawTex(hole, holeTex, dark);
             DrawRect(new Rect(full.x, full.y, full.width, hole.y - full.y), dark);
             DrawRect(new Rect(full.x, hole.yMax, full.width, full.yMax - hole.yMax), dark);

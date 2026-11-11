@@ -668,6 +668,23 @@ namespace Shura
         };
 
         /// <summary>Every enemy that rooms can place.</summary>
+        /// <summary>
+        /// The tutorial's master: never blocks, never tires, and has only two blows, both slow
+        /// and gentle — an honest cut to parry and a red thrust to dodge. Not in the roster.
+        /// </summary>
+        public static readonly EnemyDef Sensei = new EnemyDef
+        {
+            id = "sensei", lore = "Ensina o caminho da lâmina.", art = "Master", weaponArt = "weapon_Katana", artScale = 1.0f, displayName = "Mestre do Dojo", shape = Shape.Square, color = ColorUtil.Hex("#E8E2D0"),
+            maxHealth = 400f, maxPosture = 70f, radius = 0.42f, moveSpeed = 2.6f, preferredRange = 1.9f,
+            blockChance = 0f, postureRegenPerSecond = 3f, idleMin = 60, idleMax = 90,
+            signatureAnswer = SignatureAnswer.PerfectParry,
+            moves = new[]
+            {
+                Move("treino_corte", 0f, 2.8f, 1, Arc("treino_corte", 46, 5, 30, 30, 6f, 10f, 26f, 1.9f, 120f, 0.6f)),
+                Move("treino_estocada", 1.0f, 3.6f, 1, Line("treino_estocada", 50, 6, 34, 30, 8f, 0f, 0f, 2.6f, 0.7f, 2.4f, AttackKind.Thrust)),
+            },
+        };
+
         public static readonly EnemyDef[] All =
         {
             Ronin, Lanceiro, Monge, Kenkaku, Carrasco, Arqueiro, Sombra, Escudeiro,

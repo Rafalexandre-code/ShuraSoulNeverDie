@@ -42,6 +42,8 @@ namespace Shura
         public int playerArt;
         /// <summary>The last host typed in "Entrar por IP".</summary>
         public string lastAddress = string.Empty;
+        /// <summary>The dojo was finished (or skipped): "Jogar" goes straight to the arsenal.</summary>
+        public bool tutorialDone;
 
         public const float MinUiScale = 0.5f;
         public const float MaxUiScale = 1.3f;

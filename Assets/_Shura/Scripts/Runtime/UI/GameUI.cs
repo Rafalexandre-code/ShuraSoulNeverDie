@@ -232,6 +232,9 @@ namespace Shura
                 case Game.Mode.Remote:
                     HandleRemote(input);
                     break;
+                case Game.Mode.Lobby when invitesOpen:
+                    HandleInvites(input);
+                    break;
                 default:
                     HandleMenu(input);
                     break;
@@ -298,7 +301,7 @@ namespace Shura
                         adjust = dir => game.CycleHostArt(dir),
                     });
                     AddItem(Strings.LobbyWeapons, game.OpenArsenal);
-                    if (game.Steam.Hosting) AddItem(Strings.SteamInvite, game.Steam.Invite);
+                    if (game.Steam.Ready) AddItem(Strings.SteamInvite, OpenInvites);
                     AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.LobbyClose, game.CloseLobby);
                     break;
@@ -649,7 +652,10 @@ namespace Shura
                 case Game.Mode.Paused: game.Resume(); break;
                 case Game.Mode.Altar: game.CloseAltar(); break;
                 case Game.Mode.Equipment: game.CloseEquipment(); break;
-                case Game.Mode.Lobby: game.CloseLobby(); break;
+                case Game.Mode.Lobby:
+                    if (invitesOpen) invitesOpen = false;
+                    else game.CloseLobby();
+                    break;
                 case Game.Mode.SteamJoin: game.CloseSteamJoin(); break;
                 case Game.Mode.Remote: remoteMenu = false; break;
             }
@@ -886,53 +892,6 @@ namespace Shura
         }
 
         // ── Online ────────────────────────────────────────────────────────────────────
-
-        /// <summary>The online room: links to share (Radmin first), who is in, and the run's start.</summary>
-        void DrawLobby()
-        {
-            NetSession net = game.Net;
-            kit.Logo(new Rect(70f, 30f, 420f, 214f), UiKit.Ink);
-            var left = new Rect(80f, 250f, 640f, 780f);
-            kit.PaperPanel(left);
-            Heading(new Rect(left.x, left.y + 36f, left.width, 90f), Strings.LobbyTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f), 360f);
-            DrawMenuList(left.y + 160f, 64f, 560f, left.center.x, true);
-            // Steam first (any network), then the local-network fallback.
-            Label(new Rect(left.x + 60f, left.yMax - 250f, left.width - 120f, 110f), game.Steam.Status, cardBodyStyle, game.Steam.Hosting ? UiKit.Ai : UiKit.Shu);
-            Label(new Rect(left.x + 60f, left.yMax - 140f, left.width - 120f, 120f), Strings.LobbyRadminHint, cardBodyStyle, UiKit.InkSoft);
-
-            var right = new Rect(780f, 60f, 1080f, 970f);
-            kit.PaperPanel(right);
-            Label(new Rect(right.x + 70f, right.y + 50f, right.width - 140f, 60f), Strings.LobbyLinks, bodyStyle, UiKit.Ink);
-            float y = right.y + 120f;
-            for (int i = 0; i < net.Urls.Count && i < 4; i++)
-            {
-                bool radmin = net.UrlLabels[i] == "Radmin VPN";
-                var row = new Rect(right.x + 60f, y, right.width - 120f, 70f);
-                if (radmin) kit.Stroke(new Rect(row.x - 20f, row.y - 6f, row.width + 40f, row.height + 12f), UiKit.Shu.WithAlpha(0.9f));
-                Label(new Rect(row.x + 10f, row.y, 260f, row.height), net.UrlLabels[i], capsStyle, radmin ? UiKit.PaperText : UiKit.Shu);
-                Label(new Rect(row.x + 230f, row.y, row.width - 240f, row.height), net.Urls[i], urlStyle, radmin ? UiKit.PaperText : UiKit.Ink);
-                y += 80f;
-            }
-
-            y += 20f;
-            kit.Underline(new Rect(right.x + 60f, y, right.width - 120f, 16f), UiKit.Ink.WithAlpha(0.45f));
-            Label(new Rect(right.x + 70f, y + 20f, 600f, 40f), Strings.LobbyPlayers + "  ·  " + game.World.Players.Count + " / " + PartyScaling.MaxPlayers, capsStyle, UiKit.Shu);
-            y += 66f;
-            DrawLobbyPlayer(new Rect(right.x + 60f, y, right.width - 120f, 64f), PlayerController.PartyArt[game.Settings.playerArt],
-                            string.Format(Strings.LobbyHostName, game.Settings.playerName),
-                            WeaponDefs.Get(game.Settings.weaponA).name + "  ·  " + WeaponDefs.Get(game.Settings.weaponB).name, -1f);
-            y += 70f;
-            int shown = 0;
-            foreach (NetSession.Remote r in net.Remotes)
-            {
-                if (!r.joined) continue;
-                DrawLobbyPlayer(new Rect(right.x + 60f, y, right.width - 120f, 64f), PlayerController.PartyArt[r.art], r.name + (r.ready ? "  ✓" : ""),
-                                WeaponDefs.Get(r.weaponA).name + "  ·  " + WeaponDefs.Get(r.weaponB).name, r.rtt);
-                y += 70f;
-                shown++;
-            }
-            if (shown == 0) Label(new Rect(right.x + 80f, y + 6f, right.width - 160f, 40f), Strings.LobbyEmpty, taglineStyle, UiKit.InkSoft);
-        }
 
         /// <summary>Friends' duels open on Steam; once in, the duel plays in the browser this opened.</summary>
         void DrawSteamJoin()
@@ -1884,6 +1843,7 @@ namespace Shura
             hintStyleCenter = MakeStyle(27, TextAnchor.MiddleCenter, text);
             cardKindStyleSmall = MakeStyle(28, TextAnchor.MiddleCenter, brush);
             EnsureScreenStyles(brush, text, bold);
+            EnsureLobbyStyles(brush, text, bold);
         }
 
         static GUIStyle MakeStyle(int size, TextAnchor anchor, Font font, FontStyle fontStyle = FontStyle.Normal)

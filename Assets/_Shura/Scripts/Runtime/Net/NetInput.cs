@@ -42,6 +42,8 @@ namespace Shura
         public int km = -1;
         /// <summary>Attack button held (standoff).</summary>
         public int ah;
+        /// <summary>The player's own Altar das Almas levels ("vigor:5,postura:4"); browsers send none.</summary>
+        public string mt;
     }
 
     /// <summary>

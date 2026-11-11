@@ -193,10 +193,15 @@ namespace Shura
             RecomputeModifiers();
         }
 
+        /// <summary>
+        /// This duelist's own Altar das Almas (an online guest's); null = the run's, i.e. the host's.
+        /// </summary>
+        public MetaProgress OwnMeta;
+
         public void RecomputeModifiers()
         {
             var m = new PlayerModifiers();
-            run?.Meta?.ApplyTo(m);
+            (OwnMeta ?? run?.Meta)?.ApplyTo(m);
             Effects.Clear();
             Effects.AddRange(Owned);
             foreach (Item item in Equipped)

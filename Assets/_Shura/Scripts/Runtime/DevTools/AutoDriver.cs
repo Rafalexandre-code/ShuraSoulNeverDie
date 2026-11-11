@@ -76,6 +76,17 @@ namespace Shura
                     }
                     break;
                 case Game.Mode.Lobby:
+                    // Screenshot tour: the in-game Steam invite list once, then the room as usual.
+                    if (shots && game.Steam.Ready && !inviteShotDone && modeTime > 3f)
+                    {
+                        game.UI.DevInvites(true);
+                        if (ShotThenAct("lobby_invites", wait))
+                        {
+                            inviteShotDone = true;
+                            game.UI.DevInvites(false);
+                        }
+                        break;
+                    }
                     // Online test: start once the expected browser players are in (or give up waiting).
                     if (game.Net.JoinedCount >= game.Launch.HostWait || modeTime > 40f)
                     {
@@ -182,6 +193,7 @@ namespace Shura
 
         bool remoteDone;
         bool creditsShotDone;
+        bool inviteShotDone;
         float remoteShotTimer;
         int remoteShots;
         float remoteLogTimer;

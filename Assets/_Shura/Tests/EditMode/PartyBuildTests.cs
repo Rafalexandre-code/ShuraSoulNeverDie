@@ -83,5 +83,41 @@ namespace Shura.Tests
             Assert.AreSame(run.Main.Flow, run.Flow);
             Assert.AreSame(run.Main.Equipped, run.Equipped);
         }
+    
+
+
+        [Test]
+        public void AltarDasAlmas_EachDuelistBringsTheirOwn()
+        {
+            var hostMeta = new MetaProgress();
+            hostMeta.ecos = 100000;
+            foreach (MetaUpgradeDef def in MetaUpgrades.All) while (hostMeta.TryBuy(def)) { }
+            var run = new RunState(77UL, new FlowTuning(), hostMeta);
+            PlayerBuild host = run.Main;
+            host.RecomputeModifiers();
+
+            // A guest with one level of Vigor, sent as a code over the network.
+            var guestMeta = new MetaProgress();
+            guestMeta.ecos = 1000;
+            guestMeta.TryBuy(MetaUpgrades.Get("vigor"));
+            string code = guestMeta.LevelsCode();
+            Assert.AreEqual("vigor:1", code);
+            PlayerBuild guest = run.CreateBuild();
+            guest.OwnMeta = MetaProgress.FromLevelsCode(code);
+            guest.RecomputeModifiers();
+
+            Assert.Greater(host.Modifiers.maxHealthBonus, guest.Modifiers.maxHealthBonus, "the host's maxed Altar stays the host's");
+            Assert.Greater(host.Modifiers.damageMult, guest.Modifiers.damageMult);
+            Assert.AreEqual(0, guest.Modifiers.extraRewardChoices);
+
+            // A browser player has no Altar at all.
+            PlayerBuild browser = run.CreateBuild();
+            browser.OwnMeta = new MetaProgress();
+            browser.RecomputeModifiers();
+            Assert.Less(browser.Modifiers.maxHealthBonus, guest.Modifiers.maxHealthBonus);
+
+            // Bad codes never break or exceed the caps.
+            Assert.AreEqual(5, MetaProgress.FromLevelsCode("vigor:99,nada:3,lixo").GetLevel("vigor"));
+        }
     }
 }

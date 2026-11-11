@@ -179,6 +179,12 @@ namespace Shura
             Steam.AllowSelf = Launch.SteamGuest;
             Steam.ListenLocal = Launch.Automated && Launch.Steam;
             if ((!Launch.Automated || Launch.Steam) && !Launch.Headless) Steam.Init();
+            // Never named yet: the Steam name is the duelist's name (changeable in the room).
+            if (Steam.Ready && !Launch.Automated && Settings.playerName == new GameSettings().playerName)
+            {
+                Settings.playerName = GameSettings.CleanName(Steamworks.SteamFriends.GetPersonaName(), Settings.playerName);
+                Settings.Save();
+            }
             Remote = new RemoteSession(this);
 
             if (Launch.Bot) bot = new BotInput { EncounterLinger = Launch.ShotDir != null ? 150 : 0 };
@@ -335,6 +341,7 @@ namespace Shura
             hostPicked = false;
             if (Net.Active) Net.OnRunStarted();
             World.BeginRun(Run, ActiveInput);
+            if (Net.Active) Net.AfterRunBegan();
             int startDepth = Launch.Automated ? Mathf.Max(0, Launch.StartDepth) : 0;
             for (int i = 0; i < startDepth; i++) Run.Ascend();
             Run.RoomIndex = startDepth;
@@ -626,6 +633,17 @@ namespace Shura
         public void CloseAltar()
         {
             SetMode(altarReturnMode);
+            // A guest's Altar goes with them into the host's next run.
+            if (altarReturnMode == Mode.Remote) Remote.SendLoadout();
+        }
+
+        /// <summary>A guest's run ended: what it was worth goes to this player's own Altar.</summary>
+        public void BankGuestRun(int ecos)
+        {
+            if (ecos <= 0) return;
+            Meta.RecordRun(ecos, 0, false);
+            SaveMeta();
+            UI.Toast(string.Format(Strings.GuestEcosBanked, ecos, Meta.ecos), Config.palette.gold);
         }
 
         /// <summary>Buys the next level of an upgrade and saves immediately.</summary>

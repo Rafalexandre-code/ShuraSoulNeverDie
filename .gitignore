@@ -1,4 +1,4 @@
-# Unity
+﻿# Unity
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
@@ -33,4 +33,4 @@ crashlytics-build.properties
 /[Aa]ssets/_Recovery/
 /[Aa]ssets/_Recovery.meta
 
-/steam_appid.txt
+steam_appid.txt

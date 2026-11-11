@@ -66,6 +66,7 @@ namespace Shura
 
         Callback<SteamNetConnectionStatusChangedCallback_t> statusCallback;
         Callback<GameLobbyJoinRequested_t> joinRequested;
+        Callback<GameRichPresenceJoinRequested_t> presenceJoin;
         CallResult<LobbyCreated_t> lobbyCreated;
         CallResult<LobbyMatchList_t> lobbyList;
         CallResult<LobbyEnter_t> lobbyEnter;
@@ -120,6 +121,8 @@ namespace Shura
             SetGlobalInt(ESteamNetworkingConfigValue.k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, Constants.k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All);
             statusCallback = Callback<SteamNetConnectionStatusChangedCallback_t>.Create(OnConnectionStatus);
             joinRequested = Callback<GameLobbyJoinRequested_t>.Create(r => pendingJoin = r.m_steamIDLobby);
+            // "Entrar no jogo" from a friend's name in the Steam friends list.
+            presenceJoin = Callback<GameRichPresenceJoinRequested_t>.Create(r => pendingJoin = LobbyFromConnect(r.m_rgchConnect));
             lobbyCreated = CallResult<LobbyCreated_t>.Create(OnLobbyCreated);
             lobbyList = CallResult<LobbyMatchList_t>.Create(OnLobbyList);
             lobbyEnter = CallResult<LobbyEnter_t>.Create(OnLobbyEnter);
@@ -227,6 +230,97 @@ namespace Shura
             Changed?.Invoke();
         }
 
+        static CSteamID LobbyFromConnect(string connect)
+        {
+            if (string.IsNullOrEmpty(connect)) return CSteamID.Nil;
+            string[] parts = connect.Split(' ');
+            for (int i = 0; i + 1 < parts.Length; i++)
+            {
+                if (parts[i] == "+connect_lobby" && ulong.TryParse(parts[i + 1], out ulong id)) return new CSteamID(id);
+            }
+            return CSteamID.Nil;
+        }
+
+        // ── Friends (the in-game invite list) ──────────────────────────────────────────
+
+        public struct FriendInfo
+        {
+            public CSteamID id;
+            public string name;
+            public bool online;
+            /// <summary>Running Spacewar's app id: that is Shura (or Spacewar itself).</summary>
+            public bool inShura;
+            public bool away;
+        }
+
+        readonly HashSet<ulong> invited = new HashSet<ulong>();
+        readonly Dictionary<ulong, Texture2D> avatars = new Dictionary<ulong, Texture2D>();
+
+        /// <summary>Steam friends, those with Shura open first, then online, then the rest.</summary>
+        public List<FriendInfo> Friends()
+        {
+            var list = new List<FriendInfo>();
+            if (!Ready) return list;
+            int n = SteamFriends.GetFriendCount(EFriendFlags.k_EFriendFlagImmediate);
+            for (int i = 0; i < n; i++)
+            {
+                CSteamID id = SteamFriends.GetFriendByIndex(i, EFriendFlags.k_EFriendFlagImmediate);
+                EPersonaState state = SteamFriends.GetFriendPersonaState(id);
+                bool playing = SteamFriends.GetFriendGamePlayed(id, out FriendGameInfo_t game);
+                list.Add(new FriendInfo
+                {
+                    id = id,
+                    name = SteamFriends.GetFriendPersonaName(id),
+                    online = state != EPersonaState.k_EPersonaStateOffline,
+                    away = state == EPersonaState.k_EPersonaStateAway || state == EPersonaState.k_EPersonaStateSnooze,
+                    inShura = playing && game.m_gameID.AppID() == new AppId_t(SpacewarAppId),
+                });
+            }
+            list.Sort((a, b) =>
+            {
+                if (a.inShura != b.inShura) return a.inShura ? -1 : 1;
+                if (a.online != b.online) return a.online ? -1 : 1;
+                if (a.away != b.away) return a.away ? 1 : -1;
+                return string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase);
+            });
+            return list;
+        }
+
+        public bool WasInvited(CSteamID friend) => invited.Contains(friend.m_SteamID);
+
+        /// <summary>
+        /// Sends a Steam invite to this lobby (a message in the friend's Steam chat). With Shura
+        /// open, accepting it brings them straight into the duel. Works without the overlay.
+        /// </summary>
+        public bool InviteFriend(CSteamID friend)
+        {
+            if (!Ready || !lobby.IsValid()) return false;
+            bool ok = SteamMatchmaking.InviteUserToLobby(lobby, friend);
+            if (ok) invited.Add(friend.m_SteamID);
+            Debug.Log("[Shura][Steam] convite para " + SteamFriends.GetFriendPersonaName(friend) + ": " + (ok ? "enviado" : "falhou"));
+            return ok;
+        }
+
+        /// <summary>A friend's small avatar (null while Steam is still downloading it).</summary>
+        public Texture2D Avatar(CSteamID id)
+        {
+            if (!Ready) return null;
+            if (avatars.TryGetValue(id.m_SteamID, out Texture2D tex) && tex != null) return tex;
+            int image = SteamFriends.GetSmallFriendAvatar(id);
+            if (image <= 0 || !SteamUtils.GetImageSize(image, out uint w, out uint h) || w == 0 || h == 0) return null;
+            var raw = new byte[w * h * 4];
+            if (!SteamUtils.GetImageRGBA(image, raw, raw.Length)) return null;
+            // Steam's rows run top to bottom; textures bottom to top.
+            var flipped = new byte[raw.Length];
+            int row = (int)w * 4;
+            for (int y = 0; y < h; y++) Buffer.BlockCopy(raw, y * row, flipped, ((int)h - 1 - y) * row, row);
+            tex = new Texture2D((int)w, (int)h, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear };
+            tex.LoadRawTextureData(flipped);
+            tex.Apply();
+            avatars[id.m_SteamID] = tex;
+            return tex;
+        }
+
         public void Invite()
         {
             if (lobby.IsValid()) SteamFriends.ActivateGameOverlayInviteDialog(lobby);
@@ -247,6 +341,7 @@ namespace Shura
             listenLocal = HSteamListenSocket.Invalid;
             if (lobby.IsValid()) SteamMatchmaking.LeaveLobby(lobby);
             lobby = CSteamID.Nil;
+            invited.Clear();
             hostServer = null;
             SteamFriends.ClearRichPresence();
             Status = string.Format(Strings.SteamReady, SteamFriends.GetPersonaName());

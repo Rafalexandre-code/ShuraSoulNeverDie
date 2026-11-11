@@ -144,6 +144,13 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **Configurações**: seções (Som, Imagem, Jogo e acessibilidade), barras de tinta que se arrastam com o mouse, interruptores, escolha de resolução com setas, os controles à direita e uma nota explicando a opção destacada.
 - **Créditos**: em duas colunas (quem fez / do que é feito), com a direção criativa de Rafael Alexandre de Pinho Lopes.
 
+## Sala online, convites e Altar de cada um (v0.4.3) — ✅
+
+- **Sala online refeita**: à esquerda o que você faz e uma linha de situação (sozinho / esperando N prontos / todos prontos); à direita os 8 lugares do grupo (personagem, armas, anfitrião / ✓ pronto / escolhendo, ping) e "Como os amigos entram": Steam (situação e passos) e mesma rede/Radmin (endereços que se copiam com um clique). O convidado vê a mesma sala, com o próprio ping.
+- **Convidar amigos (Steam) consertado**: o botão abria a sobreposição da Steam, que não aparece num jogo aberto fora da Steam. Agora abre a lista de amigos dentro do jogo (foto, quem está com o Shura aberto, online, ausente) e envia o convite direto no chat da Steam; aceitar com o Shura aberto entra na sala. "Entrar no jogo" pela lista de amigos da Steam também leva à sala.
+- **Altar das Almas de cada um**: cada convidado entra com as próprias melhorias (enviadas ao anfitrião), quem joga pelo navegador entra sem nenhuma, e os Ecos da run vão para o Altar de cada convidado ao fim dela (ou ao sair). O Altar fica acessível na sala do convidado.
+- **Nome inicial = nome da Steam** para quem nunca escolheu um nome.
+
 ## Apresentação e acessibilidade (§10) — ⏳
 
 10.1 tabela de impacto · 10.2 câmera e finalizações em tinta · 10.3 som que informa · 10.4 música adaptativa (🟡 música abafada em Mushin/Iai já feita) · 10.5 interface diegética · 10.6 luz 2D (provável adiamento: o projeto usa Built-in RP; luz 2D exige URP) · 10.7 acessibilidade (🟡 anéis com padrão próprio por tipo) · 10.8 replay e foto.

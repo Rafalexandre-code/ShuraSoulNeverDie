@@ -181,6 +181,8 @@ namespace Shura
         public void Leave(bool toMenu = true)
         {
             bool was = Joined;
+            // Leaving in the middle of a run still banks what it was worth.
+            if (was && inRun) BankRun();
             link?.Close();
             link = null;
             Joined = false;
@@ -448,11 +450,31 @@ namespace Shura
             return actorIndex >= 0 && MiniJson.I(ev, actorIndex, -1) == MyId;
         }
 
+        bool inRun;
+        int runEcos;
+
+        /// <summary>The Ecos of the run go to this player's own Altar das Almas, once.</summary>
+        void BankRun()
+        {
+            inRun = false;
+            int ecos = runEcos;
+            runEcos = 0;
+            game.BankGuestRun(ecos);
+        }
+
         void OnModeSeen(string mode)
         {
+            Snap latest = Latest;
+            bool runMode = mode != "lobby" && mode != "over";
+            if (runMode && latest != null && latest.d != null && latest.d.ContainsKey("ec"))
+            {
+                inRun = true;
+                runEcos = Math.Max(runEcos, MiniJson.I(latest.d, "ec"));
+            }
             if (mode == lastMode) return;
             string was = lastMode;
             lastMode = mode;
+            if ((mode == "lobby" || mode == "over") && inRun) BankRun();
             if (mode == "play" && (was == "lobby" || was == "over"))
             {
                 // A run starts: a clean log and floor, ready again next time.
@@ -700,7 +722,7 @@ namespace Shura
             GameSettings s = game.Settings;
             sb.Clear();
             sb.Append("{\"t\":\"join\",\"name\":").Str(GuestName).Append(",\"a\":").Str(s.weaponA).Append(",\"b\":").Str(s.weaponB)
-              .Append(",\"art\":").Int(s.playerArt).Append('}');
+              .Append(",\"art\":").Int(s.playerArt).Append(",\"mt\":").Str(game.Meta.LevelsCode()).Append('}');
             Send(sb.ToString());
         }
 
@@ -711,7 +733,7 @@ namespace Shura
             GameSettings s = game.Settings;
             sb.Clear();
             sb.Append("{\"t\":\"loadout\",\"name\":").Str(GuestName).Append(",\"a\":").Str(s.weaponA).Append(",\"b\":").Str(s.weaponB)
-              .Append(",\"art\":").Int(s.playerArt).Append('}');
+              .Append(",\"art\":").Int(s.playerArt).Append(",\"mt\":").Str(game.Meta.LevelsCode()).Append('}');
             Send(sb.ToString());
         }
 

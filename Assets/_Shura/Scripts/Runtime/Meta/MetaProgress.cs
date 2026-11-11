@@ -63,6 +63,33 @@ namespace Shura
             return true;
         }
 
+        /// <summary>The upgrade levels as a short code ("vigor:5,postura:4") for the online room.</summary>
+        public string LevelsCode()
+        {
+            var parts = new List<string>();
+            foreach (MetaUpgradeDef def in MetaUpgrades.All)
+            {
+                int level = GetLevel(def.id);
+                if (level > 0) parts.Add(def.id + ":" + level);
+            }
+            return string.Join(",", parts);
+        }
+
+        /// <summary>A duelist's own Altar from their code (unknown ids dropped, levels capped).</summary>
+        public static MetaProgress FromLevelsCode(string code)
+        {
+            var p = new MetaProgress();
+            if (string.IsNullOrEmpty(code)) return p;
+            foreach (string part in code.Split(','))
+            {
+                string[] kv = part.Split(':');
+                if (kv.Length != 2 || !int.TryParse(kv[1], out int level)) continue;
+                MetaUpgradeDef def = MetaUpgrades.Get(kv[0].Trim());
+                if (def != null) p.SetLevel(def.id, Mathf.Clamp(level, 0, def.maxLevel));
+            }
+            return p;
+        }
+
         public void ApplyTo(PlayerModifiers m)
         {
             foreach (MetaUpgradeDef def in MetaUpgrades.All) def.Apply(m, GetLevel(def.id));

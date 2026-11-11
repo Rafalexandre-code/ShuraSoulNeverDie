@@ -37,6 +37,8 @@ namespace Shura
             public int art;
             public bool ready;
             public readonly NetInput input = new NetInput();
+            /// <summary>Their own Altar das Almas (empty for a browser player): never the host's.</summary>
+            public MetaProgress meta = new MetaProgress();
             public PlayerController player;
             /// <summary>This player's own reward cards after a room (empty once they picked).</summary>
             public readonly List<RewardDef> choices = new List<RewardDef>();
@@ -298,9 +300,12 @@ namespace Shura
             r.weaponB = WeaponDefs.Exists(m.b) && m.b != r.weaponA ? m.b : (r.weaponA == "montante" ? "katana" : "montante");
             r.slot = FreeSlot();
             r.art = m.art >= 0 && m.art < PlayerController.PartyArt.Length ? m.art : r.slot;
+            r.meta = MetaProgress.FromLevelsCode(m.mt);
             r.joined = true;
             r.player = game.World.AddPlayer(r.name, r.input, WeaponDefs.Get(r.weaponA), WeaponDefs.Get(r.weaponB), r.art);
             r.player.NetId = r.id;
+            // Joining mid-run: their build is already made; it takes their own Altar now.
+            if (r.player.Build != null) ApplyOwnAltar(r, true);
             game.OnPartyChanged();
 
             sb.Clear();
@@ -309,6 +314,24 @@ namespace Shura
             if (roomMessage != null) server.Send(r.id, roomMessage);
             game.UI.Toast(string.Format(Strings.NetJoined, r.name), game.Config.palette.gold);
             Debug.Log("[Shura][Net] Entrou: " + r.name + " (" + r.address + ") com " + r.weaponA + "+" + r.weaponB);
+        }
+
+        /// <summary>The run's builds exist: every guest's takes their own Altar das Almas.</summary>
+        public void AfterRunBegan()
+        {
+            foreach (Remote r in remotes.Values)
+            {
+                if (r.joined && r.player?.Build != null) ApplyOwnAltar(r, true);
+            }
+        }
+
+        void ApplyOwnAltar(Remote r, bool fresh)
+        {
+            PlayerBuild b = r.player.Build;
+            b.OwnMeta = r.meta ?? new MetaProgress();
+            b.RecomputeModifiers();
+            r.player.ApplyStats(fresh);
+            if (fresh && b.Modifiers.startFlowPoints > 0f) b.Flow.Add(b.Modifiers.startFlowPoints);
         }
 
         /// <summary>A run starts: everyone is "choosing" again for the next time the room opens.</summary>
@@ -325,6 +348,8 @@ namespace Shura
         void ChangeLoadout(Remote r, NetIn m)
         {
             if (!string.IsNullOrEmpty(m.name)) r.name = GameSettings.CleanName(m.name, r.name);
+            // The Altar changes between runs; the next run's build takes it.
+            if (m.mt != null && (game.Run == null || game.CurrentMode == Game.Mode.GameOver)) r.meta = MetaProgress.FromLevelsCode(m.mt);
             if (m.art >= 0 && m.art < PlayerController.PartyArt.Length) r.art = m.art;
             if (r.player == null) return;
             r.player.DisplayName = r.name;

@@ -151,7 +151,8 @@ namespace Shura
                 items.Add(new MenuItem
                 {
                     label = Strings.LobbyName,
-                    value = () => editingName ? nameBuffer + (Mathf.Repeat(Time.unscaledTime, 1f) < 0.5f ? "|" : " ") : game.Settings.playerName,
+                    value = () => editingName ? nameBuffer + (Mathf.Repeat(Time.unscaledTime, 1f) < 0.5f ? "|" : " ")
+                                : Remote.Me != null ? MiniJson.S(Remote.Me, 1) : game.Settings.playerName,
                     activate = BeginNameEdit,
                 });
                 items.Add(new MenuItem
@@ -162,6 +163,7 @@ namespace Shura
                     adjust = CycleGuestArt,
                 });
                 AddItem(Strings.LobbyWeapons, game.OpenArsenal);
+                AddItem(Strings.Altar, game.OpenAltar);
                 AddItem(Strings.Settings, game.OpenSettings);
                 AddItem(Strings.RemoteLeave, game.LeaveRemote);
                 return;
@@ -206,7 +208,6 @@ namespace Shura
             if (r.Between)
             {
                 DrawRemoteLobby();
-                DrawPing();
                 return;
             }
             if (r.Cards.Count > 0) DrawRemoteCards();
@@ -222,44 +223,6 @@ namespace Shura
             float ms = Remote.Ping * 1000f;
             Color c = ms < 80f ? Pal.blessing : ms < 150f ? Pal.gold : Pal.danger;
             Label(new Rect(VW - 330f, VH - 88f, 320f, 30f), string.Format(Strings.RemotePing, Mathf.RoundToInt(ms)), capsRightStyle, c.WithAlpha(0.85f));
-        }
-
-        void DrawRemoteLobby()
-        {
-            RemoteSession r = Remote;
-            RemoteSession.Snap s = r.Latest;
-            bool over = r.Mode == "over";
-            DrawRect(FullScreen, UiKit.Ink.WithAlpha(0.35f));
-            kit.Logo(new Rect(70f, 30f, 420f, 214f), UiKit.Ink);
-            var left = new Rect(80f, 250f, 640f, 780f);
-            kit.PaperPanel(left);
-            string host = "?";
-            if (s.players.TryGetValue(0, out List<object> h)) host = MiniJson.S(h, 1);
-            Heading(new Rect(left.x, left.y + 36f, left.width, 90f), over ? Strings.DeathTitle : string.Format(Strings.RemoteLobbyTitle, host), UiKit.Ink, UiKit.Shu.WithAlpha(0.85f), 420f);
-            DrawMenuList(left.y + 160f, 64f, 560f, left.center.x, true);
-            Label(new Rect(left.x + 60f, left.yMax - 170f, left.width - 120f, 130f), r.Ready ? Strings.RemoteWaitHost : Strings.RemoteReadyHint, cardBodyStyle, r.Ready ? UiKit.Ai : UiKit.InkSoft);
-
-            var right = new Rect(780f, 60f, 1080f, 970f);
-            kit.PaperPanel(right);
-            Label(new Rect(right.x + 70f, right.y + 50f, right.width - 140f, 60f), r.Status, bodyStyle, UiKit.Ai);
-            float y = right.y + 130f;
-            kit.Underline(new Rect(right.x + 60f, y, right.width - 120f, 16f), UiKit.Ink.WithAlpha(0.45f));
-            int count = s.P != null ? s.P.Count : 0;
-            Label(new Rect(right.x + 70f, y + 20f, 600f, 40f), Strings.LobbyPlayers + "  ·  " + count + " / " + PartyScaling.MaxPlayers, capsStyle, UiKit.Shu);
-            y += 70f;
-            if (s.P == null) return;
-            foreach (object o in s.P)
-            {
-                if (!(o is List<object> p)) continue;
-                int id = MiniJson.I(p, 0);
-                string name = MiniJson.S(p, 1);
-                if (id == r.MyId) name = string.Format(Strings.LobbyHostName, name);
-                else if (id == 0) name = string.Format(Strings.RemoteHostName, name);
-                if (MiniJson.B(p, 32) && id != 0) name += "  ✓";
-                DrawLobbyPlayer(new Rect(right.x + 60f, y, right.width - 120f, 64f), MiniJson.S(p, 2), name,
-                                MiniJson.S(p, 24) + "  ·  " + MiniJson.S(p, 25), id == r.MyId ? r.Ping : -1f);
-                y += 70f;
-            }
         }
 
         void DrawRemoteHud()

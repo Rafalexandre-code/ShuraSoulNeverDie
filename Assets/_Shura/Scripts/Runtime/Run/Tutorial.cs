@@ -269,6 +269,10 @@ namespace Shura
                 case Step.Dodge: Goal = 1; break;
                 case Step.DodgeFree: Goal = 2; break;
                 case Step.Finisher: finishersBase = b != null ? b.Finishers : 0; break;
+                case Step.SwapParry:
+                    // A clean arm: the swap can always become a parry here.
+                    p.ClearWounds();
+                    break;
                 case Step.Stances:
                     Goal = 4;
                     StanceMask = 1 << (int)p.Stance;
@@ -454,7 +458,8 @@ namespace Shura
         void TryFreeze(PlayerController p)
         {
             int until = partner.FramesUntilActive;
-            int at = Current == Step.Parry ? Mathf.Max(2, Mathf.Min(game.Config.feel.timingCueLeadFrames, p.PerfectParryFrames - 2)) : 4;
+            // Parry and the Troca Perfeita share the perfect window: stop well inside it.
+            int at = Current == Step.Dodge ? 4 : Mathf.Max(2, Mathf.Min(game.Config.feel.timingCueLeadFrames, p.PerfectParryFrames - 2));
             if (until > at || until < 1) return;
             // Too far to be hit: no lesson in this blow.
             if (Vector2.Distance(p.Position, partner.Position) > 4.5f) return;

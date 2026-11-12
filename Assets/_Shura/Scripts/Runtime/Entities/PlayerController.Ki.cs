@@ -255,6 +255,9 @@ namespace Shura
         {
             if (!IsAlive) return;
             if (CurrentState == State.Attack || CurrentState == State.Deflected || CurrentState == State.Swap || CurrentState == State.Parry) Enter(State.Free);
+            // A try just before the frozen moment must not shrink the answer's window.
+            framesSinceSwap = 9999;
+            lastSwapSucceeded = true;
         }
 
         /// <summary>Tutorial: a full gourd again.</summary>
@@ -512,6 +515,8 @@ namespace Shura
         /// <summary>A blow that landed: where it came from decides which part of the body it wounds.</summary>
         void RegisterWound(Vector2 toAttacker, Enemy attacker)
         {
+            // Nobody is maimed in the dojo (the bandage lesson's cut is given on purpose).
+            if (world.TutorialRoom) return;
             if (Build != null && Build.IgnoreFirstWound && !Build.FirstWoundIgnored)
             {
                 Build.FirstWoundIgnored = true;
@@ -838,7 +843,11 @@ namespace Shura
 
         public void ClearWounds()
         {
-            for (int i = 0; i < wounds.Length; i++) wounds[i] = false;
+            for (int i = 0; i < wounds.Length; i++)
+            {
+                wounds[i] = false;
+                woundHits[i] = 0;
+            }
             RingHiddenFrames = 0;
         }
 

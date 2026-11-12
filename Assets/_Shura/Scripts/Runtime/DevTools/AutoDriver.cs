@@ -29,6 +29,8 @@ namespace Shura
         bool pauseTourDone;
         bool settingsShotDone;
         bool altarShotDone;
+        int templeShot;
+        bool heirShotDone;
         bool equipmentShotDone;
         bool finished;
         Game.Mode lastMode;
@@ -208,15 +210,49 @@ namespace Shura
                 case Game.Mode.GameOver:
                     if (ShotThenAct(game.CurrentMode.ToString().ToLowerInvariant(), shots ? 1.2f : 0f))
                     {
-                        if (shots && !altarShotDone) game.OpenAltar();
+                        if (shots && templeShot == 0)
+                        {
+                            // The temple's tour: everything rebuilt, a few oaths and tombs to look at.
+                            game.DevPrepareTempleShots();
+                            game.OpenTemple();
+                        }
                         else Finish("fim normal");
                     }
+                    break;
+                case Game.Mode.Temple:
+                    if (!altarShotDone)
+                    {
+                        string[] views = { "templo", "templo_dojo", "templo_biblioteca", "templo_jardim", "templo_cemiterio" };
+                        if (templeShot < views.Length)
+                        {
+                            game.UI.ShowTempleViewForShots(templeShot);
+                            if (ShotThenAct(views[templeShot], wait)) templeShot++;
+                            break;
+                        }
+                        game.UI.ShowTempleViewForShots(0);
+                        game.OpenAltar();
+                        break;
+                    }
+                    if (!heirShotDone && game.Meta.heirs.Count > 0)
+                    {
+                        game.OpenHeir(Game.Mode.GameOver);
+                        break;
+                    }
+                    game.CloseTemple();
+                    if (game.CurrentMode != Game.Mode.GameOver) Finish("fim normal");
                     break;
                 case Game.Mode.Altar:
                     if (ShotThenAct("altar", wait))
                     {
                         altarShotDone = true;
                         game.CloseAltar();
+                    }
+                    break;
+                case Game.Mode.Heir:
+                    if (ShotThenAct("herdeiro", wait))
+                    {
+                        heirShotDone = true;
+                        game.ChooseHeir(0);
                     }
                     break;
             }

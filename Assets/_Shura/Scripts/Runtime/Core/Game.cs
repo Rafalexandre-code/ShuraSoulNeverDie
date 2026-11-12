@@ -9,7 +9,7 @@ namespace Shura
     /// scene is a single GameObject and nothing depends on hand-edited scene data.
     /// </summary>
     [DefaultExecutionOrder(-100)]
-    public sealed class Game : MonoBehaviour
+    public sealed partial class Game : MonoBehaviour
     {
         public enum Mode
         {
@@ -34,6 +34,10 @@ namespace Shura
             SteamJoin,
             /// <summary>A guest in a friend's duel: the host's game runs it, this window draws it and plays.</summary>
             Remote,
+            /// <summary>The ruined temple between runs (design doc §7.1).</summary>
+            Temple,
+            /// <summary>A disciple fell: choose the next one among three.</summary>
+            Heir,
         }
 
         const int RoomClearDelayFrames = 75;
@@ -387,6 +391,7 @@ namespace Shura
         public void Play()
         {
             if (!Settings.tutorialDone && Meta.runs == 0 && !Launch.Automated) StartTutorial();
+            else if (Meta.heirs.Count > 0) OpenHeir(Mode.Arsenal);
             else OpenArsenal();
         }
 
@@ -464,12 +469,13 @@ namespace Shura
             Tutorial.Stop();
             // Restarting mid-run still banks what was earned: progress is never thrown away.
             if (Run != null && !Run.Banked) BankRun();
-            ulong seed = Launch.Seed ?? (ulong)DateTime.UtcNow.Ticks;
+            ulong seed = Launch.Seed ?? GardenSeed() ?? (ulong)DateTime.UtcNow.Ticks;
             Run = new RunState(seed, Config.flow, Meta);
             string weaponA = Launch.Automated && Launch.WeaponA != null ? Launch.WeaponA : Settings.Loadout(Settings.weaponA);
             string weaponB = Launch.Automated && Launch.WeaponB != null ? Launch.WeaponB : Settings.Loadout(Settings.weaponB);
             Run.Weapons[0] = WeaponDefs.Get(weaponA);
             Run.Weapons[1] = WeaponDefs.Get(weaponB);
+            PrepareJourney();
             if (Run.Modifiers.startFlowPoints > 0f) Run.Flow.Add(Run.Modifiers.startFlowPoints);
             roomClearTimer = -1;
             deathTimer = -1;
@@ -513,6 +519,7 @@ namespace Shura
 
         public void OpenArsenal()
         {
+            arsenalForTemple = CurrentMode == Mode.Temple;
             arsenalForLobby = CurrentMode == Mode.Lobby;
             arsenalForRemote = CurrentMode == Mode.Remote;
             SetMode(Mode.Arsenal);
@@ -523,8 +530,9 @@ namespace Shura
         {
             if (arsenalForRemote && Remote.Joined) SetMode(Mode.Remote);
             else if (arsenalForLobby && Net.Active) SetMode(Mode.Lobby);
+            else if (arsenalForTemple) SetMode(Mode.Temple);
             else SetMode(Mode.MainMenu);
-            arsenalForLobby = arsenalForRemote = false;
+            arsenalForLobby = arsenalForRemote = arsenalForTemple = false;
         }
 
         // ── Online ────────────────────────────────────────────────────────────────────
@@ -573,6 +581,13 @@ namespace Shura
             {
                 arsenalForLobby = false;
                 SetMode(Mode.Lobby);
+                return;
+            }
+            arsenalForTemple = false;
+            // A disciple fell: the next body is chosen before the road.
+            if (Meta.heirs.Count > 0 && !Launch.Automated)
+            {
+                OpenHeir(Mode.Playing);
                 return;
             }
             StartRun();
@@ -824,12 +839,14 @@ namespace Shura
             return false;
         }
 
-        void BankRun()
+        /// <param name="died">The run ended in death (a restart or a quit does not bury the disciple).</param>
+        void BankRun(bool died = false)
         {
             if (Run == null || Run.Banked) return;
             Run.EcosBanked = MetaRules.EcosForRun(Run);
             Run.Banked = true;
             Meta.RecordRun(Run.EcosBanked, Run.RoomsCleared, false);
+            BankLegacy(died);
             SaveMeta();
         }
 
@@ -920,7 +937,7 @@ namespace Shura
 
         public void DevForceGameOver()
         {
-            BankRun();
+            BankRun(true);
             SetMode(Mode.GameOver);
         }
 
@@ -1003,7 +1020,7 @@ namespace Shura
             if (Run.AllyRooms > 0) Run.AllyRooms--;
             // Ascension: the duelist grows with every room, so depth is a race, not a wall.
             Run.Ascend();
-            float heal = Mathf.Max(0f, Config.player.healOnRoomClear + Run.Modifiers.roomClearHealBonus);
+            float heal = Run.Modifiers.noRoomHeal ? 0f : Mathf.Max(0f, Config.player.healOnRoomClear + Run.Modifiers.roomClearHealBonus);
             foreach (PlayerController p in World.Players)
             {
                 p.ApplyStats(false);
@@ -1037,7 +1054,7 @@ namespace Shura
             if (deathTimer > 0 && --deathTimer == 0)
             {
                 deathTimer = -1;
-                BankRun();
+                BankRun(true);
                 SetMode(Mode.GameOver);
             }
         }

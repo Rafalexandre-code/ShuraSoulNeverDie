@@ -83,6 +83,8 @@ namespace Shura
         public int ParryWindowFrames => parryWindow;
 
         PlayerModifiers Mods => Build != null ? Build.Modifiers : DefaultMods;
+        /// <summary>Oath "Anel Silencioso": chance that a blow shows no ring to this duelist.</summary>
+        public float SilentRingChance => Mods.silentRingChance;
         int FlowLevel => Build != null ? Build.Flow.Level : 0;
         /// <summary>This duelist's own weapons, items, rewards and Flow.</summary>
         public PlayerBuild Build { get; private set; }
@@ -256,7 +258,7 @@ namespace Shura
         /// <summary>Re-applies max values after rewards change; never heals unless asked.</summary>
         public void ApplyStats(bool fullHeal)
         {
-            MaxHealth = Mathf.Max(1f, t.maxHealth + Mods.maxHealthBonus);
+            MaxHealth = Mathf.Max(1f, (t.maxHealth + Mods.maxHealthBonus) * Mods.maxHealthMult);
             Health = fullHeal ? MaxHealth : Mathf.Min(Health, MaxHealth);
             Posture.SetMax(t.maxPosture + Mods.maxPostureBonus);
             MaxDodgeCharges = Mathf.Max(1, t.dodgeCharges + Mods.dodgeChargeBonus);
@@ -682,10 +684,11 @@ namespace Shura
             if (framesSinceSwap < t.swapSpamWindow && !lastSwapSucceeded) window = Mathf.Max(1, window / 2);
             framesSinceSwap = 0;
             lastSwapSucceeded = false;
-            // A wounded sword arm cannot turn the swap into a parry.
-            swapWindow = HasWound(WoundRegion.Arm) ? 0 : window;
+            // A wounded sword arm cannot turn the swap into a parry (nor can an oath of one blade).
+            swapWindow = HasWound(WoundRegion.Arm) || Mods.noSwapParry ? 0 : window;
             activeWeapon = 1 - activeWeapon;
             if (Build != null) Build.ActiveWeapon = activeWeapon;
+            RotateReserve();
             ApplyWeaponVisual();
             UpdateFacing(true);
             ReleaseCharge(outgoing, outgoingCharge);
@@ -698,6 +701,19 @@ namespace Shura
             Squash(0.85f, 1.15f);
             world.Fx.Emit(FxType.WeaponSwap, Position, Facing, 1f, Weapon.color);
             return true;
+        }
+
+        /// <summary>
+        /// Segunda Troca: the hand just emptied takes the sheathed third weapon, so the swap
+        /// cycles A › B › C › A and the next swap always brings the one that waited longest.
+        /// </summary>
+        void RotateReserve()
+        {
+            if (Build == null || Build.Reserve == null || !Mods.thirdWeapon || loadout != Build.Weapons) return;
+            int emptied = 1 - activeWeapon;
+            WeaponDef left = loadout[emptied];
+            loadout[emptied] = Build.Reserve;
+            Build.Reserve = left;
         }
 
         void StartSwapStrike()
@@ -843,6 +859,7 @@ namespace Shura
             if (Mods.trailElement != Element.None) return Elements.Color(Mods.trailElement);
             if (ougiActive && CurrentState == State.SwapStrike) return WeaponMastery.BladeColor(Weapon);
             if (MasteryOf(Weapon) >= 4) return WeaponMastery.BladeColor(Weapon);
+            if (Mods.bladeColor.a > 0f) return Mods.bladeColor;
             return Weapon.trail;
         }
 

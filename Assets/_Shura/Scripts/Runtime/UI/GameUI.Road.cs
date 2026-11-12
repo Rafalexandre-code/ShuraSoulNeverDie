@@ -49,6 +49,14 @@ namespace Shura
             Label(new Rect(0, 132, VW, 30), string.Join("  ·  ", parts), smallStyleCenter, UiKit.PaperDim);
             FitLabel(new Rect(VW * 0.5f - 320f, 158, 640f, 30), Biomes.RuleText(w.BiomeRule), smallStyleCenter, UiKit.PaperDim.WithAlpha(0.75f));
 
+            // Oath "Pressa": the room's sand runs out.
+            if (w.HasteOn)
+            {
+                bool out_ = w.HasteLeft <= 0f;
+                float pulse = out_ || w.HasteLeft < 15f ? 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 8f) : 1f;
+                string t = out_ ? Strings.HudHasteOver : string.Format(Strings.HudHaste, Mathf.CeilToInt(w.HasteLeft));
+                Label(new Rect(VW * 0.5f + 330f, 128f, 360f, 36f), t, cardKindStyleSmall, (out_ || w.HasteLeft < 15f ? Pal.danger : Pal.gold).WithAlpha(pulse));
+            }
             if (room.challenge != ChallengeKind.None)
             {
                 string text = w.ChallengeFailed ? Strings.HudChallengeFailed : string.Format(Strings.HudChallenge, RouteMap.ChallengeName(room.challenge));

@@ -28,11 +28,63 @@ namespace Shura
 
         // ── Route map ────────────────────────────────────────────────────────────────
 
-        static RemoteSession.Door DoorOf(RouteNode n) => new RemoteSession.Door
+        RemoteSession.Door DoorOf(RouteNode n) => new RemoteSession.Door
         {
-            kind = n.kind, glyph = RouteMap.KindGlyph(n.kind), text = RouteMap.Describe(n), kindText = RouteMap.KindText(n.kind),
+            kind = n.kind, glyph = RouteMap.KindGlyph(n.kind), text = RouteMap.Describe(n), kindText = Clairvoyant(n) ?? RouteMap.KindText(n.kind),
             color = RouteMap.KindColor(n.kind), column = n.column,
         };
+
+        readonly Dictionary<long, string> clairvoyance = new Dictionary<long, string>();
+        ulong clairvoyanceSeed;
+
+        /// <summary>
+        /// Altar "Clarividência": the whole room behind a door — its waves, who fights in
+        /// them, the Guardian, the weather and the hour (null without the node, or for encounters).
+        /// </summary>
+        string Clairvoyant(RouteNode n)
+        {
+            RunState run = game.Run;
+            if (run == null || !run.Modifiers.clairvoyance || RouteMap.IsEncounter(n.kind)) return null;
+            if (clairvoyanceSeed != run.Seed)
+            {
+                clairvoyance.Clear();
+                clairvoyanceSeed = run.Seed;
+            }
+            long key = ((long)n.depth << 16) | (long)(n.index & 0xFFFF);
+            if (clairvoyance.TryGetValue(key, out string cached)) return cached;
+            RoomDef room = RoomGenerator.Generate(run.Seed, n.depth, n);
+            var counts = new Dictionary<string, int>();
+            var order = new List<string>();
+            string guardian = null;
+            foreach (EnemySpawn[] wave in room.waves)
+            {
+                foreach (EnemySpawn s in wave)
+                {
+                    if (!EnemyDefs.TryGet(s.id, out EnemyDef def)) continue;
+                    if (s.elite)
+                    {
+                        guardian = def.displayName;
+                        continue;
+                    }
+                    if (!counts.ContainsKey(def.displayName))
+                    {
+                        counts[def.displayName] = 0;
+                        order.Add(def.displayName);
+                    }
+                    counts[def.displayName]++;
+                }
+            }
+            var foes = new List<string>();
+            foreach (string name in order) foes.Add(counts[name] > 1 ? name + " ×" + counts[name] : name);
+            var sb = new System.Text.StringBuilder();
+            sb.Append(room.waves.Length).Append(room.waves.Length == 1 ? " onda: " : " ondas: ").Append(string.Join(", ", foes));
+            if (guardian != null) sb.Append("\nGuardião: ").Append(guardian);
+            sb.Append("\n").Append(room.biome.name);
+            if (room.weather != Weather.Clear) sb.Append(" · ").Append(Biomes.WeatherName(room.weather));
+            string text = sb.ToString();
+            clairvoyance[key] = text;
+            return text;
+        }
 
         readonly List<RemoteSession.Door> routeDoors = new List<RemoteSession.Door>();
         readonly List<List<RemoteSession.Door>> routeAhead = new List<List<RemoteSession.Door>>();

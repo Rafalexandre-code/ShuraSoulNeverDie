@@ -800,6 +800,13 @@ namespace Shura
             Flash(0.08f);
         }
 
+        /// <summary>Oath "Pressa": past the room's time the body wears down (never below 1).</summary>
+        public void HasteDrain(float amount)
+        {
+            if (!IsAlive || Health <= 1f) return;
+            Health = Mathf.Max(1f, Health - amount);
+        }
+
         /// <summary>Inside a perfect parry (or swap) window right now.</summary>
         public bool InPerfectWindow =>
             (CurrentState == State.Parry && StateFrame < parryWindow) || (CurrentState == State.Swap && StateFrame < swapWindow);
@@ -879,8 +886,12 @@ namespace Shura
         }
 
         /// <summary>Taking a hit ends Mushin and the Link chain, and wounds.</summary>
+        /// <summary>Who dealt the last blow (for the death poem); null = the road itself.</summary>
+        public string LastKillerName { get; private set; }
+
         void OnHurtKi(Vector2 toAttacker, Enemy attacker)
         {
+            LastKillerName = attacker != null && attacker.Def != null ? attacker.Def.displayName : null;
             if (InMushin)
             {
                 if (Build != null && (Build.MushinSurvivesHit || Mods.mushinSurvivesHit) && !mushinGraceUsed) mushinGraceUsed = true;

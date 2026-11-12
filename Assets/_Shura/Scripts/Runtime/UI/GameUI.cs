@@ -167,9 +167,18 @@ namespace Shura
             {
                 arsenalPicks.Clear();
                 arsenalPicks.Add(game.Settings.weaponA);
-                arsenalPicks.Add(game.Settings.weaponB);
+                int max = ArsenalMaxPicks;
+                if (max > 1 && game.Settings.weaponB != game.Settings.weaponA) arsenalPicks.Add(game.Settings.weaponB);
+                string c = game.Settings.weaponC;
+                if (max > 2 && !string.IsNullOrEmpty(c) && WeaponDefs.Exists(c) && !arsenalPicks.Contains(c)) arsenalPicks.Add(c);
                 arsenalIndex = 0;
                 forgeOpen = false;
+            }
+            if (mode == Game.Mode.Temple) OnTempleOpened();
+            if (mode == Game.Mode.Altar || mode == Game.Mode.Heir)
+            {
+                slotIndex = 0;
+                listCount = 0;
             }
             if (mode == Game.Mode.Equipment) equipIndex = 0;
             modeChangedFrame = Time.frameCount;
@@ -214,7 +223,7 @@ namespace Shura
             if (game.Launch.Automated || Time.frameCount == modeChangedFrame) return;
 
             InputService input = game.Controls;
-            if (editingName || editingIp) return;
+            if (editingName || editingIp || editingSeed) return;
             switch (game.CurrentMode)
             {
                 case Game.Mode.Title:
@@ -235,6 +244,11 @@ namespace Shura
                     break;
                 case Game.Mode.Equipment:
                     HandleEquipment(input);
+                    break;
+                case Game.Mode.Temple:
+                case Game.Mode.Altar:
+                case Game.Mode.Heir:
+                    HandleSlots(input);
                     break;
                 case Game.Mode.Playing:
                     break;
@@ -354,7 +368,7 @@ namespace Shura
                     AddItem(Strings.TutorialMenu, game.StartTutorial);
                     AddItem(Strings.PlayOnline, game.OpenLobby);
                     AddItem(Strings.JoinSteam, game.OpenSteamJoin);
-                    AddItem(Strings.Altar, game.OpenAltar);
+                    AddItem(Strings.Temple, game.OpenTemple);
                     AddItem(Strings.Settings, game.OpenSettings);
                     AddItem(Strings.Credits, game.OpenCredits);
                     AddItem(Strings.Quit, game.QuitGame);
@@ -440,18 +454,10 @@ namespace Shura
                     AddItem(Strings.Back, game.GoToMainMenu);
                     break;
                 case Game.Mode.GameOver:
-                    AddItem(Strings.NewRun, game.StartRun);
+                    AddItem(game.Meta.heirs.Count > 0 ? Strings.HeirChoose : Strings.NewRun, game.NewRunFromEnd);
                     AddItem(Strings.Arsenal, game.OpenArsenal);
-                    AddItem(Strings.Altar, game.OpenAltar);
+                    AddItem(Strings.Temple, game.OpenTemple);
                     AddItem(Strings.MainMenu, game.QuitToMenu);
-                    break;
-                case Game.Mode.Altar:
-                    foreach (MetaUpgradeDef def in MetaUpgrades.All)
-                    {
-                        MetaUpgradeDef captured = def;
-                        AddItem(def.name, () => game.TryBuyUpgrade(captured));
-                    }
-                    AddItem(Strings.Back, game.CloseAltar);
                     break;
             }
             if (items.Count > 0) menuIndex = Mathf.Clamp(menuIndex, 0, items.Count - 1);
@@ -722,7 +728,7 @@ namespace Shura
                 Game.Mode m = game.CurrentMode;
                 if (m == Game.Mode.Arsenal && game.Remote.Joined) return false;
                 return m == Game.Mode.Title || m == Game.Mode.MainMenu || m == Game.Mode.Credits || m == Game.Mode.Arsenal ||
-                       m == Game.Mode.Altar || m == Game.Mode.Lobby || m == Game.Mode.SteamJoin || (m == Game.Mode.Settings && !game.SettingsFromPause);
+                       m == Game.Mode.Altar || m == Game.Mode.Temple || m == Game.Mode.Heir || m == Game.Mode.Lobby || m == Game.Mode.SteamJoin || (m == Game.Mode.Settings && !game.SettingsFromPause);
             }
         }
 
@@ -775,6 +781,7 @@ namespace Shura
 
             HandleNameTyping();
             HandleIpTyping();
+            HandleSeedTyping();
             Game.Mode mode = game.CurrentMode;
             bool inRun = mode == Game.Mode.Playing || mode == Game.Mode.Paused || mode == Game.Mode.Reward;
             if (PaintingScreen)
@@ -821,6 +828,8 @@ namespace Shura
                 case Game.Mode.Route: DrawRoute(); break;
                 case Game.Mode.GameOver: DrawEnd(Strings.DeathTitle, Strings.DeathSubtitle); break;
                 case Game.Mode.Altar: DrawAltar(); break;
+                case Game.Mode.Temple: DrawTemple(); break;
+                case Game.Mode.Heir: DrawHeir(); break;
                 case Game.Mode.Arsenal: DrawArsenal(); break;
                 case Game.Mode.Equipment: DrawEquipment(); break;
                 case Game.Mode.Lobby: DrawLobby(); break;
@@ -1090,77 +1099,6 @@ namespace Shura
 
         // ── Altar ─────────────────────────────────────────────────────────────────────
 
-        void DrawAltar()
-        {
-            MetaProgress meta = game.Meta;
-            var panel = new Rect(210f, 16f, 1500f, 1048f);
-            kit.PaperPanel(panel);
-            Heading(new Rect(panel.x, panel.y + 34f, panel.width, 90f), Strings.AltarTitle, UiKit.Ink, UiKit.Shu.WithAlpha(0.85f));
-            Label(new Rect(panel.x, panel.y + 130f, panel.width, 36f), Strings.AltarSubtitle, bodyCenterStyle, UiKit.InkSoft);
-            Label(new Rect(panel.x, panel.y + 168f, panel.width, 64f), string.Format(Strings.EcosBalance, meta.ecos), ecosStyle, UiKit.GoldInk);
-
-            const float width = 1340f, rowH = 62f;
-            float top = panel.y + 250f;
-            float x = panel.center.x - width * 0.5f;
-            Event e = Event.current;
-            bool mouseMoved = (e.mousePosition - lastMouse).sqrMagnitude > 1f;
-            MetaUpgradeDef[] defs = MetaUpgrades.All;
-            for (int i = 0; i < items.Count; i++)
-            {
-                var r = new Rect(x, top + i * rowH, width, rowH - 8f);
-                bool hover = !game.Launch.Automated && r.Contains(e.mousePosition);
-                if (hover && e.type == EventType.Repaint && mouseMoved) menuIndex = i;
-                if (hover && e.type == EventType.MouseDown && e.button == 0)
-                {
-                    menuIndex = i;
-                    e.Use();
-                    Activate(i);
-                    return;
-                }
-
-                bool selected = i == menuIndex;
-                if (selected)
-                {
-                    kit.Stroke(new Rect(r.x - 30f, r.y - 10f, i >= defs.Length ? r.width : 470f, r.height + 20f), UiKit.Shu.WithAlpha(0.92f), CombatMath.EaseOutCubic(selAnim));
-                }
-                Color nameColor = selected ? UiKit.PaperText : UiKit.Ink;
-
-                if (i >= defs.Length)
-                {
-                    Label(r, items[i].label, itemStyle, nameColor);
-                    continue;
-                }
-
-                MetaUpgradeDef def = defs[i];
-                int level = meta.GetLevel(def.id);
-                bool maxed = meta.IsMaxed(def);
-                Label(new Rect(r.x + 10f, r.y, 420f, r.height), def.name, itemLeftStyle, nameColor);
-
-                for (int j = 0; j < def.maxLevel; j++)
-                {
-                    var pr = new Rect(r.x + 470f + j * 34f, r.y + r.height * 0.5f - 15f, 30f, 30f);
-                    kit.Dab(pr, j < level ? UiKit.Shu : UiKit.Ink.WithAlpha(0.16f));
-                }
-
-                string effect = level > 0 ? def.EffectAt(level) : "—";
-                if (!maxed) effect += "   ›   " + def.EffectAt(level + 1);
-                Label(new Rect(r.x + 680f, r.y, 450f, r.height), effect, smallStyle, UiKit.Ink);
-
-                string cost = maxed ? Strings.Max : string.Format(Strings.CostLabel, meta.NextCost(def));
-                Color costColor = maxed ? UiKit.GoldInk : meta.CanBuy(def) ? UiKit.Ink : UiKit.Shu;
-                Label(new Rect(r.xMax - 220f, r.y, 210f, r.height), cost, bodyRightStyle, costColor);
-            }
-
-            float by = top + items.Count * rowH + 6f;
-            kit.Underline(new Rect(panel.center.x - 500f, by, 1000f, 16f), UiKit.Ink.WithAlpha(0.45f));
-            if (menuIndex < defs.Length)
-            {
-                Label(new Rect(panel.x + 80f, by + 18f, panel.width - 160f, 36), defs[menuIndex].description, bodyCenterStyle, UiKit.Ink);
-            }
-            Label(new Rect(panel.x, by + 60f, panel.width, 30), string.Format(Strings.AltarStats, meta.runs, meta.bestRoom), smallStyleCenter, UiKit.InkSoft);
-            Label(new Rect(panel.x, panel.yMax - 70f, panel.width, 32), Strings.AltarControls, smallStyleCenter, UiKit.InkSoft);
-        }
-
         // ── Reward ────────────────────────────────────────────────────────────────────
 
         void DrawReward()
@@ -1335,6 +1273,9 @@ namespace Shura
                     y += 36;
                 }
                 Label(new Rect(0, 766f, VW, 44f), string.Format(Strings.EcosEarned, run.EcosBanked, game.Meta.ecos), ecosSmallStyle, Pal.gold);
+                // What the journey left: the currencies, the Karma, and the disciple's fate.
+                float lx = panel.xMax + 30f;
+                if (VW - lx - 20f >= 380f) DrawLegacyPanel(new Rect(lx, panel.y, Mathf.Min(540f, VW - lx - 24f), panel.height + 60f));
             }
             DrawMenuList(818f, 64f, 560f, VW * 0.5f, false);
         }
@@ -1454,6 +1395,21 @@ namespace Shura
         static int ArsenalBackIndex => ArsenalCount + 1;
         static int ArsenalForgeIndex => ArsenalCount + 2;
 
+        /// <summary>How many blades this arsenal takes: 1 (oath of one blade), 2, or 3 (Segunda Troca).</summary>
+        int ArsenalMaxPicks
+        {
+            get
+            {
+                if (game.Remote.Joined) return 2;
+                if (game.Meta.OathLevel(Oaths.SingleBlade) > 0) return 1;
+                return game.Meta.HasNode(AltarTree.SecondSwap) ? 3 : 2;
+            }
+        }
+
+        bool ArsenalReady => arsenalPicks.Count == ArsenalMaxPicks || (ArsenalMaxPicks == 3 && arsenalPicks.Count == 2);
+
+        bool ForgeBuilt => Temple.IsBuilt(game.Meta, Temple.Forge);
+
         bool forgeOpen;
         int forgeIndex;
 
@@ -1507,6 +1463,12 @@ namespace Shura
             }
             if (index == ArsenalForgeIndex)
             {
+                if (!ForgeBuilt)
+                {
+                    game.Audio.Play(Sfx.Denied, 0.6f, 1f, 0f);
+                    Toast(Strings.TempleNeedForge, Pal.danger);
+                    return;
+                }
                 if (arsenalPicks.Count == 0)
                 {
                     game.Audio.Play(Sfx.Denied, 0.6f, 1f, 0f);
@@ -1519,14 +1481,23 @@ namespace Shura
             }
             if (index == ArsenalStartIndex)
             {
-                if (arsenalPicks.Count == 2) game.ConfirmArsenal(arsenalPicks[0], arsenalPicks[1]);
-                else game.Audio.Play(Sfx.Denied, 0.6f, 1f, 0f);
+                if (!ArsenalReady)
+                {
+                    game.Audio.Play(Sfx.Denied, 0.6f, 1f, 0f);
+                    return;
+                }
+                string a = arsenalPicks[0];
+                // Under the oath of one blade the second one stays as it was (it is not carried).
+                string b = arsenalPicks.Count > 1 ? arsenalPicks[1] : game.Settings.weaponB != a ? game.Settings.weaponB : a;
+                if (ArsenalMaxPicks == 3) game.Settings.weaponC = arsenalPicks.Count > 2 ? arsenalPicks[2] : "";
+                game.ConfirmArsenal(a, b);
                 return;
             }
             string id = WeaponDefs.All[index].id;
+            int max = ArsenalMaxPicks;
             if (arsenalPicks.Contains(id)) arsenalPicks.Remove(id);
-            else if (arsenalPicks.Count < 2) arsenalPicks.Add(id);
-            else arsenalPicks[1] = id;
+            else if (arsenalPicks.Count < max) arsenalPicks.Add(id);
+            else arsenalPicks[max - 1] = id;
             game.Audio.Play(Sfx.Unsheathe, 0.5f, 1.2f, 0f);
         }
 
@@ -1593,14 +1564,18 @@ namespace Shura
             var back = new Rect((VW - 400f) * 0.5f, 966f, 400f, 66f);
             if (ArsenalMouse(start, ArsenalStartIndex, e, mouseMoved) || ArsenalMouse(back, ArsenalBackIndex, e, mouseMoved)
                 || ArsenalMouse(forge, ArsenalForgeIndex, e, mouseMoved)) return;
-            bool ready = arsenalPicks.Count == 2;
+            bool ready = ArsenalReady;
+            int maxPicks = ArsenalMaxPicks;
+            if (maxPicks == 3) Label(new Rect(0, 146f, VW, 26f), Strings.ArsenalThird, capsCenterStyle, Pal.gold);
             bool onStart = arsenalIndex == ArsenalStartIndex;
             bool onBack = arsenalIndex == ArsenalBackIndex;
             bool onForge = arsenalIndex == ArsenalForgeIndex;
             kit.Stroke(new Rect(start.x - 40f, start.y - 10f, start.width + 80f, start.height + 20f), (onStart && ready ? UiKit.Shu : UiKit.Ink).WithAlpha(ready ? 0.95f : 0.5f));
-            Label(start, ready ? Strings.ArsenalStart : Strings.ArsenalNeedTwo, itemStyle, ready ? UiKit.PaperText : UiKit.PaperDim);
-            kit.Stroke(new Rect(forge.x - 24f, forge.y - 6f, forge.width + 48f, forge.height + 12f), (onForge ? UiKit.Shu : UiKit.Ink).WithAlpha(arsenalPicks.Count > 0 ? 0.9f : 0.45f));
-            Label(forge, Strings.ArsenalForge, itemStyle, arsenalPicks.Count > 0 ? UiKit.PaperText : UiKit.PaperDim);
+            string need = maxPicks == 1 ? Strings.ArsenalNeedOne : maxPicks == 3 ? Strings.ArsenalNeedTwoOrThree : Strings.ArsenalNeedTwo;
+            Label(start, ready ? Strings.ArsenalStart : need, itemStyle, ready ? UiKit.PaperText : UiKit.PaperDim);
+            bool forgeOk = ForgeBuilt && arsenalPicks.Count > 0;
+            kit.Stroke(new Rect(forge.x - 24f, forge.y - 6f, forge.width + 48f, forge.height + 12f), (onForge ? UiKit.Shu : UiKit.Ink).WithAlpha(forgeOk ? 0.9f : 0.45f));
+            FitLabel(forge, ForgeBuilt ? Strings.ArsenalForge : Strings.ArsenalForgeRuined, itemStyle, forgeOk ? UiKit.PaperText : UiKit.PaperDim);
             if (onBack) kit.Stroke(new Rect(back.x - 30f, back.y - 6f, back.width + 60f, back.height + 12f), UiKit.Shu.WithAlpha(0.95f), CombatMath.EaseOutCubic(selAnim));
             Label(back, Strings.Back, itemStyle, UiKit.PaperText);
         }

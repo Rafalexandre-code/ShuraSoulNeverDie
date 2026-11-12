@@ -256,6 +256,8 @@ namespace Shura
             public WeaponDef weapon = WeaponDefs.Katana;
             /// <summary>The two blades as the belt shows them, and which one is in hand.</summary>
             public readonly WeaponDef[] belt = { WeaponDefs.Katana, WeaponDefs.Montante };
+            /// <summary>Altar "Segunda Troca": the sheathed third blade (null = only two).</summary>
+            public WeaponDef reserve;
             public int activeSlot;
             public int flow;
             public int sips, maxSips, bandages, papers, mon;
@@ -302,6 +304,7 @@ namespace Shura
                 if (b == null) return;
                 belt[0] = b.Weapons[0] ?? WeaponDefs.Katana;
                 belt[1] = b.Weapons[1] ?? WeaponDefs.Montante;
+                reserve = b.Reserve;
                 activeSlot = b.ActiveWeapon;
                 bandages = b.Bandages;
                 papers = b.SpiritPapers;
@@ -630,6 +633,15 @@ namespace Shura
                 }
                 if (!active) Key(new Rect(slot.xMax - 30f, slot.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Swap));
                 x += slot.width + 12f;
+            }
+            // Segunda Troca: the third blade waits in its sheath and comes in after the other one.
+            if (p.reserve != null)
+            {
+                var sheath = new Rect(x - 4f, y + 18f, 70f, 70f);
+                Slot(sheath, UiKit.PaperDim.WithAlpha(0.25f), false);
+                DrawWeaponArt(p.reserve, new Rect(sheath.x + 6f, sheath.y + 8f, sheath.width - 12f, 32f), new Color(1f, 1f, 1f, 0.4f));
+                FitLabel(new Rect(sheath.x + 2f, sheath.y + 42f, sheath.width - 4f, 22f), p.reserve.HudName, capsCenterStyle, UiKit.PaperDim);
+                x += sheath.width + 8f;
             }
             x += 14f;
 

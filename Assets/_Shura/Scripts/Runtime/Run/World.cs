@@ -367,6 +367,8 @@ namespace Shura
         public void StartRoom(RoomDef room, bool firstRoom)
         {
             ClearEnemies();
+            // Oath "Caminho de Sangue": more waves in every fight.
+            if (Run != null) room = OathRules.WithExtraWaves(room, Run.Oaths.Level(Oaths.BloodPath));
             // A bigger party gets a bigger arena and more enemies per wave.
             room = PartyScaling.Scale(room, PartySize);
             TutorialRoom = false;
@@ -574,6 +576,7 @@ namespace Shura
             go.transform.SetParent(root, false);
             var enemy = go.AddComponent<Enemy>();
             EnemyScaling scaling = EnemyScaling.For(Depth, elite);
+            if (summoner == null) Run?.Meta?.RecordEnemy(def.id, false);
             if (elite && CurrentRoom != null && CurrentRoom.kind == RoomKind.Event) scaling.health *= 0.8f;
             scaling.health *= elite ? PartyScaling.GuardianHealth(PartySize) : PartyScaling.EnemyHealth(PartySize);
             enemy.Init(this, def, at, Config, Run.Rng, scaling, summoner);
@@ -1372,6 +1375,7 @@ namespace Shura
             }
             // Mon for whoever struck it down.
             if (killer?.Build != null) killer.Build.Mon += enemy.IsElite ? 12 : 3;
+            Run.Meta?.RecordEnemy(enemy.Def.id, true);
             enemy.OnDefeated?.Invoke(enemy);
             enemy.OnDefeated = null;
             // A duel won: the foe's technique is guaranteed, mastered or not.

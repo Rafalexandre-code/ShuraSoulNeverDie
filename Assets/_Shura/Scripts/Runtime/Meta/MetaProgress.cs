@@ -12,7 +12,7 @@ namespace Shura
     [Serializable]
     public sealed class MetaProgress
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
 
         [Serializable]
         public sealed class UpgradeLevel
@@ -30,6 +30,86 @@ namespace Shura
         public List<UpgradeLevel> upgrades = new List<UpgradeLevel>();
         /// <summary>Weapon mastery: finishers dealt with each weapon (id → count), across every run.</summary>
         public List<UpgradeLevel> mastery = new List<UpgradeLevel>();
+
+        // ── Phase 4: the Temple, the currencies, the lineage (design doc §7) ─────────────
+        /// <summary>Aço Celeste: broken items and Guardians; rebuilds the Temple and feeds the Forge.</summary>
+        public int steel;
+        /// <summary>Fragmentos de Alma: techniques absorbed again; open the ends of the Altar's branches.</summary>
+        public int fragments;
+        /// <summary>Pétalas de Sakura: oaths and room challenges; spent in the Zen Garden.</summary>
+        public int petals;
+        /// <summary>−100 (Shura) … +100 (Bushidō), across every life (§8.3).</summary>
+        public int karma;
+        /// <summary>Temple constructions already rebuilt.</summary>
+        public List<string> buildings = new List<string>();
+        /// <summary>The Altar's rule nodes (the ends of each branch).</summary>
+        public List<string> nodes = new List<string>();
+        /// <summary>The oaths sworn in the Zen Garden for the next runs (id → level).</summary>
+        public List<UpgradeLevel> oaths = new List<UpgradeLevel>();
+        /// <summary>The seed typed in the Zen Garden ("" = a new one every run).</summary>
+        public string seed = "";
+        /// <summary>The disciple whose body the soul wears now.</summary>
+        public Disciple disciple;
+        /// <summary>The dead and the retired, oldest first.</summary>
+        public List<Disciple> cemetery = new List<Disciple>();
+        /// <summary>A disciple fell: the next one must be chosen among these before the road.</summary>
+        public List<Disciple> heirs = new List<Disciple>();
+        /// <summary>Enemies met (id → kills), for the Library's bestiary.</summary>
+        public List<UpgradeLevel> bestiary = new List<UpgradeLevel>();
+        /// <summary>Blade colours bought with petals, and the one worn ("" = the weapon's own).</summary>
+        public List<string> colors = new List<string>();
+        public string bladeColor = "";
+        /// <summary>The garden's ornaments bought with petals.</summary>
+        public List<string> garden = new List<string>();
+        /// <summary>Most Calor carried by a run.</summary>
+        public int bestHeat;
+
+        public bool Built(string building) => buildings != null && buildings.Contains(building);
+        public bool HasNode(string node) => nodes != null && nodes.Contains(node);
+
+        public int OathLevel(string id)
+        {
+            if (oaths == null) return 0;
+            foreach (UpgradeLevel u in oaths)
+            {
+                if (u.id == id) return u.level;
+            }
+            return 0;
+        }
+
+        public void SetOath(string id, int level)
+        {
+            if (oaths == null) oaths = new List<UpgradeLevel>();
+            oaths.RemoveAll(u => u.id == id);
+            if (level > 0) oaths.Add(new UpgradeLevel { id = id, level = level });
+        }
+
+        /// <summary>Kills of an enemy; −1 = never met.</summary>
+        public int Kills(string enemyId)
+        {
+            if (bestiary == null) return -1;
+            foreach (UpgradeLevel u in bestiary)
+            {
+                if (u.id == enemyId) return u.level;
+            }
+            return -1;
+        }
+
+        /// <summary>Seen (kills = 0) or one more kill.</summary>
+        public void RecordEnemy(string enemyId, bool killed)
+        {
+            if (string.IsNullOrEmpty(enemyId)) return;
+            if (bestiary == null) bestiary = new List<UpgradeLevel>();
+            foreach (UpgradeLevel u in bestiary)
+            {
+                if (u.id != enemyId) continue;
+                if (killed) u.level++;
+                return;
+            }
+            bestiary.Add(new UpgradeLevel { id = enemyId, level = killed ? 1 : 0 });
+        }
+
+        public void AddKarma(int amount) => karma = Mathf.Clamp(karma + amount, -100, 100);
 
         public int MasteryFinishers(string weaponId)
         {
@@ -87,7 +167,28 @@ namespace Shura
 
         public int NextCost(MetaUpgradeDef def) => def.CostFor(GetLevel(def.id));
 
-        public bool CanBuy(MetaUpgradeDef def) => !IsMaxed(def) && ecos >= NextCost(def);
+        /// <summary>The Altar is a tree with a point limit: one point per level, two per rule node.</summary>
+        public bool CanBuy(MetaUpgradeDef def) => !IsMaxed(def) && ecos >= NextCost(def) && AltarTree.PointsFree(this) >= 1;
+
+        /// <summary>Altar: all Ecos spent on levels and the fragments of the rule nodes come back.</summary>
+        public void ResetAltar()
+        {
+            foreach (MetaUpgradeDef def in MetaUpgrades.All)
+            {
+                for (int l = 0; l < GetLevel(def.id); l++) ecos += def.CostFor(l);
+            }
+            upgrades.Clear();
+            foreach (string n in nodes)
+            {
+                AltarNode node = AltarTree.Node(n);
+                if (node == null) continue;
+                ecos += node.ecos;
+                fragments += node.fragments;
+            }
+            nodes.Clear();
+        }
+
+        internal void SetLevelForTests(string id, int level) => SetLevel(id, level);
 
         public bool TryBuy(MetaUpgradeDef def)
         {
@@ -113,6 +214,19 @@ namespace Shura
                     if (u.level > 0) parts.Add("m." + u.id + ":" + u.level);
                 }
             }
+            if (nodes != null)
+            {
+                foreach (string n in nodes) parts.Add("n." + n + ":1");
+            }
+            // The disciple's body comes along: age and traits.
+            if (disciple != null)
+            {
+                parts.Add("age:" + disciple.age);
+                if (disciple.traits != null)
+                {
+                    foreach (string t in disciple.traits) parts.Add("t." + t + ":1");
+                }
+            }
             return string.Join(",", parts);
         }
 
@@ -126,6 +240,25 @@ namespace Shura
                 string[] kv = part.Split(':');
                 if (kv.Length != 2 || !int.TryParse(kv[1], out int level)) continue;
                 string id = kv[0].Trim();
+                if (id.StartsWith("n."))
+                {
+                    string node = id.Substring(2);
+                    if (AltarTree.Node(node) != null && !p.nodes.Contains(node)) p.nodes.Add(node);
+                    continue;
+                }
+                if (id == "age")
+                {
+                    if (p.disciple == null) p.disciple = new Disciple { name = "?" };
+                    p.disciple.age = Mathf.Clamp(level, 16, 90);
+                    continue;
+                }
+                if (id.StartsWith("t."))
+                {
+                    if (p.disciple == null) p.disciple = new Disciple { name = "?", age = 25 };
+                    string trait = id.Substring(2);
+                    if (Lineage.Trait(trait) != null && !p.disciple.traits.Contains(trait) && p.disciple.traits.Count < 2) p.disciple.traits.Add(trait);
+                    continue;
+                }
                 if (id.StartsWith("m."))
                 {
                     id = id.Substring(2);
@@ -141,6 +274,9 @@ namespace Shura
         public void ApplyTo(PlayerModifiers m)
         {
             foreach (MetaUpgradeDef def in MetaUpgrades.All) def.Apply(m, GetLevel(def.id));
+            AltarTree.ApplyNodes(this, m);
+            Lineage.Apply(this, m);
+            Garden.Apply(this, m);
         }
 
         /// <summary>Banks a finished (or abandoned) run.</summary>
@@ -197,7 +333,62 @@ namespace Shura
                 }
             }
             mastery = cleanMastery;
+
+            steel = Mathf.Max(0, steel);
+            fragments = Mathf.Max(0, fragments);
+            petals = Mathf.Max(0, petals);
+            karma = Mathf.Clamp(karma, -100, 100);
+            bestHeat = Mathf.Max(0, bestHeat);
+            if (seed == null) seed = "";
+            if (bladeColor == null) bladeColor = "";
+            buildings = Distinct(buildings, b => Temple.Get(b) != null);
+            nodes = Distinct(nodes, n => AltarTree.Node(n) != null);
+            colors = Distinct(colors, c => Garden.Color(c) != null);
+            garden = Distinct(garden, g => Garden.Ornament(g) != null);
+            if (bladeColor != "" && !colors.Contains(bladeColor)) bladeColor = "";
+            var cleanOaths = new List<UpgradeLevel>();
+            if (oaths != null)
+            {
+                foreach (UpgradeLevel u in oaths)
+                {
+                    OathDef def = u != null ? Oaths.Get(u.id) : null;
+                    if (def == null || def.sealedUntilRivals || cleanOaths.Exists(c => c.id == u.id)) continue;
+                    int level = Mathf.Clamp(u.level, 0, def.maxLevel);
+                    if (level > 0) cleanOaths.Add(new UpgradeLevel { id = u.id, level = level });
+                }
+            }
+            oaths = cleanOaths;
+            var cleanBestiary = new List<UpgradeLevel>();
+            if (bestiary != null)
+            {
+                foreach (UpgradeLevel u in bestiary)
+                {
+                    if (u == null || string.IsNullOrEmpty(u.id) || cleanBestiary.Exists(c => c.id == u.id)) continue;
+                    cleanBestiary.Add(new UpgradeLevel { id = u.id, level = Mathf.Max(0, u.level) });
+                }
+            }
+            bestiary = cleanBestiary;
+            if (cemetery == null) cemetery = new List<Disciple>();
+            cemetery.RemoveAll(d => d == null);
+            foreach (Disciple d in cemetery) d.Sanitize();
+            if (heirs == null) heirs = new List<Disciple>();
+            heirs.RemoveAll(d => d == null);
+            foreach (Disciple d in heirs) d.Sanitize();
+            // JsonUtility writes an empty object for a null field: a nameless disciple is none.
+            if (disciple != null && string.IsNullOrEmpty(disciple.name)) disciple = null;
+            disciple?.Sanitize();
             version = CurrentVersion;
+        }
+
+        static List<string> Distinct(List<string> list, Predicate<string> valid)
+        {
+            var clean = new List<string>();
+            if (list == null) return clean;
+            foreach (string s in list)
+            {
+                if (!string.IsNullOrEmpty(s) && valid(s) && !clean.Contains(s)) clean.Add(s);
+            }
+            return clean;
         }
     }
 

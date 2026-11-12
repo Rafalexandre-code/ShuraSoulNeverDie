@@ -78,6 +78,26 @@ namespace Shura
         public bool hiddenRings;
         /// <summary>Tsuba da Lua: seals planted per perfect parry.</summary>
         public int extraSealsPerParry;
+
+        // ── The Temple (design doc §7) ───────────────────────────────────────────────
+        /// <summary>Altar "Corpo de Diamante": the first wound of each room is ignored.</summary>
+        public bool ignoreFirstWound;
+        /// <summary>Altar "Segunda Troca": a third weapon rotates in on every swap.</summary>
+        public bool thirdWeapon;
+        /// <summary>Altar "Clarividência": the route map shows whole rooms.</summary>
+        public bool clairvoyance;
+        /// <summary>Trait "Olhar Noturno": the dark weighs half.</summary>
+        public bool nightSight;
+        /// <summary>Oath "Carne Frágil".</summary>
+        public float maxHealthMult = 1f;
+        /// <summary>Oath "Fome": no healing between rooms.</summary>
+        public bool noRoomHeal;
+        /// <summary>Oath "Anel Silencioso": chance (0..1) that a blow shows no ring.</summary>
+        public float silentRingChance;
+        /// <summary>Oath "Lâmina Única" II: the swap is never a parry.</summary>
+        public bool noSwapParry;
+        /// <summary>Petal cosmetics: the slash trail's colour (alpha 0 = the weapon's own).</summary>
+        public Color bladeColor;
     }
 
     /// <summary>

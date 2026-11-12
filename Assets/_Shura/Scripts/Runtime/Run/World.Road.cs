@@ -11,8 +11,34 @@ namespace Shura
         /// <summary>Seconds left in a timed challenge (0 when none).</summary>
         public float ChallengeTimeLeft { get; private set; }
 
+        /// <summary>Oath "Pressa": seconds left in this room (meaningful while <see cref="HasteOn"/>).</summary>
+        public float HasteLeft { get; private set; }
+        public bool HasteOn => hasteLimit > 0f && !RoomCleared;
+        float hasteLimit;
+        bool hasteWarned;
+
+        void TickHaste()
+        {
+            if (hasteLimit <= 0f || RoomCleared || TutorialRoom || ActiveEnemyCount == 0 && WaveIndex < 0) return;
+            if (HasteLeft > 0f)
+            {
+                HasteLeft = Mathf.Max(0f, HasteLeft - SimClock.Dt);
+                if (HasteLeft > 0f) return;
+            }
+            if (!hasteWarned)
+            {
+                hasteWarned = true;
+                Fx.Toast(Strings.ToastHasteOver, Config.palette.danger);
+            }
+            foreach (PlayerController p in Players) p.HasteDrain(p.MaxHealth * 0.025f * SimClock.Dt);
+        }
+
         void ResetChallenge(RoomDef room)
         {
+            hasteLimit = Run != null && !room.IsEncounter && !room.dojo && room.waves.Length > 0
+                ? Oaths.HasteSeconds(Run.Oaths.Level(Oaths.Haste)) : 0f;
+            HasteLeft = hasteLimit;
+            hasteWarned = false;
             ChallengeFailed = false;
             ChallengeTimeLeft = room.challenge == ChallengeKind.Timed ? RouteMap.ChallengeSeconds : 0f;
             if (room.challenge != ChallengeKind.None) HintOnce(HintId.Challenge);
@@ -20,6 +46,7 @@ namespace Shura
 
         void TickChallenge()
         {
+            TickHaste();
             if (CurrentRoom == null || CurrentRoom.challenge != ChallengeKind.Timed || ChallengeFailed || RoomCleared) return;
             if (!roomActive) return;
             ChallengeTimeLeft -= SimClock.Dt;
@@ -50,6 +77,7 @@ namespace Shura
         {
             if (CurrentRoom == null || CurrentRoom.challenge == ChallengeKind.None || ChallengeFailed) return;
             Fx.Toast(Strings.ToastChallengeDone, Config.palette.gold);
+            if (Run != null) Run.ChallengesWon++;
             foreach (PlayerController p in Players)
             {
                 if (p.Build == null) continue;

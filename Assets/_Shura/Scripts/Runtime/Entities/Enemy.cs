@@ -118,6 +118,22 @@ namespace Shura
         public int StepFrame { get; private set; }
         /// <summary>Increments every time a new swing starts (lets observers tell swings apart).</summary>
         public int AttackSerial { get; private set; }
+
+        static int silentSerial;
+        /// <summary>Each enemy's own salt for the silent-ring roll.</summary>
+        readonly int silentSalt = ++silentSerial;
+
+        /// <summary>Oath "Anel Silencioso": this blow (and only this one) shows no ring.</summary>
+        bool SilentFor(PlayerController viewer)
+        {
+            float chance = viewer.SilentRingChance;
+            if (chance <= 0f) return false;
+            uint h = (uint)(silentSalt * 73856093) ^ (uint)(AttackSerial * 19349663);
+            h ^= h >> 13;
+            h *= 0x5bd1e995;
+            h ^= h >> 15;
+            return (h % 1000u) < (uint)(chance * 1000f);
+        }
         public bool Mastered { get; private set; }
         public bool IsElite => scaling.elite;
         public bool IsChilled => chillTime > 0f;
@@ -1347,7 +1363,7 @@ namespace Shura
             // What this computer's duelist sees: nothing in Mushin, Frenzy, or with wounded eyes.
             PlayerController viewer = world.Host;
             bool veiled = Veiled && Vector2.Distance(viewer.Position, Position) > 3f;
-            if (!world.ShowTimingIndicator || viewer.RingsHidden || veiled || !world.RingVisibleTo(viewer.Position, Position))
+            if (!world.ShowTimingIndicator || viewer.RingsHidden || veiled || !world.RingVisibleTo(viewer.Position, Position) || SilentFor(viewer))
             {
                 timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
                 if (timingInner != null) timingInner.enabled = false;

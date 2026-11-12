@@ -194,8 +194,9 @@ namespace Shura
         {
             if (!spawn.elite || Run == null) return;
             bool early = Run.HasRule(KalpaRule.EarlyAffixes);
-            if (Depth < 15 && !early) return;
-            int n = Mathf.Clamp(1 + Mathf.Max(0, Depth - 15) / 10 + ExtraEliteAffixes + (early ? 1 : 0), 1, 3);
+            bool natural = Depth >= 15 || early;
+            if (!natural && ExtraEliteAffixes == 0) return;
+            int n = Mathf.Clamp((natural ? 1 + Mathf.Max(0, Depth - 15) / 10 : 0) + ExtraEliteAffixes + (early ? 1 : 0), 1, 4);
             var pool = new List<EliteAffix>((EliteAffix[])System.Enum.GetValues(typeof(EliteAffix)));
             for (int i = 0; i < n && pool.Count > 0; i++)
             {

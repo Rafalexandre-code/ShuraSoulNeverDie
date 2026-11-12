@@ -54,7 +54,9 @@ inimigo; empurre o analógico direito para trocar de alvo.
 Tudo pode ser trocado em Configurações → Configurar controles.
 Cada um escolhe a SUA recompensa depois da sala, e todos votam na próxima porta.
 Cada um usa o PRÓPRIO Altar das Almas e a PRÓPRIA maestria de arma: as
-finalizações que você faz contam no seu progresso, no seu PC.
+finalizações que você faz contam no seu progresso, no seu PC. A idade e os
+traços do SEU discípulo também vão com você. Os Juramentos do anfitrião valem
+para o grupo todo.
 
 Sobre o ms (latência)
 ---------------------

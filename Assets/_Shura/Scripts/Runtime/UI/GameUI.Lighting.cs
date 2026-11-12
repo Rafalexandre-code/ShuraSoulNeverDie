@@ -61,6 +61,8 @@ namespace Shura
             float ambient = DayClock.Darkness(hour) + 0.62f * Mathf.Pow(brokenFrac, 1.1f);
             // The fireflies come out with the dark.
             Fireflies.Night = Mathf.Clamp01((ambient - 0.12f) / 0.3f);
+            // Trait "Olhar Noturno": the disciple sees in the dark.
+            if (w.Host?.Build != null && w.Host.Build.Modifiers.nightSight) ambient *= 0.5f;
 
             Rect b = w.Bounds;
             b.xMin -= 19f;

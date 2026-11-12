@@ -44,6 +44,8 @@ namespace Shura
         public bool samuraiNights;
         public string weaponA = "katana";
         public string weaponB = "montante";
+        /// <summary>Altar "Segunda Troca": the third blade, sheathed ("" = none).</summary>
+        public string weaponC = "";
         /// <summary>The forge: one "blade+grip+tsuba" per blade that was changed.</summary>
         public List<string> forge = new List<string>();
 

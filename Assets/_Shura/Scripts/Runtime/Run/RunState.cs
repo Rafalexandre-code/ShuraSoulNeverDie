@@ -30,6 +30,10 @@ namespace Shura
         public int BonusEcos;
         /// <summary>Multiplier on the Ecos this run banks (oaths raise it).</summary>
         public float EcosMult = 1f;
+        /// <summary>The oaths sworn for this run (design doc §7.4).</summary>
+        public OathSet Oaths = new OathSet();
+        /// <summary>Room challenges kept to the end (each is worth a petal).</summary>
+        public int ChallengesWon;
 
         // ── The road (design doc §6) ────────────────────────────────────────────────
         /// <summary>Bushidō (+) or Shura (−): mercy, gifts and honour against cruelty (§8.3).</summary>

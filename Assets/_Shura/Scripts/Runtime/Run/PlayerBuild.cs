@@ -25,6 +25,10 @@ namespace Shura
         public int ActiveWeapon;
         public WeaponDef CurrentWeapon => Weapons[ActiveWeapon] ?? WeaponDefs.Katana;
         public WeaponDef OtherWeapon => Weapons[1 - ActiveWeapon] ?? WeaponDefs.Katana;
+        /// <summary>Altar "Segunda Troca": the sheathed third weapon (null = only two).</summary>
+        public WeaponDef Reserve;
+        /// <summary>Fragmentos de Alma found this run (a technique absorbed again).</summary>
+        public int SoulFragments;
 
         /// <summary>Worn items, one per slot (null = empty).</summary>
         public readonly Item[] Equipped = new Item[4];
@@ -210,6 +214,8 @@ namespace Shura
 
         public void AddPendingTechnique(string techniqueId)
         {
+            // Taking the same piece of a soul again leaves a fragment of it.
+            if (OwnedTechnique(techniqueId) != null || PendingTechniques.Contains(techniqueId)) SoulFragments++;
             if (!CanAbsorb(techniqueId)) return;
             PendingTechniques.Add(techniqueId);
             TechniquesAbsorbed++;
@@ -245,6 +251,7 @@ namespace Shura
         {
             var m = new PlayerModifiers();
             (OwnMeta ?? run?.Meta)?.ApplyTo(m);
+            run?.Oaths.Apply(m);
             Effects.Clear();
             Effects.AddRange(Owned);
             foreach (Item item in Equipped)
@@ -277,6 +284,7 @@ namespace Shura
             m.damageMult *= 1f + Sharpened;
             if (Cursed(RunCurse.Fragile)) m.damageTakenMult *= 1.3f;
             if (Cursed(RunCurse.Clumsy)) m.dodgeChargeBonus -= 1;
+            IgnoreFirstWound = m.ignoreFirstWound;
             Modifiers = m;
         }
 

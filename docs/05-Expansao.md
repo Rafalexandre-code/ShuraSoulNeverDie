@@ -77,20 +77,22 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 | 4.9 | Editor de kata | ⏳ | Provável adiamento: exige UI de edição de combos. |
 | 4.10 | Arquétipos de build | ✅ | Marcas, fusões, clãs, afixos únicos, as 10 armas, a forja e as almas formam os caminhos (parry e selos, esquiva e sombra, peso e atordoamento, espírito e yokai...). |
 
-## Fase 4 — Progressão, meta e narrativa (§7, §8) — ⏳
+## Fase 4 — Progressão, meta e narrativa (§7, §8) — 🔶 parte 1 (v0.9.0)
 
 | § | Item | Estado |
 |---|---|---|
-| 7.1 | Templo em Ruínas (hub) | ⏳ |
-| 7.2 | Moedas (Mon, Aço Celeste, Fragmentos, Pétalas) | ⏳ |
-| 7.3 | Altar em árvore | ⏳ |
-| 7.4 | Juramentos | ⏳ (os botões de regra já existem: regen de fôlego, ganho de Shura, velocidade de adaptação, afixos extras) |
-| 7.2 | Mon | ✅ (Fase 2) — as outras moedas entram aqui |
-| 7.5 | Linhagem e envelhecimento | ⏳ |
+| 7.1 | Templo em Ruínas (hub) | ✅ Altar, Forja, Dojo, Biblioteca, Jardim Zen e Cemitério; a Casa de Chá (parte 2) e a Muralha dos Rivais (Fase 5) aparecem em ruínas |
+| 7.2 | Moedas (Mon, Aço Celeste, Fragmentos, Pétalas) | ✅ |
+| 7.3 | Altar em árvore | ✅ |
+| 7.4 | Juramentos | ✅ 9 de 10 (o Rival Eterno espera os Rivais da Fase 5) |
+| 7.5 | Linhagem e envelhecimento | ✅ |
 | 7.6 | Pergaminhos de inimigo | ⏳ |
 | 7.7 | Liberação em camadas | ⏳ |
 | 7.8 | Modos extras | ⏳ |
-| 8.1–8.7 | Premissa, Casa de Chá, Karma, jisei, gestos, finais, história no ambiente | ⏳ |
+| 8.1 | Premissa | ✅ nos pergaminhos da Biblioteca |
+| 8.3 | Karma persistente | 🔶 a escala existe e é exibida; os efeitos (eventos, falas, relíquias) vêm na parte 2 |
+| 8.4 | Poema de morte (jisei) | ✅ |
+| 8.2, 8.5–8.7 | Casa de Chá, gestos, finais, história no ambiente | ⏳ parte 2 (os finais dependem do Ashura, Fase 5) |
 
 ## Fase 5 — Inimigos, IA e online (§5, §9) — ⏳
 
@@ -191,6 +193,17 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **Dia de 24 horas**: um relógio corre enquanto se joga (1 minuto do jogo por segundo real — um dia inteiro em 24 minutos), da aurora da partida. A hora aparece sob o nome da sala, decide o período de cada sala (noite = mais yokai, aurora = mortos-vivos enfraquecidos, lua cheia só à noite) e muda a luz e as cores **continuamente** (aurora perolada, manhã clara, tarde dourada, crepúsculo rosado, noite azul). Momentos do dia aparecem como uma frase discreta com som: os primeiros pássaros e a névoa, o nascer do sol (com um clarão), o orvalho, o sino do meio-dia, as cigarras da tarde, o pôr do sol, o anoitecer, a meia-noite, a Hora do Boi, o céu que clareia; à noite passam estrelas cadentes.
 - **Paredes** contínuas (as bordas usavam um tile com encaixe e apareciam em blocos).
 - **v0.8.1**: a lição da Troca Perfeita não concluía para quem tinha levado três golpes de lado nas lições anteriores (o braço ferido impede a troca de virar aparar). No dojo ninguém se fere mais (fora o corte da lição de bandagem), a lição começa com os ferimentos limpos, e o instante congelado usa a janela do aparar e ignora uma troca no vazio logo antes.
+
+## Fase 4, parte 1: o Templo, os Juramentos e a Linhagem (v0.9.0) — ✅
+
+- **Templo em Ruínas**: "Templo" no menu (e na tela de morte) leva ao salão entre as vidas. Cada construção é reconstruída com Ecos e Aço Celeste e libera um sistema: **Altar das Almas** (de pé desde o início), **Forja** (sem ela o botão da forja no arsenal fica em ruínas), **Dojo** (treino com o mestre, maestria de cada arma e os Senseis), **Biblioteca** (bestiário de quem você enfrentou, com abatidos, vida, postura, resposta à assinatura e a técnica que deixa, mais sete pergaminhos do Shuradō que se abrem com as runs), **Jardim Zen** (Juramentos, semente e pétalas) e **Cemitério da Linhagem**. A Casa de Chá e a Muralha dos Rivais aparecem em ruínas até seus hóspedes chegarem. Topo da tela: as quatro moedas e a escala de Karma (Shura × Bushidō); à esquerda, o discípulo atual.
+- **Moedas persistentes**: **Aço Celeste** (o que sobra na bolsa do ferreiro + 1 por elite abatido), **Fragmentos de Alma** (absorver de novo uma técnica que você já tem), **Pétalas de Sakura** (1 por desafio de sala cumprido e 1 a cada 5 salas, multiplicadas pelo Calor, mais o próprio Calor). O **Karma** da estrada passa a valer para sempre (×5, de −100 a +100; a Muramasa e o Shura 100 pesam para o Shura).
+- **Altar em árvore**: as 8 melhorias viram três ramos — **Corpo** (Vigor, Postura de Aço, Fôlego), **Lâmina** (Lâmina Temperada, Olhar Afiado) e **Mente** (Meditação, Despertar, Visão do Destino). Cada nível custa 1 ponto, o fim de um ramo custa 2, e os pontos são limitados (12, +1 a cada 3 runs, até 22): dá para montar um perfil, não comprar tudo. "Redistribuir" devolve todos os Ecos e Fragmentos. Os fins de ramo são regras: **Corpo de Diamante** (o primeiro ferimento de cada sala é ignorado), **Segunda Troca** (leve 3 armas: a troca gira A › B › C, a terceira fica embainhada no cinto) e **Clarividência** (cada porta do mapa mostra a sala inteira: ondas, inimigos, Guardião, bioma e clima). Pedem níveis no ramo, Ecos e Fragmentos.
+- **Juramentos** (Jardim Zen, ← → mudam o nível): Lâmina Única (uma arma; II: sem Troca Perfeita), Anel Silencioso (20/40/60% dos golpes sem anel), Carne Frágil (−20% de vida por nível), Fome (sem cura entre salas), Pressa (150 s ou 90 s por sala, depois a vida escorre até 1), Leitura Profunda (a IA aprende 50% mais rápido por nível), Caminho de Sangue (+1 onda por nível, antes do Guardião), Sino do Demônio (elites com um afixo a mais em qualquer profundidade) e Kalpa Precoce (uma regra do Kalpa II já na profundidade 1). Cada um soma **Calor**, que multiplica os Ecos (+10% por ponto) e as Pétalas (+25% por ponto). A run copia os Juramentos ao começar. O Rival Eterno fica selado até os Rivais.
+- **Jardim Zen**: a semente da jornada (números ou palavras; vazio = aleatória), seis **cores de lâmina** compradas com pétalas (o rastro do golpe usa a cor vestida) e seis ornamentos que aparecem na areia do jardim.
+- **Linhagem**: a alma veste um discípulo com idade e traços. Uma jornada que passa da profundidade 10 traz o discípulo de volta **5 anos mais velho**; uma que termina antes o enterra. Idade: 18–29 = +velocidade e Fôlego, janela do parry −1 frame; 30–49 = equilíbrio; 50–69 = −velocidade e Fôlego, parry +2 frames e anéis mais cedo; **70 = aposenta e vira Sensei** (+6 de vida e +2% de dano para os próximos, até 5 Senseis). Ao cair, escolhe-se o herdeiro entre **três candidatos** com 1 ou 2 traços (Impaciente, Herdeiro do Clã Hattori, Mão Pesada, Olhar Noturno, Pés Leves, Sangue Frio, Coração Ardente, Paciente), e ele **herda a técnica mais elevada** do anterior, com a qual começa cada jornada. Sair ou reiniciar não mata o discípulo.
+- **Poema de morte (jisei)**: ao cair, o jogo compõe um haicai de três versos com a hora, o clima, o bioma, quem deu o golpe, a arma e o Karma. Ele aparece na tela de morte e fica gravado no túmulo, junto com a arma, no Cemitério.
+- **Tela de morte**: ao lado das estatísticas, "O que fica" (Aço, Fragmentos, Pétalas, Karma, Calor e o destino do discípulo). "Nova run" vira "Escolher o herdeiro" quando há um.
 
 ## Apresentação e acessibilidade (§10) — ⏳
 

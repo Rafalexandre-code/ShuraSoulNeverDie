@@ -48,6 +48,8 @@ namespace Shura
         public string weaponC = "";
         /// <summary>Every layer of the game open from the start (§7.7), for experienced players.</summary>
         public bool unlockAll;
+        /// <summary>"O Shura Lembra" (§5.6): each run starts with what the last five runs taught the enemies.</summary>
+        public bool shuraRemembers;
         /// <summary>The forge: one "blade+grip+tsuba" per blade that was changed.</summary>
         public List<string> forge = new List<string>();
 

@@ -16,6 +16,7 @@ namespace Shura
         Fusions,
         Oaths,
         Lineage,
+        Rivals,
     }
 
     /// <summary>
@@ -40,6 +41,7 @@ namespace Shura
                     return 3;
                 case Feature.Reactions:
                 case Feature.ShuraMeter:
+                case Feature.Rivals:
                     return 6;
                 default:
                     return 10;
@@ -62,6 +64,7 @@ namespace Shura
                 case Feature.ShuraMeter: return "Medidor de Shura";
                 case Feature.Fusions: return "Fusões";
                 case Feature.Oaths: return "Juramentos";
+                case Feature.Rivals: return "Rivais";
                 default: return "Linhagem";
             }
         }

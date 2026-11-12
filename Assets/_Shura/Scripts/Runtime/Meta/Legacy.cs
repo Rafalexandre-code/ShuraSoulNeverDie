@@ -22,6 +22,10 @@ namespace Shura
         public string unlocked = "";
         /// <summary>The road ended in victory (Tower, Pilgrimage): its ending.</summary>
         public string ending = "";
+        /// <summary>Who killed you and remembers it now (§5.1), and the Ecos it took.</summary>
+        public string rival = "";
+        public int rivalEcos;
+        public bool rivalPromoted;
     }
 
     /// <summary>

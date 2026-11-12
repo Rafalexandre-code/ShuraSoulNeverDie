@@ -8,11 +8,14 @@ namespace Shura
         public string id;
         /// <summary>A Guardian: bigger, tougher, worth extra Ecos.</summary>
         public bool elite;
+        /// <summary>A rival of the Shuradō in this slot (§5.1).</summary>
+        public string rivalId;
 
         public EnemySpawn(string id, bool elite = false)
         {
             this.id = id;
             this.elite = elite;
+            rivalId = null;
         }
     }
 
@@ -232,6 +235,8 @@ namespace Shura
         public bool dojo;
         /// <summary>A Corrupted Zone: purple mist around a core stone (§6.3).</summary>
         public bool corrupted;
+        /// <summary>A rival's lair: who waits in it.</summary>
+        public string rivalId;
         /// <summary>Everything the door decided (kind, weather, hour, standoff…), for scaled copies of the room.</summary>
         public void CopyRoadFrom(RoomDef o)
         {
@@ -243,6 +248,7 @@ namespace Shura
             weather = o.weather;
             time = o.time;
             corrupted = o.corrupted;
+            rivalId = o.rivalId;
         }
 
         /// <summary>Encounter rooms (shrine, merchant, event…) have no waves: their doors decide.</summary>
@@ -377,6 +383,7 @@ namespace Shura
         /// <summary>The room behind one door of the route map.</summary>
         public static RoomDef Generate(ulong runSeed, int depth, RouteNode node)
         {
+            if (node.kind == RoomKind.RivalLair && depth > 0) return Lair(runSeed, depth, node);
             RoomDef room = depth <= 0 ? Intro() : GenerateCore(runSeed, depth, node);
             room.kind = depth <= 0 ? RoomKind.Combat : node.kind;
             room.hint = node.hint;
@@ -391,6 +398,33 @@ namespace Shura
             room.corrupted = fight && !room.guardian && depth >= 6 && env.NextFloat() < 0.15f;
             if (room.kind == RoomKind.Duel) room.standoff = true;
             if (!fight) room.standoff = false;
+            return room;
+        }
+
+        /// <summary>A rival's lair: a duel arena, the rival alone (a General with its bodyguards).</summary>
+        static RoomDef Lair(ulong runSeed, int depth, RouteNode node)
+        {
+            var duel = new RouteNode { depth = depth, index = node.index, column = node.column, kind = RoomKind.Duel, hint = RewardHint.Technique };
+            RoomDef basis = Generate(runSeed, depth, duel);
+            Rival r = null;
+            foreach (Rival x in Rivals.Roster)
+            {
+                if (x.id == node.rivalId) r = x;
+            }
+            var wave = new List<EnemySpawn>();
+            if (r != null)
+            {
+                wave.Add(new EnemySpawn(r.enemyId, true) { rivalId = r.id });
+                for (int i = 0; i < Rivals.Guards(r); i++) wave.Add(new EnemySpawn(basis.waves.Length > 0 ? basis.waves[0][0].id : "ronin"));
+            }
+            else wave.AddRange(basis.waves.Length > 0 ? basis.waves[0] : new[] { new EnemySpawn("ronin") });
+            string name = r != null ? "Covil de " + r.surname : basis.name;
+            var room = new RoomDef(name, depth, basis.biome, 22f, 13f, false, new[] { wave.ToArray() }, ArenaShape.Octagon, basis.layoutSeed);
+            room.CopyRoadFrom(basis);
+            room.kind = RoomKind.RivalLair;
+            room.rivalId = node.rivalId;
+            room.hint = RewardHint.Technique;
+            room.standoff = true;
             return room;
         }
 

@@ -161,6 +161,8 @@ namespace Shura
         SpiritBlow,
         Reactions,
         Soul,
+        Morale,
+        Rival,
     }
 
     /// <summary>

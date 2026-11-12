@@ -417,6 +417,7 @@ namespace Shura
                     return false;
                 }
                 Sips--;
+                run?.Profile.OnDrink();
             }
             bandaging = bandage;
             Build?.BreakStreak();
@@ -476,6 +477,7 @@ namespace Shura
                 return;
             }
             Build.SpiritPapers -= cost;
+            run?.Profile.OnTool();
             Vector2 aim = Facing;
             switch (tool)
             {
@@ -887,12 +889,16 @@ namespace Shura
         }
 
         /// <summary>Taking a hit ends Mushin and the Link chain, and wounds.</summary>
+        /// <summary>Who dealt the last blow (it may become a rival).</summary>
+        public Enemy LastKillerEnemy { get; private set; }
+
         /// <summary>Who dealt the last blow (for the death poem); null = the road itself.</summary>
         public string LastKillerName { get; private set; }
 
         void OnHurtKi(Vector2 toAttacker, Enemy attacker)
         {
-            LastKillerName = attacker != null && attacker.Def != null ? attacker.Def.displayName : null;
+            LastKillerName = attacker != null && attacker.Def != null ? (attacker.IsRival ? attacker.RivalName : attacker.Def.displayName) : null;
+            LastKillerEnemy = attacker;
             if (InMushin)
             {
                 if (Build != null && (Build.MushinSurvivesHit || Mods.mushinSurvivesHit) && !mushinGraceUsed) mushinGraceUsed = true;

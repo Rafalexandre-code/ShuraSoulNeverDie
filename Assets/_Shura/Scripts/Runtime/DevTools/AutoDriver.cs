@@ -224,7 +224,7 @@ namespace Shura
                 case Game.Mode.Temple:
                     if (!altarShotDone)
                     {
-                        string[] views = { "templo", "templo_dojo", "templo_biblioteca", "templo_jardim", "templo_cemiterio", "templo_cha" };
+                        string[] views = { "templo", "templo_dojo", "templo_biblioteca", "templo_jardim", "templo_cemiterio", "templo_cha", "templo_rivais" };
                         if (templeShot < views.Length)
                         {
                             game.UI.ShowTempleViewForShots(templeShot);

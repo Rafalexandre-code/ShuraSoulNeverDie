@@ -172,6 +172,18 @@ namespace Shura
                 s.done = true;
             }
             GameModes.RecordDaily(Meta, DateTime.Now.AddDays(-1), 12, 640);
+            // Two rivals on the wall: a General and a captain who took Ecos.
+            if (Meta.rivals.Count == 0)
+            {
+                Rival g = Rivals.OnPlayerKilled(Meta, EnemyDefs.Get("kenkaku"), null, 0, "Haru", "Katana", null, 1, 120, 11);
+                if (g != null)
+                {
+                    g.rank = Rivals.GeneralRank;
+                    g.name = g.surname + ", General " + Biomes.All[0].suffix;
+                    g.kills = 4;
+                }
+                Rivals.OnPlayerKilled(Meta, EnemyDefs.Get("ronin"), null, 1, "Ren", "Naginata", "Lâmina Paciente", 2, 60, 29);
+            }
             GameModes.RecordDaily(Meta, DateTime.Now.AddDays(-2), 7, 310);
             Meta.cemetery.Insert(0, new Disciple
             {
@@ -224,6 +236,10 @@ namespace Shura
             KarmaRules.HonorDuels = Meta.MissionDone(TeaGuests.Tsubaki);
             World.ShowTimingIndicator = Settings.timingIndicator && Run.Mode != RunMode.Master;
             Run.Oaths = Run.Has(Feature.Oaths) ? OathSet.From(Meta) : new OathSet();
+            // The rivals the route map can draw lairs for; the reading the Shura remembers.
+            Rivals.Roster.Clear();
+            if (Run.Has(Feature.Rivals) && Run.Mode != RunMode.Tower) Rivals.Roster.AddRange(Meta.rivals);
+            if (Settings.shuraRemembers && !Launch.Automated) Run.Profile.Baseline = ReadingMemory.Average(Meta.readings);
             Run.EcosMult *= Oaths.EcosMult(Run.Oaths.Heat) * GameModes.EcosMult(Run.Mode);
             World.ExtraEliteAffixes = Run.Oaths.Level(Oaths.DemonBell);
             if (Run.Oaths.Level(Oaths.SingleBlade) > 0) b.Weapons[1] = b.Weapons[0];
@@ -281,6 +297,9 @@ namespace Shura
                 seed = Run.Seed,
             };
             LastLegacy = Legacy.Bank(Meta, Run, facts, died, Run.Has(Feature.Lineage));
+            BankRival(died);
+            Meta.readings.Add(ReadingMemory.Of(World.Adaptation));
+            while (Meta.readings.Count > ReadingMemory.Keep) Meta.readings.RemoveAt(0);
             switch (Run.Mode)
             {
                 case RunMode.Daily:
@@ -296,6 +315,32 @@ namespace Shura
                     break;
             }
             if (!string.IsNullOrEmpty(LastLegacy.ending) && !Meta.endings.Contains(LastLegacy.ending)) Meta.endings.Add(LastLegacy.ending);
+        }
+
+        /// <summary>
+        /// Whoever killed the duelist remembers (§5.1): a new rival (or a known one rising in
+        /// rank), with a fifth of the run's Ecos, a trait from the build and a scar.
+        /// </summary>
+        void BankRival(bool died)
+        {
+            if (!died || Run.Mode == RunMode.Tower || !Run.Has(Feature.Rivals) || World.Host == null) return;
+            Enemy killer = World.Host.LastKillerEnemy;
+            if (killer == null || killer.Def == null || killer.IsAlly || killer.AsuraOwner != null) return;
+            string technique = null;
+            string best = Legacy.MostUsedTechnique(Run.Main);
+            if (!string.IsNullOrEmpty(best)) technique = RewardRegistry.Create(best)?.Name;
+            int lost = Mathf.RoundToInt(Run.EcosBanked * Rivals.EcosTaken);
+            Rival before = Rivals.Find(Meta, killer.RivalId);
+            int rankBefore = before != null ? before.rank : -1;
+            string victim = LastLegacy?.disciple?.name ?? "Haru";
+            int biome = System.Array.IndexOf(Biomes.All, World.CurrentRoom != null ? World.CurrentRoom.biome : Biomes.All[0]);
+            Rival r = Rivals.OnPlayerKilled(Meta, killer.Def, killer.RivalId, biome, victim, Run.CurrentWeapon?.name, technique,
+                                            killer.WoundMask, lost, Run.Seed ^ (ulong)Run.RoomIndex);
+            if (r == null) return;
+            Meta.ecos = Mathf.Max(0, Meta.ecos - lost);
+            LastLegacy.rival = r.name;
+            LastLegacy.rivalEcos = lost;
+            LastLegacy.rivalPromoted = rankBefore >= 0 && r.rank > rankBefore;
         }
 
         // ── The ways to walk the road (§7.8) ───────────────────────────────────────────

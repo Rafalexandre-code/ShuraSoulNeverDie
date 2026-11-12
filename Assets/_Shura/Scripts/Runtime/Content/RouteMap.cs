@@ -23,6 +23,8 @@ namespace Shura
         Guardian,
         /// <summary>Every 25 rooms: the Gate of the Shuradō and the next Kalpa (§6.6).</summary>
         Gate,
+        /// <summary>A rival's lair (§5.1): a duel against the one who killed you, with its Ecos and technique.</summary>
+        RivalLair,
     }
 
     /// <summary>The reward symbol painted on a combat door.</summary>
@@ -56,6 +58,8 @@ namespace Shura
         public RewardHint hint;
         public ChallengeKind challenge;
         public int eventId = -1;
+        /// <summary>The rival waiting behind a lair's door.</summary>
+        public string rivalId;
 
         public bool IsEncounter => RouteMap.IsEncounter(kind);
     }
@@ -98,7 +102,7 @@ namespace Shura
             new Weighted { kind = RoomKind.CursedTreasure, weight = 4, minDepth = 3 },
         };
 
-        static bool IsFight(RoomKind k) => k == RoomKind.Combat || k == RoomKind.Duel || k == RoomKind.Challenge || k == RoomKind.Dispute;
+        static bool IsFight(RoomKind k) => k == RoomKind.Combat || k == RoomKind.Duel || k == RoomKind.Challenge || k == RoomKind.Dispute || k == RoomKind.RivalLair;
 
         public static List<RouteNode> Layer(ulong seed, int depth)
         {
@@ -163,6 +167,18 @@ namespace Shura
                         break;
                 }
             }
+            // A rival may be waiting behind one of the fights (§5.1).
+            Rival rival = Rivals.LairAt(seed, depth, System.Array.IndexOf(Biomes.All, Biomes.ForDepth(depth)), out int door);
+            if (rival != null)
+            {
+                RouteNode n = nodes[door % nodes.Count];
+                if (n.kind == RoomKind.Combat || n.kind == RoomKind.Duel)
+                {
+                    n.kind = RoomKind.RivalLair;
+                    n.rivalId = rival.id;
+                    n.hint = RewardHint.Technique;
+                }
+            }
             return nodes;
         }
 
@@ -214,10 +230,10 @@ namespace Shura
         static readonly string[] KindNames =
         {
             "Combate", "Duelo", "Desafio", "Disputa", "Santuário", "Mercador", "Ferreiro Errante", "Evento",
-            "Tesouro Amaldiçoado", "Guardião", "Portão do Shuradō",
+            "Tesouro Amaldiçoado", "Guardião", "Portão do Shuradō", "Covil do Rival",
         };
 
-        static readonly string[] KindGlyphs = { "戦", "決", "試", "争", "社", "商", "鍛", "縁", "呪", "主", "門" };
+        static readonly string[] KindGlyphs = { "戦", "決", "試", "争", "社", "商", "鍛", "縁", "呪", "主", "門", "仇" };
 
         static readonly string[] KindTexts =
         {
@@ -232,6 +248,7 @@ namespace Shura
             "Um item excelente com uma maldição.",
             "O Guardião do bioma.",
             "Desça ao próximo Kalpa: uma regra nova para sempre.",
+            "Quem te matou espera aqui. Vingança: os Ecos dele com 50% a mais e a técnica dele.",
         };
 
         static readonly string[] HintNames = { "", "Relíquia", "Bênção", "Item", "Técnica" };
@@ -258,6 +275,7 @@ namespace Shura
                 case RoomKind.CursedTreasure: return ColorUtil.Hex("#B06CFF");
                 case RoomKind.Guardian: return ColorUtil.Hex("#FF5A3C");
                 case RoomKind.Gate: return ColorUtil.Hex("#D7263D");
+                case RoomKind.RivalLair: return ColorUtil.Hex("#FF3B6B");
                 default: return ColorUtil.Hex("#EDE6D6");
             }
         }
@@ -266,6 +284,13 @@ namespace Shura
         public static string Describe(RouteNode n)
         {
             string s = KindName(n.kind);
+            if (n.kind == RoomKind.RivalLair)
+            {
+                foreach (Rival r in Rivals.Roster)
+                {
+                    if (r.id == n.rivalId) return s + " · " + r.surname;
+                }
+            }
             if (n.kind == RoomKind.Challenge) return s + " · " + ChallengeName(n.challenge);
             if (n.kind == RoomKind.Event && n.eventId >= 0) return s + " · " + RunEvents.Title(n.eventId);
             if (n.hint != RewardHint.Any && (n.kind == RoomKind.Combat || n.kind == RoomKind.Dispute)) return s + " · " + HintName(n.hint);

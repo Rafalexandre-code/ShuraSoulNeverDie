@@ -110,11 +110,12 @@ namespace Shura.Tests
             Assert.IsFalse(EnemyScrolls.Record(meta, id, ScrollEvent.Finisher, "naginata"));
             Assert.IsFalse(EnemyScrolls.Record(meta, id, ScrollEvent.Finisher, "tessen"));
             Assert.IsFalse(EnemyScrolls.Record(meta, id, ScrollEvent.CleanKill));
-            Assert.IsTrue(EnemyScrolls.Record(meta, id, ScrollEvent.MasterAnswer), "the fourth challenge finishes it");
+            Assert.IsFalse(EnemyScrolls.Record(meta, id, ScrollEvent.MasterAnswer), "four of five");
+            Assert.IsTrue(EnemyScrolls.Record(meta, id, ScrollEvent.RivalDefeat), "the vengeance finishes it");
             Assert.IsTrue(EnemyScrolls.Done(meta, id));
             Assert.AreEqual(EnemyScrolls.FragmentReward, meta.fragments);
             Assert.IsFalse(EnemyScrolls.Record(meta, id, ScrollEvent.CleanKill), "paid only once");
-            Assert.AreEqual(0f, EnemyScrolls.ChallengeProgress(meta.Scroll(id, false), 4), "the rival waits for Phase 5");
+            Assert.AreEqual(1f, EnemyScrolls.ChallengeProgress(meta.Scroll(id, false), 4));
         }
 
         [Test]

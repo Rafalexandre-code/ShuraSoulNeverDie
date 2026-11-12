@@ -69,13 +69,22 @@ namespace Shura
         const float WarmupSeconds = 6f;
 
         float attacks, dodges, perfects, parryPresses, earlyParries;
+        // Adaptive AI 2.0 (design doc §5.6).
+        float backAttacks, tools, swaps, drinks;
         float combatSeconds;
+
+        /// <summary>"O Shura Lembra": what the last runs taught them, a floor under the reading.</summary>
+        public AdaptiveTraits Baseline;
 
         public float AttacksPerSecond => attacks / Window;
         public float DodgesPerSecond => dodges / Window;
         public float PerfectsPerSecond => perfects / Window;
         public float EarlyParryRatio => parryPresses >= 2f ? earlyParries / parryPresses : 0f;
         public bool WarmedUp => combatSeconds >= WarmupSeconds;
+        public float BackAttacksPerSecond => backAttacks / Window;
+        public float ToolsPerSecond => tools / Window;
+        public float SwapsPerSecond => swaps / Window;
+        public float DrinksPerSecond => drinks / Window;
 
         float Window => Mathf.Clamp(combatSeconds, 3f, MemorySeconds);
 
@@ -90,13 +99,19 @@ namespace Shura
             perfects *= k;
             parryPresses *= k;
             earlyParries *= k;
+            backAttacks *= k;
+            tools *= k;
+            swaps *= k;
+            drinks *= k;
         }
 
         /// <summary>Smoke bomb: whatever they had read about you is gone.</summary>
         public void Reset()
         {
             attacks = dodges = perfects = parryPresses = earlyParries = 0f;
+            backAttacks = tools = swaps = drinks = 0f;
             combatSeconds = 0f;
+            Baseline = default;
         }
 
         public void OnAttack() => attacks += 1f;
@@ -109,18 +124,50 @@ namespace Shura
             if (early) earlyParries += 1f;
         }
 
+        public void OnBackAttack() => backAttacks += 1f;
+        public void OnTool() => tools += 1f;
+        public void OnSwapParry() => swaps += 1f;
+        public void OnDrink() => drinks += 1f;
+
+        /// <summary>
+        /// Counter-reading (§5.6): the player did the opposite of what was read. That reading
+        /// is wiped (and its memory from past runs with it).
+        /// </summary>
+        public void Forget(ReadingId id)
+        {
+            switch (id)
+            {
+                case ReadingId.Delay: earlyParries = 0f; break;
+                case ReadingId.Guard: attacks *= 0.3f; break;
+                case ReadingId.Pressure: attacks = Mathf.Max(attacks, 0.5f * Window); break;
+                case ReadingId.Track: dodges = 0f; break;
+                case ReadingId.Danger: perfects = 0f; break;
+                case ReadingId.Flank: backAttacks = 0f; break;
+                case ReadingId.Tool: tools = 0f; break;
+                case ReadingId.Swap: swaps = 0f; break;
+                case ReadingId.Heal: drinks = 0f; break;
+            }
+            Baseline.Set(id, 0f);
+        }
+
         public AdaptiveTraits Traits(float strength)
         {
-            if (!WarmedUp) return new AdaptiveTraits { strength = strength };
-            return new AdaptiveTraits
+            var t = new AdaptiveTraits { strength = strength };
+            if (WarmedUp)
             {
-                strength = strength,
-                delay = Mathf.Clamp01((EarlyParryRatio - 0.25f) / 0.5f),
-                guard = Mathf.Clamp01((AttacksPerSecond - 1.1f) / 1.4f),
-                pressure = Mathf.Clamp01((0.45f - AttacksPerSecond) / 0.45f),
-                track = Mathf.Clamp01((DodgesPerSecond - 0.35f) / 0.6f),
-                danger = Mathf.Clamp01((PerfectsPerSecond - 0.25f) / 0.6f),
-            };
+                t.delay = Mathf.Clamp01((EarlyParryRatio - 0.25f) / 0.5f);
+                t.guard = Mathf.Clamp01((AttacksPerSecond - 1.1f) / 1.4f);
+                t.pressure = Mathf.Clamp01((0.45f - AttacksPerSecond) / 0.45f);
+                t.track = Mathf.Clamp01((DodgesPerSecond - 0.35f) / 0.6f);
+                t.danger = Mathf.Clamp01((PerfectsPerSecond - 0.25f) / 0.6f);
+                t.flank = Mathf.Clamp01((BackAttacksPerSecond - 0.12f) / 0.3f);
+                t.tool = Mathf.Clamp01((ToolsPerSecond - 0.05f) / 0.15f);
+                t.swap = Mathf.Clamp01((SwapsPerSecond - 0.07f) / 0.18f);
+                t.heal = Mathf.Clamp01((DrinksPerSecond - 0.02f) / 0.06f);
+            }
+            // What the Shura remembers from earlier lives is a floor, not a ceiling.
+            foreach (ReadingId id in AdaptiveTraits.All) t.Set(id, Mathf.Max(t.Get(id), Baseline.Get(id) * 0.8f));
+            return t;
         }
     }
 
@@ -139,6 +186,59 @@ namespace Shura
         public float pressure;
         public float track;
         public float danger;
+        public float flank;
+        public float tool;
+        public float swap;
+        public float heal;
+
+        public static readonly ReadingId[] All =
+        {
+            ReadingId.Delay, ReadingId.Guard, ReadingId.Pressure, ReadingId.Track, ReadingId.Danger,
+            ReadingId.Flank, ReadingId.Tool, ReadingId.Swap, ReadingId.Heal,
+        };
+
+        /// <summary>The raw tendency (0..1) of one reading.</summary>
+        public float Get(ReadingId id)
+        {
+            switch (id)
+            {
+                case ReadingId.Delay: return delay;
+                case ReadingId.Guard: return guard;
+                case ReadingId.Pressure: return pressure;
+                case ReadingId.Track: return track;
+                case ReadingId.Danger: return danger;
+                case ReadingId.Flank: return flank;
+                case ReadingId.Tool: return tool;
+                case ReadingId.Swap: return swap;
+                default: return heal;
+            }
+        }
+
+        public void Set(ReadingId id, float v)
+        {
+            switch (id)
+            {
+                case ReadingId.Delay: delay = v; break;
+                case ReadingId.Guard: guard = v; break;
+                case ReadingId.Pressure: pressure = v; break;
+                case ReadingId.Track: track = v; break;
+                case ReadingId.Danger: danger = v; break;
+                case ReadingId.Flank: flank = v; break;
+                case ReadingId.Tool: tool = v; break;
+                case ReadingId.Swap: swap = v; break;
+                default: heal = v; break;
+            }
+        }
+
+        /// <summary>How much of it they use (scaled by depth).</summary>
+        public float Value(ReadingId id) => Get(id) * strength;
+
+        /// <summary>The visible meter: 0 to 3 marks (§5.6).</summary>
+        public int Level(ReadingId id)
+        {
+            float v = Value(id);
+            return v < ActiveThreshold ? 0 : v < 0.55f ? 1 : v < 0.8f ? 2 : 3;
+        }
 
         /// <summary>You parry early → some strikes are held longer (the ring waits too).</summary>
         public float Delay => delay * strength;
@@ -150,6 +250,14 @@ namespace Shura
         public float Track => track * strength;
         /// <summary>Your parries are precise → more dangerous (unparryable) moves.</summary>
         public float Danger => danger * strength;
+        /// <summary>You strike from behind → they turn to face you faster.</summary>
+        public float Flank => flank * strength;
+        /// <summary>You throw a lot → they sidestep your projectiles.</summary>
+        public float Tool => tool * strength;
+        /// <summary>You live on the Perfect Swap → they break the rhythm (more held strikes).</summary>
+        public float Swap => swap * strength;
+        /// <summary>You drink a lot → they press hard once your gourd is empty.</summary>
+        public float Heal => heal * strength;
 
         public List<ReadingId> Active()
         {
@@ -159,7 +267,40 @@ namespace Shura
             if (Pressure >= ActiveThreshold) list.Add(ReadingId.Pressure);
             if (Track >= ActiveThreshold) list.Add(ReadingId.Track);
             if (Danger >= ActiveThreshold) list.Add(ReadingId.Danger);
+            if (Flank >= ActiveThreshold) list.Add(ReadingId.Flank);
+            if (Tool >= ActiveThreshold) list.Add(ReadingId.Tool);
+            if (Swap >= ActiveThreshold) list.Add(ReadingId.Swap);
+            if (Heal >= ActiveThreshold) list.Add(ReadingId.Heal);
             return list;
+        }
+    }
+
+    /// <summary>"O Shura Lembra": one run's final reading, kept for the next runs (§5.6).</summary>
+    [System.Serializable]
+    public sealed class ReadingMemory
+    {
+        public const int Keep = 5;
+        public float[] values;
+
+        public static ReadingMemory Of(AdaptiveTraits t)
+        {
+            var m = new ReadingMemory { values = new float[AdaptiveTraits.All.Length] };
+            for (int i = 0; i < AdaptiveTraits.All.Length; i++) m.values[i] = Mathf.Clamp01(t.Get(AdaptiveTraits.All[i]));
+            return m;
+        }
+
+        /// <summary>The average of the kept runs, as raw tendencies.</summary>
+        public static AdaptiveTraits Average(List<ReadingMemory> list)
+        {
+            var t = new AdaptiveTraits();
+            if (list == null || list.Count == 0) return t;
+            for (int i = 0; i < AdaptiveTraits.All.Length; i++)
+            {
+                float sum = 0f;
+                foreach (ReadingMemory m in list) sum += m.values[i];
+                t.Set(AdaptiveTraits.All[i], sum / list.Count);
+            }
+            return t;
         }
     }
 
@@ -170,5 +311,9 @@ namespace Shura
         Pressure,
         Track,
         Danger,
+        Flank,
+        Tool,
+        Swap,
+        Heal,
     }
 }

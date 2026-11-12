@@ -85,7 +85,8 @@ namespace Shura.Tests
                     foreach (RouteNode n in RouteMap.Layer(seed, d)) seen.Add(n.kind);
                 }
             }
-            foreach (RoomKind k in System.Enum.GetValues(typeof(RoomKind))) Assert.IsTrue(seen.Contains(k), "never seen: " + k);
+            // A rival's lair only appears once a rival exists (Phase5Tests covers it).
+            foreach (RoomKind k in System.Enum.GetValues(typeof(RoomKind))) Assert.IsTrue(k == RoomKind.RivalLair || seen.Contains(k), "never seen: " + k);
         }
 
         // ── Rooms behind the doors ───────────────────────────────────────────────────

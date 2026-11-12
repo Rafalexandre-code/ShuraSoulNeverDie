@@ -84,9 +84,9 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 | 7.1 | Templo em Ruínas (hub) | ✅ Altar, Forja, Dojo, Biblioteca, Jardim Zen, Cemitério e Casa de Chá; a Muralha dos Rivais (Fase 5) aparece em ruínas |
 | 7.2 | Moedas (Mon, Aço Celeste, Fragmentos, Pétalas) | ✅ |
 | 7.3 | Altar em árvore | ✅ |
-| 7.4 | Juramentos | ✅ 9 de 10 (o Rival Eterno espera os Rivais da Fase 5) |
+| 7.4 | Juramentos | ✅ os 10 (o Rival Eterno abriu com os Rivais) |
 | 7.5 | Linhagem e envelhecimento | ✅ |
-| 7.6 | Pergaminhos de inimigo | ✅ 4 de 5 desafios (o de rival espera a Fase 5); a versão "Lenda" no Dojo vem com o treino livre |
+| 7.6 | Pergaminhos de inimigo | ✅ os 5 desafios; a versão "Lenda" no Dojo vem com o treino livre |
 | 7.7 | Liberação em camadas | ✅ (a camada "após o Ashura" espera a Fase 5) |
 | 7.8 | Modos extras | ✅ Diário (ranking local), Torre, Mestre, Peregrinação |
 | 8.1 | Premissa | ✅ nos pergaminhos da Biblioteca |
@@ -97,17 +97,17 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 | 8.6 | Finais | 🔶 os três finais de Karma no fim da Peregrinação; contra o Ashura e o final secreto na Fase 5 |
 | 8.7 | História no ambiente | ✅ itens, lendas dos inimigos, corvos, raposas, pétalas no Mushin |
 
-## Fase 5 — Inimigos, IA e online (§5, §9) — ⏳
+## Fase 5 — Inimigos, IA e online (§5, §9) — 🔶 parte 1 (v0.11.0)
 
 | § | Item | Estado |
 |---|---|---|
-| 5.1 | Rivais do Shuradō (Nêmesis) | ⏳ |
+| 5.1 | Rivais do Shuradō (Nêmesis) | ✅ (rivais na run de amigos ficam para a parte do online) |
 | 5.2 | Chefes de bioma (Kagutsuchi, Jorōgumo, Ō-Kyūketsuki, Gashadokuro Colossal, Yuki-onna, Ashura) | ⏳ |
 | 5.3 | Ecologia e facções | ⏳ |
 | 5.4 | Formações e combos | ⏳ |
 | 5.5 | Afixos de elite | ✅ (Fase 1) |
-| 5.6 | IA adaptativa 2.0 | ⏳ |
-| 5.7 | Moral e rendição | ⏳ |
+| 5.6 | IA adaptativa 2.0 | ✅ |
+| 5.7 | Moral e rendição | ✅ |
 | 5.8 | Doze inimigos novos | ⏳ |
 | 9.1 | Ações conjuntas | 🟡 kiai em grupo, ressonância e golpe de grupo feitos (Fase 1) |
 | 9.2–9.7 | Ameaça e papéis, queda e resgate, Pacto de Sangue, presença assíncrona, PvP, lobby como lugar | ⏳ |
@@ -223,6 +223,17 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **Liberação em camadas**: uma alma nova conhece o jogo aos poucos — selos, cabaça e mapa de rotas na 2ª run; guardas, ferramentas e Templo na 4ª; reações elementais e Shura na 7ª; fusões, Juramentos e linhagem na 11ª. O que ainda não abriu aparece selado no cinto (封) e a tela de morte anuncia o que abriu. O dojo ensina tudo, e **Configurações → Liberar todos os sistemas** abre tudo de uma vez.
 - **Modos de jogo** (menu principal): **Jornada** (a estrada sem fim), **Desafio Diário** (a mesma semente para todos no dia, uma tentativa, Ecos ×1,2, e o ranking dos seus dias), **Torre dos Cem Duelos** (só duelos, nenhum item, cem andares até o topo), **Modo Mestre** (sem anéis de tempo, Ecos ×1,5) e **Peregrinação** (estrada fixa de 50 salas que termina num dos três finais de Karma: **Libertação**, **O Novo Ashura** ou **Roda Eterna**).
 - **História no ambiente**: todo item lembra a quem pertenceu (no detalhe do equipamento), **corvos** descem sobre os corpos quando a sala fica em silêncio e fogem de quem chega perto, **raposas** observam das bordas no chá da Kitsune, e **pétalas de cerejeira** caem em volta de quem entra em Mushin.
+
+## Fase 5, parte 1: Rivais, moral e a IA que se deixa enganar (v0.11.0) — ✅
+
+- **Rivais do Shuradō (Nêmesis)**: o inimigo que te mata ganha nome ("Kuroda, o Ronin Errante que Partiu Haru"), leva **um quinto dos Ecos** da run, **rouba algo da sua build** (a sua técnica mais elevada — postura +25% — ou a arma que você carregava — dano +15% e golpes mais rápidos) e guarda uma **cicatriz** onde você o feriu, que volta como ferimento permanente (braço: golpes 20% mais lentos; perna: não salta nem investe; peito: postura −20%; olho: erra a mira). Ele reaparece em runs futuras num **Covil do Rival** (仇) no mapa de rotas: um duelo em impasse contra ele, com a sua fala própria e a barra dele no alto da tela.
+- **Hierarquia**: até 15 **Capitães** (uma a três estrelas) e 5 **Generais**, um por bioma. Quem te mata de novo sobe uma estrela; com três, toma o posto de General do bioma (se estiver vago). Um General traz dois guarda-costas; cada Capitão vingado do mesmo bioma tira um deles e deixa o General **furioso** (+15% de dano). Com o roster cheio, o Capitão mais fraco é esquecido.
+- **Vingança**: vencer um rival devolve os Ecos dele com **50% a mais** e dá a técnica dele; conta para o 5º desafio do pergaminho do inimigo.
+- **Muralha dos Rivais** no Templo (180 Ecos + 2 Aço): Generais e Capitães com patente, bioma, vidas que tiraram, Ecos guardados, o traço roubado, a cicatriz e a fala. O juramento **Rival Eterno** agora pode ser jurado (+1 patente e os dois traços). Os rivais entram na 7ª run (liberação em camadas); a Torre não tem rivais.
+- **Moral e rendição**: finalizar o líder da onda (o primeiro a entrar, um elite ou um rival) com **Fluxo máximo** quebra a coragem dos humanos restantes: metade se **ajoelha**, alguns **fogem**. Quem se ajoelha espera: Interagir ao lado **poupa** (+Bushidō, ele vai embora), um golpe **executa** (−2 Karma, +Shura). Quem ainda estiver ajoelhado quando a sala acaba é poupado. Yokai, mortos e elites nunca se rendem.
+- **IA adaptativa 2.0**: quatro leituras novas — **FLANCO** (você ataca pelas costas: eles giram mais rápido), **FERRAMENTA** (você joga muito: eles desviam dos projéteis), **TROCA** (você vive da Troca Perfeita: eles seguram mais golpes) e **CURA** (você bebe muito: com a cabaça vazia, eles pressionam). Cada leitura tem um **medidor de 0 a 3** (●●○) no HUD e entre as salas.
+- **Contra-leitura**: com uma leitura no terceiro traço, faça o contrário do que eles esperam — um parry limpo contra ATRASO, DEFESA, PERSEGUIÇÃO ou TROCA; uma esquiva perfeita de golpe vermelho contra PERIGO; um golpe de frente contra PRESSÃO, FLANCO ou FERRAMENTA; uma finalização contra CURA — e o golpe causa **postura em dobro** (ou cura, no caso da CURA) e a leitura **zera**. Iscar a IA vira estratégia.
+- **O Shura Lembra** (Configurações, opcional): cada run começa com a leitura média das suas últimas cinco runs.
 
 ## Apresentação e acessibilidade (§10) — ⏳
 

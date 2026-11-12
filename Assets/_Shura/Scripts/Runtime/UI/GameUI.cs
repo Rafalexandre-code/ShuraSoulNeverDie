@@ -425,6 +425,8 @@ namespace Shura
                     Help(Strings.HelpFlashes);
                     AddToggle(Strings.UnlockAll, () => s.unlockAll, v => s.unlockAll = v);
                     Help(Strings.HelpUnlockAll);
+                    AddToggle(Strings.ShuraRemembers, () => s.shuraRemembers, v => s.shuraRemembers = v);
+                    Help(Strings.HelpShuraRemembers);
                     Section(Strings.SectionControls);
                     AddItem(Strings.ConfigureControls, OpenControls);
                     Help(Strings.HelpConfigureControls);
@@ -1239,7 +1241,7 @@ namespace Shura
             float y = r.y + 46f;
             foreach (ReadingId id in active)
             {
-                Label(new Rect(r.x + 30f, y, 220f, 30f), Strings.ReadingName(id), smallStyle, Pal.adapted);
+                Label(new Rect(r.x + 30f, y, 220f, 30f), ReadingWithMarks(id, game.World.Adaptation.Level(id)), smallStyle, Pal.adapted);
                 Label(new Rect(r.x + 250f, y, r.width - 280f, 30f), Strings.ReadingText(id), cardBodyStyle, UiKit.PaperText);
                 y += 30f;
             }
@@ -1348,10 +1350,11 @@ namespace Shura
                 if (reading.Count > 0)
                 {
                     var names = new string[reading.Count];
-                    for (int i = 0; i < reading.Count; i++) names[i] = Strings.ReadingName(reading[i]);
+                    for (int i = 0; i < reading.Count; i++) names[i] = ReadingWithMarks(reading[i], game.World.Adaptation.Level(reading[i]));
                     Label(new Rect(0, 104, VW, 30), string.Format(Strings.HudReading, string.Join("  ·  ", names)), smallStyleCenter, Pal.adapted);
                 }
                 DrawRoadLine(room);
+                DrawRivalBanner();
             }
 
             Panel(4, FlowRect);

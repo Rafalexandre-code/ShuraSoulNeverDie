@@ -48,8 +48,8 @@ namespace Shura
                 levels = new[] { "Nenhuma cura ao vencer uma sala." } },
             new OathDef { id = Haste, name = "Pressa", kanji = "急", maxLevel = 2, heat = 2,
                 levels = new[] { "Cada sala tem 150 s; depois, a vida escorre.", "Cada sala tem 90 s; depois, a vida escorre." } },
-            new OathDef { id = EternalRival, name = "Rival Eterno", kanji = "敵", maxLevel = 1, heat = 2, sealedUntilRivals = true,
-                levels = new[] { "Rivais com +1 patente e mais um traço seu (chega com os Rivais)." } },
+            new OathDef { id = EternalRival, name = "Rival Eterno", kanji = "敵", maxLevel = 1, heat = 2,
+                levels = new[] { "Rivais com +1 patente e os dois traços roubados de você." } },
             new OathDef { id = DeepReading, name = "Leitura Profunda", kanji = "読", maxLevel = 2, heat = 1,
                 levels = new[] { "Os inimigos aprendem você 50% mais rápido.", "Os inimigos aprendem você 100% mais rápido." } },
             new OathDef { id = BloodPath, name = "Caminho de Sangue", kanji = "血", maxLevel = 2, heat = 2,
@@ -104,7 +104,7 @@ namespace Shura
         /// </summary>
         public static RoomDef WithExtraWaves(RoomDef room, int extra)
         {
-            if (extra <= 0 || room == null || room.dojo || room.IsEncounter || room.kind == RoomKind.Duel || room.waves == null || room.waves.Length == 0)
+            if (extra <= 0 || room == null || room.dojo || room.IsEncounter || room.kind == RoomKind.Duel || room.kind == RoomKind.RivalLair || room.waves == null || room.waves.Length == 0)
                 return room;
             var plain = new List<EnemySpawn[]>();
             foreach (EnemySpawn[] w in room.waves)

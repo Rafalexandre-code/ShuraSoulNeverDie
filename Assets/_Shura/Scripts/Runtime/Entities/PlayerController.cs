@@ -927,6 +927,9 @@ namespace Shura
                     world.RegisterPerfect(clashPoint);
                     world.TryMaster(attacker, SignatureAnswer.PerfectParry, incoming.signature);
                     if (incoming.signature && attacker != null) world.RecordScroll(attacker, ScrollEvent.SignatureParry);
+                    if (swap) run.Profile.OnSwapParry();
+                    // Counter-reading: a clean parry against the ones who expected an early one or a swap.
+                    float counter = swap ? 1f : world.CounterReading(CounterAct.Parry, clashPoint);
                     world.Fx.Emit(swap ? FxType.SwapParry : FxType.PerfectParry, clashPoint, toDir, FlowLevel, Weapon.color);
                     Squash(0.8f, 1.2f);
                     if (attacker != null)
@@ -939,7 +942,7 @@ namespace Shura
                     if (!incoming.projectile)
                     {
                         float posture = attack.postureOnParried * PostureDealtMult * Mods.perfectParryPostureMult * (swap ? t.swapParryPostureMult : 1f);
-                        posture *= world.ResonanceMult(attacker);
+                        posture *= world.ResonanceMult(attacker) * counter;
                         for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].ModifyParryPosture(world, attacker, ref posture);
                         attacker.OnParried(posture);
                     }
@@ -976,6 +979,8 @@ namespace Shura
 
                 case HitOutcome.PerfectDodge:
                     PerfectDodgeAgainst(attacker, attack.IsDangerous, incoming.signature);
+                    // Counter-reading: they fed you red blows and you danced out of them.
+                    if (attack.IsDangerous && attacker != null && world.CounterReading(CounterAct.Dodge, Position) > 1f) attacker.ApplyPosture(40f);
                     if (attacker != null && lateDodge) MasterDodge(attack, attacker, toDir);
                     break;
 

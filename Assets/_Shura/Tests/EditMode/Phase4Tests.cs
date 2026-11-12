@@ -47,7 +47,7 @@ namespace Shura.Tests
             CollectionAssert.AreEqual(new[] { Temple.Forge }, copy.buildings);
             Assert.IsTrue(copy.HasNode(AltarTree.Diamond));
             Assert.AreEqual(1, copy.OathLevel(Oaths.Hunger));
-            Assert.AreEqual(0, copy.OathLevel(Oaths.EternalRival), "sealed until the Rivals");
+            Assert.AreEqual(1, copy.OathLevel(Oaths.EternalRival), "the Eternal Rival came with the Rivals");
             Assert.AreEqual("Ren", copy.disciple.name);
             CollectionAssert.AreEqual(new[] { "mao_pesada" }, copy.disciple.traits);
             Assert.AreEqual("a\nb\nc", copy.cemetery[0].jisei);
@@ -69,7 +69,7 @@ namespace Shura.Tests
             Assert.IsTrue(Temple.IsBuilt(meta, Temple.Dojo));
             Assert.IsFalse(Temple.TryBuild(meta, dojo), "only once");
             meta.steel = 99;
-            Assert.IsFalse(Temple.TryBuild(meta, Temple.Get(Temple.RivalWall)), "the rivals have not arrived");
+            Assert.IsTrue(Temple.TryBuild(meta, Temple.Get(Temple.RivalWall)), "the rivals are here");
         }
 
         // ── Altar ──

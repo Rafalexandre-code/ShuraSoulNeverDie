@@ -17,6 +17,8 @@ namespace Shura
         public int cleanKills;
         /// <summary>Its signature answered with the master's answer.</summary>
         public int masterAnswers;
+        /// <summary>Defeated as a rival (vengeance).</summary>
+        public int rivalKills;
         /// <summary>All the open challenges done: the painting, the legend, the technique's variant.</summary>
         public bool done;
 
@@ -25,6 +27,7 @@ namespace Shura
             signatureParries = Mathf.Max(0, signatureParries);
             cleanKills = Mathf.Max(0, cleanKills);
             masterAnswers = Mathf.Max(0, masterAnswers);
+            rivalKills = Mathf.Max(0, rivalKills);
             if (weapons == null) weapons = new List<string>();
             weapons.RemoveAll(string.IsNullOrEmpty);
         }
@@ -36,6 +39,7 @@ namespace Shura
         Finisher,
         CleanKill,
         MasterAnswer,
+        RivalDefeat,
     }
 
     /// <summary>
@@ -60,7 +64,7 @@ namespace Shura
                 case 1: return "Finalizar com " + WeaponGoal + " armas diferentes";
                 case 2: return "Vencer sem levar dano dele";
                 case 3: return "Usar a resposta de mestre";
-                default: return "Derrotá-lo como rival (chega com os Rivais)";
+                default: return "Derrotá-lo como rival";
             }
         }
 
@@ -74,7 +78,7 @@ namespace Shura
                 case 1: return Mathf.Clamp01(s.weapons.Count / (float)WeaponGoal);
                 case 2: return s.cleanKills > 0 ? 1f : 0f;
                 case 3: return s.masterAnswers > 0 ? 1f : 0f;
-                default: return 0f;
+                default: return s.rivalKills > 0 ? 1f : 0f;
             }
         }
 
@@ -86,13 +90,13 @@ namespace Shura
                 case 1: return Mathf.Min(s?.weapons.Count ?? 0, WeaponGoal) + "/" + WeaponGoal;
                 case 2: return (s != null && s.cleanKills > 0 ? 1 : 0) + "/1";
                 case 3: return (s != null && s.masterAnswers > 0 ? 1 : 0) + "/1";
-                default: return "—";
+                default: return (s != null && s.rivalKills > 0 ? 1 : 0) + "/1";
             }
         }
 
         static bool OpenOnesDone(EnemyScroll s)
         {
-            for (int i = 0; i < Challenges - 1; i++)
+            for (int i = 0; i < Challenges; i++)
             {
                 if (ChallengeProgress(s, i) < 1f) return false;
             }
@@ -109,6 +113,7 @@ namespace Shura
                 case ScrollEvent.SignatureParry: s.signatureParries++; break;
                 case ScrollEvent.CleanKill: s.cleanKills++; break;
                 case ScrollEvent.MasterAnswer: s.masterAnswers++; break;
+                case ScrollEvent.RivalDefeat: s.rivalKills++; break;
                 case ScrollEvent.Finisher:
                     if (!string.IsNullOrEmpty(weapon) && !s.weapons.Contains(weapon)) s.weapons.Add(weapon);
                     break;

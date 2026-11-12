@@ -79,6 +79,14 @@ namespace Shura
         public int towerBest;
         public int pilgrimageBest;
 
+        // ── Phase 5, part 1: rivals and the reading memory ──────────────────────────
+        /// <summary>The rivals of the Shuradō who remember you (§5.1).</summary>
+        public List<Rival> rivals = new List<Rival>();
+        /// <summary>Rivals avenged, oldest first.</summary>
+        public List<Rival> fallenRivals = new List<Rival>();
+        /// <summary>"O Shura Lembra": how the enemies read you at the end of the last runs (§5.6).</summary>
+        public List<ReadingMemory> readings = new List<ReadingMemory>();
+
         public int Stat(string id)
         {
             if (stats == null) return 0;
@@ -462,6 +470,14 @@ namespace Shura
             dailyResults.RemoveAll(d => d == null || string.IsNullOrEmpty(d.date));
             towerBest = Mathf.Max(0, towerBest);
             pilgrimageBest = Mathf.Max(0, pilgrimageBest);
+            if (rivals == null) rivals = new List<Rival>();
+            rivals.RemoveAll(r => r == null || string.IsNullOrEmpty(r.id) || !EnemyDefs.TryGet(r.enemyId ?? "", out _));
+            foreach (Rival r in rivals) r.Sanitize();
+            if (fallenRivals == null) fallenRivals = new List<Rival>();
+            fallenRivals.RemoveAll(r => r == null);
+            if (readings == null) readings = new List<ReadingMemory>();
+            readings.RemoveAll(r => r == null || r.values == null || r.values.Length != AdaptiveTraits.All.Length);
+            while (readings.Count > ReadingMemory.Keep) readings.RemoveAt(0);
             version = CurrentVersion;
         }
 

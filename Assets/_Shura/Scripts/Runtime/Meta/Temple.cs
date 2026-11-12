@@ -42,8 +42,8 @@ namespace Shura
             new BuildingDef { id = Garden, name = "Jardim Zen", kanji = "庭", ecos = 200, steel = 3, opens = "Jurar Juramentos (Calor), escolher a semente e gastar pétalas." },
             new BuildingDef { id = TeaHouse, name = "Casa de Chá", kanji = "茶", ecos = 220, steel = 3,
                 opens = "Seis hóspedes, suas conversas e suas missões pessoais." },
-            new BuildingDef { id = RivalWall, name = "Muralha dos Rivais", kanji = "壁", ecos = 300, steel = 5, comingSoon = true,
-                opens = "Os rivais que lembram de você, com patente e cicatrizes.", soonText = "Ainda não há rivais para pendurar aqui." },
+            new BuildingDef { id = RivalWall, name = "Muralha dos Rivais", kanji = "壁", ecos = 180, steel = 2,
+                opens = "Os rivais que lembram de você: patente, traços roubados, cicatrizes e Ecos." },
             new BuildingDef { id = Graveyard, name = "Cemitério da Linhagem", kanji = "墓", ecos = 80, opens = "Os túmulos dos discípulos, seus poemas e suas armas." },
         };
 

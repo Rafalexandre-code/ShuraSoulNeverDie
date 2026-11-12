@@ -487,6 +487,10 @@ namespace Shura
                 case ReadingId.Pressure: return "PRESSÃO";
                 case ReadingId.Track: return "PERSEGUIÇÃO";
                 case ReadingId.Danger: return "PERIGO";
+                case ReadingId.Flank: return "FLANCO";
+                case ReadingId.Tool: return "FERRAMENTA";
+                case ReadingId.Swap: return "TROCA";
+                case ReadingId.Heal: return "CURA";
                 default: return string.Empty;
             }
         }
@@ -500,6 +504,10 @@ namespace Shura
                 case ReadingId.Pressure: return "Você espera demais: eles atacam com mais frequência.";
                 case ReadingId.Track: return "Você esquiva muito: os golpes te seguem por mais tempo antes de se comprometer.";
                 case ReadingId.Danger: return "Seus parries são precisos: mais golpes que não se aparam.";
+                case ReadingId.Flank: return "Você ataca pelas costas: eles giram mais rápido para te encarar.";
+                case ReadingId.Tool: return "Você usa muitas ferramentas: eles desviam dos seus projéteis.";
+                case ReadingId.Swap: return "Você vive da Troca Perfeita: eles quebram o ritmo e seguram mais golpes.";
+                case ReadingId.Heal: return "Você bebe muito: quando a cabaça acaba, eles pressionam.";
                 default: return string.Empty;
             }
         }
@@ -642,6 +650,10 @@ namespace Shura
                     return "KALPA: a cada 25 salas, um ciclo novo com uma regra permanente. Os números sobem menos — as regras é que apertam.";
                 case HintId.EliteAffixes:
                     return "AFIXOS DE ELITE: os Guardiões profundos carregam marcas — vingativo, espelhado, possuído, gêmeo, velado, ancestral. Leia o nome antes de golpear.";
+                case HintId.Morale:
+                    return "MORAL: o líder caiu e os humanos perderam a coragem. Quem se ajoelha espera: " + (gamepad ? "X" : "E") + " ao lado poupa (Bushidō), um golpe executa (Shura).";
+                case HintId.Rival:
+                    return "RIVAL: quem te matou ganhou nome, levou parte dos seus Ecos e voltou. Vencê-lo devolve os Ecos com 50% a mais e a técnica dele.";
                 default:
                     return string.Empty;
             }

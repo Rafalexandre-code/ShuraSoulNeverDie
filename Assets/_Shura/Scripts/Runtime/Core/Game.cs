@@ -497,8 +497,16 @@ namespace Shura
             // Automated inspection: open on a chosen kind of door, event or weather.
             if (Launch.Automated && startDepth > 0 && Enum.TryParse(Launch.RoomKind ?? "", out RoomKind kind))
             {
+                // A rival's lair for the robot: one is made up on the spot (it remembers nobody real).
+                string rivalId = null;
+                if (kind == RoomKind.RivalLair)
+                {
+                    Rival r = Rivals.OnPlayerKilled(Meta, EnemyDefs.Get("kenkaku"), null, 0, "Haru", "Katana", null, 1, 90, Run.Seed);
+                    Rivals.Roster.Add(r);
+                    rivalId = r.id;
+                }
                 first = Run.Choose(new RouteNode { depth = startDepth, column = 1, kind = kind, eventId = Launch.EventId, hint = RewardHint.Relic,
-                                                   challenge = kind == RoomKind.Challenge ? ChallengeKind.Timed : ChallengeKind.None });
+                                                   challenge = kind == RoomKind.Challenge ? ChallengeKind.Timed : ChallengeKind.None, rivalId = rivalId });
             }
             if (Launch.Automated && Enum.TryParse(Launch.Weather ?? "", out Weather weather)) first.weather = weather;
             if (Launch.Automated && Launch.Stance >= 0) Run.Main.DefaultStance = (Kamae)Launch.Stance;

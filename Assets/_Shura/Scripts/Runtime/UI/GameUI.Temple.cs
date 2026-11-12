@@ -20,6 +20,7 @@ namespace Shura
             Garden,
             Graveyard,
             TeaHouse,
+            RivalWall,
         }
 
         sealed class UiSlot
@@ -139,7 +140,7 @@ namespace Shura
         }
 
         /// <summary>The Library and the Graveyard: up / down walk a long list, Esc goes back.</summary>
-        bool ListScreen => game.CurrentMode == Game.Mode.Temple && (templeView == TempleView.Library || templeView == TempleView.Graveyard);
+        bool ListScreen => game.CurrentMode == Game.Mode.Temple && (templeView == TempleView.Library || templeView == TempleView.Graveyard || templeView == TempleView.RivalWall);
 
         void EnsureTempleStyles()
         {
@@ -230,6 +231,7 @@ namespace Shura
                 case TempleView.Garden: DrawGarden(); break;
                 case TempleView.Graveyard: DrawGraveyard(); break;
                 case TempleView.TeaHouse: DrawTeaHouse(); break;
+                case TempleView.RivalWall: DrawRivalWall(); break;
                 default: DrawTempleHall(); break;
             }
             FlushSlotClick();
@@ -332,6 +334,7 @@ namespace Shura
                 case Temple.Garden: OpenTempleView(TempleView.Garden); break;
                 case Temple.Graveyard: OpenTempleView(TempleView.Graveyard); break;
                 case Temple.TeaHouse: OpenTempleView(TempleView.TeaHouse); break;
+                case Temple.RivalWall: OpenTempleView(TempleView.RivalWall); break;
             }
         }
 
@@ -1041,6 +1044,13 @@ namespace Shura
             if (l.karma != 0) Line(string.Format(Strings.LegacyKarma, l.karma), l.karma > 0 ? UiKit.Ai : UiKit.Shu);
             if (l.heat > 0) Line(string.Format(Strings.LegacyHeat, l.heat), UiKit.Shu);
             if (!string.IsNullOrEmpty(l.unlocked)) Line(string.Format(Strings.LegacyUnlocked, l.unlocked), UiKit.Shu);
+            if (!string.IsNullOrEmpty(l.rival))
+            {
+                string t = string.Format(l.rivalPromoted ? Strings.LegacyRivalPromoted : Strings.LegacyRival, l.rival, l.rivalEcos);
+                float h = hintSmallStyle.CalcHeight(new GUIContent(t), r.width - 48f);
+                Label(new Rect(r.x + 24f, y, r.width - 48f, h), t, hintSmallStyle, UiKit.Shu);
+                y += h + 6f;
+            }
             y += 8f;
             Disciple d = l.disciple;
             if (d == null) return;

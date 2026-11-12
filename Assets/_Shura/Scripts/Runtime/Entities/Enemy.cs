@@ -247,6 +247,7 @@ namespace Shura
             if (CurrentState == State.Dead) return;
             TickRoad();
             TickTraits();
+            if (TickYield()) return;
 
             switch (CurrentState)
             {
@@ -416,7 +417,8 @@ namespace Shura
             Vector2 to = FoePosition - Position;
             float dist = to.magnitude;
             Vector2 dir = dist > 0.001f ? to / dist : Facing;
-            Facing = CombatMath.RotateTowards(Facing, dir, et.turnDegreesPerSecond * SimClock.Dt);
+            // The FLANK reading: they turn faster to face whoever strikes their backs.
+            Facing = CombatMath.RotateTowards(Facing, dir, et.turnDegreesPerSecond * (1f + 1.5f * world.Adaptation.Flank) * SimClock.Dt);
             RegenPosture();
 
             // Enemies waiting for their turn hang back so the active duels stay readable.
@@ -448,7 +450,7 @@ namespace Shura
 
         int Idle(int min, int max)
         {
-            float mult = scaling.idle * (1f - 0.45f * world.Adaptation.Pressure) * (IsChilled ? 1.4f : 1f) * (enraged ? 0.5f : 1f);
+            float mult = scaling.idle * (1f - 0.45f * world.Adaptation.Pressure - 0.4f * world.HealPressure(Target)) * (IsChilled ? 1.4f : 1f) * (enraged ? 0.5f : 1f);
             return Mathf.Max(6, Mathf.RoundToInt(rng.Range(min, max) * mult));
         }
 
@@ -597,7 +599,9 @@ namespace Shura
             if (ArmWound) stepWindup = Mathf.RoundToInt(stepWindup * 1.2f);
             stepWindup = KalpaWindup(stepWindup);
             bool hiddenBlade = Target != null && Target.Stance == Kamae.Waki;
-            if (!hiddenBlade && !attack.NoMeleeHit && !attack.burrow && !attack.teleportBehind && rng.NextFloat() < traits.Delay * 0.6f * world.AdaptationSpeed)
+            // The SWAP reading breaks the rhythm the same way the early parry does.
+            float hold = Mathf.Max(traits.Delay, traits.Swap * 0.8f);
+            if (!hiddenBlade && !attack.NoMeleeHit && !attack.burrow && !attack.teleportBehind && rng.NextFloat() < hold * 0.6f * world.AdaptationSpeed)
             {
                 stepWindup += rng.Range(8, 19);
                 stepAdapted = true;
@@ -633,7 +637,7 @@ namespace Shura
             Vector2 to = FoePosition - Position;
             if (StepFrame <= stepTrack && to.sqrMagnitude > 1e-4f)
             {
-                Facing = CombatMath.RotateTowards(Facing, to.normalized, et.turnDegreesPerSecond * 1.5f * SimClock.Dt);
+                Facing = CombatMath.RotateTowards(Facing, to.normalized, et.turnDegreesPerSecond * 1.5f * (1f + world.Adaptation.Flank) * SimClock.Dt);
             }
             Velocity = Vector2.Lerp(Velocity, Vector2.zero, 0.25f);
             RegenPosture();
@@ -835,6 +839,16 @@ namespace Shura
             Thaw();
             if (!CanBeHit) return StrikeResult.None;
             Vector2 contact = Position - hitDir * Radius;
+            // A blow on someone kneeling is an execution.
+            if (Kneeling)
+            {
+                world.OnExecution(this);
+                world.Fx.Emit(FxType.HitEnemy, contact, hitDir, damage, Def.bloodColor);
+                Kneeling = false;
+                Health = 0f;
+                FinishDying();
+                return StrikeResult.Hit;
+            }
 
             // Bones on the floor: one blow scatters them for good.
             if (CurrentState == State.Reassembling)

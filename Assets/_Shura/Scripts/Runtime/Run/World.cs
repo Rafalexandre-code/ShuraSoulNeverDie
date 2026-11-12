@@ -338,7 +338,7 @@ namespace Shura
                 int count = pendingSpawns.Count;
                 for (int i = 0; i < Enemies.Count; i++)
                 {
-                    if (!Enemies[i].IsGone && !Enemies[i].IsAlly) count++;
+                    if (!Enemies[i].IsGone && !Enemies[i].IsAlly && !Enemies[i].Yielding) count++;
                 }
                 return count;
             }
@@ -401,6 +401,8 @@ namespace Shura
             if (Run != null && Run.AllyRooms > 0) SpawnAlly();
             if (room.weather != Weather.Clear) HintOnce(HintId.Weather);
             BeginRitualsForRoom();
+            RivalInRoom = null;
+            waveLeader = null;
             if (room.biome.rule != BiomeRule.Embers || room.depth >= Biomes.RoomsPerBiome) HintOnce(HintId.Biome);
         }
 
@@ -545,8 +547,9 @@ namespace Shura
             var list = new List<Enemy>();
             foreach (EnemySpawn spawn in spawns)
             {
-                Enemy e = CreateEnemy(EnemyDefs.Get(spawn.id), FindSpawnPoint(), spawn.elite, null);
-                ApplyEliteAffixes(e, spawn);
+                Enemy e = spawn.rivalId != null && Run?.Meta != null ? CreateRival(spawn, FindSpawnPoint()) : CreateEnemy(EnemyDefs.Get(spawn.id), FindSpawnPoint(), spawn.elite, null);
+                if (list.Count == 0) waveLeader = e;
+                if (spawn.rivalId == null) ApplyEliteAffixes(e, spawn);
                 ConditionSpawn(e, spawn.elite);
                 list.Add(e);
                 // Kalpa "twin guardians": every Guardian comes with a brother.
@@ -957,6 +960,12 @@ namespace Shura
                 Vector2 hitDir = e.Position - origin;
                 hitDir = hitDir.sqrMagnitude > 1e-4f ? hitDir.normalized : direction;
                 if (applyRewardHooks) ApplyWeaponTraits(e, hitDir, ref finalDamage);
+                if (applyRewardHooks && !e.Kneeling)
+                {
+                    NoteBlowDirection(e, hitDir);
+                    // A blow from the front when they read you as a flanker or a waiter: counter-reading.
+                    if (Vector2.Dot(e.Facing, hitDir) < -0.3f) finalPosture *= CounterReading(CounterAct.FrontHit, e.Position);
+                }
                 StrikeResult result = e.ReceivePlayerHit(finalDamage, finalPosture, hitDir, unblockable);
                 if (result != StrikeResult.Hit || !applyRewardHooks) continue;
                 AfterWeaponHit(e);
@@ -1113,6 +1122,9 @@ namespace Shura
 
             Player.Build.Finishers++;
             Player.OnFinisherDone();
+            // The HEAL reading baited: a finisher instead of a sip.
+            if (CounterReading(CounterAct.Finisher, enemy.Position) > 1f) Player.Heal(15f);
+            CheckMorale(enemy);
             RecordScroll(enemy, ScrollEvent.Finisher, Player.Weapon.baseId ?? Player.Weapon.id);
             if (dir.sqrMagnitude < 1e-4f) dir = Player.Facing;
             // Magnitude 2 marks the last enemy of the room: the router plays the slow-motion kill.
@@ -1385,6 +1397,7 @@ namespace Shura
             // Mon for whoever struck it down.
             if (killer?.Build != null) killer.Build.Mon += enemy.IsElite ? 12 : 3;
             Run.Meta?.RecordEnemy(enemy.Def.id, true);
+            if (enemy.IsRival) OnRivalDefeated(enemy);
             enemy.OnDefeated?.Invoke(enemy);
             enemy.OnDefeated = null;
             // A duel won: the foe's technique is guaranteed, mastered or not.
@@ -1573,6 +1586,7 @@ namespace Shura
                 if (!e.CanBeHit || p.Struck.Contains(e)) continue;
                 if (Vector2.Distance(p.Position, e.Position) > e.Radius + p.Radius) continue;
                 p.Struck.Add(e);
+                if (SidestepsTool(e, p)) continue;
                 if (p.Interrupts) e.InterruptLeap();
                 // A reflected arrow that hits someone else turns them on the archer.
                 if (p.Owner != null && p.Owner != e) e.StartBrawl(p.Owner);

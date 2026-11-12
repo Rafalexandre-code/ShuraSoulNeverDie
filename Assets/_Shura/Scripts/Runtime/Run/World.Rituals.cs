@@ -35,6 +35,7 @@ namespace Shura
 
         void OnRoomClearedRituals()
         {
+            SpareTheKneeling();
             wildlife?.CallCrows(deathSpots, Bounds);
         }
 
@@ -47,6 +48,7 @@ namespace Shura
                 interactWas[p] = held;
                 if (!p.IsAlive || p.Input == null) continue;
                 if (held && !was && Standoff.Active) TryBow(p);
+                TickSparing(p, held && !was);
                 TickPrayer(p, held);
             }
         }

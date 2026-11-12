@@ -125,14 +125,15 @@ namespace Shura.Tests
         // ── Biomes, hour and weather ─────────────────────────────────────────────────
 
         [Test]
-        public void Biomes_NineRules_YomiOnlyFromForty()
+        public void Biomes_TenRules_YomiOnlyFromForty()
         {
-            Assert.AreEqual(9, Biomes.All.Length);
+            Assert.AreEqual(10, Biomes.All.Length);
             var rules = new HashSet<BiomeRule>();
             foreach (Biome b in Biomes.All) rules.Add(b.rule);
-            Assert.AreEqual(9, rules.Count);
+            Assert.AreEqual(10, rules.Count);
+            Assert.AreEqual(BiomeRule.Wild, Biomes.ForDepth(5).rule, "the Wild Wood comes early");
             for (int d = 0; d < 40; d++) Assert.AreNotEqual(BiomeRule.Yomi, Biomes.ForDepth(d).rule, "Yomi before 40 at " + d);
-            Assert.AreEqual(BiomeRule.Yomi, Biomes.ForDepth(40).rule);
+            Assert.AreEqual(BiomeRule.Yomi, Biomes.ForDepth(45).rule);
         }
 
         [Test]

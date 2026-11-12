@@ -644,7 +644,9 @@ namespace Shura
             sb.Append(",\"env\":[").Int((int)w.Weather).Append(',').Int((int)w.TimeOfDay).Append(',').Int((int)w.BiomeRule).Append(',')
               .Num(w.VisionRadius).Append(',').Num(w.RingRange).Append(',').Num(w.FogRange).Append(',').Num(w.Wind.x).Append(',').Num(w.Wind.y).Append(',')
               .Str(Biomes.WeatherName(w.Weather)).Append(',').Str(Biomes.TimeName(w.TimeOfDay)).Append(',').Str(Biomes.RuleText(w.BiomeRule)).Append(',')
-              .Int(run.Kalpa).Append(',').Int((int)room.kind).Append(',').Str(RouteMap.KindName(room.kind)).Append(']');
+              .Int(run.Kalpa).Append(',').Int((int)room.kind).Append(',').Str(RouteMap.KindName(room.kind)).Append(',')
+              // [14] the hour, for the guests' light and colour.
+              .Num(w.Hour, 2).Append(']');
             if (room.challenge != ChallengeKind.None)
             {
                 sb.Append(",\"ch\":[").Str(RouteMap.ChallengeName(room.challenge)).Append(',').Bool(w.ChallengeFailed).Append(',').Num(w.ChallengeTimeLeft, 1).Append(']');

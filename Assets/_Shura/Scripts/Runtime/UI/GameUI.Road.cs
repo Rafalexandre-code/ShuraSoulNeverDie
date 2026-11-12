@@ -43,7 +43,7 @@ namespace Shura
             World w = game.World;
             var parts = new List<string>();
             if (room.kind != RoomKind.Combat) parts.Add(RouteMap.KindName(room.kind));
-            parts.Add(Biomes.TimeName(w.TimeOfDay));
+            parts.Add(Biomes.TimeName(w.TimeOfDay) + "  " + DayClock.Format(w.Hour));
             if (w.Weather != Weather.Clear) parts.Add(Biomes.WeatherName(w.Weather));
             if (game.Run.Kalpa > 1) parts.Add("Kalpa " + KalpaRules.Numeral(game.Run.Kalpa));
             Label(new Rect(0, 132, VW, 30), string.Join("  ·  ", parts), smallStyleCenter, UiKit.PaperDim);
@@ -111,6 +111,7 @@ namespace Shura
             Rect full = FullScreen;
             // The hour now lives in the light map and the image grade (PostFx).
             DrawWorldLighting(w);
+            DrawSkyMoments(w.Hour);
             if (w.FogRange > 0f) DrawTex(full, vignette, new Color(0.75f, 0.78f, 0.82f, 0.5f));
             if (w.VisionRadius > 0f) DrawDarkness(w);
             DrawWeather(w.Weather, w.Wind);

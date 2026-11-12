@@ -62,6 +62,8 @@ namespace Shura
         public int RoomIndex;
         public int RoomsCleared;
         public float Elapsed;
+        /// <summary>The day passing over the journey (starts at dawn).</summary>
+        public readonly DayClock Clock = new DayClock();
 
         /// <summary>The host's build.</summary>
         public PlayerBuild Main { get; }

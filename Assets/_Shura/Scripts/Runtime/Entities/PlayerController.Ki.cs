@@ -242,6 +242,9 @@ namespace Shura
         }
 
         /// <summary>Tutorial: a controlled wound so the gourd has something to heal.</summary>
+        /// <summary>Tutorial: a wound to bandage.</summary>
+        public void TrainingInjure(WoundRegion region) => wounds[(int)region] = true;
+
         public void TrainingWound(float healthFraction)
         {
             if (IsAlive) Health = Mathf.Max(1f, MaxHealth * Mathf.Clamp01(healthFraction));

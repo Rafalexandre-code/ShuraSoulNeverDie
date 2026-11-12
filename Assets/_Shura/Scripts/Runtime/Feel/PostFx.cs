@@ -24,6 +24,20 @@ namespace Shura
             };
         }
 
+        /// <summary>The palette at any hour, flowing from one period's palette into the next.</summary>
+        public static PostMood ForHour(float hour)
+        {
+            float[] h = { 0f, 4.6f, 6f, 7.5f, 12f, 13.5f, 16.5f, 18f, 19.3f, 20.5f, 24f };
+            TimeOfDay[] p = { TimeOfDay.Night, TimeOfDay.Night, TimeOfDay.Dawn, TimeOfDay.Morning, TimeOfDay.Morning, TimeOfDay.Afternoon,
+                              TimeOfDay.Afternoon, TimeOfDay.Dusk, TimeOfDay.Dusk, TimeOfDay.Night, TimeOfDay.Night };
+            hour = Mathf.Repeat(hour, 24f);
+            for (int i = 0; i < h.Length - 1; i++)
+            {
+                if (hour < h[i + 1]) return Lerp(For(p[i]), For(p[i + 1]), (hour - h[i]) / (h[i + 1] - h[i]));
+            }
+            return For(TimeOfDay.Night);
+        }
+
         /// <summary>Each hour has its own palette: luminous morning, golden afternoon, rose dusk, blue night, pearl dawn.</summary>
         public static PostMood For(TimeOfDay t)
         {

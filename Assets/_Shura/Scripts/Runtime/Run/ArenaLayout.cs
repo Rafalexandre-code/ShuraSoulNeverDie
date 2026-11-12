@@ -157,6 +157,27 @@ namespace Shura
             return IsFloor(c.x, c.y) && !InSolid(p);
         }
 
+        // ── Lakes (the Wild Wood): shallow water you can wade into ─────────────────────────
+        readonly List<Vector4> lakes = new List<Vector4>();
+        /// <summary>Each lake as (centre x, centre y, radius x, radius y), world units.</summary>
+        public IReadOnlyList<Vector4> Lakes => lakes;
+
+        public void AddLake(Vector2 centre, Vector2 radii) => lakes.Add(new Vector4(centre.x, centre.y, radii.x, radii.y));
+
+        /// <summary>0 outside any lake, rising to 1 at a lake's middle. <paramref name="grow"/> widens the lakes (their shores).</summary>
+        public float LakeDepth(Vector2 p, float grow = 0f)
+        {
+            float best = 0f;
+            for (int i = 0; i < lakes.Count; i++)
+            {
+                Vector4 l = lakes[i];
+                float dx = (p.x - l.x) / (l.z + grow), dy = (p.y - l.y) / (l.w + grow);
+                float r = Mathf.Sqrt(dx * dx + dy * dy);
+                if (r < 1f) best = Mathf.Max(best, 1f - r);
+            }
+            return best;
+        }
+
         // ── Solid props standing on the floor (stone lanterns): boxes cut from their pixels ──
         readonly List<Rect> solids = new List<Rect>();
         public IReadOnlyList<Rect> Solids => solids;

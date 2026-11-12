@@ -37,6 +37,8 @@ namespace Shura
         River,
         /// <summary>Yomi (depth 40+): everything is ethereal until a perfect parry.</summary>
         Yomi,
+        /// <summary>Bosque Selvagem: a clearing with shallow lakes and trees; fireflies at night.</summary>
+        Wild,
     }
 
     public enum Weather
@@ -99,6 +101,13 @@ namespace Shura
             },
             new Biome
             {
+                suffix = "do Bosque Selvagem", name = "Bosque Selvagem", rule = BiomeRule.Wild, weathers = new[] { Weather.Rain, Weather.Fog, Weather.Wind },
+                floorA = ColorUtil.Hex("#22301F"), floorB = ColorUtil.Hex("#273623"),
+                mortar = ColorUtil.Hex("#141D13"), wall = ColorUtil.Hex("#2E4A2A"), wallEdge = ColorUtil.Hex("#4C7244"),
+                flame = ColorUtil.Hex("#FFD27A"),
+            },
+            new Biome
+            {
                 suffix = "do Musgo", name = "Musgo", rule = BiomeRule.WetMoss, weathers = new[] { Weather.Rain, Weather.Fog, Weather.Wind }, floorA = ColorUtil.Hex("#1F2622"), floorB = ColorUtil.Hex("#232B25"),
                 mortar = ColorUtil.Hex("#161C18"), wall = ColorUtil.Hex("#34433A"), wallEdge = ColorUtil.Hex("#4F6455"),
                 flame = ColorUtil.Hex("#B8D46A"),
@@ -152,7 +161,7 @@ namespace Shura
             },
         };
 
-        /// <summary>Five rooms per biome; nine biomes in a cycle (Yomi waits for depth 40).</summary>
+        /// <summary>Five rooms per biome; ten biomes in a cycle (Yomi waits for depth 40).</summary>
         public static Biome ForDepth(int depth)
         {
             int i = (depth / RoomsPerBiome) % All.Length;
@@ -171,6 +180,7 @@ namespace Shura
             "Portas de shōji rasgam com um golpe. Corredores estreitos, emboscadas.",
             "Água até o joelho: todos andam mais devagar e o Raio se espalha.",
             "Mundo dos mortos: tudo é etéreo até um parry perfeito.",
+            "Mata fechada: lagos rasos espelham quem entra neles, árvores param lâminas e corpos. À noite, vagalumes.",
         };
 
         public static string RuleText(BiomeRule r) => RuleTexts[(int)r];
@@ -218,6 +228,8 @@ namespace Shura
         public int eventId = -1;
         public Weather weather;
         public TimeOfDay time;
+        /// <summary>The tutorial's hall (built as a wooden dojo in a night forest).</summary>
+        public bool dojo;
         /// <summary>A Corrupted Zone: purple mist around a core stone (§6.3).</summary>
         public bool corrupted;
         /// <summary>Everything the door decided (kind, weather, hour, standoff…), for scaled copies of the room.</summary>

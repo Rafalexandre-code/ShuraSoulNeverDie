@@ -66,7 +66,7 @@ namespace Shura
     /// paper lanterns stand as sprites so fighters walk in front of and behind them.
     /// 16 px per unit, point filtered.
     /// </summary>
-    public static class ArenaBuilder
+    public static partial class ArenaBuilder
     {
         const int Tile = PixelArt.PixelsPerUnit;
         const string FloorSheet = "tiles_floor";
@@ -107,8 +107,10 @@ namespace Shura
             }
         }
 
-        public static ArenaDecor Build(Transform parent, GameConfig config, ArenaLayout layout, Biome biome, bool encodePng)
+        public static ArenaDecor Build(Transform parent, GameConfig config, ArenaLayout layout, Biome biome, bool encodePng, bool dojo = false, ulong seed = 0)
         {
+            if (dojo) return BuildDojo(parent, layout, encodePng);
+            if (biome.rule == BiomeRule.Wild) return BuildWild(parent, layout, biome, seed, encodePng);
             Style style = StyleFor(biome);
             var decor = new ArenaDecor { FlameColor = biome.flame, Moss = style.moss };
             Sprite arena = BuildArenaSprite(layout, biome, style, decor, encodePng);
@@ -281,8 +283,9 @@ namespace Shura
                     bool ne = Walkable(layout, statueCells, x + 1, y + 1), nw = Walkable(layout, statueCells, x - 1, y + 1);
                     bool se = Walkable(layout, statueCells, x + 1, y - 1), sw = Walkable(layout, statueCells, x - 1, y - 1);
                     Vector2Int piece;
-                    if (s) piece = new Vector2Int(ox + 1, oy);
-                    else if (n) piece = new Vector2Int(ox + 1, oy + 4);
+                    // The middle of the long edge (column 3) is seamless; column 1 ends in a joint.
+                    if (s) piece = new Vector2Int(ox + 3, oy);
+                    else if (n) piece = new Vector2Int(ox + 3, oy + 4);
                     else if (e) piece = new Vector2Int(ox, oy + 1);
                     else if (w) piece = new Vector2Int(ox + 4, oy + 1);
                     else if (se) piece = new Vector2Int(ox, oy);

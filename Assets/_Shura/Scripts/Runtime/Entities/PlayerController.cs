@@ -206,6 +206,13 @@ namespace Shura
             parryArc.enabled = aura.enabled = empowerGlow.enabled = offhand.enabled = chain.enabled = false;
         }
 
+        /// <summary>Who drives this duelist (the dojo's prologue walks them in by itself).</summary>
+        public void SetInput(IPlayerInputSource source)
+        {
+            input = source;
+            Input = source;
+        }
+
         public void BeginRun(RunState runState, IPlayerInputSource source, PlayerBuild build = null)
         {
             run = runState;

@@ -107,6 +107,19 @@ namespace Shura
         }
 
         /// <summary>A whole small image (bomb, talisman) as one centred sprite.</summary>
+        /// <summary>A whole image standing on its own feet (pivot at the bottom centre).</summary>
+        public static Sprite Standing(string name)
+        {
+            string key = name + "#standing";
+            if (Sprites.TryGetValue(key, out Sprite cached)) return cached;
+            Texture2D tex = Texture(name);
+            Sprite s = tex != null
+                ? UnityEngine.Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0f), PixelsPerUnit, 0, SpriteMeshType.FullRect)
+                : null;
+            Sprites[key] = s;
+            return s;
+        }
+
         public static Sprite Image(string name, float pixelsPerUnit = PixelsPerUnit)
         {
             string key = name + "#image@" + pixelsPerUnit;

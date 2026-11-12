@@ -26,6 +26,11 @@ namespace Shura
         {
             Tutorial t = game.Tutorial;
             if (!t.Active) return;
+            if (t.Current == Tutorial.Step.Prologue)
+            {
+                DrawPrologue(t);
+                return;
+            }
             Camera cam = game.CameraRig.Cam;
             float time = Time.unscaledTime;
 
@@ -59,6 +64,12 @@ namespace Shura
                 DrawTutorialDone();
                 return;
             }
+            if (t.Touring)
+            {
+                DrawHudTour(t);
+                return;
+            }
+            if (t.SkipArmed) DrawSkipBanner();
 
             // The lesson scroll.
             string text = t.Text;
@@ -73,7 +84,7 @@ namespace Shura
             DrawRect(new Rect(card.x + 12f, card.y + 8f, card.width - 24f, card.height - 14f), new Color(0.05f, 0.04f, 0.05f, 0.74f));
             kit.InkPanel(card, 0.9f);
             DrawRect(new Rect(card.x + 30f, card.y + 14f, 6f, card.height - 28f), UiKit.Shu.WithAlpha(0.9f));
-            Label(new Rect(card.x + 54f, card.y + 14f, 300f, 26f), string.Format(Strings.TutorialLesson, (int)t.Current + 1, Tutorial.LessonCount), capsStyle, Pal.gold);
+            Label(new Rect(card.x + 54f, card.y + 14f, 300f, 26f), string.Format(Strings.TutorialLesson, (int)t.Current - 1, Tutorial.LessonCount - 2), capsStyle, Pal.gold);
             Label(new Rect(card.x + 54f, card.y + 36f, textW, 54f), t.Title, tutorialTitleStyle, UiKit.PaperText);
             Label(new Rect(card.x + 54f, card.y + 92f, textW, textH), text, tutorialTextStyle, UiKit.PaperText.WithAlpha(0.92f));
 
@@ -109,6 +120,214 @@ namespace Shura
 
             if (t.Flash > 0f) DrawTutorialWellDone(t.Flash);
             if (t.Frozen) DrawTutorialFreeze(t);
+        }
+
+        // ── The prologue ────────────────────────────────────────────────────────────────
+
+        void DrawPrologue(Tutorial t)
+        {
+            float time = Time.unscaledTime;
+            Rect full = FullScreen;
+            switch (t.ProloguePhase)
+            {
+                case 0:
+                {
+                    // Black, then the place and the hour, then the world through the dark.
+                    float a = 1f - Mathf.Clamp01((t.PhaseTime - 2.4f) / 1f);
+                    DrawRect(full, new Color(0f, 0f, 0f, a));
+                    float ta = Mathf.Clamp01(t.PhaseTime / 0.9f) * a;
+                    Label(new Rect(0, VH * 0.5f - 90f, VW, 110f), Strings.PrologueTitle, tutorialNowStyle, Pal.gold.WithAlpha(ta));
+                    Label(new Rect(0, VH * 0.5f + 80f, VW, 50f), Strings.PrologueSubtitle, taglineStyle, UiKit.PaperText.WithAlpha(ta * 0.9f));
+                    break;
+                }
+                case 1:
+                    DrawLetterbox(1f);
+                    Label(new Rect(0, VH - 92f, VW, 50f), Strings.PrologueWalk, taglineStyle, UiKit.PaperText.WithAlpha(0.85f * Mathf.Clamp01(t.PhaseTime / 1.2f)));
+                    break;
+                default:
+                    DrawPrologueTalk(t, time);
+                    break;
+            }
+            if (t.SkipArmed) DrawSkipBanner();
+        }
+
+        void DrawLetterbox(float amount)
+        {
+            float h = 120f * amount;
+            DrawRect(new Rect(0f, 0f, VW, h), Color.black);
+            DrawRect(new Rect(0f, VH - h, VW, h), Color.black);
+        }
+
+        /// <summary>
+        /// Two faces fill the screen — the duelist on the left, the master on the right — the one
+        /// who speaks lit and close, the other in shadow; the words type themselves below.
+        /// </summary>
+        void DrawPrologueTalk(Tutorial t, float time)
+        {
+            Rect full = FullScreen;
+            DrawRect(full, new Color(0.02f, 0.015f, 0.03f, 0.9f));
+            if (vignette != null) DrawTex(full, vignette, new Color(0f, 0f, 0f, 0.6f));
+            int speaker = Strings.PrologueSpeaker(t.LineIndex);
+            float into = Mathf.Clamp01(t.LineTime / 0.35f);
+            DrawFace(new Rect(160f, 120f, 560f, 560f), PixelArt.Image("face_hero"), speaker == 0, into, time, false);
+            DrawFace(new Rect(VW - 720f, 120f, 560f, 560f), PixelArt.Image("face_master"), speaker == 1, into, time, true);
+
+            // The words.
+            var box = new Rect(140f, VH - 300f, VW - 280f, 240f);
+            kit.InkPanel(box, 0.96f);
+            DrawRect(new Rect(box.x + 30f, box.y + 20f, 6f, box.height - 40f), (speaker == 1 ? Pal.gold : UiKit.Shu).WithAlpha(0.9f));
+            string name = speaker == 1 ? Strings.PrologueMaster : Strings.PrologueHero;
+            Label(new Rect(box.x + 60f, box.y + 18f, 600f, 54f), name, tutorialTitleStyle, speaker == 1 ? Pal.gold : UiKit.PaperText);
+            string line = Strings.PrologueText(t.LineIndex);
+            int shown = Mathf.Clamp(Mathf.FloorToInt(t.LineTime * Strings.PrologueCharsPerSecond), 0, line.Length);
+            Label(new Rect(box.x + 60f, box.y + 80f, box.width - 120f, box.height - 100f), line.Substring(0, shown), tutorialTextStyle, UiKit.PaperText);
+            if (shown >= line.Length)
+            {
+                float blink = 0.5f + 0.5f * Mathf.Sin(time * 6f);
+                Label(new Rect(box.xMax - 90f, box.yMax - 60f, 50f, 40f), "▼", capsCenterStyle, Pal.gold.WithAlpha(blink));
+            }
+            Label(new Rect(0f, VH - 50f, VW, 34f), Strings.PrologueKeys, smallStyleCenter, UiKit.PaperDim);
+            Label(new Rect(0f, 40f, VW, 40f), string.Format(Strings.PrologueCount, t.LineIndex + 1, Strings.PrologueLineCount), capsCenterStyle, UiKit.PaperDim.WithAlpha(0.7f));
+
+            Event e = Event.current;
+            if (!game.Launch.Automated && e.type == EventType.MouseDown && e.button == 0)
+            {
+                e.Use();
+                t.AdvanceLine();
+            }
+        }
+
+        /// <summary>A face, close: the head of the pixel figure, very large, breathing.</summary>
+        void DrawFace(Rect r, Sprite s, bool speaking, float into, float time, bool right)
+        {
+            // An ensō behind the one who speaks.
+            float lit = speaking ? Mathf.Lerp(0.4f, 1f, into) : Mathf.Lerp(1f, 0.32f, into);
+            float scale = speaking ? Mathf.Lerp(0.94f, 1.04f, into) : 0.9f;
+            scale *= 1f + 0.012f * Mathf.Sin(time * 1.6f + (right ? 1f : 0f));
+            var c = r.center;
+            var rr = new Rect(c.x - r.width * 0.5f * scale, c.y - r.height * 0.5f * scale, r.width * scale, r.height * scale);
+            if (speaking) kit.Enso(new Rect(rr.x + 30f, rr.y + 30f, rr.width - 60f, rr.height - 60f), (right ? Pal.gold : UiKit.Shu).WithAlpha(0.55f * into), time * 8f);
+            if (s == null) return;
+            // The portrait, whole.
+            Rect tr = s.textureRect;
+            Texture tex = s.texture;
+            float crop = 1f;
+            var uv = new Rect(tr.x / tex.width, (tr.y + tr.height * (1f - crop)) / tex.height, tr.width / tex.width, tr.height * crop / tex.height);
+            float aspect = tr.width / (tr.height * crop);
+            float h = rr.height * 0.82f, w = h * aspect;
+            var dst = new Rect(rr.center.x - w * 0.5f, rr.center.y - h * 0.5f + 20f, w, h);
+            Color old = GUI.color;
+            GUI.color = new Color(lit, lit, lit * (speaking ? 1f : 1.15f), 1f);
+            GUI.DrawTextureWithTexCoords(dst, tex, uv);
+            GUI.color = old;
+        }
+
+        void DrawSkipBanner()
+        {
+            float pulse = 0.75f + 0.25f * Mathf.Sin(Time.unscaledTime * 8f);
+            var r = new Rect(VW * 0.5f - 560f, VH - 230f, 1120f, 64f);
+            kit.InkPanel(r, 0.95f);
+            Label(r, Strings.TutorialSkipArmed, bodyCenterStyle, Pal.gold.WithAlpha(pulse));
+        }
+
+        /// <summary>
+        /// The tour of the screen: everything dims but one part of the HUD, framed in gold, and a
+        /// dotted line runs from it to the scroll that says what it is and what it does.
+        /// </summary>
+        void DrawHudTour(Tutorial t)
+        {
+            float time = Time.unscaledTime;
+            int i = t.TourIndex, n = Strings.TutorialTourCount;
+            HudPart part = Strings.TutorialTourPart(i);
+            Rect hole = default;
+            bool has = part != HudPart.None && hudMarks.TryGetValue(part, out hole);
+            float appear = Mathf.Clamp01(t.TourTime / 0.25f);
+
+            // The dark, with a window over the part being shown.
+            Color dim = new Color(0.01f, 0.01f, 0.03f, 0.74f * appear);
+            Rect full = FullScreen;
+            if (has)
+            {
+                var hRect = new Rect(hole.x - 8f, hole.y - 8f, hole.width + 16f, hole.height + 16f);
+                DrawRect(new Rect(full.x, full.y, full.width, Mathf.Max(0f, hRect.y - full.y)), dim);
+                DrawRect(new Rect(full.x, hRect.yMax, full.width, Mathf.Max(0f, full.yMax - hRect.yMax)), dim);
+                DrawRect(new Rect(full.x, hRect.y, Mathf.Max(0f, hRect.x - full.x), hRect.height), dim);
+                DrawRect(new Rect(hRect.xMax, hRect.y, Mathf.Max(0f, full.xMax - hRect.xMax), hRect.height), dim);
+                // A gold frame that breathes.
+                float g = 0.65f + 0.35f * Mathf.Sin(time * 4f);
+                Color gold = Pal.gold.WithAlpha(g * appear);
+                const float th = 4f;
+                DrawRect(new Rect(hRect.x, hRect.y, hRect.width, th), gold);
+                DrawRect(new Rect(hRect.x, hRect.yMax - th, hRect.width, th), gold);
+                DrawRect(new Rect(hRect.x, hRect.y, th, hRect.height), gold);
+                DrawRect(new Rect(hRect.xMax - th, hRect.y, th, hRect.height), gold);
+                float o = 6f + 4f * Mathf.Sin(time * 4f);
+                Color halo = Pal.gold.WithAlpha(0.25f * appear);
+                DrawRect(new Rect(hRect.x - o, hRect.y - o, hRect.width + 2f * o, 2f), halo);
+                DrawRect(new Rect(hRect.x - o, hRect.yMax + o - 2f, hRect.width + 2f * o, 2f), halo);
+                DrawRect(new Rect(hRect.x - o, hRect.y - o, 2f, hRect.height + 2f * o), halo);
+                DrawRect(new Rect(hRect.xMax + o - 2f, hRect.y - o, 2f, hRect.height + 2f * o), halo);
+            }
+            else DrawRect(full, dim);
+
+            // The scroll: beside the part, on the side with more room.
+            const float bw = 660f;
+            string title = Strings.TutorialTourTitle(i), text = Strings.TutorialTourText(i);
+            float textH = tutorialTextStyle.CalcHeight(new GUIContent(text), bw - 80f);
+            float bh = 150f + textH + 70f;
+            Rect box;
+            if (!has) box = new Rect(VW * 0.5f - bw * 0.5f, VH * 0.5f - bh * 0.5f, bw, bh);
+            else
+            {
+                bool right = hole.center.x < VW * 0.5f;
+                float bx = right ? hole.xMax + 90f : hole.x - 90f - bw;
+                if (bx < 20f || bx + bw > VW - 20f) bx = Mathf.Clamp(hole.center.x - bw * 0.5f, 20f, VW - 20f - bw);
+                bool besideFits = bx >= hole.xMax + 40f || bx + bw <= hole.x - 40f;
+                float by = besideFits ? hole.center.y - bh * 0.5f : (hole.center.y < VH * 0.5f ? hole.yMax + 70f : hole.y - 70f - bh);
+                box = new Rect(bx, Mathf.Clamp(by, 20f, VH - 20f - bh), bw, bh);
+
+                // The dotted line from the part to the scroll.
+                Vector2 a = new Vector2(Mathf.Clamp(box.center.x, hole.x, hole.xMax), Mathf.Clamp(box.center.y, hole.y, hole.yMax));
+                Vector2 b = new Vector2(Mathf.Clamp(a.x, box.x, box.xMax), Mathf.Clamp(a.y, box.y, box.yMax));
+                float len = Vector2.Distance(a, b);
+                int dots = Mathf.Max(2, Mathf.RoundToInt(len / 16f));
+                for (int d = 0; d <= dots; d++)
+                {
+                    float f = d / (float)dots;
+                    if (f > appear) break;
+                    Vector2 q = Vector2.Lerp(a, b, f);
+                    float s = d == 0 ? 14f : 6f;
+                    kit.Dab(new Rect(q.x - s * 0.5f, q.y - s * 0.5f, s, s), Pal.gold.WithAlpha(0.9f));
+                }
+            }
+
+            kit.PaperPanel(box);
+            Label(new Rect(box.x + 40f, box.y + 30f, bw - 80f, 26f), string.Format(Strings.TutorialTourStep, i + 1, n), capsStyle, UiKit.Shu);
+            FitLabel(new Rect(box.x + 40f, box.y + 58f, bw - 80f, 56f), title, tutorialTitleStyle, UiKit.Ink);
+            Label(new Rect(box.x + 40f, box.y + 122f, bw - 80f, textH), text, tutorialTextStyle, UiKit.Ink);
+
+            // Back and next.
+            Event e = Event.current;
+            var next = new Rect(box.xMax - 250f, box.yMax - 70f, 210f, 48f);
+            var back = new Rect(box.x + 40f, box.yMax - 70f, 170f, 48f);
+            kit.Stroke(next, UiKit.Shu.WithAlpha(0.95f));
+            Label(next, i + 1 >= n ? Strings.TutorialTourLast : Strings.TutorialTourNext, itemStyle, UiKit.PaperText);
+            if (i > 0) Label(back, Strings.TutorialTourBack, smallStyle, UiKit.InkSoft);
+            if (!game.Launch.Automated && e.type == EventType.MouseDown && e.button == 0)
+            {
+                if (next.Contains(e.mousePosition))
+                {
+                    e.Use();
+                    t.NextTourPage();
+                }
+                else if (i > 0 && back.Contains(e.mousePosition))
+                {
+                    e.Use();
+                    t.PreviousTourPage();
+                }
+            }
+            Label(new Rect(0f, VH - 46f, VW, 34f), Strings.TutorialTourKeys, smallStyleCenter, UiKit.PaperText.WithAlpha(0.85f));
+            if (t.SkipArmed) DrawSkipBanner();
         }
 
         /// <summary>The four guards as a checklist: the one held is lit, the ones tried are ticked.</summary>

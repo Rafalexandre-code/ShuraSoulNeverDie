@@ -234,6 +234,25 @@ namespace Shura
             Tutorial t = game.Tutorial;
             if (!shots) return;
             int step = (int)t.Current;
+            // The prologue: the title, the walk, and a picture of every line.
+            if (t.Current == Tutorial.Step.Prologue)
+            {
+                int key = t.ProloguePhase * 100 + (t.ProloguePhase == 2 ? t.LineIndex : 0);
+                bool ready = t.ProloguePhase == 2 ? t.LineTime > 1.2f : t.PhaseTime > (t.ProloguePhase == 0 ? 1.6f : 2.5f);
+                if (key != prologueShot && ready)
+                {
+                    prologueShot = key;
+                    Shot("prologo_" + key.ToString("000"));
+                }
+                return;
+            }
+            // The HUD tour: one picture per page.
+            if (t.Touring && t.TourIndex != tourShotPage && t.TourTime > 0.45f)
+            {
+                tourShotPage = t.TourIndex;
+                Shot("dojo_hud_" + t.TourIndex.ToString("00"));
+                return;
+            }
             if (t.Frozen && !tutorialFreezeShot)
             {
                 tutorialFreezeShot = true;
@@ -248,6 +267,8 @@ namespace Shura
         }
 
         bool remoteDone;
+        int tourShotPage = -1;
+        int prologueShot = -1;
         bool creditsShotDone;
         bool inviteShotDone;
         float remoteShotTimer;

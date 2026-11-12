@@ -762,7 +762,9 @@ namespace Shura
             // Encounters are a pause on the road: no traps.
             if (!room.IsEncounter) Layout.PlaceTraps(rng, room.depth, PlayerSpawn);
             Bounds = Layout.FloorBounds;
-            Decor = ArenaBuilder.Build(arenaRoot, Config, Layout, room.biome, EncodeArenaPng);
+            Decor = ArenaBuilder.Build(arenaRoot, Config, Layout, room.biome, EncodeArenaPng, room.dojo, room.layoutSeed ^ (ulong)room.depth * 7919UL);
+            // Lakes mirror whoever wades in and ripple under their steps.
+            if (Layout.Lakes.Count > 0) arenaRoot.gameObject.AddComponent<WaterLife>().Init(this);
             ArenaPng = Decor.Png;
             ArenaVersion++;
             trapViews = new TrapViews(arenaRoot, Layout);

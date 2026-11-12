@@ -207,6 +207,8 @@ namespace Shura
             ApplySettings();
             ApplyHostIdentity();
             SetMode(Mode.Title);
+            // "-shuraTutorial" by hand (no bot): straight into the dojo, as a player would be.
+            if (Launch.Tutorial && !Launch.Automated) StartTutorial();
         }
 
         void Update()
@@ -229,6 +231,14 @@ namespace Shura
             switch (CurrentMode)
             {
                 case Mode.Playing:
+                    // In the dojo, Esc twice leaves it (the pad's Start still pauses).
+                    if (Tutorial.Active && !Launch.Automated && UnityEngine.InputSystem.Keyboard.current != null &&
+                        UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+                    {
+                        if (Tutorial.SkipArmed) SkipTutorial();
+                        else Tutorial.ArmSkip();
+                        break;
+                    }
                     if (Controls.PausePressed && !Launch.Automated)
                     {
                         Pause();
@@ -275,7 +285,7 @@ namespace Shura
         void Simulate()
         {
             // The dojo holds the world still while it waits for one button.
-            if (Tutorial.Active && Tutorial.Frozen)
+            if (Tutorial.Active && (Tutorial.Frozen || Tutorial.Touring || Tutorial.HoldWorld))
             {
                 Clock.Reset();
                 return;
@@ -294,6 +304,8 @@ namespace Shura
                 Clock.Accumulate(Time.unscaledDeltaTime * EffectiveTempo);
             }
 
+            // The day passes while the duel goes on (never in the dojo, never paused).
+            if (Run != null && !World.TutorialRoom) Run.Clock.Advance(Time.unscaledDeltaTime);
             Mode startMode = CurrentMode;
             while (Clock.Step(out bool frozen))
             {
@@ -327,7 +339,7 @@ namespace Shura
                 int flow = me != null ? MiniJson.I(me, 29) : 0;
                 CameraRig.SetZoomOffset(Remote.Between ? 0f : flow * Config.feel.flowZoomPerLevel);
                 List<object> env = Remote.Latest?.env;
-                CameraRig.Post.SetMood(PostMood.For(env != null ? (TimeOfDay)MiniJson.I(env, 1) : TimeOfDay.Morning));
+                CameraRig.Post.SetMood(PostMood.ForHour(env != null ? MiniJson.F(env, 14, 9f) : 9f));
                 if (Remote.HasOwn && !Remote.Between)
                 {
                     Vector2? locked = Remote.LockPosition;
@@ -339,7 +351,7 @@ namespace Shura
                 return;
             }
             CameraRig.SetZoomOffset(Run != null ? FlowLevel * Config.feel.flowZoomPerLevel : 0f);
-            CameraRig.Post.SetMood(PostMood.For(Run != null ? World.TimeOfDay : TimeOfDay.Morning));
+            CameraRig.Post.SetMood(PostMood.ForHour(Run != null ? World.Hour : 9f));
             // Outside a run the camera frames the whole arena behind the menus.
             PlayerController focus = World.CameraFocus;
             if (Run != null && focus.LockTarget != null && Settings.lockCamera)
@@ -399,7 +411,7 @@ namespace Shura
             Tutorial.Prepare();
             World.BeginRun(Run, ActiveInput);
             World.Player.ApplyStats(true);
-            World.StartRoom(new RoomDef(Strings.TutorialRoomName, 0, Biomes.All[0], 22f, 13f, false, new EnemySpawn[0][]), false);
+            World.StartRoom(new RoomDef(Strings.TutorialRoomName, 0, Biomes.All[0], 22f, 13f, false, new EnemySpawn[0][]) { dojo = true, time = TimeOfDay.Night }, false);
             World.TutorialRoom = true;
             announcedReadings.Clear();
             tempo = Config.feel.baseTempo;
@@ -485,6 +497,9 @@ namespace Shura
                 soulTech.Branch = TechniqueDef.BranchEcho;
                 Run.Main.Acquire(soulTech);
             }
+            // The journey leaves at dawn; the day passes from here.
+            Run.Clock.MomentReached += OnDayMoment;
+            StampHour(first);
             World.StartRoom(first, startDepth == 0);
             announcedReadings.Clear();
             tempo = Config.feel.baseTempo;
@@ -909,12 +924,41 @@ namespace Shura
             SetMode(Mode.GameOver);
         }
 
+        /// <summary>A room takes the hour it is entered at (the full moon only rises at night).</summary>
+        void StampHour(RoomDef room)
+        {
+            room.time = Run.Clock.Period;
+            if (room.weather == Weather.FullMoon && room.time != TimeOfDay.Night) room.weather = Weather.Clear;
+        }
+
+        /// <summary>The day marks its passing: a line on screen, and a sound or a light.</summary>
+        void OnDayMoment(int i)
+        {
+            if (Run == null || World.TutorialRoom) return;
+            DayClock.Moment m = DayClock.Moments[i];
+            UI.ShowAmbience(m.text);
+            switch (i)
+            {
+                case 0: Audio.Play(Sfx.Glint, 0.35f, 1.6f, 0f); break;
+                case 1:
+                    Audio.Play(Sfx.Chime, 0.5f, 0.75f, 0f);
+                    if (CameraRig.Post != null) CameraRig.Post.Flash = 0.45f;
+                    break;
+                case 3: Audio.Play(Sfx.Chime, 0.7f, 0.5f, 0f); break;
+                case 5: Audio.Play(Sfx.Chime, 0.45f, 0.62f, 0f); break;
+                case 6: Audio.Play(Sfx.Glint, 0.3f, 0.7f, 0f); break;
+                case 7: Audio.Play(Sfx.Chime, 0.55f, 0.45f, 0f); break;
+                case 8: Audio.Play(Sfx.Danger, 0.25f, 0.6f, 0f); break;
+            }
+        }
+
         void NextRoom()
         {
             // A party that fell as the room was won stands up at the next one: no late game over.
             deathTimer = -1;
             Run.RoomIndex++;
             RoomDef room = Run.GetRoom(Run.RoomIndex);
+            StampHour(room);
             World.StartRoom(room, false);
             Vfx.ClearDecals();
             Vfx.StainBounds = World.Bounds;
@@ -930,7 +974,7 @@ namespace Shura
             UI.Toast(string.Format(Strings.ToastDepth, room.depth + 1), pal.uiText);
             if (room.kind != RoomKind.Combat && room.kind != RoomKind.Guardian) UI.Toast(RouteMap.Describe(Run.CurrentNode ?? new RouteNode { kind = room.kind }), RouteMap.KindColor(room.kind));
             if (room.depth % Biomes.RoomsPerBiome == 0) UI.Toast(room.biome.name + ": " + Biomes.RuleText(room.biome.rule), pal.uiText);
-            if (room.depth % 3 == 0) UI.Toast(Biomes.TimeName(room.time), pal.uiDim);
+
             if (room.weather != Weather.Clear) UI.Toast(Biomes.WeatherName(room.weather) + ": " + Biomes.WeatherText(room.weather), pal.playerAccent);
             if (room.corrupted) UI.Toast(Strings.ToastCorrupted, ColorUtil.Hex("#B06CFF"));
             foreach (string newcomer in RoomGenerator.NewEnemiesAt(room.depth))

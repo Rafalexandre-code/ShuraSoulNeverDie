@@ -17,8 +17,8 @@ namespace Shura
     {
         public enum Step
         {
-            Move, Attack, Combo, Block, Parry, ParryFree, Dodge, DodgeFree, Posture, Finisher,
-            Swap, SwapParry, Stances, Gourd, Tool, Seals, Kiai, Duel, Done,
+            Prologue, Hud, Move, Attack, Combo, Block, Parry, ParryFree, Dodge, DodgeFree, Posture, Finisher,
+            Swap, SwapParry, Stances, LockOn, Gourd, Bandage, Tool, Seals, Kiai, Duel, Done,
         }
 
         public const int LessonCount = (int)Step.Done;
@@ -32,13 +32,112 @@ namespace Shura
         bool frozeThisBlow;
         int pressBase;
         float frozenFor;
-        int finishersBase, papersBase, sipsBase;
+        int finishersBase, papersBase, sipsBase, bandagesBase;
+        float lockedFor;
+        bool mouseLockBefore;
+
+        // ── The HUD tour: the world waits while each part of the screen is shown ──────────
+        public int TourIndex { get; private set; }
+        public float TourTime { get; private set; }
+        public bool Touring => Active && Current == Step.Hud && Flash <= 0f;
+        int tourPressBase;
+
+        // ── Esc twice skips the dojo ─────────────────────────────────────────────────────
+        float skipArmedFor;
+        public bool SkipArmed => skipArmedFor > 0f;
+
+        /// <summary>First Esc: the offer to leave; a second one within a few seconds takes it.</summary>
+        public void ArmSkip()
+        {
+            skipArmedFor = 3f;
+            game.Audio.Play(Sfx.UiMove, 0.6f, 0.8f, 0f);
+        }
+
+        public void NextTourPage()
+        {
+            if (!Touring) return;
+            game.Audio.Play(Sfx.UiMove, 0.6f, 1.1f, 0f);
+            if (TourIndex + 1 >= Strings.TutorialTourCount) Complete();
+            else
+            {
+                TourIndex++;
+                TourTime = 0f;
+            }
+        }
+
+        public void PreviousTourPage()
+        {
+            if (!Touring || TourIndex == 0) return;
+            game.Audio.Play(Sfx.UiMove, 0.6f, 0.9f, 0f);
+            TourIndex--;
+            TourTime = 0f;
+        }
         bool comboCounted, dodgedThisBlow, hurtThisBlow, blowWasDangerous, wasAttacking;
         bool listening;
 
         public Tutorial(Game owner)
         {
             game = owner;
+        }
+
+        /// <summary>Only the test robot may be helped along; a person must always do the lesson.</summary>
+        bool RobotPlays => game.Launch.Automated && game.ActiveInput is BotInput;
+        /// <summary>How far the duelist has walked in this lesson (the marks only count after a real walk).</summary>
+        float walked;
+        Vector2 lastPos;
+
+        // ── The prologue: the duelist arrives at the dojo and the master speaks ─────────────
+        sealed class CinematicInput : IPlayerInputSource
+        {
+            public Vector2 Walk;
+            public Vector2 Move => Walk;
+            public bool ParryHeld => false;
+            public InputBuffer Buffer { get; } = new InputBuffer();
+            public bool InteractHeld => false;
+            public bool AttackHeld => false;
+            public int TakeKamae() => -1;
+            public Vector2 AimDirection(Vector2 playerWorldPosition) => Vector2.zero;
+        }
+
+        readonly CinematicInput cinema = new CinematicInput();
+        IPlayerInputSource savedInput;
+        /// <summary>0 the title card, 1 the walk, 2 the words.</summary>
+        public int ProloguePhase { get; private set; }
+        public float PhaseTime { get; private set; }
+        public int LineIndex { get; private set; }
+        public float LineTime { get; private set; }
+        int linePressBase;
+        Vector2 walkTarget;
+
+        /// <summary>The world waits: the title card and the conversation.</summary>
+        public bool HoldWorld => Active && Current == Step.Prologue && ProloguePhase != 1;
+
+        public void AdvanceLine()
+        {
+            if (Current != Step.Prologue || ProloguePhase != 2) return;
+            int len = Strings.PrologueText(LineIndex).Length;
+            if (LineTime * Strings.PrologueCharsPerSecond < len)
+            {
+                LineTime = len / Strings.PrologueCharsPerSecond + 0.01f;
+                return;
+            }
+            if (LineIndex + 1 >= Strings.PrologueLineCount)
+            {
+                EndPrologue();
+                return;
+            }
+            LineIndex++;
+            LineTime = 0f;
+            game.Audio.Play(Sfx.UiMove, 0.45f, Strings.PrologueSpeaker(LineIndex) == 1 ? 0.8f : 1.05f, 0f);
+        }
+
+        void EndPrologue()
+        {
+            PlayerController p = Player;
+            if (savedInput != null) p.SetInput(savedInput);
+            savedInput = null;
+            cinema.Walk = Vector2.zero;
+            Enter(Step.Hud);
         }
 
         public bool Active { get; private set; }
@@ -80,7 +179,7 @@ namespace Shura
 
         public void Begin()
         {
-            Enter(game.Launch.Automated && game.Launch.TutorialStep >= 0 ? (Step)Mathf.Clamp(game.Launch.TutorialStep, 0, LessonCount - 1) : Step.Move);
+            Enter(game.Launch.Tutorial && game.Launch.TutorialStep >= 0 ? (Step)Mathf.Clamp(game.Launch.TutorialStep, 0, LessonCount - 1) : Step.Prologue);
         }
 
         public void Stop()
@@ -90,11 +189,18 @@ namespace Shura
             Flash = 0f;
             partner = null;
             Marks.Clear();
+            RestoreMouseLock();
             if (game.World != null) game.World.PlayerInvincible = false;
+        }
+
+        void RestoreMouseLock()
+        {
+            if (Current == Step.LockOn) game.Controls.MouseLockAllowed = mouseLockBefore;
         }
 
         void Enter(Step step)
         {
+            if (Current == Step.LockOn && step != Step.LockOn) RestoreMouseLock();
             Current = step;
             Progress = 0;
             Goal = 1;
@@ -106,9 +212,46 @@ namespace Shura
             Marks.Clear();
             MarkIndex = 0;
             PlayerController p = Player;
+            walked = 0f;
+            lastPos = p.Position;
             PlayerBuild b = p.Build;
             switch (step)
             {
+                case Step.Prologue:
+                {
+                    ProloguePhase = 0;
+                    PhaseTime = 0f;
+                    LineIndex = 0;
+                    LineTime = 0f;
+                    Rect f = World.Layout.FloorBounds;
+                    if (partner == null || partner.IsGone) partner = World.SpawnPartner(EnemyDefs.Sensei, World.Layout.NearestFloor(new Vector2(f.center.x, f.center.y + 1.6f), 0.6f), true);
+                    p.Teleport(World.Layout.NearestFloor(new Vector2(f.center.x - 5.5f, f.yMin + 1.2f), 0.6f));
+                    walkTarget = World.Layout.NearestFloor(partner.Position + Vector2.down * 1.8f, 0.6f);
+                    savedInput = p.Input;
+                    p.SetInput(cinema);
+                    break;
+                }
+                case Step.Hud:
+                    TourIndex = 0;
+                    TourTime = 0f;
+                    tourPressBase = game.Controls.PressCounts[0];
+                    break;
+                case Step.LockOn:
+                    Goal = 1;
+                    lockedFor = 0f;
+                    // The keyboard's lock is optional: the dojo lends it for this lesson.
+                    mouseLockBefore = game.Controls.MouseLockAllowed;
+                    game.Controls.MouseLockAllowed = true;
+                    break;
+                case Step.Bandage:
+                    if (b != null)
+                    {
+                        b.Bandages = Mathf.Max(b.Bandages, 1);
+                        bandagesBase = b.Bandages;
+                    }
+                    p.TrainingInjure(WoundRegion.Arm);
+                    p.TrainingWound(0.7f);
+                    break;
                 case Step.Move:
                 {
                     Goal = 3;
@@ -156,7 +299,7 @@ namespace Shura
                     game.OnTutorialFinished();
                     break;
             }
-            if (game.Launch.Automated) Debug.Log("[Shura][Tutorial] lição " + ((int)step + 1) + "/" + LessonCount + ": " + step);
+            Debug.Log("[Shura][Tutorial] lição " + ((int)step + 1) + "/" + LessonCount + ": " + step + (game.Launch.Automated ? " (teste)" : ""));
         }
 
         /// <summary>The middle of the dojo, or a few steps from the duelist if they stand there.</summary>
@@ -173,7 +316,7 @@ namespace Shura
             return p.Position + dir * distance;
         }
 
-        bool NeedsPartner => Current != Step.Move && Current != Step.Done && Current != Step.Duel;
+        bool NeedsPartner => Current != Step.Prologue && Current != Step.Hud && Current != Step.Move && Current != Step.Done && Current != Step.Duel;
         bool PartnerStrikes => Current == Step.Block || Current == Step.Parry || Current == Step.ParryFree || Current == Step.Dodge ||
                                Current == Step.DodgeFree || Current == Step.SwapParry || (Current == Step.Seals && !SealReady) ||
                                Current == Step.Kiai;
@@ -220,8 +363,25 @@ namespace Shura
 
             switch (Current)
             {
+                case Step.Prologue:
+                    if (ProloguePhase == 1)
+                    {
+                        // A slow, steady walk up to the master.
+                        Vector2 to = walkTarget - p.Position;
+                        cinema.Walk = to.magnitude > 0.25f ? to.normalized * 0.55f : Vector2.zero;
+                        if (to.magnitude <= 0.25f)
+                        {
+                            p.Facing = Vector2.up;
+                            ProloguePhase = 2;
+                            LineTime = 0f;
+                            linePressBase = game.Controls.PressCounts[0];
+                        }
+                    }
+                    break;
                 case Step.Move:
-                    if (MarkIndex < Marks.Count && Vector2.Distance(p.Position, Marks[MarkIndex]) < 0.9f)
+                    walked += Vector2.Distance(p.Position, lastPos);
+                    lastPos = p.Position;
+                    if (walked > 1f && MarkIndex < Marks.Count && Vector2.Distance(p.Position, Marks[MarkIndex]) < 0.9f)
                     {
                         MarkIndex++;
                         game.Audio.Play(Sfx.Chime, 0.5f, 1f + 0.12f * MarkIndex, 0f);
@@ -252,6 +412,14 @@ namespace Shura
                     break;
                 case Step.Gourd:
                     if (p.Sips < sipsBase) Complete();
+                    break;
+                case Step.LockOn:
+                    lockedFor = p.LockTarget != null ? lockedFor + SimClock.Dt : 0f;
+                    Progress = lockedFor >= 1.2f ? 1 : 0;
+                    if (lockedFor >= 1.2f) Complete();
+                    break;
+                case Step.Bandage:
+                    if (p.Build != null && p.Build.Bandages < bandagesBase) Complete();
                     break;
                 case Step.Tool:
                     if (p.Build != null && p.Build.SpiritPapers < papersBase) Complete();
@@ -308,6 +476,47 @@ namespace Shura
         {
             if (!Active) return;
             StepTime += dt;
+            if (skipArmedFor > 0f) skipArmedFor -= dt;
+            if (Active && Current == Step.Prologue)
+            {
+                PhaseTime += dt;
+                if (ProloguePhase == 0 && PhaseTime > 3.4f)
+                {
+                    ProloguePhase = 1;
+                    PhaseTime = 0f;
+                }
+                else if (ProloguePhase == 1 && PhaseTime > 10f)
+                {
+                    // Never stuck on the way in.
+                    Player.Teleport(walkTarget);
+                    Player.Facing = Vector2.up;
+                    cinema.Walk = Vector2.zero;
+                    ProloguePhase = 2;
+                    LineTime = 0f;
+                    linePressBase = game.Controls.PressCounts[0];
+                }
+                else if (ProloguePhase == 2)
+                {
+                    LineTime += dt;
+                    InputService c = game.Controls;
+                    bool next = c.Submit || c.PressCounts[0] != linePressBase;
+                    linePressBase = c.PressCounts[0];
+                    if (RobotPlays && LineTime > 1.4f) next = true;
+                    if (next && LineTime > 0.12f) AdvanceLine();
+                }
+                return;
+            }
+            if (Touring)
+            {
+                TourTime += dt;
+                InputService c = game.Controls;
+                bool next = c.Submit || c.PressCounts[0] != tourPressBase || c.NavX > 0;
+                tourPressBase = c.PressCounts[0];
+                if (RobotPlays && TourTime > 0.9f) next = true;
+                if (next && TourTime > 0.15f) NextTourPage();
+                else if (c.NavX < 0) PreviousTourPage();
+                return;
+            }
             if (Flash > 0f)
             {
                 Flash -= dt;
@@ -318,7 +527,7 @@ namespace Shura
             {
                 frozenFor += dt;
                 bool pressed = game.Controls.PressCounts[PressIndex(FreezeAction)] != pressBase;
-                if (game.Launch.Automated && frozenFor > 0.7f)
+                if (RobotPlays && frozenFor > 0.7f)
                 {
                     // The test duelist answers after a look at the frozen moment.
                     game.ActiveInput.Buffer.Press(FreezeAction, 8);
@@ -328,7 +537,7 @@ namespace Shura
                 return;
             }
             // Test runs: a lesson the robot cannot do by itself moves on (and says so).
-            if (game.Launch.Automated && Current != Step.Done && StepTime > AutoSeconds)
+            if (RobotPlays && Current != Step.Done && StepTime > AutoSeconds)
             {
                 Debug.Log("[Shura][Tutorial] lição " + Current + " avançada automaticamente (" + Progress + "/" + Goal + ")");
                 Complete();
@@ -382,7 +591,8 @@ namespace Shura
                     if (type == FxType.SealBurst) Complete();
                     break;
                 case Step.Kiai:
-                    if (type == FxType.Kiai) Complete();
+                    // The duelist's own cry (not the party's).
+                    if (type == FxType.Kiai && Vector2.Distance(position, Player.Position) < 0.6f) Complete();
                     break;
             }
         }

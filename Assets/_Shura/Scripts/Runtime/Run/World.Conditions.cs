@@ -76,7 +76,11 @@ namespace Shura
         /// <summary>Yomi: every enemy is ethereal until a perfect answer.</summary>
         public bool AllEthereal { get; private set; }
         public Weather Weather { get; private set; }
-        public TimeOfDay TimeOfDay { get; private set; }
+        TimeOfDay roomTime;
+        /// <summary>The hour's period: from the journey's clock, or the room's own (the dojo is always night).</summary>
+        public TimeOfDay TimeOfDay => Run != null && !TutorialRoom ? Run.Clock.Period : roomTime;
+        /// <summary>The hour, 0..24.</summary>
+        public float Hour => Run != null && !TutorialRoom ? Run.Clock.Hour : (roomTime == TimeOfDay.Night ? 22f : 9f);
         public BiomeRule BiomeRule { get; private set; }
 
         public readonly List<Zone> Zones = new List<Zone>();
@@ -115,7 +119,7 @@ namespace Shura
             conditionRoot.SetParent(root, false);
             envRng = new SeededRandom(RoomGenerator.Mix(room.layoutSeed, 4242));
             Weather = room.weather;
-            TimeOfDay = room.time;
+            roomTime = room.time;
             BiomeRule = room.biome.rule;
             hazardTimer = envRng.Range(180, 300);
             bool fight = !room.IsEncounter;

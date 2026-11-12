@@ -309,7 +309,7 @@ namespace Shura
             if (env == null) return;
             Rect full = FullScreen;
             // The hour now lives in the light map and the image grade (PostFx).
-            DrawRemoteLighting((TimeOfDay)MiniJson.I(env, 1));
+            DrawRemoteLighting(MiniJson.F(env, 14, 9f));
             if (MiniJson.F(env, 5) > 0f) DrawTex(full, vignette, new Color(0.75f, 0.78f, 0.82f, 0.5f));
             float vision = MiniJson.F(env, 3);
             if (vision > 0f && Remote.HasOwn) DrawDarknessAt(Remote.OwnPosition, vision);

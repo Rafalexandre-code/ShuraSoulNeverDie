@@ -41,6 +41,8 @@ namespace Shura
         protected World world;
         protected Transform bodyPivot;
         protected SpriteRenderer body;
+        /// <summary>The figure's own frame on screen (lakes mirror it).</summary>
+        public SpriteRenderer BodyRenderer => body;
         /// <summary>White silhouette over the body: hit flash, wind-up heat, "reading you" glow.</summary>
         protected SpriteRenderer bodyGlow;
         protected SpriteRenderer shadow;

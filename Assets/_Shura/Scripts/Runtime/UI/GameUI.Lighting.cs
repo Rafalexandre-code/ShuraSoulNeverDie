@@ -51,20 +51,22 @@ namespace Shura
             }
         }
 
-        void DrawLighting(World w, TimeOfDay time, IList<int> broken)
+        void DrawLighting(World w, float hour, IList<int> broken)
         {
             Camera cam = game.CameraRig.Cam;
             if (cam == null || w == null || w.Decor == null) return;
             CollectLights(w, broken);
             int total = lightLanterns.Count + lightBroken.Count;
             float brokenFrac = total > 0 ? lightBroken.Count / (float)total : 0f;
-            float ambient = Ambient(time) + 0.62f * Mathf.Pow(brokenFrac, 1.1f);
+            float ambient = DayClock.Darkness(hour) + 0.62f * Mathf.Pow(brokenFrac, 1.1f);
+            // The fireflies come out with the dark.
+            Fireflies.Night = Mathf.Clamp01((ambient - 0.12f) / 0.3f);
 
             Rect b = w.Bounds;
-            b.xMin -= 10f;
-            b.yMin -= 8f;
-            b.xMax += 10f;
-            b.yMax += 8f;
+            b.xMin -= 19f;
+            b.yMin -= 19f;
+            b.xMax += 19f;
+            b.yMax += 19f;
             int tw = Mathf.Clamp(Mathf.CeilToInt(b.width * LightTexelsPerUnit), 8, 256);
             int th = Mathf.Clamp(Mathf.CeilToInt(b.height * LightTexelsPerUnit), 8, 256);
             if (lightTex == null || lightTex.width != tw || lightTex.height != th)
@@ -158,6 +160,15 @@ namespace Shura
                         float a = 1f - Mathf.Sqrt(dd) / BrokenGloomRadius;
                         d += 0.24f * a * a;
                     }
+                    for (int i = 0; i < Fireflies.Lights.Count; i++)
+                    {
+                        Vector3 f = Fireflies.Lights[i];
+                        float dx = wx - f.x, dy = wy - f.y;
+                        float dd = dx * dx + dy * dy;
+                        if (dd >= 2.6f) continue;
+                        float a = 1f - Mathf.Sqrt(dd) / 1.6f;
+                        light += 0.32f * f.z * a * a;
+                    }
                     for (int i = 0; i < lightPlayers.Count; i++)
                     {
                         float dx = wx - lightPlayers[i].x, dy = wy - lightPlayers[i].y;
@@ -185,16 +196,69 @@ namespace Shura
             {
                 if (p.IsAlive) lightPlayers.Add(p.RenderPosition);
             }
-            DrawLighting(w, w.TimeOfDay, w.BrokenLanterns);
+            DrawLighting(w, w.Hour, w.BrokenLanterns);
         }
 
         /// <summary>A guest: the host's room as the snapshot tells it.</summary>
-        void DrawRemoteLighting(TimeOfDay time)
+        void DrawRemoteLighting(float hour)
         {
             World w = game.World;
             lightPlayers.Clear();
             if (Remote.HasOwn) lightPlayers.Add(Remote.OwnPosition);
-            DrawLighting(w, time, w.RemoteBrokenLanterns);
+            DrawLighting(w, hour, w.RemoteBrokenLanterns);
+            DrawSkyMoments(hour);
+        }
+
+        // ── The sky's small moments ─────────────────────────────────────────────────────
+        string ambienceText;
+        float ambienceTime = -99f;
+        float nextStar = 20f;
+        float starTime = -99f;
+        Vector2 starFrom, starDir;
+
+        /// <summary>A line about the day, quietly over the fight for a few seconds.</summary>
+        public void ShowAmbience(string text)
+        {
+            ambienceText = text;
+            ambienceTime = Time.unscaledTime;
+        }
+
+        void DrawAmbience()
+        {
+            float age = Time.unscaledTime - ambienceTime;
+            if (string.IsNullOrEmpty(ambienceText) || age > 7f) return;
+            float a = Mathf.Clamp01(age / 0.8f) * Mathf.Clamp01((7f - age) / 1.2f);
+            Label(new Rect(VW * 0.5f - 520f, 196f, 1040f, 40f), ambienceText, taglineStyle, UiKit.PaperText.WithAlpha(0.9f * a));
+        }
+
+        /// <summary>Dawn mist over the ground; at night, now and then, a shooting star.</summary>
+        void DrawSkyMoments(float hour)
+        {
+            Rect full = FullScreen;
+            // The mist of dawn: thickest at six.
+            float mist = Mathf.Clamp01(1f - Mathf.Abs(hour - 6f) / 1.2f);
+            if (mist > 0f) DrawRect(full, new Color(0.86f, 0.9f, 0.98f, 0.1f * mist));
+            bool night = hour >= 20f || hour < 4.5f;
+            float now = Time.unscaledTime;
+            if (night && now > nextStar)
+            {
+                nextStar = now + Random.Range(25f, 60f);
+                starTime = now;
+                starFrom = new Vector2(Random.Range(VW * 0.15f, VW * 0.85f), Random.Range(20f, VH * 0.3f));
+                starDir = new Vector2(Random.value < 0.5f ? -1f : 1f, 0.35f).normalized;
+            }
+            float t = (now - starTime) / 0.9f;
+            if (t >= 0f && t < 1f)
+            {
+                Vector2 head = starFrom + starDir * (600f * t);
+                for (int i = 0; i < 18; i++)
+                {
+                    Vector2 q = head - starDir * (i * 9f);
+                    float a = (1f - i / 18f) * (1f - t);
+                    float s = 6f - i * 0.25f;
+                    kit.Dab(new Rect(q.x - s * 0.5f, q.y - s * 0.5f, s, s), new Color(1f, 0.97f, 0.85f, a));
+                }
+            }
         }
     }
 }

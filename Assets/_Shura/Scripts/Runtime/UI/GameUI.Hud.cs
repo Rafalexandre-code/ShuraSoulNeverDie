@@ -133,6 +133,7 @@ namespace Shura
         void DrawLogTab()
         {
             var r = new Rect(VW - 300f, VH - 54f, 290f, 46f);
+            hudMarks[HudPart.Log] = new Rect(r.x - 6f, r.y - 6f, r.width + 12f, r.height + 10f);
             Panel(6, r);
             if (LogClicked(r))
             {
@@ -363,6 +364,16 @@ namespace Shura
         /// <summary>Where the hands hold the grip, as a fraction of the body sprite (x from left, y from top).</summary>
         static readonly Vector2[] KamaeHands = { new Vector2(0.48f, 0.2f), new Vector2(0.66f, 0.58f), new Vector2(0.62f, 0.66f), new Vector2(0.34f, 0.66f) };
 
+        /// <summary>The parts of the HUD, for the dojo's tour of the screen.</summary>
+        public enum HudPart
+        {
+            None, Portrait, Stances, Health, Posture, Breath, Shura, Dodge, Wounds, Status, Flow, Ecos,
+            Weapons, Gourd, Bandage, Tool, Mon, Log,
+        }
+
+        /// <summary>Where each part of the HUD was drawn this frame (HUD canvas coordinates).</summary>
+        readonly Dictionary<HudPart, Rect> hudMarks = new Dictionary<HudPart, Rect>();
+
         void DrawDuelistCard(HudData p)
         {
             var card = new Rect(8f, 4f, 632f, 330f);
@@ -378,9 +389,18 @@ namespace Shura
             int k = (int)p.stance;
             Label(new Rect(med.x - 10f, med.yMax - 10f, med.width + 20f, 34f), KamaeKanji[k] + "  " + PlayerController.KamaeName(p.stance), capsCenterStyle, Pal.playerAccent);
             DrawStanceRow(new Rect(med.x - 10f, med.yMax + 26f, med.width + 20f, 64f), p);
+            hudMarks[HudPart.Portrait] = new Rect(med.x - 8f, med.y - 8f, med.width + 16f, med.height + 44f);
+            hudMarks[HudPart.Stances] = new Rect(med.x - 14f, med.yMax + 22f, med.width + 28f, 72f);
 
             // Name and the four meters.
             float x = 252f, w = 300f;
+            hudMarks[HudPart.Health] = new Rect(x - 12f, 58f, w + 24f, 70f);
+            hudMarks[HudPart.Posture] = new Rect(x - 12f, 124f, w + 24f, 54f);
+            hudMarks[HudPart.Breath] = new Rect(x - 10f, 178f, (w - 20f) * 0.5f + 16f, 46f);
+            hudMarks[HudPart.Shura] = new Rect(x + (w - 20f) * 0.5f + 10f, 178f, (w - 20f) * 0.5f + 16f, 46f);
+            hudMarks[HudPart.Dodge] = new Rect(x - 10f, 224f, w + 20f, 38f);
+            hudMarks[HudPart.Status] = new Rect(x - 10f, 262f, w + 60f, 38f);
+            hudMarks[HudPart.Wounds] = new Rect(card.xMax - 72f, 60f, 62f, 102f);
             Label(new Rect(x, 16f, w + 60f, 44f), p.name, weaponHudStyle, UiKit.PaperText);
             DrawRect(new Rect(x, 56f, w, 2f), Pal.gold.WithAlpha(0.3f));
             float lowHp = p.health / p.maxHealth < 0.3f ? 1f + 0.15f * Mathf.Sin(Time.unscaledTime * 10f) : 1f;
@@ -615,7 +635,9 @@ namespace Shura
 
             // The gourd: one hyōtan per sip.
             int sips = p.sips, max = p.maxSips;
+            hudMarks[HudPart.Weapons] = new Rect(belt.x + 26f, y - 12f, x - belt.x - 34f, 122f);
             var gourds = new Rect(x, y, 30f + max * 40f, 106f);
+            hudMarks[HudPart.Gourd] = new Rect(gourds.x - 6f, gourds.y - 12f, gourds.width + 12f, gourds.height + 18f);
             Slot(gourds, Pal.blessing.WithAlpha(0.4f), false);
             for (int i = 0; i < max; i++)
             {
@@ -629,6 +651,7 @@ namespace Shura
 
             // Bandages.
             var band = new Rect(x, y, 96f, 106f);
+            hudMarks[HudPart.Bandage] = new Rect(band.x - 6f, band.y - 12f, band.width + 12f, band.height + 18f);
             Slot(band, UiKit.PaperDim.WithAlpha(0.35f), false);
             DrawSpriteTinted(new Rect(band.x + 22f, band.y + 14f, 52f, 44f), HudArt.Bandage(), p.bandages > 0 ? Color.white : new Color(1f, 1f, 1f, 0.35f));
             Label(new Rect(band.x, band.y + 62f, band.width, 30f), "× " + p.bandages, cardKindStyleSmall, p.bandages > 0 ? UiKit.PaperText : UiKit.PaperDim);
@@ -637,6 +660,7 @@ namespace Shura
 
             // The tool and its spirit papers.
             var tool = new Rect(x, y, 196f, 106f);
+            hudMarks[HudPart.Tool] = new Rect(tool.x - 6f, tool.y - 12f, tool.width + 12f, tool.height + 18f);
             Slot(tool, Pal.gold.WithAlpha(0.35f), false);
             DrawSpriteTinted(new Rect(tool.x + 14f, tool.y + 12f, 56f, 56f), HudArt.Tool(p.tool), Color.white);
             FitLabel(new Rect(tool.x + 6f, tool.y + 72f, 110f, 26f), PlayerController.ToolNames[(int)p.tool], smallStyleCenter, UiKit.PaperText);
@@ -647,6 +671,7 @@ namespace Shura
             x = tool.xMax + 18f;
 
             // The purse.
+            hudMarks[HudPart.Mon] = new Rect(x - 28f, y - 10f, 96f, 116f);
             DrawSpriteTinted(new Rect(x, y + 20f, 40f, 40f), HudArt.Coin(), Color.white);
             Label(new Rect(x - 20f, y + 64f, 80f, 30f), p.mon.ToString(), cardKindStyleSmall, Pal.gold);
             Label(new Rect(x - 20f, y - 6f, 80f, 24f), "MON", capsCenterStyle, UiKit.PaperDim);

@@ -361,10 +361,10 @@ namespace Shura
                     break;
                 case Game.Mode.Paused when game.Tutorial.Active:
                     AddItem(Strings.Resume, game.Resume);
-                    AddItem(Strings.TutorialSkipLesson, game.SkipTutorialLesson);
                     AddItem(Strings.Settings, game.OpenSettings);
-                    AddItem(Strings.TutorialSkip, game.SkipTutorial);
                     AddItem(Strings.MainMenu, game.QuitToMenu);
+                    AddItem(Strings.TutorialSkipLesson, game.SkipTutorialLesson);
+                    AddItem(Strings.TutorialSkip, game.SkipTutorial);
                     break;
                 case Game.Mode.Paused:
                     AddItem(Strings.Resume, game.Resume);
@@ -1355,6 +1355,8 @@ namespace Shura
             PlayerController p = game.World.Player;
             if (run == null || p == null) return;
             DrawEnvironment();
+            // The prologue is a film: no HUD.
+            if (game.Tutorial.Active && game.Tutorial.Current == Tutorial.Step.Prologue) return;
             DrawOfferings();
             DrawAllyLabels();
             if (game.World.Standoff.Active) DrawStandoffBars(game.World.Standoff.Advancing);
@@ -1387,6 +1389,7 @@ namespace Shura
                 Color rc = room.guardian ? Pal.gold : UiKit.PaperText;
                 Label(new Rect(0, 8, VW, 60), string.Format(Strings.HudRoom, run.RoomIndex + 1, room.name), roomStyle, rc);
                 kit.Underline(new Rect(VW * 0.5f - 230f, 62f, 460f, 16f), rc.WithAlpha(0.55f));
+                DrawAmbience();
                 int wave = Mathf.Max(1, game.World.WaveIndex + 1);
                 if (room.waves.Length > 0) Label(new Rect(0, 76, VW, 30), string.Format(Strings.HudWave, wave, room.waves.Length), smallStyleCenter, UiKit.PaperDim);
                 List<ReadingId> reading = game.World.Adaptation.Active();
@@ -1410,6 +1413,8 @@ namespace Shura
         {
             const float w = 360f;
             float fx = VW - 52f - w, fy = 30f;
+            hudMarks[HudPart.Flow] = new Rect(fx - 10f, fy - 8f, w + 20f, 138f);
+            hudMarks[HudPart.Ecos] = new Rect(fx + w - 260f, fy + 124f, 270f, 52f);
             kit.InkPanel(new Rect(VW - 470f, 2f, 460f, 230f), 0.82f);
             Label(new Rect(fx, fy, w, 26), Strings.HudFlow, capsRightStyle, level > 0 ? Pal.gold : UiKit.PaperDim);
             // Each Flow level is an ensō; lit ones are gold with a filled heart.

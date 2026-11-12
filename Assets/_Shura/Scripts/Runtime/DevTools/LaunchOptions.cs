@@ -25,6 +25,8 @@ namespace Shura
         /// <summary>Automated runs only: "-shuraRoomKind Merchant" opens on that kind of door; "-shuraEvent 3" picks the event.</summary>
         public string RoomKind;
         public int EventId = -1;
+        /// <summary>Automated runs only: "-shuraMode Tower" walks the road in that mode.</summary>
+        public string Mode;
         /// <summary>Automated runs only: "-shuraWeather Storm" forces the first room's weather.</summary>
         public string Weather;
         /// <summary>"-shuraSteam": automated runs also start Steam (online tests).</summary>
@@ -69,6 +71,9 @@ namespace Shura
                         break;
                     case "-shuraRoomKind":
                         if (i + 1 < args.Length) options.RoomKind = args[++i];
+                        break;
+                    case "-shuraMode":
+                        if (i + 1 < args.Length) options.Mode = args[++i];
                         break;
                     case "-shuraEvent":
                         if (i + 1 < args.Length && int.TryParse(args[i + 1], out int ev)) options.EventId = ev;

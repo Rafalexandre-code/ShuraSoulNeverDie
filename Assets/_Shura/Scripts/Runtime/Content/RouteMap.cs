@@ -159,7 +159,7 @@ namespace Shura
                         break;
                     }
                     case RoomKind.Event:
-                        n.eventId = (int)((seed + (ulong)depth * 5UL + (ulong)n.index) % (ulong)RunEvents.Count);
+                        n.eventId = KarmaRules.Event(seed + (ulong)depth * 5UL + (ulong)n.index, RunEvents.Count);
                         break;
                 }
             }

@@ -223,6 +223,42 @@ namespace Shura
             return UnityEngine.Sprite.Create(sheet, rect, pivot, PixelsPerUnit, 0, SpriteMeshType.FullRect);
         }
 
+        /// <summary>
+        /// A character's portrait as a sumi-e ink painting: every pixel becomes a wash of
+        /// black ink as dark as the colour was dark, the outline the darkest stroke.
+        /// </summary>
+        public static Sprite InkPortrait(string id)
+        {
+            string key = id + "#ink";
+            if (Sprites.TryGetValue(key, out Sprite cached)) return cached;
+            CharacterArt art = Character(id);
+            Sprite src = art?.idle[(int)ArtDir.Right];
+            if (src == null || !src.texture.isReadable) return null;
+            Rect r = src.rect;
+            int w = (int)r.width, h = (int)r.height;
+            Color[] px = src.texture.GetPixels((int)r.x, (int)r.y, w, h);
+            var ink = new Color(0.07f, 0.06f, 0.06f, 1f);
+            for (int i = 0; i < px.Length; i++)
+            {
+                Color c = px[i];
+                if (c.a < 0.05f)
+                {
+                    px[i] = Color.clear;
+                    continue;
+                }
+                float lum = c.r * 0.3f + c.g * 0.59f + c.b * 0.11f;
+                // Dark colours: thick ink. Light ones: a thin wash that lets the paper through.
+                float density = Mathf.Lerp(1f, 0.16f, Mathf.Pow(lum, 0.8f));
+                px[i] = new Color(ink.r, ink.g, ink.b, c.a * density);
+            }
+            Texture2D tex = NewTexture(w, h, key);
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            Sprite s = UnityEngine.Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(src.pivot.x / w, src.pivot.y / h), PixelsPerUnit, 0, SpriteMeshType.FullRect);
+            Sprites[key] = s;
+            return s;
+        }
+
         /// <summary>The sheet's shape in pure white: drawn on top and faded for flashes and glows.</summary>
         static Texture2D Silhouette(Texture2D source)
         {

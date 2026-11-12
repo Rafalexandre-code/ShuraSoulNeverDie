@@ -46,6 +46,8 @@ namespace Shura
         public string weaponB = "montante";
         /// <summary>Altar "Segunda Troca": the third blade, sheathed ("" = none).</summary>
         public string weaponC = "";
+        /// <summary>Every layer of the game open from the start (§7.7), for experienced players.</summary>
+        public bool unlockAll;
         /// <summary>The forge: one "blade+grip+tsuba" per blade that was changed.</summary>
         public List<string> forge = new List<string>();
 

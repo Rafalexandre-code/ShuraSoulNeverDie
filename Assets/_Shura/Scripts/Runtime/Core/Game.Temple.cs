@@ -18,8 +18,17 @@ namespace Shura
 
         // ── The temple ─────────────────────────────────────────────────────────────────
 
+        /// <summary>The temple opens with the fourth run (§7.7), or at once for whoever opened everything.</summary>
+        public bool TempleOpen => Settings.unlockAll || Launch.Automated || Unlocks.Open(Meta.runs, Feature.Temple);
+
         public void OpenTemple()
         {
+            if (!TempleOpen)
+            {
+                Audio.Play(Sfx.Denied, 0.6f, 1f, 0f);
+                UI.Toast(string.Format(Strings.TempleLocked, Unlocks.RunsFor(Feature.Temple)), Config.palette.uiText);
+                return;
+            }
             if (CurrentMode != Mode.Temple && CurrentMode != Mode.Altar && CurrentMode != Mode.Arsenal && CurrentMode != Mode.Heir)
                 templeReturnMode = CurrentMode;
             SetMode(Mode.Temple);
@@ -56,6 +65,14 @@ namespace Shura
             bool ok = AltarTree.TryOpen(Meta, b);
             if (!ok && !Meta.HasNode(b.node.id)) UI.Toast(Strings.AltarNodeLocked, Config.palette.danger);
             return Spend(ok, string.Format(Strings.AltarNodeOpened, b.node.name), b.color);
+        }
+
+        /// <summary>A guest's mission was fulfilled: the reward is theirs to give.</summary>
+        public bool ClaimMission(GuestDef g)
+        {
+            bool ok = TeaGuests.TryClaim(Meta, g);
+            if (!ok) return false;
+            return Spend(true, string.Format(Strings.TeaClaimed, g.name), g.color);
         }
 
         public void ResetAltar()
@@ -129,7 +146,7 @@ namespace Shura
             Meta.steel += 12;
             Meta.fragments += 6;
             Meta.petals += 40;
-            Meta.runs = Mathf.Max(Meta.runs, 7);
+            Meta.runs = Mathf.Max(Meta.runs, 12);
             foreach (BuildingDef b in Temple.All)
             {
                 if (!b.comingSoon && !Meta.Built(b.id)) Meta.buildings.Add(b.id);
@@ -141,6 +158,21 @@ namespace Shura
             Meta.garden.Add("bonsai");
             Meta.garden.Add("lanterna");
             Meta.AddKarma(25);
+            // The Tea House: one mission ready, one done; a known enemy with a finished scroll.
+            Meta.AddStat(TeaGuests.StatFoxes, 2);
+            Meta.AddStat(TeaGuests.StatParries, 90);
+            if (!Meta.missions.Contains(TeaGuests.Warashi)) Meta.missions.Add(TeaGuests.Warashi);
+            if (Meta.bestiary.Count > 0)
+            {
+                EnemyScroll s = Meta.Scroll(Meta.bestiary[0].id, true);
+                s.signatureParries = 30;
+                s.weapons.AddRange(new[] { "katana", "naginata", "tessen" });
+                s.cleanKills = 1;
+                s.masterAnswers = 1;
+                s.done = true;
+            }
+            GameModes.RecordDaily(Meta, DateTime.Now.AddDays(-1), 12, 640);
+            GameModes.RecordDaily(Meta, DateTime.Now.AddDays(-2), 7, 310);
             Meta.cemetery.Insert(0, new Disciple
             {
                 name = "Kenji", age = 72, generation = 1, retired = true, journeys = 10, bestRoom = 31, weapon = "naginata",
@@ -186,8 +218,13 @@ namespace Shura
             Disciple d = Meta.disciple;
             PlayerBuild b = Run.Main;
 
-            Run.Oaths = OathSet.From(Meta);
-            Run.EcosMult *= Oaths.EcosMult(Run.Oaths.Heat);
+            Run.UnlockRuns = Settings.unlockAll || Launch.Automated ? int.MaxValue : Meta.runs;
+            // The road's events lean with the soul's Karma; Tsubaki's friends meet more honour duels.
+            KarmaRules.RoadKarma = Meta.karma;
+            KarmaRules.HonorDuels = Meta.MissionDone(TeaGuests.Tsubaki);
+            World.ShowTimingIndicator = Settings.timingIndicator && Run.Mode != RunMode.Master;
+            Run.Oaths = Run.Has(Feature.Oaths) ? OathSet.From(Meta) : new OathSet();
+            Run.EcosMult *= Oaths.EcosMult(Run.Oaths.Heat) * GameModes.EcosMult(Run.Mode);
             World.ExtraEliteAffixes = Run.Oaths.Level(Oaths.DemonBell);
             if (Run.Oaths.Level(Oaths.SingleBlade) > 0) b.Weapons[1] = b.Weapons[0];
             else if (Meta.HasNode(AltarTree.SecondSwap)) b.Reserve = ThirdWeapon(b);
@@ -204,7 +241,7 @@ namespace Shura
                 RewardDef t = RewardRegistry.Create(d.technique);
                 if (t != null) b.Acquire(t);
             }
-            if (d.traits.Contains("hattori"))
+            if (d.traits.Contains("hattori") && Run.Mode != RunMode.Tower)
             {
                 var rng = new SeededRandom(Run.Seed ^ 0x48415454UL);
                 for (int s = 0; s < 2; s++)
@@ -227,7 +264,7 @@ namespace Shura
             return w;
         }
 
-        void BankLegacy(bool died)
+        void BankLegacy(bool died, bool victory = false)
         {
             LastLegacy = null;
             if (Run == null || World == null) return;
@@ -243,7 +280,86 @@ namespace Shura
                 karma = Run.Karma,
                 seed = Run.Seed,
             };
-            LastLegacy = Legacy.Bank(Meta, Run, facts, died);
+            LastLegacy = Legacy.Bank(Meta, Run, facts, died, Run.Has(Feature.Lineage));
+            switch (Run.Mode)
+            {
+                case RunMode.Daily:
+                    GameModes.RecordDaily(Meta, DateTime.Now, Run.RoomsCleared, Run.EcosBanked);
+                    break;
+                case RunMode.Tower:
+                    Meta.towerBest = Mathf.Max(Meta.towerBest, Run.RoomsCleared);
+                    if (victory) LastLegacy.ending = "torre";
+                    break;
+                case RunMode.Pilgrimage:
+                    Meta.pilgrimageBest = Mathf.Max(Meta.pilgrimageBest, Run.RoomsCleared);
+                    if (victory) LastLegacy.ending = GameModes.EndingFor(KarmaRules.Of(Run));
+                    break;
+            }
+            if (!string.IsNullOrEmpty(LastLegacy.ending) && !Meta.endings.Contains(LastLegacy.ending)) Meta.endings.Add(LastLegacy.ending);
+        }
+
+        // ── The ways to walk the road (§7.8) ───────────────────────────────────────────
+
+        RunMode pendingMode = RunMode.Journey;
+
+        /// <summary>The mode the next run will be walked in (chosen in "Modos de jogo").</summary>
+        public RunMode PendingMode => pendingMode;
+
+        /// <summary>The Master mode is Zatō's gift; the rest are open from the start.</summary>
+        public bool ModeOpen(RunMode m) => m != RunMode.Master || Meta.MissionDone(TeaGuests.Zato) || Launch.Automated;
+
+        public void OpenModes() => SetMode(Mode.Modes);
+
+        public void ChooseMode(RunMode m)
+        {
+            if (!ModeOpen(m))
+            {
+                Audio.Play(Sfx.Denied, 0.6f, 1f, 0f);
+                UI.Toast(Strings.ModeLocked, Config.palette.uiText);
+                return;
+            }
+            if (m == RunMode.Daily && GameModes.DailyTried(Meta, DateTime.Now) && !Launch.Automated)
+            {
+                Audio.Play(Sfx.Denied, 0.6f, 1f, 0f);
+                UI.Toast(Strings.DailyDone, Config.palette.uiText);
+                return;
+            }
+            pendingMode = m;
+            if (Meta.heirs.Count > 0) OpenHeir(Mode.Arsenal);
+            else OpenArsenal();
+        }
+
+        RunMode ModeForNextRun()
+        {
+            RunMode m = pendingMode;
+            if (Launch.Automated && Launch.Mode != null && Enum.TryParse(Launch.Mode, true, out RunMode forced)) m = forced;
+            // One try a day: a restart of the daily road becomes an ordinary journey.
+            if (m == RunMode.Daily && GameModes.DailyTried(Meta, DateTime.Now) && !Launch.Automated) m = RunMode.Journey;
+            if (m == RunMode.Master && !ModeOpen(m)) m = RunMode.Journey;
+            return m;
+        }
+
+        ulong SeedFor(RunMode m)
+        {
+            if (m == RunMode.Daily) return GameModes.DailySeed(DateTime.Now);
+            if (m == RunMode.Pilgrimage) return GameModes.PilgrimageSeed;
+            return Launch.Seed ?? GardenSeed() ?? (ulong)DateTime.UtcNow.Ticks;
+        }
+
+        bool RitualInProgress()
+        {
+            foreach (PlayerController p in World.Players)
+            {
+                if (p.ChiburiHolding) return true;
+            }
+            return false;
+        }
+
+        /// <summary>The road was walked to its end.</summary>
+        void Victory()
+        {
+            BankRun(false, true);
+            SetMode(Mode.Victory);
         }
     }
 }

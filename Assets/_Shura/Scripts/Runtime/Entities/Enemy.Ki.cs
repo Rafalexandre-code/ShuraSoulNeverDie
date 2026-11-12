@@ -108,8 +108,12 @@ namespace Shura
             }
         }
 
+        /// <summary>It struck a duelist this life (the scroll's "win without its damage").</summary>
+        public bool DamagedPlayer { get; set; }
+
         public void AddSeal(int count)
         {
+            if (!world.Has(Feature.Seals)) return;
             if (!CanBeHit || count <= 0) return;
             Seals = Mathf.Min(MaxSeals, Seals + count);
             sealTimer = SealSeconds;
@@ -422,6 +426,12 @@ namespace Shura
         public bool IsBeast => Def.superArmor || Def.radius >= 0.6f || Def.id == "kappa" || Def.id == "lodo" || Def.id == "lodo_pequeno" || Def.id == "berserker";
 
         // ── Standoff ──────────────────────────────────────────────────────────────────
+
+        /// <summary>The leader bows before the standoff.</summary>
+        public void StandoffBow()
+        {
+            Squash(1.2f, 0.78f);
+        }
 
         public void StandoffTwitch()
         {

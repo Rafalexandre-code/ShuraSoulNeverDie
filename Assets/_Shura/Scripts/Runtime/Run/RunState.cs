@@ -34,6 +34,12 @@ namespace Shura
         public OathSet Oaths = new OathSet();
         /// <summary>Room challenges kept to the end (each is worth a petal).</summary>
         public int ChallengesWon;
+        /// <summary>The way this road is walked (design doc §7.8).</summary>
+        public RunMode Mode;
+        /// <summary>Finished runs when this one began: the layers open with them (§7.7). Max = everything.</summary>
+        public int UnlockRuns = int.MaxValue;
+
+        public bool Has(Feature f) => Unlocks.Open(UnlockRuns, f);
 
         // ── The road (design doc §6) ────────────────────────────────────────────────
         /// <summary>Bushidō (+) or Shura (−): mercy, gifts and honour against cruelty (§8.3).</summary>
@@ -51,6 +57,8 @@ namespace Shura
         /// <summary>The doors open from where the party stands.</summary>
         public List<RouteNode> NextDoors()
         {
+            // The Tower: one door, always a duel.
+            if (Mode == RunMode.Tower) return new List<RouteNode> { new RouteNode { depth = RoomIndex + 1, column = 1, kind = RoomKind.Duel } };
             if (CurrentNode == null || CurrentNode.depth != RoomIndex) return RouteMap.Layer(Seed, RoomIndex + 1);
             return RouteMap.Next(Seed, CurrentNode);
         }

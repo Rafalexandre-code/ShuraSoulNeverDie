@@ -22,6 +22,9 @@ namespace Shura
         SeededRandom rng;
 
         public bool Active { get; private set; }
+        /// <summary>The leader is still bowing (§8.5): drawing now is a coward's blow.</summary>
+        public int BowFrames { get; private set; }
+        public const int BowLength = 60;
         public bool Advancing { get; private set; }
         public Enemy Leader { get; private set; }
         /// <summary>0..1 how far into the true advance (for the bot and the browser).</summary>
@@ -37,7 +40,10 @@ namespace Shura
             Leader = leader;
             rng = random;
             feintsLeft = feints;
-            timer = random.Range(70, 120);
+            timer = random.Range(70, 120) + BowLength;
+            BowFrames = BowLength;
+            leader.StandoffBow();
+            world.Fx.Popup(Strings.PopupFoeBows, leader.Position + Vector2.up * 1.4f, Color.white);
             Advancing = false;
             advanceFrame = 0;
             failed.Clear();
@@ -53,6 +59,11 @@ namespace Shura
             {
                 End();
                 return;
+            }
+            if (BowFrames > 0)
+            {
+                BowFrames--;
+                if (BowFrames % 20 == 0 && BowFrames > 0) Leader.StandoffBow();
             }
             if (!Advancing)
             {
@@ -87,6 +98,7 @@ namespace Shura
         public void OnRelease(PlayerController p)
         {
             if (!Active || failed.Contains(p)) return;
+            if (BowFrames > 0) world.OnCowardDraw(p);
             if (Advancing && advanceFrame <= AdvanceWindow)
             {
                 Win(p);
@@ -130,6 +142,7 @@ namespace Shura
         void End()
         {
             Active = false;
+            BowFrames = 0;
             Advancing = false;
             foreach (Enemy e in world.Enemies) e.HeldInSpawn = false;
             Leader = null;

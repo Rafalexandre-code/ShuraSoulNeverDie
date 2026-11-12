@@ -317,6 +317,7 @@ namespace Shura
             TickKi();
             TickSoul();
             TickLock();
+            TickRituals();
             if (world.Standoff.Active && CurrentState != State.Standoff && IsAlive) BeginStandoff();
 
             switch (CurrentState)
@@ -925,6 +926,7 @@ namespace Shura
                     clashStrength = 1f;
                     world.RegisterPerfect(clashPoint);
                     world.TryMaster(attacker, SignatureAnswer.PerfectParry, incoming.signature);
+                    if (incoming.signature && attacker != null) world.RecordScroll(attacker, ScrollEvent.SignatureParry);
                     world.Fx.Emit(swap ? FxType.SwapParry : FxType.PerfectParry, clashPoint, toDir, FlowLevel, Weapon.color);
                     Squash(0.8f, 1.2f);
                     if (attacker != null)

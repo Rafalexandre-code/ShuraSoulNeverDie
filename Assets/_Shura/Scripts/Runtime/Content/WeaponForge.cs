@@ -10,6 +10,8 @@ namespace Shura
         public string name;
         public string text;
         public Action<PlayerModifiers> apply;
+        /// <summary>Forged by the Faceless Smith only after his mission (§8.2).</summary>
+        public bool legendary;
     }
 
     /// <summary>
@@ -37,7 +39,17 @@ namespace Shura
             new TsubaDef { id = "bronze", name = "Tsuba de Bronze", text = "+15 de vida máxima.", apply = m => m.maxHealthBonus += 15f },
             new TsubaDef { id = "carpa", name = "Tsuba da Carpa", text = "+5 de cura ao vencer cada sala.", apply = m => m.roomClearHealBonus += 5f },
             new TsubaDef { id = "lotus", name = "Tsuba do Lótus", text = "Finalizar cura 5.", apply = m => m.finisherHeal += 5f },
+            // The Faceless Smith's legendary guards.
+            new TsubaDef { id = "ryujin", name = "Tsuba de Ryūjin", legendary = true, text = "Lendária: janela de parry +1 frame e +12% de dano na postura.",
+                apply = m => { m.perfectParryFrameBonus += 1; m.postureMult *= 1.12f; } },
+            new TsubaDef { id = "muramasa", name = "Tsuba de Muramasa", legendary = true, text = "Lendária: +20% de dano, e o Shura sobe 20% mais rápido.",
+                apply = m => { m.damageMult *= 1.2f; m.shuraGainMult *= 1.2f; } },
+            new TsubaDef { id = "kuu", name = "Tsuba do Vazio", legendary = true, text = "Lendária: +1 carga de esquiva e esquivas 12% mais longas.",
+                apply = m => { m.dodgeChargeBonus += 1; m.dodgeDistanceMult *= 1.12f; } },
         };
+
+        /// <summary>The guards this soul can forge (the legendary ones after the Smith's mission).</summary>
+        public static bool Available(TsubaDef t, MetaProgress meta) => !t.legendary || (meta != null && meta.MissionDone(TeaGuests.Smith));
 
         static readonly Dictionary<string, WeaponDef> Forged = new Dictionary<string, WeaponDef>();
 

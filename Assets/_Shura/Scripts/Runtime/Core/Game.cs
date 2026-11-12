@@ -38,6 +38,10 @@ namespace Shura
             Temple,
             /// <summary>A disciple fell: choose the next one among three.</summary>
             Heir,
+            /// <summary>The ways to walk the road (design doc §7.8).</summary>
+            Modes,
+            /// <summary>The road ended: the top of the Tower, the end of the Pilgrimage.</summary>
+            Victory,
         }
 
         const int RoomClearDelayFrames = 75;
@@ -406,6 +410,7 @@ namespace Shura
             }
             Run = new RunState(20261111UL, Config.flow, Meta);
             Run.Banked = true;
+            World.ShowTimingIndicator = Settings.timingIndicator;
             Run.Weapons[0] = WeaponDefs.Get(Settings.Loadout(Settings.weaponA));
             Run.Weapons[1] = WeaponDefs.Get(Settings.Loadout(Settings.weaponB));
             roomClearTimer = -1;
@@ -469,8 +474,8 @@ namespace Shura
             Tutorial.Stop();
             // Restarting mid-run still banks what was earned: progress is never thrown away.
             if (Run != null && !Run.Banked) BankRun();
-            ulong seed = Launch.Seed ?? GardenSeed() ?? (ulong)DateTime.UtcNow.Ticks;
-            Run = new RunState(seed, Config.flow, Meta);
+            RunMode mode = ModeForNextRun();
+            Run = new RunState(SeedFor(mode), Config.flow, Meta) { Mode = mode };
             string weaponA = Launch.Automated && Launch.WeaponA != null ? Launch.WeaponA : Settings.Loadout(Settings.weaponA);
             string weaponB = Launch.Automated && Launch.WeaponB != null ? Launch.WeaponB : Settings.Loadout(Settings.weaponB);
             Run.Weapons[0] = WeaponDefs.Get(weaponA);
@@ -715,7 +720,8 @@ namespace Shura
             routeOptions.Clear();
             routeOptions.AddRange(Run.NextDoors());
             routeVotes.Clear();
-            if (routeOptions.Count <= 1)
+            // Before the route map opens (§7.7) the road simply goes on through the first door.
+            if (routeOptions.Count <= 1 || !Run.Has(Feature.RouteMap))
             {
                 ChooseRoute(0);
                 return;
@@ -840,13 +846,17 @@ namespace Shura
         }
 
         /// <param name="died">The run ended in death (a restart or a quit does not bury the disciple).</param>
-        void BankRun(bool died = false)
+        /// <param name="victory">The road was finished (the Tower's top, the Pilgrimage's end).</param>
+        void BankRun(bool died = false, bool victory = false)
         {
             if (Run == null || Run.Banked) return;
             Run.EcosBanked = MetaRules.EcosForRun(Run);
             Run.Banked = true;
-            Meta.RecordRun(Run.EcosBanked, Run.RoomsCleared, false);
-            BankLegacy(died);
+            int runsBefore = Meta.runs;
+            Meta.RecordRun(Run.EcosBanked, Run.RoomsCleared, victory);
+            BankLegacy(died, victory);
+            // A new layer of the game opened with this run (§7.7).
+            if (LastLegacy != null && !Settings.unlockAll && !Launch.Automated) LastLegacy.unlocked = Unlocks.Names(Unlocks.Opened(runsBefore, Meta.runs));
             SaveMeta();
         }
 
@@ -879,7 +889,7 @@ namespace Shura
         public void ApplySettings()
         {
             AudioListener.volume = Settings.master;
-            if (World != null) World.ShowTimingIndicator = Settings.timingIndicator;
+            if (World != null) World.ShowTimingIndicator = Settings.timingIndicator && (Run == null || Run.Mode != RunMode.Master);
             if (Vfx != null) Vfx.BloodEnabled = Settings.blood;
             if (!Application.isEditor && !Launch.Automated) ApplyScreen();
         }
@@ -1046,6 +1056,8 @@ namespace Shura
 
         void TickTimers()
         {
+            // The room waits for a blade being cleaned and sheathed (Chiburi and Nōtō).
+            if (roomClearTimer == 1 && RitualInProgress()) return;
             if (roomClearTimer > 0 && --roomClearTimer == 0)
             {
                 roomClearTimer = -1;
@@ -1061,6 +1073,13 @@ namespace Shura
 
         void AdvanceAfterRoom()
         {
+            // The Tower's top, the Pilgrimage's last room: the road ends here.
+            int goal = GameModes.Goal(Run.Mode);
+            if (goal > 0 && Run.RoomsCleared >= goal)
+            {
+                Victory();
+                return;
+            }
             // Encounters pay out inside the room: straight to the route map.
             if (World.CurrentRoom.IsEncounter)
             {

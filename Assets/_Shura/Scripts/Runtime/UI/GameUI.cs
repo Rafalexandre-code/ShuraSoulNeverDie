@@ -175,7 +175,7 @@ namespace Shura
                 forgeOpen = false;
             }
             if (mode == Game.Mode.Temple) OnTempleOpened();
-            if (mode == Game.Mode.Altar || mode == Game.Mode.Heir)
+            if (mode == Game.Mode.Altar || mode == Game.Mode.Heir || mode == Game.Mode.Modes)
             {
                 slotIndex = 0;
                 listCount = 0;
@@ -248,6 +248,7 @@ namespace Shura
                 case Game.Mode.Temple:
                 case Game.Mode.Altar:
                 case Game.Mode.Heir:
+                case Game.Mode.Modes:
                     HandleSlots(input);
                     break;
                 case Game.Mode.Playing:
@@ -365,6 +366,7 @@ namespace Shura
                     break;
                 case Game.Mode.MainMenu:
                     AddItem(Strings.Play, game.Play);
+                    AddItem(Strings.ModesMenu, game.OpenModes);
                     AddItem(Strings.TutorialMenu, game.StartTutorial);
                     AddItem(Strings.PlayOnline, game.OpenLobby);
                     AddItem(Strings.JoinSteam, game.OpenSteamJoin);
@@ -421,6 +423,8 @@ namespace Shura
                     Help(Strings.HelpBlood);
                     AddToggle(Strings.ReduceFlashes, () => s.reduceFlashes, v => s.reduceFlashes = v);
                     Help(Strings.HelpFlashes);
+                    AddToggle(Strings.UnlockAll, () => s.unlockAll, v => s.unlockAll = v);
+                    Help(Strings.HelpUnlockAll);
                     Section(Strings.SectionControls);
                     AddItem(Strings.ConfigureControls, OpenControls);
                     Help(Strings.HelpConfigureControls);
@@ -452,6 +456,11 @@ namespace Shura
                     break;
                 case Game.Mode.Credits:
                     AddItem(Strings.Back, game.GoToMainMenu);
+                    break;
+                case Game.Mode.Victory:
+                    AddItem(game.Meta.heirs.Count > 0 ? Strings.HeirChoose : Strings.NewJourney, game.NewRunFromEnd);
+                    AddItem(Strings.Temple, game.OpenTemple);
+                    AddItem(Strings.MainMenu, game.QuitToMenu);
                     break;
                 case Game.Mode.GameOver:
                     AddItem(game.Meta.heirs.Count > 0 ? Strings.HeirChoose : Strings.NewRun, game.NewRunFromEnd);
@@ -728,7 +737,7 @@ namespace Shura
                 Game.Mode m = game.CurrentMode;
                 if (m == Game.Mode.Arsenal && game.Remote.Joined) return false;
                 return m == Game.Mode.Title || m == Game.Mode.MainMenu || m == Game.Mode.Credits || m == Game.Mode.Arsenal ||
-                       m == Game.Mode.Altar || m == Game.Mode.Temple || m == Game.Mode.Heir || m == Game.Mode.Lobby || m == Game.Mode.SteamJoin || (m == Game.Mode.Settings && !game.SettingsFromPause);
+                       m == Game.Mode.Altar || m == Game.Mode.Temple || m == Game.Mode.Heir || m == Game.Mode.Modes || m == Game.Mode.Lobby || m == Game.Mode.SteamJoin || (m == Game.Mode.Settings && !game.SettingsFromPause);
             }
         }
 
@@ -830,6 +839,8 @@ namespace Shura
                 case Game.Mode.Altar: DrawAltar(); break;
                 case Game.Mode.Temple: DrawTemple(); break;
                 case Game.Mode.Heir: DrawHeir(); break;
+                case Game.Mode.Modes: DrawModes(); break;
+                case Game.Mode.Victory: DrawVictory(); break;
                 case Game.Mode.Arsenal: DrawArsenal(); break;
                 case Game.Mode.Equipment: DrawEquipment(); break;
                 case Game.Mode.Lobby: DrawLobby(); break;
@@ -1623,8 +1634,15 @@ namespace Shura
             }
             else
             {
+                // The legendary guards wait for the Faceless Smith.
                 int n = WeaponForge.Tsubas.Length;
-                tsuba = WeaponForge.Tsubas[(WeaponForge.TsubaIndex(tsuba) + step + n) % n].id;
+                int i = WeaponForge.TsubaIndex(tsuba);
+                for (int k = 0; k < n; k++)
+                {
+                    i = (i + step + n) % n;
+                    if (WeaponForge.Available(WeaponForge.Tsubas[i], game.Meta)) break;
+                }
+                tsuba = WeaponForge.Tsubas[i].id;
             }
             game.Settings.SetForge(blade, grip, tsuba);
         }
@@ -1846,7 +1864,8 @@ namespace Shura
             kit.Underline(new Rect(r.x + 60f, y + 70f, r.width - 120f, 16f), UiKit.Ink.WithAlpha(0.45f));
             Label(new Rect(r.x + 60f, y + 92f, r.width - 120f, 30f), Strings.Gain, capsStyle, UiKit.Shu);
             // The text shrinks until it fits the paper.
-            float bodyTop = y + 126f, bodyW = r.width - 120f, room = r.yMax - 40f - bodyTop;
+            float bodyTop = y + 126f, bodyW = r.width - 120f, room = r.yMax - 110f - bodyTop;
+            Label(new Rect(r.x + 50f, r.yMax - 100f, r.width - 100f, 70f), Lore.Item(item), hintSmallStyle, UiKit.InkSoft);
             GUIStyle body = cardBodyStyle.CalcHeight(new GUIContent(item.Gain), bodyW) <= room ? cardBodyStyle : smallStyle;
             int bodySize = body.fontSize;
             while (body.fontSize > 16 && body.CalcHeight(new GUIContent(item.Gain), bodyW) > room) body.fontSize -= 1;

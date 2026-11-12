@@ -94,7 +94,8 @@ namespace Shura
         }
 
         /// <summary>Points grow with the lives lived: 12, then one more every 3 runs, up to 22.</summary>
-        public static int PointsLimit(MetaProgress meta) => Mathf.Min(MaxPoints, BasePoints + meta.runs / 3);
+        public static int PointsLimit(MetaProgress meta) =>
+            Mathf.Min(MaxPoints, BasePoints + meta.runs / 3) + (meta.MissionDone(TeaGuests.Monk) ? TeaGuests.MonkPoints : 0);
 
         public static int PointsUsed(MetaProgress meta)
         {

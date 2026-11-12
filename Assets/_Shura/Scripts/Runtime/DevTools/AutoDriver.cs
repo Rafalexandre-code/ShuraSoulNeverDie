@@ -31,6 +31,7 @@ namespace Shura
         bool altarShotDone;
         int templeShot;
         bool heirShotDone;
+        bool modesShotDone;
         bool equipmentShotDone;
         bool finished;
         Game.Mode lastMode;
@@ -210,7 +211,8 @@ namespace Shura
                 case Game.Mode.GameOver:
                     if (ShotThenAct(game.CurrentMode.ToString().ToLowerInvariant(), shots ? 1.2f : 0f))
                     {
-                        if (shots && templeShot == 0)
+                        if (shots && templeShot > 0 && !modesShotDone) game.OpenModes();
+                        else if (shots && templeShot == 0)
                         {
                             // The temple's tour: everything rebuilt, a few oaths and tombs to look at.
                             game.DevPrepareTempleShots();
@@ -222,7 +224,7 @@ namespace Shura
                 case Game.Mode.Temple:
                     if (!altarShotDone)
                     {
-                        string[] views = { "templo", "templo_dojo", "templo_biblioteca", "templo_jardim", "templo_cemiterio" };
+                        string[] views = { "templo", "templo_dojo", "templo_biblioteca", "templo_jardim", "templo_cemiterio", "templo_cha" };
                         if (templeShot < views.Length)
                         {
                             game.UI.ShowTempleViewForShots(templeShot);
@@ -238,8 +240,19 @@ namespace Shura
                         game.OpenHeir(Game.Mode.GameOver);
                         break;
                     }
-                    game.CloseTemple();
-                    if (game.CurrentMode != Game.Mode.GameOver) Finish("fim normal");
+                    if (!modesShotDone)
+                    {
+                        game.OpenModes();
+                        break;
+                    }
+                    Finish("fim normal");
+                    break;
+                case Game.Mode.Modes:
+                    if (ShotThenAct("modos", wait))
+                    {
+                        modesShotDone = true;
+                        Finish("fim normal");
+                    }
                     break;
                 case Game.Mode.Altar:
                     if (ShotThenAct("altar", wait))

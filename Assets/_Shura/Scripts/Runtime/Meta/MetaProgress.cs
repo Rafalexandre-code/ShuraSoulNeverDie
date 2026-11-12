@@ -64,6 +64,62 @@ namespace Shura
         /// <summary>Most Calor carried by a run.</summary>
         public int bestHeat;
 
+        // ── Phase 4, part 2: the Tea House, the scrolls, the modes ───────────────────
+        /// <summary>Lifetime counters the guests' missions read (id → count).</summary>
+        public List<UpgradeLevel> stats = new List<UpgradeLevel>();
+        /// <summary>Personal missions already rewarded (guest ids).</summary>
+        public List<string> missions = new List<string>();
+        /// <summary>Each enemy's scroll of challenges (design doc §7.6).</summary>
+        public List<EnemyScroll> scrolls = new List<EnemyScroll>();
+        /// <summary>The daily challenge: the last day tried and every result kept.</summary>
+        public string lastDaily = "";
+        public List<DailyResult> dailyResults = new List<DailyResult>();
+        /// <summary>Endings reached (ids).</summary>
+        public List<string> endings = new List<string>();
+        public int towerBest;
+        public int pilgrimageBest;
+
+        public int Stat(string id)
+        {
+            if (stats == null) return 0;
+            foreach (UpgradeLevel u in stats)
+            {
+                if (u.id == id) return u.level;
+            }
+            return 0;
+        }
+
+        public void AddStat(string id, int amount)
+        {
+            if (amount == 0 || string.IsNullOrEmpty(id)) return;
+            if (stats == null) stats = new List<UpgradeLevel>();
+            foreach (UpgradeLevel u in stats)
+            {
+                if (u.id != id) continue;
+                u.level = Mathf.Max(0, u.level + amount);
+                return;
+            }
+            stats.Add(new UpgradeLevel { id = id, level = Mathf.Max(0, amount) });
+        }
+
+        public bool MissionDone(string guest) => missions != null && missions.Contains(guest);
+
+        /// <summary>Enemies met at least once.</summary>
+        public int KnownEnemies => bestiary != null ? bestiary.Count : 0;
+
+        public EnemyScroll Scroll(string enemyId, bool create)
+        {
+            if (scrolls == null) scrolls = new List<EnemyScroll>();
+            foreach (EnemyScroll s in scrolls)
+            {
+                if (s.id == enemyId) return s;
+            }
+            if (!create) return null;
+            var scroll = new EnemyScroll { id = enemyId };
+            scrolls.Add(scroll);
+            return scroll;
+        }
+
         public bool Built(string building) => buildings != null && buildings.Contains(building);
         public bool HasNode(string node) => nodes != null && nodes.Contains(node);
 
@@ -377,6 +433,35 @@ namespace Shura
             // JsonUtility writes an empty object for a null field: a nameless disciple is none.
             if (disciple != null && string.IsNullOrEmpty(disciple.name)) disciple = null;
             disciple?.Sanitize();
+
+            var cleanStats = new List<UpgradeLevel>();
+            if (stats != null)
+            {
+                foreach (UpgradeLevel u in stats)
+                {
+                    if (u == null || string.IsNullOrEmpty(u.id) || cleanStats.Exists(c => c.id == u.id)) continue;
+                    cleanStats.Add(new UpgradeLevel { id = u.id, level = Mathf.Max(0, u.level) });
+                }
+            }
+            stats = cleanStats;
+            missions = Distinct(missions, g => TeaGuests.Get(g) != null);
+            endings = Distinct(endings, e => !string.IsNullOrEmpty(e));
+            var cleanScrolls = new List<EnemyScroll>();
+            if (scrolls != null)
+            {
+                foreach (EnemyScroll s in scrolls)
+                {
+                    if (s == null || string.IsNullOrEmpty(s.id) || cleanScrolls.Exists(c => c.id == s.id)) continue;
+                    s.Sanitize();
+                    cleanScrolls.Add(s);
+                }
+            }
+            scrolls = cleanScrolls;
+            if (lastDaily == null) lastDaily = "";
+            if (dailyResults == null) dailyResults = new List<DailyResult>();
+            dailyResults.RemoveAll(d => d == null || string.IsNullOrEmpty(d.date));
+            towerBest = Mathf.Max(0, towerBest);
+            pilgrimageBest = Mathf.Max(0, pilgrimageBest);
             version = CurrentVersion;
         }
 

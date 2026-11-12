@@ -77,22 +77,25 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 | 4.9 | Editor de kata | ⏳ | Provável adiamento: exige UI de edição de combos. |
 | 4.10 | Arquétipos de build | ✅ | Marcas, fusões, clãs, afixos únicos, as 10 armas, a forja e as almas formam os caminhos (parry e selos, esquiva e sombra, peso e atordoamento, espírito e yokai...). |
 
-## Fase 4 — Progressão, meta e narrativa (§7, §8) — 🔶 parte 1 (v0.9.0)
+## Fase 4 — Progressão, meta e narrativa (§7, §8) — ✅ (v0.9.0 e v0.10.0; o que depende do Ashura e dos Rivais fica para a Fase 5)
 
 | § | Item | Estado |
 |---|---|---|
-| 7.1 | Templo em Ruínas (hub) | ✅ Altar, Forja, Dojo, Biblioteca, Jardim Zen e Cemitério; a Casa de Chá (parte 2) e a Muralha dos Rivais (Fase 5) aparecem em ruínas |
+| 7.1 | Templo em Ruínas (hub) | ✅ Altar, Forja, Dojo, Biblioteca, Jardim Zen, Cemitério e Casa de Chá; a Muralha dos Rivais (Fase 5) aparece em ruínas |
 | 7.2 | Moedas (Mon, Aço Celeste, Fragmentos, Pétalas) | ✅ |
 | 7.3 | Altar em árvore | ✅ |
 | 7.4 | Juramentos | ✅ 9 de 10 (o Rival Eterno espera os Rivais da Fase 5) |
 | 7.5 | Linhagem e envelhecimento | ✅ |
-| 7.6 | Pergaminhos de inimigo | ⏳ |
-| 7.7 | Liberação em camadas | ⏳ |
-| 7.8 | Modos extras | ⏳ |
+| 7.6 | Pergaminhos de inimigo | ✅ 4 de 5 desafios (o de rival espera a Fase 5); a versão "Lenda" no Dojo vem com o treino livre |
+| 7.7 | Liberação em camadas | ✅ (a camada "após o Ashura" espera a Fase 5) |
+| 7.8 | Modos extras | ✅ Diário (ranking local), Torre, Mestre, Peregrinação |
 | 8.1 | Premissa | ✅ nos pergaminhos da Biblioteca |
-| 8.3 | Karma persistente | 🔶 a escala existe e é exibida; os efeitos (eventos, falas, relíquias) vêm na parte 2 |
+| 8.2 | Casa de Chá | ✅ seis hóspedes com falas e missões |
+| 8.3 | Karma persistente | ✅ eventos, falas e relíquias (a forma do Ashura vem na Fase 5) |
 | 8.4 | Poema de morte (jisei) | ✅ |
-| 8.2, 8.5–8.7 | Casa de Chá, gestos, finais, história no ambiente | ⏳ parte 2 (os finais dependem do Ashura, Fase 5) |
+| 8.5 | Gestos rituais | ✅ Chiburi e Nōtō, reverência, oração |
+| 8.6 | Finais | 🔶 os três finais de Karma no fim da Peregrinação; contra o Ashura e o final secreto na Fase 5 |
+| 8.7 | História no ambiente | ✅ itens, lendas dos inimigos, corvos, raposas, pétalas no Mushin |
 
 ## Fase 5 — Inimigos, IA e online (§5, §9) — ⏳
 
@@ -204,6 +207,22 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **Linhagem**: a alma veste um discípulo com idade e traços. Uma jornada que passa da profundidade 10 traz o discípulo de volta **5 anos mais velho**; uma que termina antes o enterra. Idade: 18–29 = +velocidade e Fôlego, janela do parry −1 frame; 30–49 = equilíbrio; 50–69 = −velocidade e Fôlego, parry +2 frames e anéis mais cedo; **70 = aposenta e vira Sensei** (+6 de vida e +2% de dano para os próximos, até 5 Senseis). Ao cair, escolhe-se o herdeiro entre **três candidatos** com 1 ou 2 traços (Impaciente, Herdeiro do Clã Hattori, Mão Pesada, Olhar Noturno, Pés Leves, Sangue Frio, Coração Ardente, Paciente), e ele **herda a técnica mais elevada** do anterior, com a qual começa cada jornada. Sair ou reiniciar não mata o discípulo.
 - **Poema de morte (jisei)**: ao cair, o jogo compõe um haicai de três versos com a hora, o clima, o bioma, quem deu o golpe, a arma e o Karma. Ele aparece na tela de morte e fica gravado no túmulo, junto com a arma, no Cemitério.
 - **Tela de morte**: ao lado das estatísticas, "O que fica" (Aço, Fragmentos, Pétalas, Karma, Calor e o destino do discípulo). "Nova run" vira "Escolher o herdeiro" quando há um.
+
+## Fase 4, parte 2: a Casa de Chá, os rituais e os modos (v0.10.0) — ✅
+
+- **Casa de Chá** (no Templo, 220 Ecos + 3 Aço): seis hóspedes, cada um com retrato, uma fala que muda com a sua **última vida** (quem te matou, a idade com que o discípulo voltou) e com o seu **Karma**, e uma **missão pessoal** com barra de progresso. Cumprida, ela é recebida na conversa e libera algo:
+  - **O Ferreiro sem Rosto** (12 Aço Celeste somando as vidas) → três **tsubas lendárias** na Forja: Ryūjin, Muramasa e Vazio.
+  - **Kohaku, a Kitsune** (desmascare a raposa 2 vezes) → no evento da Kitsune, você vê se o chá é maldito.
+  - **Mestre Zatō** (150 parries perfeitos) → o **Modo Mestre**.
+  - **Tsubaki** (vença 3 Duelos de Honra) → os Duelos de Honra aparecem mais e valem +1 Karma e 5 pétalas.
+  - **Zashiki-warashi** (conheça 12 inimigos) → os **pergaminhos de inimigo**.
+  - **O Monge Sem Nome** (reze 5 vezes) → +2 pontos no Altar.
+- **Karma com efeitos**: com Bushidō (+30 ou mais) as relíquias oferecidas puxam para as defensivas e a estrada traz mais monge, Jizō, ronin, onsen e duelos de honra; com Shura (−30 ou menos), relíquias agressivas e mais raposas, dados e Muramasa. Os hóspedes falam diferente de cada lado.
+- **Gestos rituais**: **Chiburi e Nōtō** — com a sala limpa, segure Atacar parado: a lâmina sacode o sangue e vai para a bainha; solte no clique da bainha (o círculo dourado) para +5 Ecos (a sala espera o gesto terminar). **Reverência** — no impasse (Iai), o adversário se curva primeiro; aperte Interagir para se curvar também (+Bushidō); sacar enquanto ele ainda se curva é um golpe covarde (+Shura). **Oração** — com a sala em paz, segure Interagir perto de uma estátua ou lanterna: o incenso sobe e o lugar conta uma linha da sua história.
+- **Pergaminhos de inimigo** (Biblioteca, depois da Zashiki-warashi): cinco desafios por inimigo — aparar a assinatura 30 vezes, finalizar com 3 armas diferentes, vencer sem levar dano dele, usar a resposta de mestre e derrotá-lo como rival (selado até os Rivais). Os quatro abertos completos dão +3 Fragmentos, a **pintura sumi-e** do inimigo com a sua **lenda** (como ele chegou ao Shuradō), e a técnica dele passa a ser absorvida já no nível II.
+- **Liberação em camadas**: uma alma nova conhece o jogo aos poucos — selos, cabaça e mapa de rotas na 2ª run; guardas, ferramentas e Templo na 4ª; reações elementais e Shura na 7ª; fusões, Juramentos e linhagem na 11ª. O que ainda não abriu aparece selado no cinto (封) e a tela de morte anuncia o que abriu. O dojo ensina tudo, e **Configurações → Liberar todos os sistemas** abre tudo de uma vez.
+- **Modos de jogo** (menu principal): **Jornada** (a estrada sem fim), **Desafio Diário** (a mesma semente para todos no dia, uma tentativa, Ecos ×1,2, e o ranking dos seus dias), **Torre dos Cem Duelos** (só duelos, nenhum item, cem andares até o topo), **Modo Mestre** (sem anéis de tempo, Ecos ×1,5) e **Peregrinação** (estrada fixa de 50 salas que termina num dos três finais de Karma: **Libertação**, **O Novo Ashura** ou **Roda Eterna**).
+- **História no ambiente**: todo item lembra a quem pertenceu (no detalhe do equipamento), **corvos** descem sobre os corpos quando a sala fica em silêncio e fogem de quem chega perto, **raposas** observam das bordas no chá da Kitsune, e **pétalas de cerejeira** caem em volta de quem entra em Mushin.
 
 ## Apresentação e acessibilidade (§10) — ⏳
 

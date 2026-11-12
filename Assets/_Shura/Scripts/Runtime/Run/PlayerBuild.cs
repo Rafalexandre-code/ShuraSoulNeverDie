@@ -234,6 +234,12 @@ namespace Shura
                 return;
             }
             if (reward == null || (!reward.Stackable && Owns(reward.Id))) return;
+            // A finished enemy scroll: its technique comes already as its variant (level II).
+            if (reward is TechniqueDef tech && tech.Level < 2 && run?.Meta != null)
+            {
+                EnemyDef source = EnemyScrolls.SourceOf(tech.Id);
+                if (source != null && EnemyScrolls.Done(run.Meta, source.id)) tech.Level = 2;
+            }
             // Fused techniques act first (Muralha Viva stands you up before the bones do).
             if (reward is FusionDef) Owned.Insert(0, reward);
             else Owned.Add(reward);
@@ -332,6 +338,8 @@ namespace Shura
                     }
                     break;
                 }
+                case RewardHint.Item when run != null && run.Mode == RunMode.Tower:
+                    break;
                 case RewardHint.Item:
                 {
                     // An item card (a notch better than a floor drop) takes the last slot.
@@ -370,9 +378,10 @@ namespace Shura
             }
 
             int relicSlots = depth >= 2 ? count - 1 : count;
+            int karma = run != null ? KarmaRules.Of(run) : 0;
             while (choices.Count < relicSlots && pool.Count > 0)
             {
-                int index = Rng.Range(0, pool.Count);
+                int index = KarmaRules.PickRelic(pool, Rng, karma);
                 RewardDef r = RewardRegistry.Create(pool[index]);
                 pool.RemoveAt(index);
                 if (r != null) choices.Add(r);
@@ -388,7 +397,7 @@ namespace Shura
             }
 
             // A fused technique: a rare card once its two halves are owned.
-            List<string> fusions = Fusions.Available(this);
+            List<string> fusions = run != null && !run.Has(Feature.Fusions) ? new List<string>() : Fusions.Available(this);
             if (fusions.Count > 0 && Rng.NextFloat() < 0.4f)
             {
                 RewardDef f = Fusions.Create(fusions[Rng.Range(0, fusions.Count)]);

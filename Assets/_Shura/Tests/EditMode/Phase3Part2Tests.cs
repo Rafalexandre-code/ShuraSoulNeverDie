@@ -38,7 +38,7 @@ namespace Shura.Tests
 
             Assert.AreEqual("montante", WeaponForge.Compose("montante", "montante", WeaponForge.NoTsuba), "nothing changed: the plain blade");
             Assert.IsFalse(WeaponDefs.Exists("katana+lixo+lua"));
-            Assert.AreEqual(13, WeaponForge.Tsubas.Length, "12 tsubas and the empty guard");
+            Assert.AreEqual(16, WeaponForge.Tsubas.Length, "12 tsubas, 3 legendary and the empty guard");
         }
 
         [Test]

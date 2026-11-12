@@ -490,10 +490,15 @@ namespace Shura
                     }).Character = "Monk";
                     break;
                 case 1: // The kitsune in disguise
-                    Add("Aceitar o chá", "Uma relíquia… 30% de ser maldita.", 0, c, p =>
+                {
+                    // Her lie is decided when she pours; Kohaku's friends can see her blink.
+                    bool lie = new SeededRandom(Run.Seed ^ ((ulong)Depth * 0x51EDUL)).NextFloat() < 0.3f;
+                    bool seen = Run.Meta != null && Run.Meta.MissionDone(TeaGuests.Kohaku);
+                    string tea = seen ? (lie ? Strings.KitsuneLies : Strings.KitsuneTruth) : "Uma relíquia… 30% de ser maldita.";
+                    Add("Aceitar o chá", tea, 0, c, p =>
                     {
                         GiveRelic(p);
-                        if (p.Build.Rng.NextFloat() < 0.3f)
+                        if (lie)
                         {
                             p.Build.ApplyCurse(RunCurse.NoHeal, 3);
                             Say(p, "O CHÁ ERA MALDITO", ColorUtil.Hex("#B06CFF"));
@@ -506,6 +511,7 @@ namespace Shura
                         Enemy fox = SpawnEncounterFoe(EnemyDefs.Kitsune, true);
                         fox.OnDefeated = _ =>
                         {
+                            Run.Meta?.AddStat(TeaGuests.StatFoxes, 1);
                             foreach (PlayerController q in Players)
                             {
                                 if (q.Build == null) continue;
@@ -516,6 +522,7 @@ namespace Shura
                         return true;
                     }, false), "tiles_house", 7, 15, 1, 2);
                     break;
+                }
                 case 2: // Jizō
                     Tile(Add("Oferecer um item", "Entrega o item mais fraco da mochila; um item que você usa sobe de raridade.", 0, c, p =>
                     {
@@ -654,6 +661,14 @@ namespace Shura
                         foe.OnDefeated = _ =>
                         {
                             Run.Karma += 2;
+                            Run.Meta?.AddStat(TeaGuests.StatHonor, 1);
+                            // Tsubaki spread the word: honour is worth more.
+                            if (Run.Meta != null && Run.Meta.MissionDone(TeaGuests.Tsubaki))
+                            {
+                                Run.Karma++;
+                                Run.Meta.petals += 5;
+                                Fx.Toast(Strings.ToastTsubakiHonor, ColorUtil.Hex("#E0465A"));
+                            }
                             foreach (PlayerController q in Players)
                             {
                                 SetHonor(q, false);

@@ -13,6 +13,7 @@ namespace Shura
         /// <summary>Returns false when the two elements do not react (the new one simply replaces the old).</summary>
         public bool ElementalReaction(Enemy e, Element a, Element b)
         {
+            if (!Has(Feature.Reactions)) return false;
             Palette pal = Config.palette;
             Color c;
             string name;

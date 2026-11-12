@@ -19,6 +19,7 @@ namespace Shura
             Library,
             Garden,
             Graveyard,
+            TeaHouse,
         }
 
         sealed class UiSlot
@@ -228,6 +229,7 @@ namespace Shura
                 case TempleView.Library: DrawLibrary(); break;
                 case TempleView.Garden: DrawGarden(); break;
                 case TempleView.Graveyard: DrawGraveyard(); break;
+                case TempleView.TeaHouse: DrawTeaHouse(); break;
                 default: DrawTempleHall(); break;
             }
             FlushSlotClick();
@@ -329,6 +331,7 @@ namespace Shura
                 case Temple.Library: OpenTempleView(TempleView.Library); break;
                 case Temple.Garden: OpenTempleView(TempleView.Garden); break;
                 case Temple.Graveyard: OpenTempleView(TempleView.Graveyard); break;
+                case Temple.TeaHouse: OpenTempleView(TempleView.TeaHouse); break;
             }
         }
 
@@ -408,6 +411,11 @@ namespace Shura
             }
             FitLabel(new Rect(r.x + 26f, y, r.width - 52f, 26f), string.Format(Strings.DiscipleJourneys, d.journeys), smallStyle, UiKit.InkSoft);
             y += 28f;
+            if (!game.Settings.unlockAll && !Unlocks.Open(m.runs, Feature.Lineage))
+            {
+                Label(new Rect(r.x + 26f, y, r.width - 52f, 76f), string.Format(Strings.LineageLocked, Unlocks.RunsFor(Feature.Lineage)), hintSmallStyle, UiKit.Shu);
+                return;
+            }
             int senseis = Lineage.Senseis(m);
             if (senseis > 0) Label(new Rect(r.x + 26f, y, r.width - 52f, 52f), string.Format(Strings.DiscipleSenseis, senseis, 6 * senseis, 2 * senseis), hintSmallStyle, UiKit.InkSoft);
         }
@@ -579,8 +587,11 @@ namespace Shura
             Label(new Rect(left.x, left.y + 14f, left.width, 34f), Strings.GardenOaths, capsCenterStyle, UiKit.InkSoft);
             string help = null;
             float y = left.y + 52f;
+            bool oathsOpen = game.Settings.unlockAll || Unlocks.Open(m.runs, Feature.Oaths);
+            if (!oathsOpen) Label(new Rect(left.x + 40f, left.y + 52f, left.width - 80f, 40f), string.Format(Strings.OathsLocked, Unlocks.RunsFor(Feature.Oaths)), bodyCenterStyle, UiKit.Shu);
             foreach (OathDef o in Oaths.All)
             {
+                if (!oathsOpen) break;
                 OathDef oath = o;
                 var r = new Rect(left.x + 30f, y, left.width - 60f, 58f);
                 bool sel = AddSlot(r, () => game.SetOath(oath, (m.OathLevel(oath.id) + 1) % (oath.maxLevel + 1)),
@@ -855,7 +866,7 @@ namespace Shura
                 }
             });
             int idx = Mathf.Clamp(listIndex, 0, all.Length + scrolls - 1);
-            if (idx < all.Length) DrawBestiaryPage(right, all[idx], m.Kills(all[idx].id));
+            if (idx < all.Length) DrawBestiaryPage(right, all[idx], m.Kills(all[idx].id), m);
             else
             {
                 int s = idx - all.Length;
@@ -868,13 +879,20 @@ namespace Shura
             ControlsLine(Strings.TempleListControls);
         }
 
-        void DrawBestiaryPage(Rect r, EnemyDef e, int kills)
+        void DrawBestiaryPage(Rect r, EnemyDef e, int kills, MetaProgress m)
         {
             bool known = kills >= 0;
             CharacterArt art = PixelArt.Character(e.art);
             var portrait = new Rect(r.x + 60f, r.y + 60f, 300f, 300f);
-            kit.Enso(new Rect(portrait.x - 20f, portrait.y - 20f, 340f, 340f), UiKit.Ink.WithAlpha(0.5f), 20f);
-            if (art != null) DrawSpriteTinted(portrait, art.idle[(int)ArtDir.Right], known ? Color.white : new Color(0.05f, 0.05f, 0.06f, 0.85f));
+            bool legend = known && m.MissionDone(TeaGuests.Warashi) && EnemyScrolls.Done(m, e.id);
+            if (legend) DrawSumiE(portrait, e);
+            else
+            {
+                kit.Enso(new Rect(portrait.x - 20f, portrait.y - 20f, 340f, 340f), UiKit.Ink.WithAlpha(0.5f), 20f);
+                if (art != null) DrawSpriteTinted(portrait, art.idle[(int)ArtDir.Right], known ? Color.white : new Color(0.05f, 0.05f, 0.06f, 0.85f));
+            }
+            if (known) DrawScroll(new Rect(r.x + 70f, r.y + 470f, r.width - 140f, 300f), e, m);
+            if (legend) Label(new Rect(r.x + 60f, r.y + 400f, r.width - 120f, 64f), EnemyScrolls.Legend(e), hintSmallStyle, UiKit.InkSoft);
             float x = portrait.xMax + 60f, w = r.xMax - x - 50f;
             float y = r.y + 70f;
             Label(new Rect(x, y, w, 70f), known ? e.displayName : Strings.LibraryUnknown, headerStyle, UiKit.Ink);
@@ -1022,6 +1040,7 @@ namespace Shura
             if (l.petals > 0) Line(string.Format(Strings.LegacyPetals, l.petals), UiKit.OnPaper(ColorUtil.Hex("#FF9EC4")));
             if (l.karma != 0) Line(string.Format(Strings.LegacyKarma, l.karma), l.karma > 0 ? UiKit.Ai : UiKit.Shu);
             if (l.heat > 0) Line(string.Format(Strings.LegacyHeat, l.heat), UiKit.Shu);
+            if (!string.IsNullOrEmpty(l.unlocked)) Line(string.Format(Strings.LegacyUnlocked, l.unlocked), UiKit.Shu);
             y += 8f;
             Disciple d = l.disciple;
             if (d == null) return;

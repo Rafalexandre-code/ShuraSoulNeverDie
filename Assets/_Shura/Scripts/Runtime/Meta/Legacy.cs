@@ -18,6 +18,10 @@ namespace Shura
         public bool aged;
         public Disciple disciple;
         public string jisei = "";
+        /// <summary>Systems that opened with this run (§7.7), to announce.</summary>
+        public string unlocked = "";
+        /// <summary>The road ended in victory (Tower, Pilgrimage): its ending.</summary>
+        public string ending = "";
     }
 
     /// <summary>
@@ -30,7 +34,7 @@ namespace Shura
         public const int KarmaWeight = 5;
 
         /// <param name="died">The run ended in death (quitting or restarting does not kill the disciple).</param>
-        public static LegacyReport Bank(MetaProgress meta, RunState run, Lineage.Facts facts, bool died)
+        public static LegacyReport Bank(MetaProgress meta, RunState run, Lineage.Facts facts, bool died, bool lineage = true)
         {
             var r = new LegacyReport { heat = run.Oaths.Heat };
             PlayerBuild b = run.Main;
@@ -43,9 +47,14 @@ namespace Shura
             meta.petals += r.petals;
             meta.AddKarma(r.karma);
             meta.bestHeat = Mathf.Max(meta.bestHeat, r.heat);
+            meta.AddStat(TeaGuests.StatSteel, r.steel);
+            meta.AddStat(TeaGuests.StatParries, run.PerfectParries);
 
             if (meta.disciple == null) meta.disciple = Lineage.First();
             Disciple d = meta.disciple;
+            r.disciple = d;
+            // Before the lineage opens, the first body neither ages nor dies.
+            if (!lineage) return r;
             r.disciple = d;
             d.bestRoom = Mathf.Max(d.bestRoom, run.RoomsCleared);
             d.weapon = b.CurrentWeapon != null ? b.CurrentWeapon.id : "";

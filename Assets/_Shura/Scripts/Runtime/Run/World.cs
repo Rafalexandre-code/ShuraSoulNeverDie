@@ -400,6 +400,7 @@ namespace Shura
             if (firstRoom) HintOnce(HintId.Controls);
             if (Run != null && Run.AllyRooms > 0) SpawnAlly();
             if (room.weather != Weather.Clear) HintOnce(HintId.Weather);
+            BeginRitualsForRoom();
             if (room.biome.rule != BiomeRule.Embers || room.depth >= Biomes.RoomsPerBiome) HintOnce(HintId.Biome);
         }
 
@@ -425,6 +426,7 @@ namespace Shura
             }
             actor = null;
             Standoff.Tick();
+            TickRituals();
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Tick();
             TickProjectiles();
             TickBursts();
@@ -534,6 +536,7 @@ namespace Shura
             ClearBlasts();
             CollectAllPickups();
             RewardChallenge();
+            OnRoomClearedRituals();
             RoomClearedEvent?.Invoke();
         }
 
@@ -888,6 +891,7 @@ namespace Shura
                 connected = true;
                 if (outcome == HitOutcome.Hit)
                 {
+                    attacker.DamagedPlayer = true;
                     attacker.OnDealtDamage(attack.damage * attacker.PowerMult);
                     attacker.OnLandedHitKalpa();
                     if (CurrentRoom != null && CurrentRoom.challenge == ChallengeKind.NoHit) FailChallenge();
@@ -1109,6 +1113,7 @@ namespace Shura
 
             Player.Build.Finishers++;
             Player.OnFinisherDone();
+            RecordScroll(enemy, ScrollEvent.Finisher, Player.Weapon.baseId ?? Player.Weapon.id);
             if (dir.sqrMagnitude < 1e-4f) dir = Player.Facing;
             // Magnitude 2 marks the last enemy of the room: the router plays the slow-motion kill.
             bool lastOne = ActiveEnemyCount <= 1 && IsLastWave;
@@ -1144,7 +1149,9 @@ namespace Shura
         /// <summary>Marks the enemy for absorption when the player gives its signature the Perfect Answer.</summary>
         public void TryMaster(Enemy attacker, SignatureAnswer answer, bool fromSignature)
         {
-            if (Run == null || attacker == null || attacker.IsGone || attacker.Mastered || !fromSignature) return;
+            if (Run == null || attacker == null || attacker.IsGone || !fromSignature) return;
+            if (attacker.Def.signatureAnswer == answer) RecordScroll(attacker, ScrollEvent.MasterAnswer);
+            if (attacker.Mastered) return;
             if (attacker.Def.signatureAnswer != answer || !Player.Build.CanAbsorb(attacker.Def.techniqueId)) return;
             attacker.MarkMastered();
             Fx.Emit(FxType.Mastered, attacker.Position, Vector2.up, 1f, Config.palette.gold);
@@ -1259,6 +1266,8 @@ namespace Shura
             if (Run == null || CurrentRoom == null) return;
             float chance = ItemGenerator.DropChance(Depth, enemy.IsElite) * (enemy.DropsDouble ? 2f : 1f);
             if (Run.Rng.NextFloat() >= chance) return;
+            // The Tower of a Hundred Duels: only the blade, never an item.
+            if (Run.Mode == RunMode.Tower) return;
             Item item = ItemGenerator.Roll(Run.Rng, Depth, enemy.IsElite);
             SpawnPickup(item, enemy.Position);
         }

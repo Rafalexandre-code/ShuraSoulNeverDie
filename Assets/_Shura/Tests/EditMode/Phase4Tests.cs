@@ -69,7 +69,7 @@ namespace Shura.Tests
             Assert.IsTrue(Temple.IsBuilt(meta, Temple.Dojo));
             Assert.IsFalse(Temple.TryBuild(meta, dojo), "only once");
             meta.steel = 99;
-            Assert.IsFalse(Temple.TryBuild(meta, Temple.Get(Temple.TeaHouse)), "its guests have not arrived");
+            Assert.IsFalse(Temple.TryBuild(meta, Temple.Get(Temple.RivalWall)), "the rivals have not arrived");
         }
 
         // ── Altar ──

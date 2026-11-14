@@ -93,6 +93,9 @@ namespace Shura
 
         [Header("Entre salas")]
         public float healOnRoomClear = 20f;
+
+        /// <summary>WP-02: cura de um gole da cabaça, em pontos de vida (antes uma constante em PlayerController.Ki).</summary>
+        public float sipHeal = 35f;
     }
 
     [Serializable]

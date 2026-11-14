@@ -178,6 +178,8 @@ namespace Shura
         {
             Def = def;
             Summoner = summoner;
+            // WP-02: o ajuste fino deste inimigo no Balance.json (multiplicadores; 1 = nada).
+            Balance.ApplyOverride(def.id, ref enemyScaling);
             scaling = enemyScaling;
             et = config.enemies;
             feel = config.feel;

@@ -1968,6 +1968,14 @@ namespace Shura
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Die();
         }
 
+        /// <summary>Painel de afinação (WP-02): cria um inimigo a 4 m do jogador, com a escala da sala atual.</summary>
+        public void DevSpawnEnemy(EnemyDef def)
+        {
+            if (def == null || Run == null || Host == null) return;
+            Vector2 at = Layout.NearestFloor(Host.Position + Host.Facing.normalized * 4f, def.radius);
+            CreateEnemy(def, at, false, null);
+        }
+
         public void DevSkipRoom()
         {
             if (CurrentRoom == null || !roomActive) return;

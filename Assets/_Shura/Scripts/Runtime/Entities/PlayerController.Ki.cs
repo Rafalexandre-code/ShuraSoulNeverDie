@@ -52,7 +52,8 @@ namespace Shura
         const int KamaeCooldown = 30;
         const int DrinkFrames = 28;
         const int BandageFrames = 40;
-        const float SipHeal = 35f;
+        /// <summary>Cura de um gole (Balance.json → player.sipHeal).</summary>
+        float SipHeal => t.sipHeal;
         public const int SipsPerRoom = 2;
         const int AsuraFrames = 600;
         const int CycleFrames = 240;

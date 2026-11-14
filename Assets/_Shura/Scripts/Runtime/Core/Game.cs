@@ -163,6 +163,8 @@ namespace Shura
         {
             Launch = LaunchOptions.FromCommandLine();
             Config = config != null ? config : ScriptableObject.CreateInstance<GameConfig>();
+            // WP-02: os números de afinação em dados (StreamingAssets/Balance.json), por cima dos padrões.
+            Balance.Load(Config);
             Settings = Launch.Automated ? new GameSettings() : GameSettings.Load();
             // Automated runs use a separate, fresh save so they never touch the player's progress.
             metaPath = MetaStore.DefaultPath(Launch.Automated);
@@ -186,6 +188,10 @@ namespace Shura
             UI = gameObject.AddComponent<GameUI>();
             UI.Init(this);
             gameObject.AddComponent<DebugOverlay>().Init(this);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // WP-02: o painel de afinação só existe em build de desenvolvimento e no editor.
+            gameObject.AddComponent<TuningPanel>().Init(this);
+#endif
 
             Feedback = new FeedbackRouter(this);
             Tap = new FeedbackTap(Feedback);

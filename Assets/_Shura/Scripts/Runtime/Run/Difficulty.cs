@@ -13,26 +13,29 @@ namespace Shura
         /// Past the first Kalpa the numbers climb more slowly (the new rules carry the
         /// difficulty instead): each room beyond 25 counts as 0.6 of a room.
         /// </summary>
-        public static float ScalingDepth(int depth) => depth <= RouteMap.KalpaLength ? depth : RouteMap.KalpaLength + (depth - RouteMap.KalpaLength) * 0.6f;
+        // WP-02: os números vêm de Balance.Scaling (Balance.json), não mais de constantes aqui.
+        static ScalingTuning S => Balance.Scaling;
 
-        public static float EnemyHealthMult(int depth) => 1f + 0.08f * ScalingDepth(depth);
-        public static float EnemyPostureMult(int depth) => 1f + 0.06f * ScalingDepth(depth);
-        public static float EnemyDamageMult(int depth) => 1f + 0.05f * ScalingDepth(depth);
-        /// <summary>Shorter pauses between attacks (never below 55%).</summary>
-        public static float EnemyIdleMult(int depth) => Mathf.Max(0.55f, 1f - 0.03f * depth);
-        public static int AttackGapFrames(int baseGap, int depth) => Mathf.Max(8, baseGap - depth);
+        public static float ScalingDepth(int depth) => depth <= RouteMap.KalpaLength ? depth : RouteMap.KalpaLength + (depth - RouteMap.KalpaLength) * S.depthAfterKalpa;
+
+        public static float EnemyHealthMult(int depth) => 1f + S.healthPerDepth * ScalingDepth(depth);
+        public static float EnemyPostureMult(int depth) => 1f + S.posturePerDepth * ScalingDepth(depth);
+        public static float EnemyDamageMult(int depth) => 1f + S.damagePerDepth * ScalingDepth(depth);
+        /// <summary>Shorter pauses between attacks (never below the minimum).</summary>
+        public static float EnemyIdleMult(int depth) => Mathf.Max(S.idleMinMult, 1f - S.idleDropPerDepth * depth);
+        public static int AttackGapFrames(int baseGap, int depth) => Mathf.Max(S.attackGapMinFrames, baseGap - depth);
 
         /// <summary>How much of what the enemies learned they are allowed to use.</summary>
         public static float AdaptStrength(int depth) => Mathf.Clamp01(0.15f + 0.07f * depth);
 
-        public const float EliteHealthMult = 2.2f;
-        public const float ElitePostureMult = 1.6f;
-        public const float EliteDamageMult = 1.15f;
-        public const float EliteSizeMult = 1.2f;
+        public static float EliteHealthMult => S.eliteHealthMult;
+        public static float ElitePostureMult => S.elitePostureMult;
+        public static float EliteDamageMult => S.eliteDamageMult;
+        public static float EliteSizeMult => S.eliteSizeMult;
 
-        public const float AscensionHealth = 4f;
-        public const float AscensionDamage = 0.03f;
-        public const float AscensionPosture = 2f;
+        public static float AscensionHealth => S.ascensionHealth;
+        public static float AscensionDamage => S.ascensionDamage;
+        public static float AscensionPosture => S.ascensionPosture;
     }
 
     /// <summary>Per-enemy multipliers for its room's depth (and Guardian status).</summary>

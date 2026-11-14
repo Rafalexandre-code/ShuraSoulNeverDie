@@ -88,3 +88,44 @@ Riscos percebidos:
   - "ring_visible" fica nulo nos robôs headless (sem câmera); só é medido com tela.
   - Online, só o anfitrião grava (os convidados não rodam a simulação).
 ```
+
+---
+
+```
+WP-02 — Painel de afinação e Balance.json — v0.16.2
+Feito:
+  - StreamingAssets/Balance.json (lido no início por Config/Balance.cs, por cima dos
+    padrões do código): seções player, enemies, flow e feel do GameConfig (janela de
+    parry, anti-spam, buffers, anel 36 f / 4 f, hit-stop e tremor por evento, câmera
+    lenta, ganho de Fluxo, postura por evento...), mais "scaling" (escala por
+    profundidade e de elite, antes constantes em DifficultyRules) e "enemyOverrides"
+    (vida/postura/dano por inimigo, multiplicadores). Floats arredondados no arquivo.
+  - Cura do gole da cabaça saiu de uma constante para player.sipHeal (35).
+  - Menu de editor "Shura/Escrever Balance.json com os padrões" (gera o arquivo do código).
+  - DevTools/TuningPanel.cs (F1, só editor e build de desenvolvimento): abas Afinação
+    (edição ao vivo com −/+, salvar e recarregar Balance.json), Flags (liga/desliga,
+    salvar features.json, padrão novo, tudo v0.15) e Ferramentas (hitboxes, pular sala,
+    matar todos, invencível, criar qualquer inimigo perto do jogador). "-shuraPanel" abre
+    o painel para capturas.
+Flags novas: nenhuma.
+Arquivos principais: Config/Balance.cs, Config/GameConfig.cs, Run/Difficulty.cs,
+  Entities/Enemy.cs, Entities/PlayerController.Ki.cs, Run/World.cs, Core/Game.cs,
+  DevTools/TuningPanel.cs, Editor/ProjectSetup.cs, StreamingAssets/Balance.json,
+  Tests/EditMode/BalanceTests.cs
+Testes: 202 → 204 (todos passando: s)
+Bots: aceite medido em build de desenvolvimento. Com Balance.json padrão o robô acertou
+  54 de 66 parries tentados em anéis ciano (telemetria do WP-01); com
+  player.perfectParryFrames = 1 no arquivo, 1 de 27, e o log confirma a leitura
+  ("janela de parry 1 f"). 0 exceções.
+Capturas: docs/redesenho/amostras/wp02-painel.png (painel aberto durante a luta).
+Build final: a DLL do runtime não contém "TuningPanel" (0 ocorrências; controle:
+  "DebugOverlay" aparece), então o painel não existe na release.
+Números alterados: nenhum (todos os valores do arquivo = padrões do código).
+Pendências para o diretor: nenhuma.
+Riscos percebidos:
+  - No editor, o GameConfig é um asset: editar no painel durante o Play altera o asset
+    em memória (comportamento normal do Unity); o arquivo de verdade é o Balance.json.
+  - Vida, dano e postura base de cada inimigo continuam em EnemyDefs (código); o
+    Balance.json ajusta por multiplicador. Mover as 36 definições inteiras para dados
+    seria outro pacote.
+```

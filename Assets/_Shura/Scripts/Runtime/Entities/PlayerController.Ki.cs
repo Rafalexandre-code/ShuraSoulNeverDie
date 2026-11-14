@@ -725,6 +725,7 @@ namespace Shura
             float cutAngle = CombatMath.AngleDegrees(Facing);
             float armAngle = CombatMath.AngleDegrees(CombatMath.Perpendicular(e.Facing) * -1f);
             float error = AimError;
+            world.NotifyFinisher(this, e, "dirigida", error <= CutPerfectDegrees ? "perfeito" : error <= CutLineDegrees ? "linha" : error <= CutCleanDegrees ? "limpo" : "falho");
             // The closer to the line, the more blood — and the better the reward.
             CutPrecision = Mathf.Clamp01(1f - error / (CutCleanDegrees + 6f));
             var along = (AimPoint - Position).normalized;

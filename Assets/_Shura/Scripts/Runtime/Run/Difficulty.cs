@@ -127,7 +127,14 @@ namespace Shura
         public void OnBackAttack() => backAttacks += 1f;
         public void OnTool() => tools += 1f;
         public void OnSwapParry() => swaps += 1f;
-        public void OnDrink() => drinks += 1f;
+        public void OnDrink()
+        {
+            drinks += 1f;
+            TotalDrinks++;
+        }
+
+        /// <summary>Goles bebidos na run inteira (telemetria, WP-01).</summary>
+        public int TotalDrinks { get; private set; }
 
         /// <summary>
         /// Counter-reading (§5.6): the player did the opposite of what was read. That reading

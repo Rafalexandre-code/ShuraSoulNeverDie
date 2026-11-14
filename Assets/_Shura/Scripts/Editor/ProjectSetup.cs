@@ -18,7 +18,7 @@ namespace Shura.EditorTools
         const string BuildPath = "Builds/Windows/Shura.exe";
         /// <summary>The ensō, the blade and the seal (painted by Tools/art/make_icon.py).</summary>
         const string IconPath = "Assets/_Shura/Art/AppIcon/shura_icon.png";
-        public const string Version = "0.16.0";
+        public const string Version = "0.16.1";
 
         [MenuItem("Shura/Configurar projeto")]
         public static void Run()

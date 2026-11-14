@@ -35,6 +35,9 @@ namespace Shura
         public float view = 1.25f;
         /// <summary>Tutorial hints during play.</summary>
         public bool hints = true;
+        /// <summary>WP-01: telemetria local (arquivos .jsonl no próprio computador). Ligada por padrão; o jogador é avisado.</summary>
+        public bool telemetry = true;
+        public bool telemetryNoticeShown;
         /// <summary>Chosen screen resolution (0 = the monitor's own).</summary>
         public int resolutionWidth;
         public int resolutionHeight;

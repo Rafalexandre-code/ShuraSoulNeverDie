@@ -47,3 +47,44 @@ Riscos percebidos:
     uma falha de licença do Unity (código 198); foi restaurado copiando o PackageCache do
     projeto principal. Nada no projeto do diretor foi alterado.
 ```
+
+---
+
+```
+WP-01 — Telemetria local — v0.16.1
+Feito:
+  - Core/TelemetryService.cs: um .jsonl por run em persistentDataPath/telemetry/
+    (robôs: telemetry_bots/; "-shuraTelemetry <pasta>|off" na linha de comando).
+    Eventos com t (quadros), runId, seed, depth, act, room: run_start, ring_resolved
+    (anel, inimigo, resposta parry/block/dodge/swap/hit, delta em quadros do fechamento,
+    sucesso), player_hit (fonte, dano, anel, anel visível na tela), death (fonte, tempo,
+    build), reward_offered/reward_picked, route_choice, input_use (por sala), room_end
+    (duração, dano, curas, finalizações por tipo e nível), run_end (resultado, duração,
+    Algoz criado).
+  - Ganchos novos na simulação: World.AttackResolved (PlayerController.ReceiveAttack
+    agora mede os quadros desde o aparar, a troca e o início da esquiva) e
+    World.FinisherResolved (corte dirigido: perfeito/linha/limpo/falho).
+  - Aviso ao jogador na primeira run e opção "Telemetria local" em Configurações → Jogo.
+  - Tools/telemetry_report/telemetry_report.py: relatório Markdown + CSVs (histograma de
+    delta por anel, letalidade por exposição, pick rate e win rate, durações, teclas,
+    golpes com atacante fora da tela, bloqueio dominante). Amostra com 2 robôs em
+    docs/redesenho/amostras/telemetria-bots-wp01.md.
+  - Até o WP-12 não há atos: o campo "act" é o bioma de 5 salas (prof. ÷ 5 + 1).
+Flags novas: nenhuma (a telemetria é opção do jogador: GameSettings.telemetry = true).
+Arquivos principais: Core/TelemetryService.cs, Core/Game.cs, Entities/PlayerController.cs,
+  Entities/PlayerController.Ki.cs, Run/World.cs, Run/Difficulty.cs, UI/GameSettings.cs,
+  UI/GameUI.cs, UI/Strings.Redesign.cs, Tools/telemetry_report/telemetry_report.py,
+  Tests/EditMode/TelemetryTests.cs
+Testes: 201 → 202 (todos passando: s)
+Bots: sementes 3 e 11 até a prof. 20 com telemetria (2 arquivos válidos, 160 e 202
+  eventos, 0 exceções); semente 29 com "-shuraTelemetry off" não gravou nada; semente 41
+  sem opção gravou em telemetry_bots (prova de que o "off" funciona).
+Capturas: nenhuma tela nova (só um item de opção e um aviso).
+Números alterados: nenhum.
+Pendências para o diretor: nenhuma.
+Riscos percebidos:
+  - O robô apara sempre +2 quadros depois do fechamento do anel (padrão dele); os
+    histogramas dos robôs não dizem nada sobre humanos.
+  - "ring_visible" fica nulo nos robôs headless (sem câmera); só é medido com tela.
+  - Online, só o anfitrião grava (os convidados não rodam a simulação).
+```

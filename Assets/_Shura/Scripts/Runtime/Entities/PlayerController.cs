@@ -878,10 +878,25 @@ namespace Shura
             Squash(0.82f, 1.15f);
         }
 
+        /// <summary>
+        /// Um golpe chega ao duelista. Além de resolver, avisa o mundo (telemetria, WP-01) com a
+        /// resposta usada e o atraso em quadros em relação ao fechamento do anel.
+        /// </summary>
         public HitOutcome ReceiveAttack(in IncomingAttack incoming)
         {
             if (CurrentState == State.Dead) return HitOutcome.Ignored;
+            float before = Health;
+            State stateBefore = CurrentState;
+            int dodgeFrame = stateBefore == State.Dodge ? StateFrame : -1;
+            int sinceParry = framesSinceParryPress, sinceSwap = framesSinceSwap;
+            HitOutcome outcome = ResolveIncoming(incoming);
+            if (outcome != HitOutcome.Ignored)
+                world.NotifyAttackResolved(this, incoming, outcome, Mathf.Max(0f, before - Health), sinceParry, sinceSwap, dodgeFrame);
+            return outcome;
+        }
 
+        HitOutcome ResolveIncoming(in IncomingAttack incoming)
+        {
             Enemy attacker = incoming.attacker;
             AttackDef attack = incoming.attack;
             float power = incoming.powerMult > 0f ? incoming.powerMult : 1f;

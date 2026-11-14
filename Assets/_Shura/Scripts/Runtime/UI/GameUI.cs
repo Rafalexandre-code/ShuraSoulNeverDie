@@ -437,6 +437,8 @@ namespace Shura
                     AddToggle(Strings.TimingIndicator, () => s.timingIndicator, v => s.timingIndicator = v);
                     Help(Strings.HelpTiming);
                     AddToggle(Strings.Hints, () => s.hints, v => s.hints = v);
+                    AddToggle(Strings.Telemetry, () => s.telemetry, v => s.telemetry = v);
+                    Help(Strings.HelpTelemetry);
                     Help(Strings.HelpHints);
                     AddToggle(Strings.Blood, () => s.blood, v => s.blood = v);
                     Help(Strings.HelpBlood);

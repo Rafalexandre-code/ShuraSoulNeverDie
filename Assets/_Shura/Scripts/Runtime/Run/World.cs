@@ -194,6 +194,21 @@ namespace Shura
         public void RequestSlowMo(float seconds) => SlowMoRequested?.Invoke(seconds);
         public event Action PlayerDiedEvent;
 
+        /// <summary>
+        /// Telemetria (WP-01): um golpe inimigo foi resolvido contra um duelista — o resultado, o
+        /// dano sofrido e quantos quadros fazia que ele apertou aparar e trocar (e em que quadro
+        /// da esquiva estava, ou −1).
+        /// </summary>
+        public event Action<PlayerController, IncomingAttack, HitOutcome, float, int, int, int> AttackResolved;
+
+        /// <summary>Telemetria (WP-01): uma finalização (tipo: "rapida" ou "dirigida"; nível: perfeito/linha/limpo/falho).</summary>
+        public event Action<PlayerController, Enemy, string, string> FinisherResolved;
+
+        public void NotifyAttackResolved(PlayerController p, in IncomingAttack inc, HitOutcome o, float damage, int sinceParry, int sinceSwap, int dodgeFrame) =>
+            AttackResolved?.Invoke(p, inc, o, damage, sinceParry, sinceSwap, dodgeFrame);
+
+        public void NotifyFinisher(PlayerController p, Enemy e, string kind, string grade) => FinisherResolved?.Invoke(p, e, kind, grade);
+
         public World(GameConfig config, IFeedback fx)
         {
             Config = config;

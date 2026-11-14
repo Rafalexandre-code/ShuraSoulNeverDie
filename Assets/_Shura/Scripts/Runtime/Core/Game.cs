@@ -120,6 +120,9 @@ namespace Shura
         float routeStart;
         const float RouteSeconds = 25f;
         public IReadOnlyList<RouteNode> RouteOptions => routeOptions;
+
+        /// <summary>Telemetria local (WP-01).</summary>
+        public TelemetryService Telemetry { get; private set; }
         public float RouteTimeLeft => Mathf.Max(0f, RouteSeconds - (Time.unscaledTime - routeStart));
         public int HostRouteVote => routeVotes.TryGetValue(-1, out int v) ? v : -1;
 
@@ -187,6 +190,7 @@ namespace Shura
             Feedback = new FeedbackRouter(this);
             Tap = new FeedbackTap(Feedback);
             World = new World(Config, Tap);
+            Telemetry = new TelemetryService(this);
             Tap.Actor = () => World.ActorNetId;
             Net = new NetSession(this, Tap);
             World.RoomClearedEvent += OnRoomCleared;
@@ -528,6 +532,8 @@ namespace Shura
             Run.Clock.MomentReached += OnDayMoment;
             StampHour(first);
             World.StartRoom(first, startDepth == 0);
+            Telemetry.BeginRun(Run);
+            Telemetry.BeginRoom();
             announcedReadings.Clear();
             tempo = Config.feel.baseTempo;
             slowMoTimer = 0f;
@@ -694,6 +700,7 @@ namespace Shura
         {
             if (CurrentMode != Mode.Reward || index < 0 || index >= rewardChoices.Count) return;
             RewardDef reward = rewardChoices[index];
+            Telemetry.RewardPicked(reward);
             // The host's own build: teammates choose theirs in their browsers.
             Run.Main.Grant(reward);
             World.Host.ApplyStats(false);
@@ -781,6 +788,7 @@ namespace Shura
         void ChooseRoute(int index)
         {
             RouteNode node = routeOptions.Count > 0 ? routeOptions[Mathf.Clamp(index, 0, routeOptions.Count - 1)] : RouteMap.Default(Run.Seed, Run.RoomIndex + 1);
+            Telemetry.RouteChosen(routeOptions, node);
             Run.Choose(node);
             if (Net.Active) Net.OnRouteChosen();
             NextRoom();
@@ -869,9 +877,12 @@ namespace Shura
             Run.EcosBanked = MetaRules.EcosForRun(Run);
             Run.Banked = true;
             RecordPresence(died);
+            if (died) Telemetry.Death();
             int runsBefore = Meta.runs;
             Meta.RecordRun(Run.EcosBanked, Run.RoomsCleared, victory);
             BankLegacy(died, victory);
+            // Depois do legado: o Algoz (rival) já foi criado, e o fim da run sabe disso.
+            Telemetry.EndRun(died ? "morte" : victory ? "vitoria" : "abandono");
             // A new layer of the game opened with this run (§7.7).
             if (LastLegacy != null && !Settings.unlockAll && !Launch.Automated) LastLegacy.unlocked = Unlocks.Names(Unlocks.Opened(runsBefore, Meta.runs));
             SaveMeta();
@@ -1028,6 +1039,7 @@ namespace Shura
             RoomDef room = Run.GetRoom(Run.RoomIndex);
             StampHour(room);
             World.StartRoom(room, false);
+            Telemetry.BeginRoom();
             Vfx.ClearDecals();
             Vfx.StainBounds = World.Bounds;
             SetMode(Mode.Playing);
@@ -1148,6 +1160,8 @@ namespace Shura
             HostPicksLeft = picks;
             rewardChoices.Clear();
             rewardChoices.AddRange(Run.Main.RollChoices(3 + picks - 1 + Run.Modifiers.extraRewardChoices, Run.RoomIndex + 1, room.hint));
+            Telemetry.CloseRoom();
+            Telemetry.RewardsOffered(rewardChoices);
             hostPicked = false;
             if (Net.Active) Net.OfferRewards(Run.RoomIndex + 1, room.hint, picks);
             if (rewardChoices.Count == 0)

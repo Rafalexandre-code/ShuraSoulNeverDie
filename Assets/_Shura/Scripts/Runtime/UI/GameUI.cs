@@ -1353,7 +1353,7 @@ namespace Shura
             if (p.AimingCut) DrawFinisherAim(p);
             DrawAffixLabels();
             PlayerController local = game.World.Host;
-            if (local != null && local.LockTarget != null) DrawLockReticle(local.LockTarget.RenderPosition, local.LockTarget.Radius);
+            if (local != null && local.LockTarget != null) DrawLockReticle(local.LockTarget.RenderPosition, local.LockTarget.BarHeight);
             if (p.Build != null && p.Build.Modifiers.dragonEye) DrawDragonEye();
             // Voto de Silêncio: nothing on screen but the fight.
             if (SilentHud) return;

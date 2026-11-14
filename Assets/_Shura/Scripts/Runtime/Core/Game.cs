@@ -324,7 +324,8 @@ namespace Shura
             else
             {
                 // The duel breathes slower at Flow 0 and accelerates with every Flow level.
-                float target = Config.feel.baseTempo + Config.feel.tempoPerFlowLevel * FlowLevel;
+                // WP-03: com FlowTimeScale = false o ritmo é fixo em 1,0 (o anel dura o mesmo em todo nível de Fluxo).
+                float target = Feature.FlowTimeScale ? Config.feel.baseTempo + Config.feel.tempoPerFlowLevel * FlowLevel : 1f;
                 tempo = Mathf.MoveTowards(tempo, target, Time.unscaledDeltaTime * 0.5f);
                 if (slowMoTimer > 0f) slowMoTimer -= Time.unscaledDeltaTime;
                 Clock.Accumulate(Time.unscaledDeltaTime * EffectiveTempo);
@@ -442,7 +443,7 @@ namespace Shura
             World.StartRoom(new RoomDef(Strings.TutorialRoomName, 0, Biomes.All[0], 22f, 13f, false, new EnemySpawn[0][]) { dojo = true, time = TimeOfDay.Night }, false);
             World.TutorialRoom = true;
             announcedReadings.Clear();
-            tempo = Config.feel.baseTempo;
+            tempo = Feature.FlowTimeScale ? Config.feel.baseTempo : 1f;
             slowMoTimer = 0f;
             Vfx.Clear();
             Vfx.ClearDecals();
@@ -541,7 +542,7 @@ namespace Shura
             Telemetry.BeginRun(Run);
             Telemetry.BeginRoom();
             announcedReadings.Clear();
-            tempo = Config.feel.baseTempo;
+            tempo = Feature.FlowTimeScale ? Config.feel.baseTempo : 1f;
             slowMoTimer = 0f;
             Vfx.Clear();
             Vfx.ClearDecals();

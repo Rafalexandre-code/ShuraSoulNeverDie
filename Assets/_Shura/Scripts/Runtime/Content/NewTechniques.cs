@@ -271,4 +271,48 @@ namespace Shura
             Acted(world, attacker.Position, attacker);
         }
     }
+
+    /// <summary>
+    /// Onmyōji (WP-03): os antigos Selos de Ki da base, agora uma escolha de build. Parry
+    /// perfeito marca um selo em quem atacou; no 5º (4º na Forma Plena) eles explodem sozinhos.
+    /// Eco: a explosão marca o inimigo vizinho.
+    /// </summary>
+    public sealed class InnerSealTechnique : TechniqueDef
+    {
+        public override string Id => RewardIds.InnerSeal;
+        protected override string BaseName => "Selo Interno";
+        public override Mark[] MarkSet => new[] { Mark.Espirito, Mark.Trovao };
+        protected override string BaseGain => "Parry perfeito marca um selo de Ki em quem atacou; no 5º, os selos explodem dentro dele (12 de dano e 8 de postura por selo).";
+        protected override string BaseCost => "Seu parry perfeito causa 15% menos postura direta.";
+        public override string SourceEnemy => EnemyDefs.Onmyoji.displayName;
+
+        protected override void ApplyCost(PlayerModifiers m) { m.perfectParryPostureMult *= 0.85f; }
+
+        public override void OnPerfectParry(World world, Enemy attacker)
+        {
+            if (attacker == null || attacker.IsGone) return;
+            attacker.AddSeal(1, true);
+            int need = Level >= 3 && Branch == BranchFull ? 4 : 5;
+            if (attacker.Seals < need) return;
+            Vector2 at = attacker.Position;
+            world.Player?.DetonateOn(attacker);
+            if (Level >= 3 && Branch == BranchEcho)
+            {
+                Enemy next = null;
+                float best = 4f;
+                foreach (Enemy e in world.Enemies)
+                {
+                    if (e == attacker || e.IsGone || e.IsAlly || !e.CanBeHit) continue;
+                    float d = Vector2.Distance(e.Position, at);
+                    if (d < best)
+                    {
+                        best = d;
+                        next = e;
+                    }
+                }
+                next?.AddSeal(1, true);
+            }
+            Acted(world, at, attacker);
+        }
+    }
 }

@@ -53,8 +53,9 @@ namespace Shura
             since[a] = 0;
             switch (action)
             {
-                case BufferedAction.Attack when since[(int)BufferedAction.Parry] <= ChordFrames:
-                case BufferedAction.Parry when since[(int)BufferedAction.Attack] <= ChordFrames:
+                // WP-03: o acorde ataque + aparar (detonar) só existe com os selos na base.
+                case BufferedAction.Attack when Feature.KiSealsBase && since[(int)BufferedAction.Parry] <= ChordFrames:
+                case BufferedAction.Parry when Feature.KiSealsBase && since[(int)BufferedAction.Attack] <= ChordFrames:
                     Chord(BufferedAction.Detonate, frames);
                     break;
             }

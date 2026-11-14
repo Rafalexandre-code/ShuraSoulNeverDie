@@ -34,6 +34,8 @@ namespace Shura
             public bool ParryWindowModifiers = false;
             /// <summary>WP-03 · O Fluxo acelera a simulação (ritmo 0,82 → 1,03). Padrão: false (ritmo fixo 1,0).</summary>
             public bool FlowTimeScale = false;
+            /// <summary>WP-03 · Contra-investida e Pisão como duas respostas à estocada (fundidas no Mikiri). Padrão: false.</summary>
+            public bool SplitCounterAndStomp = false;
 
             // ── WP-04: anéis e Troca Perfeita ─────────────────────────────────────────
             /// <summary>WP-04 · Anel verde maldito (bloquear amaldiçoa). Padrão: false.</summary>
@@ -118,6 +120,7 @@ namespace Shura
         public static bool KamaeSwitch => current.KamaeSwitch;
         public static bool ParryWindowModifiers => current.ParryWindowModifiers;
         public static bool FlowTimeScale => current.FlowTimeScale;
+        public static bool SplitCounterAndStomp => current.SplitCounterAndStomp;
         public static bool CursedRing => current.CursedRing;
         public static bool DoubleRingType => current.DoubleRingType;
         public static bool NamedLinks45 => current.NamedLinks45;

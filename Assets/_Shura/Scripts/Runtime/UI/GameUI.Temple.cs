@@ -912,9 +912,9 @@ namespace Shura
             y += 42f;
             Label(new Rect(x, y, w, 34f), string.Format(Strings.LibraryAnswer, AnswerNames[Mathf.Clamp((int)e.signatureAnswer, 0, AnswerNames.Length - 1)]), bodyStyle, UiKit.Ai);
             y += 42f;
-            if (!string.IsNullOrEmpty(e.techniqueId))
+            if (!string.IsNullOrEmpty(e.Teaches))
             {
-                RewardDef t = RewardRegistry.Create(e.techniqueId);
+                RewardDef t = RewardRegistry.Create(e.Teaches);
                 if (t != null)
                 {
                     Label(new Rect(x, y, w, 34f), string.Format(Strings.LibraryTechnique, t.Name), bodyStyle, UiKit.Shu);

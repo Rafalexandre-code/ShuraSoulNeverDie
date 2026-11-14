@@ -1194,7 +1194,7 @@ namespace Shura
                 Fx.Blood(enemy.Position, dir, 30f + 160f * precise, enemy.Def.bloodColor);
                 Fx.Blood(enemy.Position, -dir, 40f * precise, enemy.Def.bloodColor);
             }
-            bool absorb = enemy.Mastered && Player.Build.CanAbsorb(enemy.Def.techniqueId);
+            bool absorb = enemy.Mastered && Player.Build.CanAbsorb(enemy.Def.Teaches);
             enemy.DieByFinisher();
             AddFlow(Config.flow.finisherPoints);
             for (int r = 0; r < Player.Build.Effects.Count; r++) Player.Build.Effects[r].OnFinisher(this, enemy);
@@ -1207,10 +1207,10 @@ namespace Shura
             }
 
             if (!absorb) return;
-            Player.Build.AddPendingTechnique(enemy.Def.techniqueId);
-            RewardDef preview = RewardRegistry.Create(enemy.Def.techniqueId);
+            Player.Build.AddPendingTechnique(enemy.Def.Teaches);
+            RewardDef preview = RewardRegistry.Create(enemy.Def.Teaches);
             Fx.Emit(FxType.TechniqueAbsorbed, enemy.Position, Player.Position - enemy.Position, 1f, Config.palette.gold);
-            Fx.Toast(string.Format(Strings.ToastTechnique, preview != null ? preview.Name : enemy.Def.techniqueId), Config.palette.gold);
+            Fx.Toast(string.Format(Strings.ToastTechnique, preview != null ? preview.Name : enemy.Def.Teaches), Config.palette.gold);
         }
 
         /// <summary>Marks the enemy for absorption when the player gives its signature the Perfect Answer.</summary>
@@ -1225,7 +1225,7 @@ namespace Shura
                 return;
             }
             if (attacker.Mastered) return;
-            if (attacker.Def.signatureAnswer != answer || !Player.Build.CanAbsorb(attacker.Def.techniqueId)) return;
+            if (attacker.Def.signatureAnswer != answer || !Player.Build.CanAbsorb(attacker.Def.Teaches)) return;
             attacker.MarkMastered();
             Fx.Emit(FxType.Mastered, attacker.Position, Vector2.up, 1f, Config.palette.gold);
             Fx.Popup(Strings.PopupMastered, attacker.Position + Vector2.up * 0.9f, Config.palette.gold);
@@ -1464,12 +1464,12 @@ namespace Shura
             enemy.OnDefeated?.Invoke(enemy);
             enemy.OnDefeated = null;
             // A duel won: the foe's technique is guaranteed, mastered or not.
-            if (CurrentRoom != null && CurrentRoom.kind == RoomKind.Duel && !string.IsNullOrEmpty(enemy.Def.techniqueId))
+            if (CurrentRoom != null && CurrentRoom.kind == RoomKind.Duel && !string.IsNullOrEmpty(enemy.Def.Teaches))
             {
                 foreach (PlayerController p in Players)
                 {
-                    if (p.Build == null || !p.Build.CanAbsorb(enemy.Def.techniqueId)) continue;
-                    p.Build.AddPendingTechnique(enemy.Def.techniqueId);
+                    if (p.Build == null || !p.Build.CanAbsorb(enemy.Def.Teaches)) continue;
+                    p.Build.AddPendingTechnique(enemy.Def.Teaches);
                     Fx.Popup(Strings.PopupMastered, p.Position + Vector2.up * 1.4f, Config.palette.gold);
                 }
             }

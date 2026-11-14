@@ -132,7 +132,7 @@ namespace Shura
             if (string.IsNullOrEmpty(techniqueId)) return null;
             foreach (EnemyDef e in EnemyDefs.All)
             {
-                if (e.techniqueId == techniqueId) return e;
+                if (e.Teaches == techniqueId) return e;
             }
             return null;
         }

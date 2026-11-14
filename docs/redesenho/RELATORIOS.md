@@ -129,3 +129,69 @@ Riscos percebidos:
     Balance.json ajusta por multiplicador. Mover as 36 definições inteiras para dados
     seria outro pacote.
 ```
+
+---
+
+```
+WP-03 — Núcleo do combate: cortar e fundir — v0.16.3
+Feito:
+  - Fôlego (Stamina=false): ataque, esquiva e bloqueio sem custo; sem exaustão nem Brilho
+    do Respiro; barra de fôlego fora do HUD. Conversões (tabela E.2.2): 3 parries perfeitos
+    seguidos fazem o inimigo cambalear 20 f; no Gelo a SUA postura se recupera 40% mais
+    devagar; o Ittan-momen enche a sua postura (escape pelo Arremesso); na névoa corrompida
+    a postura dos humanos não se recupera e os não humanos causam +25% de dano.
+  - Janela constante (ParryWindowModifiers=false): Combat/ParryWindow.cs; nada da build
+    mexe na janela (kamae, idade, Altar, relíquias, tsubas, itens, técnicas, exaustão,
+    Mushin). Perdão de fim de janela (D-11): +2 f quando o anel ficou visível > 30 f.
+  - Fluxo sem acelerar a simulação (FlowTimeScale=false): ritmo fixo 1,0; o Fluxo encurta
+    só a recuperação dos golpes do jogador (6% por nível).
+  - Ferimentos (LocalWounds=false): fora do jogador e do inimigo; bandagem sem efeito;
+    boneco de ferimentos fora do HUD. O desarme do Mikiri continua.
+  - Kamae (KamaeSwitch=false): guarda fixa por arma (tabela E.2.5: Katana e Naginata
+    Chūdan; Montante, Kanabō e Shakujō Jōdan; Gêmeas, Kusarigama e Wakizashi Waki;
+    Manoplas e Tessen Gedan); as teclas 1–4 deixam de trocar; a guarda vira só pose e
+    cortes (sem bônus numérico).
+  - Selos (KiSealsBase=false): parry não marca selo; sem tecla G nem acorde
+    ataque+aparar. Técnica nova "Selo Interno" (ensinada pelo Onmyōji no lugar do Selo
+    Explosivo): parry marca um selo; no 5º (4º na Forma Plena) explodem sozinhos; Eco marca
+    o inimigo vizinho.
+  - Mikiri (flag nova SplitCounterAndStomp=false): contra-investida e Pisão viraram uma
+    resposta só (atravessa, desarma 60 f, +40 de postura). Descida e Arremesso mantidos.
+  - Pedido do diretor: a trava de mira deixou de desenhar anéis sobre o alvo; agora são
+    dois colchetes finos nas pontas da barra de vida e um losango pequeno.
+Flags novas: SplitCounterAndStomp=false (Pisão separado; o plano manda todo corte atrás
+  de flag e esta faltava na lista do WP-00).
+Arquivos principais: Combat/ParryWindow.cs, Entities/PlayerController.cs,
+  Entities/PlayerController.Ki.cs, Entities/Enemy.cs, Entities/Enemy.Ki.cs,
+  Run/World.Conditions.cs, Run/World.Ki.cs, Input/InputBuffer.cs, Core/Game.cs,
+  Content/EnemyDefs.cs (Teaches), Content/NewTechniques.cs (InnerSealTechnique),
+  Content/RewardDefs.cs, UI/GameUI.Hud.cs, UI/GameUI.Controls.cs (trava), StreamingAssets
+  (Balance.json e features.json), Tests/EditMode/CoreCombatRedesignTests.cs
+Testes: 204 → 209 (todos passando: s). Ajustados 2 testes que verificavam o antigo
+  (acorde de detonar e "cada técnica tem um professor"), agora nos dois estados da flag.
+  Teste novo da janela constante: aplica TODAS as técnicas (níveis I–III, os dois ramos),
+  relíquias, bênçãos, tsubas, Altar no máximo, traços e idade, mais valores extremos.
+Bots: sementes 3, 11, 29, 41 até a prof. 20, 0 exceções. Profundidade 20/19/19/18
+  (linha de base: 20/14/9/14): sem fôlego e ferimentos o robô vai mais fundo.
+Capturas: docs/redesenho/amostras/wp03-hud.png (cartão sem fôlego e sem boneco de
+  ferimentos; trava de mira discreta).
+Números alterados:
+  | Valor | Antes | Depois |
+  | Ritmo da simulação | 0,82 → 1,03 pelo Fluxo | 1,0 fixo |
+  | Janela de parry | 9 ± build (até ÷2 exausto) | 9 fixo (+2 f de perdão em anéis lidos) |
+  | Contra-investida | 45 postura (×1,3 em Chūdan) | Mikiri: 40 postura + desarme 60 f |
+  | Custo de ataque/esquiva | 8 / 15 de fôlego | 0 |
+Pendências para o diretor:
+  - Cartas que prometem mudar a janela (Ouvido Interior, Tsuba da Garça, Olhar Afiado do
+    Altar, idade, alguns afixos) continuam com o texto antigo, mas não mudam mais nada. O
+    plano as redesenha no WP-08 (tsubas), WP-09 (técnicas), WP-10 (relíquias) e WP-11
+    (Altar e idade). Até lá o texto engana: decidir se escondo essas cartas antes do
+    Playtest 1.
+  - As 4 figurinhas de guarda e a bandagem (H) ainda aparecem no HUD; saem no WP-05
+    (teclas) e no WP-15 (HUD).
+  - O Santuário ainda oferece "Guarda padrão", que não tem efeito sem a troca de kamae
+    (WP-12 revê as salas).
+Riscos percebidos:
+  - Sem fôlego e sem ferimentos o jogo ficou mais fácil para o robô; o balanceamento de
+    dano dos inimigos precisa ser revisto com o painel (WP-02) e no WP-20.
+```

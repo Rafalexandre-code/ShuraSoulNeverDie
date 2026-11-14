@@ -43,11 +43,13 @@ namespace Shura
         public const string ForbiddenSeal = "tec_selo_proibido";
         public const string InnerEar = "tec_ouvido_interior";
         public const string Reflection = "tec_reflexo";
+        /// <summary>WP-03: os Selos de Ki saíram da base e viraram técnica (do Onmyōji).</summary>
+        public const string InnerSeal = "tec_selo_interno";
 
         public static readonly string[] Techniques =
         {
             TriSickle, LookOver, SilkThread, EmptyMask, Shroud, WalkingWall,
-            SegmentedShell, ThreeNatures, LivingBlade, ForbiddenSeal, InnerEar, Reflection,
+            SegmentedShell, ThreeNatures, LivingBlade, ForbiddenSeal, InnerEar, Reflection, InnerSeal,
             PatientBlade, MirrorThrust, PhantomStep, DuelistRhythm, ExecutionerBlow, ReflexArrow, Ambush, Bulwark,
             KunaiFan, ShortFuse, IaiDraw, ExplosiveSeal, ShamanBlessing, LivingLantern, EtherealBody, KappaCurrent,
             OniCrush, SlimeHunger, Frenzy, ShadowCopy, SentinelBlink, BloodThirst, StubbornBones, CounterPunch,
@@ -96,6 +98,7 @@ namespace Shura
                 case RewardIds.LivingBlade: return new LivingBladeTechnique();
                 case RewardIds.ForbiddenSeal: return new ForbiddenSealTechnique();
                 case RewardIds.InnerEar: return new InnerEarTechnique();
+                case RewardIds.InnerSeal: return new InnerSealTechnique();
                 case RewardIds.Reflection: return new ReflectionTechnique();
                 case RewardIds.MirrorThrust: return new MirrorThrustTechnique();
                 case RewardIds.PhantomStep: return new PhantomStepTechnique();

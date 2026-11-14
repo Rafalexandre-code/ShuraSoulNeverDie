@@ -81,18 +81,27 @@ namespace Shura.Tests
         [Test]
         public void EveryEnemy_TeachesItsOwnTechnique()
         {
-            var taught = new HashSet<string>();
-            foreach (EnemyDef d in EnemyDefs.All)
+            // WP-03: o que cada inimigo ensina de fato é Teaches (o Onmyōji troca de técnica com a flag dos selos).
+            foreach (bool legacySeals in new[] { false, true })
             {
-                Assert.IsFalse(string.IsNullOrEmpty(d.techniqueId), d.id + " has no technique to absorb");
-                Assert.IsTrue(taught.Add(d.techniqueId), d.id + " shares its technique");
-                RewardDef r = RewardRegistry.Create(d.techniqueId);
-                Assert.IsNotNull(r, d.techniqueId);
-                Assert.AreEqual(RewardKind.Technique, r.Kind, d.techniqueId);
-                Assert.AreEqual(d.displayName, r.SourceEnemy, d.techniqueId + " names the wrong teacher");
-                Assert.AreEqual(d.techniqueId, r.Id);
+                Feature.Set("KiSealsBase", legacySeals);
+                var taught = new HashSet<string>();
+                foreach (EnemyDef d in EnemyDefs.All)
+                {
+                    Assert.IsFalse(string.IsNullOrEmpty(d.Teaches), d.id + " has no technique to absorb");
+                    Assert.IsTrue(taught.Add(d.Teaches), d.id + " shares its technique");
+                    RewardDef r = RewardRegistry.Create(d.Teaches);
+                    Assert.IsNotNull(r, d.Teaches);
+                    Assert.AreEqual(RewardKind.Technique, r.Kind, d.Teaches);
+                    Assert.AreEqual(d.displayName, r.SourceEnemy, d.Teaches + " names the wrong teacher");
+                    Assert.AreEqual(d.Teaches, r.Id);
+                }
+                // Só a técnica trocada fica sem professor: o Selo Explosivo no design novo, o Selo Interno no antigo.
+                var expected = new HashSet<string>(RewardIds.Techniques);
+                expected.Remove(legacySeals ? RewardIds.InnerSeal : RewardIds.ExplosiveSeal);
+                CollectionAssert.AreEquivalent(expected, taught, "every technique is taught by exactly one enemy");
             }
-            CollectionAssert.AreEquivalent(taught, RewardIds.Techniques, "every technique is taught by exactly one enemy");
+            Feature.Reset();
             foreach (EnemyDef d in EnemyDefs.Minions) Assert.IsNull(d.techniqueId, d.id + ": minions teach nothing");
         }
 

@@ -43,7 +43,11 @@
         "actionBufferFrames": 8,
         "parryBufferFrames": 3,
         "healOnRoomClear": 20.0,
-        "sipHeal": 35.0
+        "sipHeal": 35.0,
+        "parryLateForgivenessFrames": 2,
+        "forgivenessMinRingFrames": 30,
+        "mikiriPosture": 40.0,
+        "mikiriDisarmFrames": 60
     },
     "enemies": {
         "attackGapFrames": 20,
@@ -81,7 +85,8 @@
         "impactPerLevel": 0.3,
         "level1PostureBonus": 0.15,
         "level2DodgeRechargeSpeed": 1.3,
-        "level3FinisherHeal": 10.0
+        "level3FinisherHeal": 10.0,
+        "recoverySpeedPerLevel": 0.06
     },
     "feel": {
         "hitstopHit": 4,

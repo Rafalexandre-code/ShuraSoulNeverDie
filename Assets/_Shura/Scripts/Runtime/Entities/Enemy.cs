@@ -26,7 +26,10 @@ namespace Shura
             Reassembling,
         }
 
-        const float BarWidth = 1.1f;
+        public const float BarWidth = 1.1f;
+
+        /// <summary>Altura da barra de vida sobre os pés (para a marca discreta da trava de mira).</summary>
+        public float BarHeight => VisualTop + 0.25f;
         const int TeleportFadeFrames = 10;
         const int ReassembleFrames = 240;
         const int ExposedFrames = 180;
@@ -150,7 +153,10 @@ namespace Shura
         public Sprite BodySprite => body.sprite;
         public Color BodyColor => Def.color;
         /// <summary>Damage multiplier from depth and Guardian status.</summary>
-        public float PowerMult => scaling.damage * KalpaPowerMult;
+        public float PowerMult => scaling.damage * KalpaPowerMult * MistPowerMult;
+
+        /// <summary>WP-03: sem fôlego, a névoa corrompida dá +25% de dano a quem não é humano.</summary>
+        float MistPowerMult => !Feature.Stamina && world != null && Factions.Of(Def) != EnemyFaction.Human && world.InCorruptMist(Position) ? 1.25f : 1f;
         /// <summary>Frames until the current swing becomes active (adaptive holds included).</summary>
         public int FramesUntilActive => CurrentAttack != null ? stepWindup - StepFrame : int.MaxValue;
 
@@ -796,6 +802,8 @@ namespace Shura
 
         void RegenPosture()
         {
+            // WP-03: na névoa corrompida a postura dos humanos não se recupera.
+            if (!Feature.Stamina && Factions.Of(Def) == EnemyFaction.Human && world.InCorruptMist(Position)) return;
             // Wounded enemies recover posture slower, rewarding sustained pressure.
             float hpRatio = MaxHealth > 0f ? Health / MaxHealth : 0f;
             Posture.Tick(Def.postureRegenPerSecond * (0.25f + 0.75f * hpRatio), et.postureRegenDelay);

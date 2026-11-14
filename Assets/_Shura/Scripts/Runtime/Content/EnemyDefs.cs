@@ -43,6 +43,12 @@ namespace Shura
         /// <summary>Technique absorbed by finishing it after mastering its signature (none for some).</summary>
         public string techniqueId;
 
+        /// <summary>
+        /// A técnica que este inimigo ensina de fato. WP-03: sem os Selos de Ki na base
+        /// (Feature.KiSealsBase = false), o Onmyōji ensina o Selo Interno no lugar do Selo Explosivo.
+        /// </summary>
+        public string Teaches => id == "onmyoji" && !Feature.KiSealsBase ? RewardIds.InnerSeal : techniqueId;
+
         // ── Bestiary traits ──────────────────────────────────────────────────────────
         /// <summary>Fights with claws, fists or magic: no weapon drawn.</summary>
         public bool unarmed;

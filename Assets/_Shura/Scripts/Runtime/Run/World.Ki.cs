@@ -13,6 +13,8 @@ namespace Shura
         // ── Rule knobs (biomes, weather, oaths and assists set these) ─────────────────
         /// <summary>Breath regenerates this much faster (cold drains it).</summary>
         public float StaminaRegenMult { get; set; } = 1f;
+        /// <summary>WP-03 · Sem fôlego, o Gelo pesa na postura: multiplicador da recuperação de postura do jogador.</summary>
+        public float PlayerPostureRegenMult { get; set; } = 1f;
         /// <summary>Shura rises this much faster (the full moon).</summary>
         public float ShuraGainMult { get; set; } = 1f;
         /// <summary>Dodges travel this much farther (wet moss).</summary>

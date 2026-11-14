@@ -20,6 +20,13 @@ namespace Shura.Tests
         [Test]
         public void AttackPlusParry_Together_PressesDetonate()
         {
+            // WP-03: o acorde de detonar só existe com os selos na base (Feature.KiSealsBase).
+            var off = new InputBuffer();
+            off.Press(BufferedAction.Parry, 6);
+            off.Age();
+            off.Press(BufferedAction.Attack, 6);
+            Assert.IsFalse(off.Peek(BufferedAction.Detonate), "no detonate chord in the new design");
+            Feature.Set("KiSealsBase", true);
             var b = new InputBuffer();
             b.Press(BufferedAction.Parry, 6);
             b.Age();
@@ -27,6 +34,7 @@ namespace Shura.Tests
             b.Press(BufferedAction.Attack, 6);
             Assert.IsTrue(b.Peek(BufferedAction.Detonate));
             Assert.IsFalse(b.Peek(BufferedAction.Kiai));
+            Feature.Reset();
         }
 
         [Test]

@@ -16,6 +16,7 @@ namespace Shura.Tests
             "ExtraWeapons", "AgeStats", "SenseiStats", "ParryWindowModifiers", "RealtimeDayClock", "StormWeather",
             "InfiniteRunDefault", "ExtraEnemies", "AiReadsExtended", "RivalHierarchy", "BrowserClient", "PartyMode8",
             "BloodPact", "AsyncPresence", "PvpRanked", "LegacyModes", "LegacyTemple", "LegacyCurrencies", "ThirdWeapon",
+            "SplitCounterAndStomp",
         };
 
         [Test]

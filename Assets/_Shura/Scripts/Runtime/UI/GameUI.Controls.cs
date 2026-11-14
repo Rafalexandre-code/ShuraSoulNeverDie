@@ -153,21 +153,30 @@ namespace Shura
             }
         }
 
-        /// <summary>The lock's mark on the target: a closing ring and a red diamond above it.</summary>
-        void DrawLockReticle(Vector2 world, float radius)
+        /// <summary>
+        /// A marca da trava de mira (pedido do diretor): nada de anéis sobre o corpo do alvo, que
+        /// competem com o anel de aviso do golpe. Só dois colchetes finos nas pontas da barra de
+        /// vida dele e um losango pequeno acima, sem pulsar.
+        /// </summary>
+        void DrawLockReticle(Vector2 world, float barHeight)
         {
             Camera cam = game.CameraRig.Cam;
             if (cam == null) return;
-            Vector2 c = WorldToGui(cam, world + Vector2.up * radius * 0.9f);
-            Vector2 edge = WorldToGui(cam, world + Vector2.up * radius * 0.9f + Vector2.right * (radius + 0.45f));
-            float size = Mathf.Max(36f, Mathf.Abs(edge.x - c.x) * 2f);
-            float pulse = 1f + 0.08f * Mathf.Sin(Time.unscaledTime * 7f);
-            float s = size * pulse;
-            Color red = Pal.danger;
-            DrawTex(new Rect(c.x - s * 0.5f, c.y - s * 0.5f, s, s), ShapeLibrary.Get(Shape.Ring).texture, red.WithAlpha(0.85f));
-            DrawTex(new Rect(c.x - s * 0.36f, c.y - s * 0.36f, s * 0.72f, s * 0.72f), ShapeLibrary.Get(Shape.Ring).texture, Color.white.WithAlpha(0.35f));
-            Vector2 top = WorldToGui(cam, world + Vector2.up * (radius * 2.6f + 1.1f));
-            const float d = 20f;
+            const float margin = 0.12f;
+            Vector2 left = WorldToGui(cam, world + new Vector2(-Enemy.BarWidth * 0.5f - margin, barHeight));
+            Vector2 right = WorldToGui(cam, world + new Vector2(Enemy.BarWidth * 0.5f + margin, barHeight));
+            Color red = Pal.danger.WithAlpha(0.9f);
+            const float h = 12f, w = 2f, tick = 5f;
+            // [ à esquerda
+            DrawRect(new Rect(left.x - w, left.y - h * 0.5f, w, h), red);
+            DrawRect(new Rect(left.x - w, left.y - h * 0.5f, tick, w), red);
+            DrawRect(new Rect(left.x - w, left.y + h * 0.5f - w, tick, w), red);
+            // ] à direita
+            DrawRect(new Rect(right.x, right.y - h * 0.5f, w, h), red);
+            DrawRect(new Rect(right.x + w - tick, right.y - h * 0.5f, tick, w), red);
+            DrawRect(new Rect(right.x + w - tick, right.y + h * 0.5f - w, tick, w), red);
+            const float d = 9f;
+            var top = new Vector2((left.x + right.x) * 0.5f, left.y - h * 0.5f - 9f);
             DrawTex(new Rect(top.x - d * 0.5f, top.y - d * 0.5f, d, d), ShapeLibrary.Get(Shape.Diamond).texture, red);
         }
 

@@ -30,7 +30,7 @@ namespace Shura
                     if (!(Build.Owned[i] is TechniqueDef t) || t.Level < TechniqueDef.MaxLevel) continue;
                     foreach (EnemyDef d in EnemyDefs.All)
                     {
-                        if (d.techniqueId == t.Id) return d;
+                        if (d.Teaches == t.Id) return d;
                     }
                 }
                 return null;

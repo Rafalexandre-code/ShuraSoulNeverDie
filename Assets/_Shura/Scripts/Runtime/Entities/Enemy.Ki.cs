@@ -111,9 +111,9 @@ namespace Shura
         /// <summary>It struck a duelist this life (the scroll's "win without its damage").</summary>
         public bool DamagedPlayer { get; set; }
 
-        public void AddSeal(int count)
+        public void AddSeal(int count, bool fromTechnique = false)
         {
-            if (!world.Has(Unlockable.Seals)) return;
+            if (!fromTechnique && !world.Has(Unlockable.Seals)) return;
             if (!CanBeHit || count <= 0) return;
             Seals = Mathf.Min(MaxSeals, Seals + count);
             sealTimer = SealSeconds;
@@ -124,8 +124,22 @@ namespace Shura
             Seals = 0;
         }
 
+        int parriesInRow;
+        float parryRowTimer;
+
         public void DrainStamina(float amount)
         {
+            if (!Feature.Stamina)
+            {
+                // WP-03: sem fôlego, três parries perfeitos seguidos fazem o inimigo cambalear (20 f sem atacar).
+                parriesInRow = parryRowTimer > 0f ? parriesInRow + 1 : 1;
+                parryRowTimer = 3f;
+                if (parriesInRow < 3) return;
+                parriesInRow = 0;
+                Interrupt(0f, 20);
+                world.Fx.Popup(Strings.PopupStagger, Position + Vector2.up * 1.3f, pal.playerAccent);
+                return;
+            }
             Stamina = Mathf.Max(0f, Stamina - amount);
             if (Stamina > 0f || Winded > 0) return;
             Winded = WindedFrames;
@@ -136,6 +150,7 @@ namespace Shura
         void TickKi()
         {
             if (Seals > 0 && (sealTimer -= SimClock.Dt) <= 0f) Seals = 0;
+            if (parryRowTimer > 0f && (parryRowTimer -= SimClock.Dt) <= 0f) parriesInRow = 0;
             if (Winded > 0 && --Winded == 0) Stamina = MaxEnemyStamina * 0.5f;
             else if (Winded <= 0) Stamina = Mathf.Min(MaxEnemyStamina, Stamina + 6f * SimClock.Dt);
             if (infightFrames > 0 && --infightFrames == 0) InfightTarget = null;
@@ -160,6 +175,7 @@ namespace Shura
         /// <summary>Where a blow came from (relative to where this enemy faces) wounds that part.</summary>
         void RegisterHitRegion(Vector2 hitDir)
         {
+            if (!Feature.LocalWounds) return;
             float angle = Vector2.Angle(Facing, -hitDir);
             WoundRegion region = angle < 50f ? WoundRegion.Torso : angle < 130f ? WoundRegion.Arm : WoundRegion.Leg;
             int r = (int)region;
@@ -169,6 +185,8 @@ namespace Shura
 
         public void Wound(WoundRegion region)
         {
+            // WP-03: sem ferimentos com regra (as cicatrizes dos Algozes ficam só como dado e visual).
+            if (!Feature.LocalWounds) return;
             int r = (int)region;
             if (wounded[r]) return;
             wounded[r] = true;

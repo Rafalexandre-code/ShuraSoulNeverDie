@@ -96,6 +96,15 @@ namespace Shura
 
         /// <summary>WP-02: cura de um gole da cabaça, em pontos de vida (antes uma constante em PlayerController.Ki).</summary>
         public float sipHeal = 35f;
+
+        /// <summary>WP-03 · Perdão no fim da janela de parry, em quadros (D-11)...</summary>
+        public int parryLateForgivenessFrames = 2;
+        /// <summary>...quando o anel do golpe ficou visível por mais que estes quadros.</summary>
+        public int forgivenessMinRingFrames = 30;
+        /// <summary>WP-03 · Mikiri (resposta de mestre à estocada): postura causada no atacante.</summary>
+        public float mikiriPosture = 40f;
+        /// <summary>WP-03 · Mikiri: quadros em que o atacante fica desarmado.</summary>
+        public int mikiriDisarmFrames = 60;
     }
 
     [Serializable]
@@ -142,6 +151,8 @@ namespace Shura
         public float level1PostureBonus = 0.15f;
         public float level2DodgeRechargeSpeed = 1.3f;
         public float level3FinisherHeal = 10f;
+        /// <summary>WP-03 · Sem acelerar a simulação: a recuperação dos golpes do jogador encurta esta fração por nível de Fluxo (0,06 = 6%).</summary>
+        public float recoverySpeedPerLevel = 0.06f;
     }
 
     [Serializable]

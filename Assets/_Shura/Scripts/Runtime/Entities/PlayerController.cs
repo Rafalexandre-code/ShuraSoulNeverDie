@@ -176,7 +176,8 @@ namespace Shura
         public bool IsDodgeInvulnerable =>
             CurrentState == State.Dodge && StateFrame >= t.dodgeIFrameStart && StateFrame <= t.dodgeIFrameEnd;
 
-        public int PerfectParryFrames => Mathf.Max(2, (t.perfectParryFrames + Mods.perfectParryFrameBonus + KiParryBonus + (Build?.AgeParryBonus ?? 0) + world.ParryAssistFrames) / (Exhausted ? 2 : 1));
+        /// <summary>Janela do parry perfeito em quadros: constante (WP-03, ver ParryWindow).</summary>
+        public int PerfectParryFrames => ParryWindow.Frames(t, Mods, KiParryBonus, Build?.AgeParryBonus ?? 0, world.ParryAssistFrames, Exhausted);
 
         public float PostureDealtMult =>
             Mods.postureMult * (FlowLevel >= 1 ? 1f + flowTuning.level1PostureBonus : 1f);
@@ -802,7 +803,9 @@ namespace Shura
 
         int RecoveryFrames(PlayerAttackDef step)
         {
-            return Mathf.Max(2, Mathf.RoundToInt(step.recovery * Mods.recoveryMult));
+            // WP-03: sem acelerar a simulação, o Fluxo encurta só a recuperação dos golpes do jogador.
+            float flow = Feature.FlowTimeScale ? 1f : 1f - flowTuning.recoverySpeedPerLevel * FlowLevel;
+            return Mathf.Max(2, Mathf.RoundToInt(step.recovery * Mods.recoveryMult * flow));
         }
 
         void UpdateFacing(bool parryAssist)
@@ -842,7 +845,7 @@ namespace Shura
         void RegenPosture()
         {
             if (CurrentState == State.GuardBroken) return;
-            float rate = t.postureRegenPerSecond * (CurrentState == State.Parry ? 0.5f : 1f);
+            float rate = t.postureRegenPerSecond * (CurrentState == State.Parry ? 0.5f : 1f) * world.PlayerPostureRegenMult;
             Posture.Tick(rate, t.postureRegenDelay);
         }
 
@@ -906,7 +909,7 @@ namespace Shura
             {
                 dodgeIFrames = IsDodgeInvulnerable,
                 hurtInvulnerable = hurtInvuln > 0 || CurrentState == State.Finisher || CurrentState == State.FinisherAim || CurrentState == State.SwapStrike,
-                parryWindow = CurrentState == State.Parry && StateFrame < parryWindow,
+                parryWindow = CurrentState == State.Parry && StateFrame < parryWindow + ParryWindow.Forgiveness(t, attack, world.Config.feel.timingApproachFrames),
                 swapWindow = CurrentState == State.Swap && StateFrame < swapWindow,
                 // A talisman worn lets an ordinary parry stop a spirit blow.
                 spiritWard = Build != null && Build.Equipped[(int)ItemSlot.Talisman] != null,
@@ -951,8 +954,10 @@ namespace Shura
                     if (attacker != null)
                     {
                         // Each perfect parry plants a Ki seal and steals the attacker's breath.
-                        attacker.AddSeal(1 + (Build?.ExtraSealsPerParry ?? 0) + Mods.extraSealsPerParry);
+                        if (Feature.KiSealsBase) attacker.AddSeal(1 + (Build?.ExtraSealsPerParry ?? 0) + Mods.extraSealsPerParry);
                         attacker.DrainStamina(10f);
+                        // Selos de Ki na base só com a flag; sem ela, a técnica Selo Interno é quem marca.
+
                         world.RegisterResonance(attacker, this);
                     }
                     if (!incoming.projectile)
@@ -1006,9 +1011,21 @@ namespace Shura
                     world.RegisterPerfect(clashPoint);
                     world.TryMaster(attacker, SignatureAnswer.CounterThrust, incoming.signature);
                     world.Fx.Emit(FxType.CounterThrust, clashPoint, toDir, FlowLevel);
-                    attacker.OnCounterThrust(t.counterThrustPosture * PostureDealtMult * (Stance == Kamae.Chudan ? 1.3f : 1f));
+                    if (!Feature.SplitCounterAndStomp)
+                    {
+                        // Mikiri (WP-03): contra-investida e Pisão viram uma resposta só — atravessa, desarma e quebra postura.
+                        attacker.OnCounterThrust(t.mikiriPosture * PostureDealtMult);
+                        attacker.Shove(toDir * -1f, 2.5f, this);
+                        attacker.Disarm(t.mikiriDisarmFrames);
+                        world.Fx.Popup(Strings.PopupMikiri, attacker.Position + Vector2.up * 1.3f, pal.gold);
+                        world.HintOnce(HintId.MasterAnswers);
+                    }
+                    else
+                    {
+                    attacker.OnCounterThrust(t.counterThrustPosture * PostureDealtMult * (NumericStance == Kamae.Chudan ? 1.3f : 1f));
                     attacker.Shove(toDir * -1f, 2.5f, this);
-                    if (lateDodge)
+                    }
+                    if (lateDodge && Feature.SplitCounterAndStomp)
                     {
                         // Pisar na Lâmina: the thrust is pinned to the floor.
                         attacker.Disarm(60);

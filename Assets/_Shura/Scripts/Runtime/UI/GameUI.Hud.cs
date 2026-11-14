@@ -426,9 +426,13 @@ namespace Shura
             float half = (w - 20f) * 0.5f;
             float st = p.stamina;
             Color sc = p.exhausted ? Color.Lerp(Pal.danger, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 16f)) : Pal.breath;
-            Icon(new Rect(x - 2f, 181f, 24f, 24f), HudArt.Wind(), p.exhausted ? Pal.danger : Color.white);
-            Label(new Rect(x + 28f, 182f, half, 24f), Strings.HudBreath, capsStyle, p.exhausted ? Pal.danger : UiKit.PaperDim);
-            kit.Bar(new Rect(x - 6f, 206f, half + 6f, 14f), st, sc, Color.black.WithAlpha(0.7f));
+            // WP-03: sem fôlego, a barra de fôlego some do cartão.
+            if (Feature.Stamina)
+            {
+                Icon(new Rect(x - 2f, 181f, 24f, 24f), HudArt.Wind(), p.exhausted ? Pal.danger : Color.white);
+                Label(new Rect(x + 28f, 182f, half, 24f), Strings.HudBreath, capsStyle, p.exhausted ? Pal.danger : UiKit.PaperDim);
+                kit.Bar(new Rect(x - 6f, 206f, half + 6f, 14f), st, sc, Color.black.WithAlpha(0.7f));
+            }
             float sh = p.shura;
             int lvl = p.shuraLevel;
             float sx = x + half + 20f;
@@ -476,7 +480,7 @@ namespace Shura
             }
             if (status != null) FitLabel(new Rect(x, 266f, w + 50f, 30f), status, smallStyle, statusColor);
 
-            DrawWoundDoll(new Rect(card.xMax - 66f, 66f, 50f, 90f), p);
+            if (Feature.LocalWounds) DrawWoundDoll(new Rect(card.xMax - 66f, 66f, 50f, 90f), p);
         }
 
         /// <summary>The duelist themself, in the pose of their guard, or swinging, dodging, drinking, down.</summary>

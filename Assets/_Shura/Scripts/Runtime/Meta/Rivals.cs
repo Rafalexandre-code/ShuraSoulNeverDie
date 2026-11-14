@@ -208,7 +208,7 @@ namespace Shura
                 }
             }
             EnemyDef def = EnemyDefs.TryGet(r.enemyId, out EnemyDef d) ? d : null;
-            return new Vengeance { ecos = Mathf.RoundToInt(r.ecos * VengeanceMult), technique = def?.techniqueId, general = r.General };
+            return new Vengeance { ecos = Mathf.RoundToInt(r.ecos * VengeanceMult), technique = def?.Teaches, general = r.General };
         }
 
         // ── In the arena ─────────────────────────────────────────────────────────────

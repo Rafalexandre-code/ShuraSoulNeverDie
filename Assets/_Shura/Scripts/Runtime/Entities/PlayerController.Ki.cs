@@ -83,7 +83,7 @@ namespace Shura
         bool bandaging;
         readonly int[] woundHits = new int[4];
         readonly bool[] wounds = new bool[4];
-        public bool HasWound(WoundRegion r) => wounds[(int)r];
+        public bool HasWound(WoundRegion r) => Feature.LocalWounds && wounds[(int)r];
         public int WoundMask => (wounds[0] ? 1 : 0) | (wounds[1] ? 2 : 0) | (wounds[2] ? 4 : 0) | (wounds[3] ? 8 : 0);
         /// <summary>Eyes wound or cursed sight: this duelist's timing rings are hidden.</summary>
         public int RingHiddenFrames { get; private set; }
@@ -133,7 +133,7 @@ namespace Shura
             get
             {
                 float m = 1f;
-                if (Stance == Kamae.Jodan) m *= 1.25f;
+                if (NumericStance == Kamae.Jodan) m *= 1.25f;
                 if (ShuraLevel >= 1) m *= 1.15f;
                 if (InMushin) m *= 1.5f;
                 if (InAsura) m *= 1.5f;
@@ -156,8 +156,31 @@ namespace Shura
         }
 
         float KiMoveMult => (Exhausted ? 0.6f : 1f) * world.MoveMultWorld * world.WebMult(Position);
-        float KiDodgeDistance => (Stance == Kamae.Gedan ? 0.8f : 1f) * (HasWound(WoundRegion.Leg) ? 0.7f : 1f) * world.WebMult(Position);
-        int DodgeFrames => Mathf.Max(6, Mathf.RoundToInt(t.dodgeFrames * (Stance == Kamae.Gedan ? 0.8f : 1f)));
+        float KiDodgeDistance => (NumericStance == Kamae.Gedan ? 0.8f : 1f) * (HasWound(WoundRegion.Leg) ? 0.7f : 1f) * world.WebMult(Position);
+        int DodgeFrames => Mathf.Max(6, Mathf.RoundToInt(t.dodgeFrames * (NumericStance == Kamae.Gedan ? 0.8f : 1f)));
+
+        /// <summary>
+        /// A guarda que vale para os números (dano, esquiva, contra-investida): com a troca de kamae
+        /// desligada (WP-03), as armas diferem por dano, alcance e velocidade, e a guarda é só pose.
+        /// </summary>
+        Kamae NumericStance => Feature.KamaeSwitch ? Stance : Kamae.Chudan;
+
+        /// <summary>WP-03 · A guarda fixa de cada arma (tabela E.2.5 do plano).</summary>
+        public static Kamae GuardOf(WeaponDef w)
+        {
+            switch (w != null ? (w.baseId ?? w.id) : "katana")
+            {
+                case "montante":
+                case "kanabo":
+                case "shakujo": return Kamae.Jodan;
+                case "gemeas":
+                case "kusarigama":
+                case "wakizashi": return Kamae.Waki;
+                case "manoplas":
+                case "tessen": return Kamae.Gedan;
+                default: return Kamae.Chudan;
+            }
+        }
         public float HealMult =>
             (ShuraLevel >= 1 ? 0.8f : 1f) * (HasWound(WoundRegion.Torso) ? 0.5f : 1f) * (curseTime > 0f ? 0.5f : 1f) * (Build?.HealMultExtra ?? 1f) *
             world.HealMultWorld * (Build != null && Build.Cursed(RunCurse.NoHeal) ? 0f : 1f);
@@ -202,7 +225,20 @@ namespace Shura
             }
 
             int k = input.TakeKamae();
-            if (k >= 0 && k <= 3 && (Kamae)k != Stance && kamaeCooldown <= 0 && world.Has(Unlockable.Kamae)) SetStance((Kamae)k);
+            if (Feature.KamaeSwitch)
+            {
+                if (k >= 0 && k <= 3 && (Kamae)k != Stance && kamaeCooldown <= 0 && world.Has(Unlockable.Kamae)) SetStance((Kamae)k);
+            }
+            else
+            {
+                // WP-03: a guarda é da arma (pose e cortes); trocar de arma troca a guarda, sem tecla.
+                Kamae g = GuardOf(Weapon);
+                if (g != Stance)
+                {
+                    previousStance = Stance;
+                    Stance = g;
+                }
+            }
 
             if (AsuraFramesLeft > 0 && --AsuraFramesLeft == 0) EndAsura();
 
@@ -279,7 +315,8 @@ namespace Shura
 
         void SpendStamina(float amount)
         {
-            if (amount <= 0f) return;
+            // WP-03: sem fôlego (Feature.Stamina = false), atacar, esquivar e bloquear não custam nada.
+            if (amount <= 0f || !Feature.Stamina) return;
             Stamina = Mathf.Max(0f, Stamina - amount);
             staminaDelay = StaminaRegenDelay;
             if (Stamina > 0f || Exhausted) return;
@@ -292,6 +329,7 @@ namespace Shura
         /// <summary>Called when a combo's last blow finishes: a glint to breathe in.</summary>
         void OfferBreath()
         {
+            if (!Feature.Stamina) return;
             if (comboSpent <= 0f) return;
             BreathFrames = BreathWindow;
             world.Fx.Emit(FxType.BreathGlint, Position, Vector2.up, Radius, Color.white);
@@ -300,6 +338,7 @@ namespace Shura
         /// <summary>Dodge pressed in the glint: breathe instead of dodging.</summary>
         bool TryBreathe()
         {
+            if (!Feature.Stamina) return false;
             if (BreathFrames <= 0 || !input.Buffer.Peek(BufferedAction.Dodge)) return false;
             input.Buffer.Consume(BufferedAction.Dodge);
             BreathFrames = 0;
@@ -317,7 +356,7 @@ namespace Shura
         /// <summary>Seals, cry, gourd, bandage and tools. True when one of them took over.</summary>
         bool TryKiActions()
         {
-            if (input.Buffer.Consume(BufferedAction.Detonate))
+            if (input.Buffer.Consume(BufferedAction.Detonate) && Feature.KiSealsBase)
             {
                 input.Buffer.Drop(BufferedAction.Attack);
                 input.Buffer.Drop(BufferedAction.Parry);
@@ -333,8 +372,25 @@ namespace Shura
             if (input.Buffer.Consume(BufferedAction.ToolCycle) && world.Has(Unlockable.Tools)) CycleTool();
             if (input.Buffer.Consume(BufferedAction.Tool) && world.Has(Unlockable.Tools)) UseTool();
             if (input.Buffer.Consume(BufferedAction.Gourd) && world.Has(Unlockable.Gourd) && StartDrink(false)) return true;
-            if (input.Buffer.Consume(BufferedAction.Bandage) && StartDrink(true)) return true;
+            if (input.Buffer.Consume(BufferedAction.Bandage) && Feature.LocalWounds && StartDrink(true)) return true;
             return false;
+        }
+
+        /// <summary>Selo Interno (WP-03): os selos de um inimigo explodem dentro dele.</summary>
+        public void DetonateOn(Enemy e)
+        {
+            if (e == null || e.Seals <= 0 || !e.CanBeHit) return;
+            float dmgMult = Weapon.id == "montante" ? 1.5f : Weapon.id == "manoplas" ? 0.8f : Weapon.id == "kanabo" ? 1.3f : 1f;
+            float postMult = Weapon.id == "manoplas" ? 2f : 1f;
+            int seals = e.Seals;
+            float damage = 12f * seals * dmgMult * DamageDealtMult * (Build?.SealDamageMult ?? 1f);
+            float posture = 8f * seals * postMult * PostureDealtMult;
+            e.ClearSeals();
+            Vector2 dir = e.Position - Position;
+            dir = dir.sqrMagnitude > 1e-4f ? dir.normalized : Facing;
+            world.Fx.Emit(FxType.SealBurst, e.Position, dir, seals, pal.shu);
+            e.ReceivePlayerHit(damage, posture, dir, true);
+            world.Fx.Popup(Strings.PopupDetonate, e.Position + Vector2.up * 1.2f, pal.shu);
         }
 
         /// <summary>Attack + Parry: every Ki seal on enemies nearby bursts inside them.</summary>
@@ -525,6 +581,8 @@ namespace Shura
                 Build.FirstWoundIgnored = true;
                 return;
             }
+            // WP-03: sem ferimentos localizados no jogador.
+            if (!Feature.LocalWounds) return;
             float angle = Vector2.Angle(Facing, toAttacker);
             WoundRegion region = angle < 50f ? WoundRegion.Torso : angle < 130f ? WoundRegion.Arm : WoundRegion.Leg;
             if (attacker != null && (attacker.Def.id == "olho" || attacker.Def.id == "sombra")) region = WoundRegion.Eyes;
@@ -601,7 +659,7 @@ namespace Shura
 
         public void OnFinisherDone()
         {
-            if (Stance == Kamae.Gedan) CalmShura(20f);
+            if (NumericStance == Kamae.Gedan) CalmShura(20f);
             if (++finishersForSip >= 3)
             {
                 finishersForSip = 0;
@@ -847,7 +905,7 @@ namespace Shura
             if (Build != null)
             {
                 Build.FirstWoundIgnored = false;
-                Stance = Build.DefaultStance;
+                Stance = Feature.KamaeSwitch ? Build.DefaultStance : GuardOf(Weapon);
             }
         }
 
@@ -881,6 +939,12 @@ namespace Shura
         /// <summary>The corrupted mist: breath drains away.</summary>
         public void DrainBreath(float amount)
         {
+            if (!Feature.Stamina)
+            {
+                // WP-03: o pano que sufoca enche a sua POSTURA enquanto você está preso.
+                if (amount > 0f && Posture.Add(amount) && !PostureUnbreakable) GuardBreak(-Facing);
+                return;
+            }
             Stamina = Mathf.Max(0f, Stamina - amount);
             if (Stamina <= 0f && !Exhausted) ExhaustedFrames = ExhaustionFrames;
         }

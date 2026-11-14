@@ -31,5 +31,6 @@
     "PartyMode8": false,
     "BloodPact": false,
     "AsyncPresence": false,
-    "PvpRanked": false
+    "PvpRanked": false,
+    "SplitCounterAndStomp": false
 }

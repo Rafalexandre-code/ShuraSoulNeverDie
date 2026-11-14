@@ -107,6 +107,7 @@ namespace Shura
             Wind = Vector2.zero;
             AllEthereal = false;
             StaminaRegenMult = 1f;
+            PlayerPostureRegenMult = 1f;
             DodgeDistanceMult = 1f;
             ShuraGainMult = 1f;
         }
@@ -145,6 +146,8 @@ namespace Shura
                     break;
                 case BiomeRule.Cold:
                     StaminaRegenMult = 0.6f;
+                    // WP-03: sem fôlego, o Gelo faz a SUA postura se recuperar 40% mais devagar.
+                    if (!Feature.Stamina) PlayerPostureRegenMult = 0.6f;
                     if (fight) for (int i = 0; i < 3; i++) AddZone(ZoneKind.ThinIce, CellCenterAt(RandomOpenPoint(1.5f)), 0.9f);
                     break;
                 case BiomeRule.Bamboo:
@@ -304,6 +307,16 @@ namespace Shura
             return best != null ? best.Position : Bounds.center;
         }
 
+        /// <summary>WP-03: o ponto está dentro de uma névoa corrompida?</summary>
+        public bool InCorruptMist(Vector2 at)
+        {
+            foreach (Zone z in Zones)
+            {
+                if (z.Kind == ZoneKind.Mist && Vector2.Distance(at, z.Position) <= z.Radius) return true;
+            }
+            return false;
+        }
+
         void TickZone(Zone z)
         {
             switch (z.Kind)
@@ -315,6 +328,8 @@ namespace Shura
                     }
                     break;
                 case ZoneKind.Mist:
+                    // WP-03: sem fôlego, a névoa não drena o jogador; ela age nos inimigos (Enemy.RegenPosture e PowerMult).
+                    if (!Feature.Stamina) break;
                     foreach (PlayerController p in Players)
                     {
                         if (p.IsAlive && Vector2.Distance(p.Position, z.Position) <= z.Radius) p.DrainBreath(12f * SimClock.Dt);

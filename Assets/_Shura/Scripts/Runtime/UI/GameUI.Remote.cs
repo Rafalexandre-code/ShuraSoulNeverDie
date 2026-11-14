@@ -251,7 +251,7 @@ namespace Shura
             List<object> me = r.Me;
             if (me == null) return;
             hud.FromRow(me);
-            if (r.LockPosition.HasValue) DrawLockReticle(r.LockPosition.Value, 0.5f);
+            if (r.LockPosition.HasValue) DrawLockReticle(r.LockPosition.Value, 1.35f);
             DrawRemoteEnvironment(s);
             DrawRemoteOfferings(s);
             DrawRemoteLabels();

@@ -88,6 +88,8 @@ namespace Shura
         public List<ReadingMemory> readings = new List<ReadingMemory>();
         /// <summary>Online presence (§9.5): your messages, stains and spirit, and what friends left.</summary>
         public PresenceData presence = new PresenceData();
+        /// <summary>The PvP ladder of the season (§9.6).</summary>
+        public PvpRecord pvp = new PvpRecord();
 
         public int Stat(string id)
         {
@@ -482,6 +484,8 @@ namespace Shura
             while (readings.Count > ReadingMemory.Keep) readings.RemoveAt(0);
             if (presence == null) presence = new PresenceData();
             presence.Sanitize();
+            if (pvp == null) pvp = new PvpRecord();
+            pvp.Sanitize();
             version = CurrentVersion;
         }
 

@@ -929,22 +929,8 @@ namespace Shura
                 int order = -Mathf.RoundToInt(pos.y * 20f);
                 var ring = SpriteUtil.Make("Ring", go.transform, ShapeLibrary.Get(Shape.Ring), color.WithAlpha(0.45f), Sorting.Ground + 2);
                 ring.transform.localScale = Vector3.one * (exit ? 3.2f : 1.6f);
-                Sprite art = null;
-                string character = MiniJson.S(r, 7), sheet = MiniJson.S(r, 2);
-                if (!string.IsNullOrEmpty(character))
-                {
-                    CharacterArt c = PixelArt.Character(character);
-                    if (c != null) art = c.idle[0];
-                }
-                else if (!string.IsNullOrEmpty(sheet))
-                {
-                    art = PixelArt.Region(sheet, MiniJson.I(r, 3), MiniJson.I(r, 4), MiniJson.I(r, 5), MiniJson.I(r, 6), new Vector2(0.5f, 0f));
-                }
-                if (art != null)
-                {
-                    var s = SpriteUtil.Make("Art", go.transform, art, Color.white, order);
-                    s.transform.localPosition = new Vector3(0f, exit ? -0.6f : -0.3f, 0f);
-                }
+                World.DressOffering(go.transform, MiniJson.S(r, 2), new RectInt(MiniJson.I(r, 3), MiniJson.I(r, 4), MiniJson.I(r, 5), MiniJson.I(r, 6)),
+                                    MiniJson.S(r, 7), exit, order);
                 offerings.Add(go);
             }
         }

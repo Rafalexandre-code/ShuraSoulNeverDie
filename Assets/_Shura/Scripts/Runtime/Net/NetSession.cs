@@ -277,6 +277,14 @@ namespace Shura
                 case "pact":
                     if (r.joined) ChoosePact(r, m.i);
                     break;
+                case "di":
+                case "dc":
+                case "dh":
+                    if (r.joined) RouteDuel(r, m, text);
+                    break;
+                case "dend":
+                    if (r.joined) DuelEnded(r.id, m.to, m.a);
+                    break;
                 case "oath":
                     if (r.joined) VoteOath(r, m.a);
                     break;
@@ -568,6 +576,8 @@ namespace Shura
             remotes.Remove(id);
             r.input.Release();
             ForgetPacts(id);
+            Court.Leave(id);
+            game.OpponentLeftDuel(id);
             if (r.player != null)
             {
                 game.World.RemovePlayer(r.player);

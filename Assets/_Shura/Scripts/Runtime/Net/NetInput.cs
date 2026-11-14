@@ -48,6 +48,15 @@ namespace Shura
         public string mt;
         /// <summary>The joining duelist's presence packet (§9.5), as JSON; browsers send none.</summary>
         public string pk;
+        /// <summary>Duel messages (§9.6): the duel, its frame, the input, a state fingerprint, a rating, and for whom.</summary>
+        public int d;
+        public int f;
+        public int v;
+        public long h;
+        public int rt = -1;
+        public int to = -1;
+        /// <summary>Duel: the sender's frame advantage (to keep the two clocks together).</summary>
+        public int g;
     }
 
     /// <summary>

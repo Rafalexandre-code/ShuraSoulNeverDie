@@ -20,12 +20,12 @@ using System.Windows.Forms;
 [assembly: AssemblyDescription("Shura — duelos de aparar e postura")]
 [assembly: AssemblyCompany("Shura")]
 [assembly: AssemblyCopyright("Shura")]
-[assembly: AssemblyVersion("0.14.0.0")]
-[assembly: AssemblyFileVersion("0.14.0.0")]
+[assembly: AssemblyVersion("0.15.0.0")]
+[assembly: AssemblyFileVersion("0.15.0.0")]
 
 static class Launcher
 {
-    const string Version = "0.14.0";
+    const string Version = "0.15.0";
     const string Payload = "jogo.zip";
 
     [STAThread]

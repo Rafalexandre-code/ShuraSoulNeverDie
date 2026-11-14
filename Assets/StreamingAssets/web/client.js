@@ -1584,7 +1584,11 @@ function drawOffering(o) {
   ctx.globalAlpha = o[12] === 1 && !exit ? 0.45 : 1;
   circle(x, y, exit ? 1.6 : 0.8, rgba(o[14], 0.55), null, 2);
   if (ch) drawFighter(ch, x, y, -0.228, 1, 0, 0, 0, 0, "#000000", ctx.globalAlpha);
-  else if (sheet) {
+  else if (sheet === "muramasa") {
+    // The cursed blade: planted in the middle of its own ring, with a red thirst around it.
+    circle(x, y + 0.35, 0.55, null, "rgba(179,38,30,.35)");
+    drawWeapon("weapon_Katana", x, y + 1.05, -90, 0, 1.1, ctx.globalAlpha);
+  } else if (sheet) {
     const g = img("art/" + sheet + ".png");
     if (g) {
       const w = tw * PPU, h = th * PPU;

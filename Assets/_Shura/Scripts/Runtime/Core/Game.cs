@@ -36,6 +36,8 @@ namespace Shura
             Remote,
             /// <summary>The ruined temple between runs (design doc §7.1).</summary>
             Temple,
+            /// <summary>A PvP duel with rollback netcode (design doc §9.6).</summary>
+            Duel,
             /// <summary>A disciple fell: choose the next one among three.</summary>
             Heir,
             /// <summary>The ways to walk the road (design doc §7.8).</summary>
@@ -221,8 +223,9 @@ namespace Shura
 
         void Update()
         {
-            bool remotePlay = CurrentMode == Mode.Remote && Remote.Joined && !Remote.InputBlocked && !Remote.Between;
-            Controls.Poll(Config.player, (CurrentMode == Mode.Playing || remotePlay) && bot == null);
+            bool remotePlay = CurrentMode == Mode.Remote && Remote.Joined && !Remote.InputBlocked && (!Remote.Between || Remote.CourtWalk);
+            bool court = CurrentMode == Mode.Duel || (CurrentMode == Mode.Lobby && !UI.CourtMenuOpen);
+            Controls.Poll(Config.player, (CurrentMode == Mode.Playing || remotePlay || court) && bot == null);
             // Guests' input first (Steam tunnels feed the server): it acts in this very frame.
             Steam.Update();
             Net.Receive();
@@ -267,7 +270,12 @@ namespace Shura
                 case Mode.Route:
                     TryResolveRoute();
                     break;
+                case Mode.Duel:
+                    TickDuel();
+                    break;
             }
+            // The courtyard lives while the party is between runs (and while two of them duel).
+            if (Net.Active && (CurrentMode == Mode.Lobby || CurrentMode == Mode.Duel)) Net.TickCourt(Time.unscaledDeltaTime, HostCourtInput());
 
             // Online, the duel goes on behind the host's menus.
             if (WorldKeepsRunning) Simulate();

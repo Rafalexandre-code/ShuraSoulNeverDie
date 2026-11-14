@@ -229,6 +229,7 @@ namespace Shura
                 pingTimer = 0f;
                 Send("{\"t\":\"gping\",\"c\":" + NowMs.ToString("0.###", CultureInfo.InvariantCulture) + "}");
             }
+            AgeCourt(dt);
             if (game.Launch.Automated) AutoPlay();
             SendInput(dt);
             FirePending(RenderHostMs());
@@ -269,6 +270,15 @@ namespace Shura
                     break;
                 case "presence":
                     OnPresence(m);
+                    break;
+                case "court":
+                    OnCourt(m);
+                    break;
+                case "duel":
+                case "di":
+                case "dc":
+                case "dh":
+                    OnDuelMessage(m, MiniJson.S(m, "t"));
                     break;
                 case "lobbyx":
                     OnLobbyExtra(m);
@@ -722,7 +732,7 @@ namespace Shura
         void SendInput(float dt)
         {
             InputService c = game.Controls;
-            bool blocked = InputBlocked || Between || game.CurrentMode != Game.Mode.Remote;
+            bool blocked = InputBlocked || (Between && !CourtWalk) || game.CurrentMode != Game.Mode.Remote;
             Vector2 move = blocked ? Vector2.zero : (game.Launch.Automated ? botMove : c.Move);
             double now = NowMs;
             moves.Add(new MoveSample { at = now, move = move });
@@ -753,7 +763,7 @@ namespace Shura
             Aim = aim;
             int[] p = game.Launch.Automated ? botPresses : c.PressCounts;
             bool parry = !blocked && (game.Launch.Automated ? botParry : c.ParryHeld);
-            bool revive = !blocked && !game.Launch.Automated && c.InteractHeld;
+            bool revive = !blocked && (game.Launch.Automated ? botInteract : c.InteractHeld);
             bool held = !blocked && !game.Launch.Automated && c.AttackHeld;
 
             sb.Clear();
@@ -856,6 +866,12 @@ namespace Shura
             if (Doors.Count > 0 && MyVote < 0 && botTick % 40 == 0) Vote(0);
             botMove = Vector2.zero;
             botParry = false;
+            if (Between)
+            {
+                CourtWalk = game.Launch.DuelTest;
+                BotCourt();
+                return;
+            }
             if (s.mode != "play" || !HasOwn) return;
             Vector2 me = OwnPosition;
             List<object> best = null;
@@ -872,8 +888,17 @@ namespace Shura
             }
             if (best == null)
             {
-                // An encounter: walk to the torii on the right.
-                botMove = new Vector2(1f, 0f);
+                // An encounter: walk onto the torii itself (straight right overshot it into the wall).
+                botMove = Vector2.zero;
+                if (s.O != null)
+                {
+                    foreach (object oo in s.O)
+                    {
+                        if (!(oo is List<object> o) || !MiniJson.B(o, 13)) continue;
+                        Vector2 toTorii = new Vector2(MiniJson.F(o, 0), MiniJson.F(o, 1)) - me;
+                        if (toTorii.magnitude > 0.5f) botMove = toTorii.normalized;
+                    }
+                }
                 return;
             }
             Vector2 to = new Vector2(MiniJson.F(best, 2), MiniJson.F(best, 3)) - me;

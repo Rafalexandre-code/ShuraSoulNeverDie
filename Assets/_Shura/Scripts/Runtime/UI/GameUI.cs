@@ -259,6 +259,11 @@ namespace Shura
                 case Game.Mode.Lobby when invitesOpen:
                     HandleInvites(input);
                     break;
+                case Game.Mode.Lobby when !CourtMenuOpen:
+                    HandleCourt(input);
+                    break;
+                case Game.Mode.Duel:
+                    break;
                 case Game.Mode.Settings when controlsOpen:
                     HandleControls(input);
                     break;
@@ -733,11 +738,15 @@ namespace Shura
                 case Game.Mode.Altar: game.CloseAltar(); break;
                 case Game.Mode.Equipment: game.CloseEquipment(); break;
                 case Game.Mode.Lobby:
+                    // The menu closes back onto the courtyard; leaving the room is its own item.
                     if (invitesOpen) invitesOpen = false;
-                    else game.CloseLobby();
+                    else CourtMenuOpen = false;
                     break;
                 case Game.Mode.SteamJoin: game.CloseSteamJoin(); break;
-                case Game.Mode.Remote: remoteMenu = false; break;
+                case Game.Mode.Remote:
+                    remoteMenu = false;
+                    CourtMenuOpen = false;
+                    break;
             }
         }
 
@@ -872,6 +881,7 @@ namespace Shura
                 case Game.Mode.Lobby: DrawLobby(); break;
                 case Game.Mode.SteamJoin: DrawSteamJoin(); break;
                 case Game.Mode.Remote: DrawRemote(); break;
+                case Game.Mode.Duel: DrawDuel(); break;
             }
 
             // The reward screen has its own text blocks; room-clear toasts were already seen in play.

@@ -26,6 +26,11 @@ namespace Shura
         void DrawLobby()
         {
             NetSession net = game.Net;
+            if (!CourtMenuOpen && !invitesOpen)
+            {
+                DrawCourtHost();
+                return;
+            }
             SteamLink st = game.Steam;
 
             int joined = 0, ready = 0;
@@ -184,6 +189,11 @@ namespace Shura
         void DrawRemoteLobby()
         {
             RemoteSession r = Remote;
+            if (!CourtMenuOpen && r.CourtWalkers != null && r.Mode == "lobby")
+            {
+                DrawCourtGuest();
+                return;
+            }
             RemoteSession.Snap s = r.Latest;
             bool over = r.Mode == "over";
             DrawRect(FullScreen, UiKit.Ink.WithAlpha(0.3f));

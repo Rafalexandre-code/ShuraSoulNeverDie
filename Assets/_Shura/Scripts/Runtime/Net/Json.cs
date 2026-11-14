@@ -15,6 +15,9 @@ namespace Shura
             return sb.Append(r.ToString("0.##", CultureInfo.InvariantCulture));
         }
 
+        /// <summary>A string as a JSON literal, quotes and escapes included.</summary>
+        public static string Quote(string s) => new StringBuilder().Str(s).ToString();
+
         public static StringBuilder Int(this StringBuilder sb, int v) => sb.Append(v.ToString(CultureInfo.InvariantCulture));
 
         public static StringBuilder Bool(this StringBuilder sb, bool v) => sb.Append(v ? '1' : '0');

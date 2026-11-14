@@ -146,21 +146,42 @@ namespace Shura
             int order = -Mathf.RoundToInt(o.Position.y * 20f);
             var ring = SpriteUtil.Make("Ring", go.transform, ShapeLibrary.Get(Shape.Ring), o.Color.WithAlpha(0.45f), Sorting.Ground + 2);
             ring.transform.localScale = Vector3.one * (o.Exit ? 3.2f : 1.6f);
-            Sprite art = null;
-            if (!string.IsNullOrEmpty(o.Character))
+            DressOffering(go.transform, o.Sheet, o.Tile, o.Character, o.Exit, order);
+        }
+
+        /// <summary>The cursed blade has no tile of its own: a katana planted in the middle of its ring.</summary>
+        public const string MuramasaArt = "muramasa";
+
+        /// <summary>An offering's art (also drawn by an online guest from the same fields).</summary>
+        public static void DressOffering(Transform go, string sheet, RectInt tile, string character, bool exit, int order)
+        {
+            if (sheet == MuramasaArt)
             {
-                CharacterArt c = PixelArt.Character(o.Character);
+                var glow = SpriteUtil.Make("Thirst", go, ShapeLibrary.Get(Shape.SoftCircle), ColorUtil.Hex("#B3261E").WithAlpha(0.45f), order - 1);
+                glow.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+                glow.transform.localScale = new Vector3(1.1f, 1.5f, 1f);
+                Sprite blade = PixelArt.Weapon("weapon_Katana");
+                if (blade == null) return;
+                // The grip up, the point in the ground at the ring's centre.
+                var s = SpriteUtil.Make("Muramasa", go, blade, ColorUtil.Hex("#FFB3A8"), order);
+                s.transform.localPosition = new Vector3(0f, 1.05f, 0f);
+                s.transform.localRotation = Quaternion.Euler(0f, 0f, -90f);
+                s.transform.localScale = Vector3.one * 1.1f;
+                return;
+            }
+            Sprite art = null;
+            if (!string.IsNullOrEmpty(character))
+            {
+                CharacterArt c = PixelArt.Character(character);
                 if (c != null) art = c.idle[0];
             }
-            else if (!string.IsNullOrEmpty(o.Sheet))
+            else if (!string.IsNullOrEmpty(sheet))
             {
-                art = PixelArt.Region(o.Sheet, o.Tile.x, o.Tile.y, o.Tile.width, o.Tile.height, new Vector2(0.5f, 0f));
+                art = PixelArt.Region(sheet, tile.x, tile.y, tile.width, tile.height, new Vector2(0.5f, 0f));
             }
-            if (art != null)
-            {
-                var s = SpriteUtil.Make("Art", go.transform, art, Color.white, order);
-                s.transform.localPosition = new Vector3(0f, o.Exit ? -0.6f : -0.3f, 0f);
-            }
+            if (art == null) return;
+            var a = SpriteUtil.Make("Art", go, art, Color.white, order);
+            a.transform.localPosition = new Vector3(0f, exit ? -0.6f : -0.3f, 0f);
         }
 
         // ── Per tick ──────────────────────────────────────────────────────────────────
@@ -650,7 +671,7 @@ namespace Shura
                         Say(p, "A LÂMINA TEM SEDE", danger);
                         Fx.Emit(FxType.ShuraRise, p.Position, Vector2.up, 2f, Config.palette.shu);
                         return true;
-                    }), "tiles_house", 15, 11, 1, 2);
+                    }), MuramasaArt, 0, 0, 1, 1);
                     break;
                 case 7: // The duel of honour
                     Add("Aceitar o duelo", "Sem técnicas, sem itens (o grupo todo). Vitória: Karma +2, 60 Mon e um item lendário para cada um.", 0, c, p =>

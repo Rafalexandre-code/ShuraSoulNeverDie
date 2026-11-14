@@ -97,7 +97,7 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 | 8.6 | Finais | ✅ os quatro, ao derrotar o Ashura (O Novo Ashura como chefe dos amigos vem com o online) |
 | 8.7 | História no ambiente | ✅ itens, lendas dos inimigos, corvos, raposas, pétalas no Mushin |
 
-## Fase 5 — Inimigos, IA e online (§5, §9) — 🔶 partes 1 a 4 (v0.11.0 a v0.14.0); falta o PvP
+## Fase 5 — Inimigos, IA e online (§5, §9) — ✅ partes 1 a 5 (v0.11.0 a v0.15.0); torneio, invasão e guerra de clãs ficam para depois
 
 | § | Item | Estado |
 |---|---|---|
@@ -114,8 +114,8 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 | 9.3 | Queda e resgate | ✅ |
 | 9.4 | Pacto de Sangue | ✅ |
 | 9.5 | Presença assíncrona | ✅ sem servidor: o que cada um deixa viaja quando vocês jogam juntos |
-| 9.6 | Modos competitivos (PvP) | ⏳ exige netcode de rollback (simulação revertida a cada frame): uma parte própria |
-| 9.7 | Lobby como lugar | 🟡 o voto do Juramento do grupo e os pactos no lobby; andar e treinar no pátio do Templo fica com o PvP |
+| 9.6 | Modos competitivos (PvP) | 🟡 o **Duelo** 1v1 com rollback netcode e ranking por temporada; Torneio, Invasão e Guerra de Clãs ⏳ |
+| 9.7 | Lobby como lugar | ✅ o Pátio do Templo |
 
 ## HUD de batalha (pedido do diretor, antes da Fase 3) — ✅
 
@@ -298,6 +298,41 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **Correções**:
   - **Bordas das arenas** (pedido do diretor): nos octógonos, cruzes e pátios, a faixa de pedra parava em cada degrau da diagonal. Os cantos para dentro agora são montados em meia-esquadria, e a borda segue contínua.
   - **Senhores dos Biomas online**: com dois ou mais jogadores, criar um chefe quebrava, porque o golpe de grupo era montado antes de o chefe ter golpes. Agora os chefes também recebem o golpe de grupo, a cada fase.
+
+## Fase 5, parte 5: o Pátio do Templo e o duelo PvP (v0.15.0) — ✅
+
+- **O Pátio do Templo (§9.7)**: o lobby online virou um lugar. Os duelistas andam pelo pátio (o chão do dojo, em tinta). **Esc** (ou Start, ou Tab) abre o menu da sala por cima.
+  - **Treino sem dano**: o golpe de treino num colega mostra "toque!"; se ele aparou a tempo, "aparou!".
+  - **Casa de Chá**: E senta (e ouve uma frase).
+  - **Pedra do Juramento**: E vota o Juramento do grupo.
+  - **Torii**: E marca o convidado como pronto.
+  - **Círculo de Duelo**: E pede um duelo; quando dois pedem dentro do círculo, o duelo começa e o pátio inteiro fica sabendo.
+  - As teclas 1–4 escolhem a kamae do duelo.
+  - O anfitrião roda o pátio e os convidados o recebem 15 vezes por segundo, com as posições suavizadas.
+- **O Duelo (§9.6)**: 1v1 com a primeira arma de cada um e a kamae escolhida, as duas fixas no duelo; sem itens e sem técnicas. Vence quem levar dois rounds.
+  - **Os golpes**: são os da arma, com preparo mais longo para ser legível contra uma pessoa. O anel que fecha avisa: **ciano** = apare; **vermelho** (o golpe vermelho, na tecla de Troca) = esquive ou pague caro na guarda.
+  - **Defesa**: o **parry perfeito** deixa o atacante aberto e racha a postura dele. Segurar o aparar é **guarda**: a postura paga. A **esquiva** tem quadros de invulnerabilidade.
+  - **Postura quebrada** (破): o próximo golpe é a **finalização**, que leva o round. Cada round tem 75 s; no fim do tempo, vence quem tem mais vida.
+  - **Kamae**: Jōdan (+25% de dano, parry mais estreito), Chūdan, Gedan (parry mais largo) e Waki (o anel só aparece no fim do preparo).
+- **Rollback netcode**: o duelo é uma simulação separada e **determinística**, toda em inteiros (milímetros, frames), que dá o mesmo resultado nos dois computadores.
+  - **Predição e correção**: cada lado roda o duelo na hora, prevendo os botões do outro (o mesmo direcional, sem apertos novos). Quando o input de verdade chega diferente, o jogo **volta ao frame** e refaz tudo até agora.
+  - **Atraso fixo**: o input local espera 2 frames.
+  - **Limite e relógio**: a predição vai até 10 frames; os dois lados trocam a vantagem de frame para manter os relógios juntos.
+  - **Conferência**: a cada segundo os dois comparam uma impressão do estado. Uma dessincronia anula o duelo, e o duelo também não conta se a conexão cair.
+  - **Rede**: as mensagens passam pelo anfitrião (que repassa quando dois convidados duelam), pela rede local ou pela Steam.
+- **Ranking por temporada**: sem servidor, cada duelista guarda a própria escada no save (Elo, K = 32), e os dois lados calculam a mesma mudança.
+  - **Temporada** = mês do calendário; o mês que acaba fica registrado.
+  - **Títulos**: Aprendiz, Duelista, Veterano, Mestre, Kensei.
+  - O pátio mostra a sua temporada; o veredito do duelo mostra a variação.
+- **Testes**: um teste roda dois lados por uma rede simulada ruim (0–9 frames de atraso, fora de ordem) e confere que os dois terminam iguais à partida de referência. No build real, o duelo automático entre anfitrião e convidado com 160 ms de ida e volta fez cerca de 95 voltas no tempo por lado, sem dessincronia, a 60 frames por segundo.
+- **Correções** (pedidas pelo diretor):
+  - A **Lâmina de Muramasa** usava um recorte da folha que pegava meio suporte de armas de cada linha e ficava acima do anel de interação. Agora é uma katana cravada no centro do próprio anel, com o brilho vermelho da sede, também no navegador.
+  - O **robô do convidado** andava reto para a direita até o torii, passava do anel e ficava preso na parede. Agora ele vai até o torii.
+- **Fica para depois**:
+  - O **Torneio** (chaveamento com espectadores).
+  - A **Invasão** (um jogador na run de outro como Rival).
+  - A **Guerra de Clãs** 4v4.
+  - O duelo no navegador (lá não há rollback).
 
 ## Apresentação e acessibilidade (§10) — ⏳
 

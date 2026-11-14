@@ -48,6 +48,10 @@ namespace Shura
         /// <summary>"-shuraHost N": open the online room and start once N browser players joined (or after 40 s).</summary>
         public bool Host;
         public int HostWait;
+        /// <summary>"-shuraDuel": the automated host and guest walk into the courtyard's circle and duel once (§9.6).</summary>
+        public bool DuelTest;
+        /// <summary>"-shuraLag MS": duel messages leave this machine MS milliseconds late (tests the rollback with a real ping).</summary>
+        public int Lag;
         public int Port = NetSession.DefaultPort;
 
         public bool Automated => Bot || ShotDir != null;
@@ -126,6 +130,16 @@ namespace Shura
                     case "-shuraDepth":
                         if (i + 1 < args.Length && int.TryParse(args[i + 1], out int depth)) options.TargetDepth = depth;
                         i++;
+                        break;
+                    case "-shuraDuel":
+                        options.DuelTest = true;
+                        break;
+                    case "-shuraLag":
+                        if (i + 1 < args.Length && int.TryParse(args[i + 1], out int lag))
+                        {
+                            options.Lag = Mathf.Clamp(lag, 0, 500);
+                            i++;
+                        }
                         break;
                     case "-shuraHost":
                         options.Host = true;

@@ -106,6 +106,12 @@ namespace Shura
                             game.Net.CycleHostOath(1);
                         }
                         bool pactReady = game.Net.JoinedCount == 0 || game.Net.Mutual(0, game.Net.HostPact) || modeTime > 30f;
+                        // The duel test: the run waits for the duel in the courtyard (or two minutes).
+                        if (game.Launch.DuelTest && game.DuelsFinished == 0 && modeTime < 120f)
+                        {
+                            if (modeTime > 2f && modeTime < 2.1f) Shot("patio");
+                            break;
+                        }
                         if (pactReady && ShotThenAct("lobby", wait))
                         {
                             Debug.Log("[Shura][Auto] começando online com " + game.World.Players.Count + " jogadores");
@@ -163,6 +169,13 @@ namespace Shura
                     break;
                 case Game.Mode.Remote:
                     UpdateRemote();
+                    break;
+                case Game.Mode.Duel:
+                    if (modeTime > 4f && duelShots == 0 || modeTime > 9f && duelShots == 1 || game.Duel?.Outcome != DuelOutcome.None && duelShots == 2)
+                    {
+                        duelShots++;
+                        Shot("duelo");
+                    }
                     break;
                 case Game.Mode.Route:
                     if (ShotThenAct("route", wait) && game.RouteOptions.Count > 0)
@@ -468,6 +481,8 @@ namespace Shura
         int soulShots;
         int bossShots;
         float nextBossShot;
+
+        int duelShots;
 
         bool ShotThenAct(string name, float wait)
         {

@@ -44,10 +44,15 @@ namespace Shura
             if (r.Between)
             {
                 remoteMenu = remoteEquip = false;
-                r.InputBlocked = true;
-                HandleMenu(input);
+                // The courtyard: walk until the menu is asked for (Esc / Start / Tab).
+                bool court = !CourtMenuOpen && r.CourtWalkers != null && r.Mode == "lobby";
+                r.CourtWalk = court;
+                r.InputBlocked = !court;
+                if (court) HandleCourt(input);
+                else HandleMenu(input);
                 return;
             }
+            r.CourtWalk = false;
             bool cards = r.Cards.Count > 0;
             bool doors = r.Doors.Count > 0;
             r.InputBlocked = remoteMenu || remoteEquip || cards || doors;

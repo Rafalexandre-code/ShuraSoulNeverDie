@@ -414,9 +414,9 @@ namespace Shura
             }
             FitLabel(new Rect(r.x + 26f, y, r.width - 52f, 26f), string.Format(Strings.DiscipleJourneys, d.journeys), smallStyle, UiKit.InkSoft);
             y += 28f;
-            if (!game.Settings.unlockAll && !Unlocks.Open(m.runs, Feature.Lineage))
+            if (!game.Settings.unlockAll && !Unlocks.Open(m.runs, Unlockable.Lineage))
             {
-                Label(new Rect(r.x + 26f, y, r.width - 52f, 76f), string.Format(Strings.LineageLocked, Unlocks.RunsFor(Feature.Lineage)), hintSmallStyle, UiKit.Shu);
+                Label(new Rect(r.x + 26f, y, r.width - 52f, 76f), string.Format(Strings.LineageLocked, Unlocks.RunsFor(Unlockable.Lineage)), hintSmallStyle, UiKit.Shu);
                 return;
             }
             int senseis = Lineage.Senseis(m);
@@ -590,8 +590,8 @@ namespace Shura
             Label(new Rect(left.x, left.y + 14f, left.width, 34f), Strings.GardenOaths, capsCenterStyle, UiKit.InkSoft);
             string help = null;
             float y = left.y + 52f;
-            bool oathsOpen = game.Settings.unlockAll || Unlocks.Open(m.runs, Feature.Oaths);
-            if (!oathsOpen) Label(new Rect(left.x + 40f, left.y + 52f, left.width - 80f, 40f), string.Format(Strings.OathsLocked, Unlocks.RunsFor(Feature.Oaths)), bodyCenterStyle, UiKit.Shu);
+            bool oathsOpen = game.Settings.unlockAll || Unlocks.Open(m.runs, Unlockable.Oaths);
+            if (!oathsOpen) Label(new Rect(left.x + 40f, left.y + 52f, left.width - 80f, 40f), string.Format(Strings.OathsLocked, Unlocks.RunsFor(Unlockable.Oaths)), bodyCenterStyle, UiKit.Shu);
             foreach (OathDef o in Oaths.All)
             {
                 if (!oathsOpen) break;

@@ -19,14 +19,14 @@ namespace Shura
         // ── The temple ─────────────────────────────────────────────────────────────────
 
         /// <summary>The temple opens with the fourth run (§7.7), or at once for whoever opened everything.</summary>
-        public bool TempleOpen => Settings.unlockAll || Launch.Automated || Unlocks.Open(Meta.runs, Feature.Temple);
+        public bool TempleOpen => Settings.unlockAll || Launch.Automated || Unlocks.Open(Meta.runs, Unlockable.Temple);
 
         public void OpenTemple()
         {
             if (!TempleOpen)
             {
                 Audio.Play(Sfx.Denied, 0.6f, 1f, 0f);
-                UI.Toast(string.Format(Strings.TempleLocked, Unlocks.RunsFor(Feature.Temple)), Config.palette.uiText);
+                UI.Toast(string.Format(Strings.TempleLocked, Unlocks.RunsFor(Unlockable.Temple)), Config.palette.uiText);
                 return;
             }
             if (CurrentMode != Mode.Temple && CurrentMode != Mode.Altar && CurrentMode != Mode.Arsenal && CurrentMode != Mode.Heir)
@@ -235,12 +235,12 @@ namespace Shura
             KarmaRules.RoadKarma = Meta.karma;
             KarmaRules.HonorDuels = Meta.MissionDone(TeaGuests.Tsubaki);
             World.ShowTimingIndicator = Settings.timingIndicator && Run.Mode != RunMode.Master;
-            Run.Oaths = Run.Has(Feature.Oaths) ? OathSet.From(Meta) : new OathSet();
+            Run.Oaths = Run.Has(Unlockable.Oaths) ? OathSet.From(Meta) : new OathSet();
             // Online: the Oath the party voted for in the lobby (§9.7).
             if (Net.Active && Net.JoinedCount > 0) Net.ApplyGroupOath(Run.Oaths);
             // The rivals the route map can draw lairs for; the reading the Shura remembers.
             Rivals.Roster.Clear();
-            if (Run.Has(Feature.Rivals) && Run.Mode != RunMode.Tower) Rivals.Roster.AddRange(Meta.rivals);
+            if (Run.Has(Unlockable.Rivals) && Run.Mode != RunMode.Tower) Rivals.Roster.AddRange(Meta.rivals);
             if (Settings.shuraRemembers && !Launch.Automated) Run.Profile.Baseline = ReadingMemory.Average(Meta.readings);
             Run.EcosMult *= Oaths.EcosMult(Run.Oaths.Heat) * GameModes.EcosMult(Run.Mode);
             World.ExtraEliteAffixes = Run.Oaths.Level(Oaths.DemonBell);
@@ -298,7 +298,7 @@ namespace Shura
                 karma = Run.Karma,
                 seed = Run.Seed,
             };
-            LastLegacy = Legacy.Bank(Meta, Run, facts, died, Run.Has(Feature.Lineage));
+            LastLegacy = Legacy.Bank(Meta, Run, facts, died, Run.Has(Unlockable.Lineage));
             BankRival(died);
             Meta.readings.Add(ReadingMemory.Of(World.Adaptation));
             while (Meta.readings.Count > ReadingMemory.Keep) Meta.readings.RemoveAt(0);
@@ -328,7 +328,7 @@ namespace Shura
         /// </summary>
         void BankRival(bool died)
         {
-            if (!died || Run.Mode == RunMode.Tower || !Run.Has(Feature.Rivals) || World.Host == null) return;
+            if (!died || Run.Mode == RunMode.Tower || !Run.Has(Unlockable.Rivals) || World.Host == null) return;
             Enemy killer = World.Host.LastKillerEnemy;
             if (killer == null || killer.Def == null || killer.IsAlly || killer.AsuraOwner != null) return;
             string technique = null;

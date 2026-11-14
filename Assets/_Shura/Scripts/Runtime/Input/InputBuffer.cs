@@ -42,9 +42,13 @@ namespace Shura
         /// <summary>Ticks since each action was last pressed (not cleared by consuming it).</summary>
         readonly int[] since = { 999, 999, 999, 999, 999, 999, 999, 999, 999, 999, 999 };
 
+        /// <summary>Quantas vezes cada ação foi apertada desde o início (telemetria e linha de base).</summary>
+        public readonly int[] Presses = new int[Count];
+
         public void Press(BufferedAction action, int frames)
         {
             int a = (int)action;
+            Presses[a]++;
             remaining[a] = frames;
             since[a] = 0;
             switch (action)

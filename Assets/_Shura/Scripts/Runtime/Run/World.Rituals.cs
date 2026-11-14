@@ -20,7 +20,7 @@ namespace Shura
         const float PrayerReach = 1.9f;
 
         /// <summary>Whether a system has opened for this run (the dojo opens everything).</summary>
-        public bool Has(Feature f) => Run == null || TutorialRoom || Run.Has(f);
+        public bool Has(Unlockable f) => Run == null || TutorialRoom || Run.Has(f);
 
         void BeginRitualsForRoom()
         {

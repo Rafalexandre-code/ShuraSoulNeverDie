@@ -157,15 +157,15 @@ namespace Shura.Tests
         [Test]
         public void Layers_OpenWithTheRuns()
         {
-            Assert.IsFalse(Unlocks.Open(0, Feature.Seals));
-            Assert.IsTrue(Unlocks.Open(1, Feature.Gourd));
-            Assert.IsFalse(Unlocks.Open(2, Feature.Kamae));
-            Assert.IsTrue(Unlocks.Open(3, Feature.Temple));
-            Assert.IsTrue(Unlocks.Open(6, Feature.ShuraMeter));
-            Assert.IsFalse(Unlocks.Open(9, Feature.Oaths));
-            Assert.IsTrue(Unlocks.Open(10, Feature.Lineage));
-            CollectionAssert.AreEquivalent(new[] { Feature.Kamae, Feature.Tools, Feature.Temple }, Unlocks.Opened(2, 3));
-            Assert.IsTrue(new RunState(1, new FlowTuning()).Has(Feature.Fusions), "a run with no layer set has everything");
+            Assert.IsFalse(Unlocks.Open(0, Unlockable.Seals));
+            Assert.IsTrue(Unlocks.Open(1, Unlockable.Gourd));
+            Assert.IsFalse(Unlocks.Open(2, Unlockable.Kamae));
+            Assert.IsTrue(Unlocks.Open(3, Unlockable.Temple));
+            Assert.IsTrue(Unlocks.Open(6, Unlockable.ShuraMeter));
+            Assert.IsFalse(Unlocks.Open(9, Unlockable.Oaths));
+            Assert.IsTrue(Unlocks.Open(10, Unlockable.Lineage));
+            CollectionAssert.AreEquivalent(new[] { Unlockable.Kamae, Unlockable.Tools, Unlockable.Temple }, Unlocks.Opened(2, 3));
+            Assert.IsTrue(new RunState(1, new FlowTuning()).Has(Unlockable.Fusions), "a run with no layer set has everything");
         }
 
         [Test]

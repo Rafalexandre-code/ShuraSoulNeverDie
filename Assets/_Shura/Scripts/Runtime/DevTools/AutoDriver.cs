@@ -52,6 +52,7 @@ namespace Shura
             elapsed += dt;
             if (game.CurrentMode != lastMode)
             {
+                LogRoomBaseline();
                 Debug.Log("[Shura][Auto] t=" + elapsed.ToString("0.0") + "s mode=" + game.CurrentMode +
                           (game.Run != null ? " room=" + (game.Run.RoomIndex + 1) : string.Empty));
                 lastMode = game.CurrentMode;
@@ -483,6 +484,39 @@ namespace Shura
         float nextBossShot;
 
         int duelShots;
+
+        // ── Linha de base (WP-00): tempo de simulação e teclas por sala ─────────────────
+        float roomStartSim;
+        readonly int[] roomStartPresses = new int[InputBuffer.Count];
+
+        void LogRoomBaseline()
+        {
+            if (game.Run == null) return;
+            int[] presses = game.ActiveInput?.Buffer?.Presses;
+            if (lastMode == Game.Mode.Playing && game.World.CurrentRoom != null)
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.Append("[Shura][Base] sala=").Append(game.Run.RoomIndex + 1)
+                  .Append(" tipo=").Append(game.World.CurrentRoom.kind)
+                  .Append(" bioma=").Append(game.World.CurrentRoom.biome.name)
+                  .Append(" tempoSim=").Append((game.Run.Elapsed - roomStartSim).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture))
+                  .Append(" teclas=");
+                if (presses != null)
+                {
+                    for (int i = 0; i < presses.Length; i++)
+                    {
+                        int d = presses[i] - roomStartPresses[i];
+                        if (d > 0) sb.Append((BufferedAction)i).Append(':').Append(d).Append(' ');
+                    }
+                }
+                Debug.Log(sb.ToString().TrimEnd());
+            }
+            if (game.CurrentMode == Game.Mode.Playing)
+            {
+                roomStartSim = game.Run.Elapsed;
+                if (presses != null) System.Array.Copy(presses, roomStartPresses, presses.Length);
+            }
+        }
 
         bool ShotThenAct(string name, float wait)
         {

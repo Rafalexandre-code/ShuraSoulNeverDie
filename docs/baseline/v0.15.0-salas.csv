@@ -1,0 +1,55 @@
+semente,sala,tipo,bioma,tempo_sim_s,tecla_Attack,tecla_Detonate,tecla_Dodge,tecla_Gourd,tecla_Parry,tecla_Swap,tecla_Tool
+3,1,Combat,Cinzas,12.0,12,0,0,0,2,2,2
+3,2,Combat,Cinzas,10.4,8,0,1,0,1,0,2
+3,3,Combat,Cinzas,10.6,2,0,0,0,4,1,2
+3,4,Combat,Cinzas,8.8,2,0,0,0,1,0,1
+3,5,Guardian,Cinzas,22.1,32,2,8,0,2,3,2
+3,6,Combat,Bosque Selvagem,12.0,12,0,0,0,2,2,2
+3,7,Combat,Bosque Selvagem,13.6,11,0,0,0,2,2,0
+3,8,Smith,Bosque Selvagem,3.8,0,0,0,0,0,0,0
+3,9,Duel,Bosque Selvagem,5.0,0,0,0,0,0,0,0
+3,10,Guardian,Bosque Selvagem,18.5,23,0,3,0,2,2,2
+3,11,Combat,Musgo,14.5,5,0,2,0,1,1,1
+3,12,Combat,Musgo,17.9,7,0,0,0,2,1,1
+3,13,Dispute,Musgo,21.8,14,0,3,0,2,4,0
+3,15,Guardian,Musgo,32.8,51,1,3,0,6,7,3
+3,16,Combat,Sangue,36.4,39,0,11,38,3,3,5
+3,17,Shrine,Sangue,7.5,4,0,0,0,1,0,0
+3,18,Event,Sangue,4.0,0,0,0,0,0,0,0
+3,19,Challenge,Sangue,30.5,26,0,3,40,6,6,0
+11,1,Combat,Cinzas,11.6,11,0,0,0,2,2,2
+11,2,Combat,Cinzas,11.8,9,0,0,0,1,1,2
+11,3,Combat,Cinzas,8.8,3,1,0,0,4,1,1
+11,5,Guardian,Cinzas,38.3,39,4,21,0,3,3,4
+11,7,Duel,Bosque Selvagem,11.6,0,0,0,0,0,0,1
+11,8,Combat,Bosque Selvagem,21.2,22,0,3,0,2,2,1
+11,9,Duel,Bosque Selvagem,7.2,0,0,0,0,0,0,1
+11,10,Guardian,Bosque Selvagem,22.3,25,0,3,0,2,1,3
+11,11,Combat,Musgo,19.8,13,0,7,0,0,0,3
+11,12,Shrine,Musgo,4.4,0,0,0,0,0,0,0
+11,13,Combat,Musgo,37.8,38,0,3,0,3,4,5
+11,14,Dispute,Musgo,39.4,53,0,1,0,12,8,7
+11,15,Guardian,Musgo,17.1,27,0,1,41,2,7,3
+29,1,Combat,Cinzas,14.0,18,0,0,0,3,2,2
+29,2,Combat,Cinzas,10.7,5,0,1,0,0,1,2
+29,3,Combat,Cinzas,7.4,0,1,0,0,2,0,1
+29,5,Guardian,Cinzas,29.2,25,0,9,0,3,2,2
+29,6,Combat,Bosque Selvagem,12.6,12,0,4,0,0,0,1
+29,7,Challenge,Bosque Selvagem,22.7,20,0,4,0,4,4,2
+29,8,Combat,Bosque Selvagem,17.0,3,0,0,26,1,1,0
+29,9,Combat,Bosque Selvagem,20.5,20,0,4,23,5,4,1
+29,10,Guardian,Bosque Selvagem,6.8,6,0,1,42,1,2,0
+41,1,Combat,Cinzas,11.6,13,0,1,0,2,2,2
+41,2,Combat,Cinzas,13.1,10,0,4,0,2,1,1
+41,3,Combat,Cinzas,9.9,6,0,0,0,1,1,2
+41,4,Duel,Cinzas,5.3,0,0,0,0,0,0,0
+41,5,Guardian,Cinzas,34.7,35,9,18,50,8,8,4
+41,7,Merchant,Bosque Selvagem,8.7,0,0,0,0,0,0,0
+41,8,Combat,Bosque Selvagem,22.6,27,0,0,30,5,2,2
+41,9,Duel,Bosque Selvagem,4.8,0,0,0,0,0,0,1
+41,10,Guardian,Bosque Selvagem,27.1,28,0,2,71,5,6,1
+41,11,Merchant,Musgo,4.3,0,0,0,0,0,0,1
+41,12,Combat,Musgo,17.8,21,0,0,48,4,5,1
+41,13,Combat,Musgo,42.8,44,0,10,41,5,5,5
+41,14,Challenge,Musgo,40.4,53,0,4,74,12,13,6
+41,15,Guardian,Musgo,36.0,106,0,1,43,20,21,2

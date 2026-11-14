@@ -245,7 +245,9 @@ namespace Shura
             {
                 for (int i = 0; i < 2; i++)
                 {
-                    Vector2 at = Layout.NearestFloor(clash + Random.insideUnitCircle * 2.2f, 0.4f);
+                    // Determinismo (WP-00): a semente da run escolhe onde caem as brasas, nunca o Random da Unity.
+                    float ang = Run.Rng.Range(0f, Mathf.PI * 2f), dist = Mathf.Sqrt(Run.Rng.NextFloat()) * 2.2f;
+                    Vector2 at = Layout.NearestFloor(clash + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * dist, 0.4f);
                     ScheduleEnemyBlast(e, at, 0.9f, 42, 10f, 6f, BlastKind.Fire, false);
                 }
             }

@@ -132,8 +132,8 @@ namespace Shura.Tests
             Assert.AreEqual(1, copy.rivals.Count);
             Assert.AreEqual(meta.rivals[0].name, copy.rivals[0].name);
             Assert.AreEqual(1, copy.readings.Count);
-            Assert.IsFalse(Unlocks.Open(5, Feature.Rivals));
-            Assert.IsTrue(Unlocks.Open(6, Feature.Rivals));
+            Assert.IsFalse(Unlocks.Open(5, Unlockable.Rivals));
+            Assert.IsTrue(Unlocks.Open(6, Unlockable.Rivals));
             var oath = new MetaProgress();
             oath.SetOath(Oaths.EternalRival, 1);
             Assert.AreEqual(1, OathSet.From(oath).Level(Oaths.EternalRival), "the Eternal Rival can be sworn now");

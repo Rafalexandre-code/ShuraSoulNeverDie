@@ -659,7 +659,7 @@ namespace Shura
             }
             Label(new Rect(gourds.x, gourds.y + 72f, gourds.width, 26f), Strings.HudGourd, capsCenterStyle, sips > 0 ? Pal.blessing : UiKit.PaperDim);
             Key(new Rect(gourds.xMax - 30f, gourds.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Gourd));
-            LayerLock(gourds, Feature.Gourd);
+            LayerLock(gourds, Unlockable.Gourd);
             x = gourds.xMax + 12f;
 
             // Bandages.
@@ -681,7 +681,7 @@ namespace Shura
             Label(new Rect(tool.x + 112f, tool.y + 66f, 80f, 30f), "× " + p.papers, cardKindStyleSmall, p.papers > 0 ? UiKit.PaperText : Pal.danger);
             Key(new Rect(tool.xMax - 66f, tool.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.ToolCycle));
             Key(new Rect(tool.xMax - 30f, tool.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Tool));
-            LayerLock(tool, Feature.Tools);
+            LayerLock(tool, Unlockable.Tools);
             x = tool.xMax + 18f;
 
             // The purse.
@@ -692,7 +692,7 @@ namespace Shura
         }
 
         /// <summary>A part of the belt that has not opened yet (§7.7): veiled, with the run it opens on.</summary>
-        void LayerLock(Rect r, Feature f)
+        void LayerLock(Rect r, Unlockable f)
         {
             if (game.Remote.Joined || game.World == null || game.World.Has(f)) return;
             DrawRect(r, new Color(0.02f, 0.02f, 0.03f, 0.82f));

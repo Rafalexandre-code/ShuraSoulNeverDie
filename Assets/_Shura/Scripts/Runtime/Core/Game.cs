@@ -737,7 +737,7 @@ namespace Shura
             routeOptions.AddRange(Run.NextDoors());
             routeVotes.Clear();
             // Before the route map opens (§7.7) the road simply goes on through the first door.
-            if (routeOptions.Count <= 1 || !Run.Has(Feature.RouteMap))
+            if (routeOptions.Count <= 1 || !Run.Has(Unlockable.RouteMap))
             {
                 ChooseRoute(0);
                 return;

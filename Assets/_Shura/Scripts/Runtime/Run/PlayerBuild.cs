@@ -403,7 +403,7 @@ namespace Shura
             }
 
             // A fused technique: a rare card once its two halves are owned.
-            List<string> fusions = run != null && !run.Has(Feature.Fusions) ? new List<string>() : Fusions.Available(this);
+            List<string> fusions = run != null && !run.Has(Unlockable.Fusions) ? new List<string>() : Fusions.Available(this);
             if (fusions.Count > 0 && Rng.NextFloat() < 0.4f)
             {
                 RewardDef f = Fusions.Create(fusions[Rng.Range(0, fusions.Count)]);

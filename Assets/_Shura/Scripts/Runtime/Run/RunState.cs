@@ -43,7 +43,7 @@ namespace Shura
         /// <summary>Finished runs when this one began: the layers open with them (§7.7). Max = everything.</summary>
         public int UnlockRuns = int.MaxValue;
 
-        public bool Has(Feature f) => Unlocks.Open(UnlockRuns, f);
+        public bool Has(Unlockable f) => Unlocks.Open(UnlockRuns, f);
 
         // ── The road (design doc §6) ────────────────────────────────────────────────
         /// <summary>Bushidō (+) or Shura (−): mercy, gifts and honour against cruelty (§8.3).</summary>

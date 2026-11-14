@@ -113,7 +113,7 @@ namespace Shura
 
         public void AddSeal(int count)
         {
-            if (!world.Has(Feature.Seals)) return;
+            if (!world.Has(Unlockable.Seals)) return;
             if (!CanBeHit || count <= 0) return;
             Seals = Mathf.Min(MaxSeals, Seals + count);
             sealTimer = SealSeconds;

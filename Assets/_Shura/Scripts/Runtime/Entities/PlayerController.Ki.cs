@@ -201,7 +201,7 @@ namespace Shura
             }
 
             int k = input.TakeKamae();
-            if (k >= 0 && k <= 3 && (Kamae)k != Stance && kamaeCooldown <= 0 && world.Has(Feature.Kamae)) SetStance((Kamae)k);
+            if (k >= 0 && k <= 3 && (Kamae)k != Stance && kamaeCooldown <= 0 && world.Has(Unlockable.Kamae)) SetStance((Kamae)k);
 
             if (AsuraFramesLeft > 0 && --AsuraFramesLeft == 0) EndAsura();
 
@@ -329,9 +329,9 @@ namespace Shura
                 Kiai();
             }
             if (input.Buffer.Consume(BufferedAction.Soul)) TrySoul();
-            if (input.Buffer.Consume(BufferedAction.ToolCycle) && world.Has(Feature.Tools)) CycleTool();
-            if (input.Buffer.Consume(BufferedAction.Tool) && world.Has(Feature.Tools)) UseTool();
-            if (input.Buffer.Consume(BufferedAction.Gourd) && world.Has(Feature.Gourd) && StartDrink(false)) return true;
+            if (input.Buffer.Consume(BufferedAction.ToolCycle) && world.Has(Unlockable.Tools)) CycleTool();
+            if (input.Buffer.Consume(BufferedAction.Tool) && world.Has(Unlockable.Tools)) UseTool();
+            if (input.Buffer.Consume(BufferedAction.Gourd) && world.Has(Unlockable.Gourd) && StartDrink(false)) return true;
             if (input.Buffer.Consume(BufferedAction.Bandage) && StartDrink(true)) return true;
             return false;
         }
@@ -549,7 +549,7 @@ namespace Shura
         /// <summary>The Shura only rises (kills, pain at low health, forbidden things) and never cools by itself.</summary>
         public void AddShura(float amount)
         {
-            if (Build == null || amount <= 0f || InAsura || FacingInnerAsura || !world.Has(Feature.ShuraMeter)) return;
+            if (Build == null || amount <= 0f || InAsura || FacingInnerAsura || !world.Has(Unlockable.ShuraMeter)) return;
             int before = ShuraLevel;
             Build.Shura = Mathf.Min(ShuraRules.Max, Build.Shura + amount * Build.ShuraGainMult * world.ShuraGainMult * Mods.shuraGainMult);
             int after = ShuraLevel;

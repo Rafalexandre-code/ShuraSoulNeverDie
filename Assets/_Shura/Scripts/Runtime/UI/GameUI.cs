@@ -1355,6 +1355,7 @@ namespace Shura
                 }
                 DrawRoadLine(room);
                 DrawRivalBanner();
+                DrawBossBanner();
             }
 
             Panel(4, FlowRect);

@@ -132,7 +132,8 @@ namespace Shura.Tests
                     Assert.That(wave.Length, Is.InRange(1, 3), a.name + ": 1 to 3 enemies at once");
                     foreach (EnemySpawn spawn in wave)
                     {
-                        Assert.LessOrEqual(RoomGenerator.UnlockDepth(spawn.id), depth, spawn.id + " appeared before it was unlocked");
+                        // The Lords of the biomes are not in the roster: they rule their own thrones.
+                        if (BossDefs.Get(spawn.id) == null) Assert.LessOrEqual(RoomGenerator.UnlockDepth(spawn.id), depth, spawn.id + " appeared before it was unlocked");
                         sawGuardian |= spawn.elite;
                     }
                 }

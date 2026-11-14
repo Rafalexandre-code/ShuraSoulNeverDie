@@ -400,6 +400,7 @@ namespace Shura
             if (firstRoom) HintOnce(HintId.Controls);
             if (Run != null && Run.AllyRooms > 0) SpawnAlly();
             if (room.weather != Weather.Clear) HintOnce(HintId.Weather);
+            ClearBossRoom();
             BeginRitualsForRoom();
             RivalInRoom = null;
             waveLeader = null;
@@ -429,6 +430,7 @@ namespace Shura
             actor = null;
             Standoff.Tick();
             TickRituals();
+            TickBosses();
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Tick();
             TickProjectiles();
             TickBursts();
@@ -549,11 +551,12 @@ namespace Shura
             {
                 Enemy e = spawn.rivalId != null && Run?.Meta != null ? CreateRival(spawn, FindSpawnPoint()) : CreateEnemy(EnemyDefs.Get(spawn.id), FindSpawnPoint(), spawn.elite, null);
                 if (list.Count == 0) waveLeader = e;
-                if (spawn.rivalId == null) ApplyEliteAffixes(e, spawn);
+                bool lordSpawn = BossDefs.Get(spawn.id) != null;
+                if (spawn.rivalId == null && !lordSpawn) ApplyEliteAffixes(e, spawn);
                 ConditionSpawn(e, spawn.elite);
                 list.Add(e);
                 // Kalpa "twin guardians": every Guardian comes with a brother.
-                if (spawn.elite && Run.HasRule(KalpaRule.TwinGuardians))
+                if (spawn.elite && !lordSpawn && Run.HasRule(KalpaRule.TwinGuardians))
                 {
                     Enemy twin = CreateEnemy(EnemyDefs.Get(spawn.id), FindSpawnPoint(), true, null);
                     ApplyEliteAffixes(twin, spawn);
@@ -583,10 +586,13 @@ namespace Shura
             var enemy = go.AddComponent<Enemy>();
             EnemyScaling scaling = EnemyScaling.For(Depth, elite);
             if (summoner == null) Run?.Meta?.RecordEnemy(def.id, false);
+            BossDef lord = summoner == null ? BossDefs.Get(def.id) : null;
+            if (lord != null) scaling.health *= lord.healthMult;
             if (elite && CurrentRoom != null && CurrentRoom.kind == RoomKind.Event) scaling.health *= 0.8f;
             scaling.health *= elite ? PartyScaling.GuardianHealth(PartySize) : PartyScaling.EnemyHealth(PartySize);
             enemy.Init(this, def, at, Config, Run.Rng, scaling, summoner);
             Enemies.Add(enemy);
+            if (lord != null) BeginBoss(enemy, lord);
             return enemy;
         }
 
@@ -895,6 +901,7 @@ namespace Shura
                 if (outcome == HitOutcome.Hit)
                 {
                     attacker.DamagedPlayer = true;
+                    OnBossHit(attacker, p);
                     attacker.OnDealtDamage(attack.damage * attacker.PowerMult);
                     attacker.OnLandedHitKalpa();
                     if (CurrentRoom != null && CurrentRoom.challenge == ChallengeKind.NoHit) FailChallenge();
@@ -1131,7 +1138,8 @@ namespace Shura
             bool lastOne = ActiveEnemyCount <= 1 && IsLastWave;
             Fx.Emit(FxType.Finisher, enemy.Position, dir, lastOne ? 2f : 1f, enemy.Def.bloodColor);
             Fx.Popup(Player.Weapon.finisherName.ToUpperInvariant(), enemy.Position + Vector2.up * 1f, Color.white);
-            Fx.Gore(style, enemy.Position, dir, enemy.BodySprite, enemy.BodyColor, enemy.Def.bloodColor, enemy.Radius);
+            // A Lord between phases is cut, not torn apart.
+            if (!(enemy.IsBoss && enemy.Phase < BossDefs.Phases)) Fx.Gore(style, enemy.Position, dir, enemy.BodySprite, enemy.BodyColor, enemy.Def.bloodColor, enemy.Radius);
             WeaponFinisherPower(enemy, dir);
             float precise = Player.CutPrecision * Player.CutPrecision;
             if (precise > 0.05f)
@@ -1163,6 +1171,12 @@ namespace Shura
         {
             if (Run == null || attacker == null || attacker.IsGone || !fromSignature) return;
             if (attacker.Def.signatureAnswer == answer) RecordScroll(attacker, ScrollEvent.MasterAnswer);
+            // A Lord's Breaking Point: the master's answer skips a whole phase.
+            if (attacker.IsBoss && attacker.Def.signatureAnswer == answer)
+            {
+                attacker.BreakingPoint();
+                return;
+            }
             if (attacker.Mastered) return;
             if (attacker.Def.signatureAnswer != answer || !Player.Build.CanAbsorb(attacker.Def.techniqueId)) return;
             attacker.MarkMastered();
@@ -1398,6 +1412,7 @@ namespace Shura
             if (killer?.Build != null) killer.Build.Mon += enemy.IsElite ? 12 : 3;
             Run.Meta?.RecordEnemy(enemy.Def.id, true);
             if (enemy.IsRival) OnRivalDefeated(enemy);
+            if (enemy.IsBoss) OnBossDefeated(enemy);
             enemy.OnDefeated?.Invoke(enemy);
             enemy.OnDefeated = null;
             // A duel won: the foe's technique is guaranteed, mastered or not.

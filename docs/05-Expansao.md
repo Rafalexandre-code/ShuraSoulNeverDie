@@ -94,15 +94,15 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 | 8.3 | Karma persistente | ✅ eventos, falas e relíquias (a forma do Ashura vem na Fase 5) |
 | 8.4 | Poema de morte (jisei) | ✅ |
 | 8.5 | Gestos rituais | ✅ Chiburi e Nōtō, reverência, oração |
-| 8.6 | Finais | 🔶 os três finais de Karma no fim da Peregrinação; contra o Ashura e o final secreto na Fase 5 |
+| 8.6 | Finais | ✅ os quatro, ao derrotar o Ashura (O Novo Ashura como chefe dos amigos vem com o online) |
 | 8.7 | História no ambiente | ✅ itens, lendas dos inimigos, corvos, raposas, pétalas no Mushin |
 
-## Fase 5 — Inimigos, IA e online (§5, §9) — 🔶 parte 1 (v0.11.0)
+## Fase 5 — Inimigos, IA e online (§5, §9) — 🔶 partes 1 e 2 (v0.11.0, v0.12.0)
 
 | § | Item | Estado |
 |---|---|---|
 | 5.1 | Rivais do Shuradō (Nêmesis) | ✅ (rivais na run de amigos ficam para a parte do online) |
-| 5.2 | Chefes de bioma (Kagutsuchi, Jorōgumo, Ō-Kyūketsuki, Gashadokuro Colossal, Yuki-onna, Ashura) | ⏳ |
+| 5.2 | Chefes de bioma (Kagutsuchi, Jorōgumo, Ō-Kyūketsuki, Gashadokuro Colossal, Yuki-onna, Ashura) | ✅ |
 | 5.3 | Ecologia e facções | ⏳ |
 | 5.4 | Formações e combos | ⏳ |
 | 5.5 | Afixos de elite | ✅ (Fase 1) |
@@ -234,6 +234,19 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **IA adaptativa 2.0**: quatro leituras novas — **FLANCO** (você ataca pelas costas: eles giram mais rápido), **FERRAMENTA** (você joga muito: eles desviam dos projéteis), **TROCA** (você vive da Troca Perfeita: eles seguram mais golpes) e **CURA** (você bebe muito: com a cabaça vazia, eles pressionam). Cada leitura tem um **medidor de 0 a 3** (●●○) no HUD e entre as salas.
 - **Contra-leitura**: com uma leitura no terceiro traço, faça o contrário do que eles esperam — um parry limpo contra ATRASO, DEFESA, PERSEGUIÇÃO ou TROCA; uma esquiva perfeita de golpe vermelho contra PERIGO; um golpe de frente contra PRESSÃO, FLANCO ou FERRAMENTA; uma finalização contra CURA — e o golpe causa **postura em dobro** (ou cura, no caso da CURA) e a leitura **zera**. Iscar a IA vira estratégia.
 - **O Shura Lembra** (Configurações, opcional): cada run começa com a leitura média das suas últimas cinco runs.
+
+## Fase 5, parte 2: os Senhores dos Biomas e o Ashura (v0.12.0) — ✅
+
+- **Senhores dos Biomas**: a última sala de cinco biomas vira o **Trono** de um chefe com arena própria, **três fases** e uma barra de postura por fase. No HUD: nome e título, as três marcas de fase (como contagem de golpes de misericórdia), vida e postura. Uma finalização (ou a vida zerada) nas duas primeiras fases só encerra a fase: o chefe se levanta com tudo cheio, golpes novos e a arena mudada.
+- **Ponto de Ruptura**: cada chefe tem uma resposta de mestre ao golpe-assinatura (o nome aparece sob a barra). Encontrá-la **pula a fase inteira** e, no fim, deixa um **item exclusivo** ancestral com o nome do chefe para cada um do grupo.
+- **Kagutsuchi, o Samurai em Chamas** (Cinzas, sala 5): cada parry espalha brasas que explodem no chão, e um **círculo de fogo fecha a arena** a cada fase (fora dele, queima). Ruptura: *Pisar na Lâmina* (contra-estocada na Estocada do Vulcão).
+- **Jorōgumo, a Senhora Aranha** (Musgo, sala 15): envolta em **seda**, ela quase não sente os golpes até uma **Troca Perfeita** rasgar a teia (seis segundos vulnerável); **teias no chão** prendem o passo e encurtam a esquiva. Ruptura: *Rasgar o Abraço* (Troca Perfeita no golpe espiritual dela).
+- **Ō-Kyūketsuki, o Grande Vampiro** (Sangue, sala 20): cada golpe que acerta **bebe o seu Fluxo** e o cura; a **terceira fase é um duelo no escuro**, sem anéis, só o corpo e o som. Ruptura: *Fugir do Beijo* (esquiva perfeita no Beijo Rubro).
+- **Gashadokuro Colossal** (Abismo, sala 25): três vezes maior que um homem e com **duas mãos** que lutam sozinhas; enquanto uma mão estiver de pé, o **crânio fica fechado**. Quebre as duas para abrir. Ruptura: *Escapar do Abraço*.
+- **Yuki-onna, a Mulher da Neve** (Gelo, sala 30): os golpes **congelam o anel no meio do caminho** e o tempo de resposta encurta a cada fase. Ruptura: *Quebrar o Gelo*.
+- **Ashura, Rei do Shuradō** (sala 50 e a cada 50): **três braços, três armas, três anéis ao mesmo tempo** — os dois braços flutuantes atacam junto com ele — e na terceira fase ergue o seu **Asura Interior**, com as suas técnicas. Ruptura: *O Julgamento Aparado*.
+- **Finais** (§8.6), decididos na queda do Ashura: **Libertação** (Karma acima de +60), **O Novo Ashura** (com o Shura em 100), **As Camélias Caem Inteiras** (o final secreto: a missão de Tsubaki e os cinco Generais rivais vingados) e **Roda Eterna** (o Karma neutro: a jornada segue para o próximo Kalpa). Na Peregrinação e na Torre, a última sala é o Ashura.
+- Cada chefe derrotado rende 2 Aço Celeste a mais; os elites com afixos e a regra dos Guardiões Gêmeos não se aplicam aos chefes.
 
 ## Apresentação e acessibilidade (§10) — ⏳
 

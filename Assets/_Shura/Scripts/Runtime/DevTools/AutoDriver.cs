@@ -434,6 +434,18 @@ namespace Shura
                 Shot("play");
                 nextShot = elapsed + ShotInterval;
             }
+            // A Lord in the room: photograph the fight before the tour moves on.
+            Enemy lord = game.World.BossInRoom;
+            if (lord != null && !lord.IsGone && bossShots < 6)
+            {
+                if (elapsed >= nextBossShot)
+                {
+                    Shot("chefe");
+                    bossShots++;
+                    nextBossShot = elapsed + 2.5f;
+                }
+                return;
+            }
             if (!skippedRoom && elapsed > ShotTourSkipRoomAt && game.Run != null && game.Run.RoomIndex == 0)
             {
                 skippedRoom = true;
@@ -447,6 +459,8 @@ namespace Shura
         bool arsenalShotDone;
         bool controlsShotDone;
         int soulShots;
+        int bossShots;
+        float nextBossShot;
 
         bool ShotThenAct(string name, float wait)
         {

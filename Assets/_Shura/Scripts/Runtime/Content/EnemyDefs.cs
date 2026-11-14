@@ -90,7 +90,7 @@ namespace Shura
     {
         // ── Builders (keep the tables below readable) ───────────────────────────────
 
-        static AttackDef Arc(string id, int windup, int active, int recovery, int track, float damage, float posture,
+        internal static AttackDef Arc(string id, int windup, int active, int recovery, int track, float damage, float posture,
                              float parried, float range, float degrees, float lunge, AttackKind kind = AttackKind.Normal)
         {
             return new AttackDef
@@ -101,7 +101,7 @@ namespace Shura
             };
         }
 
-        static AttackDef Line(string id, int windup, int active, int recovery, int track, float damage, float posture,
+        internal static AttackDef Line(string id, int windup, int active, int recovery, int track, float damage, float posture,
                               float parried, float length, float width, float lunge, AttackKind kind = AttackKind.Normal)
         {
             return new AttackDef
@@ -112,7 +112,7 @@ namespace Shura
             };
         }
 
-        static AttackDef Shot(string id, int windup, int recovery, int track, float damage, float posture, float reflectedPosture, float speed)
+        internal static AttackDef Shot(string id, int windup, int recovery, int track, float damage, float posture, float reflectedPosture, float speed)
         {
             return new AttackDef
             {
@@ -122,19 +122,19 @@ namespace Shura
             };
         }
 
-        static MoveDef Move(string id, float minRange, float maxRange, int weight, params AttackDef[] steps)
+        internal static MoveDef Move(string id, float minRange, float maxRange, int weight, params AttackDef[] steps)
         {
             return new MoveDef { id = id, minRange = minRange, maxRange = maxRange, weight = weight, steps = steps };
         }
 
-        static MoveDef Signature(string id, float minRange, float maxRange, int weight, params AttackDef[] steps)
+        internal static MoveDef Signature(string id, float minRange, float maxRange, int weight, params AttackDef[] steps)
         {
             MoveDef m = Move(id, minRange, maxRange, weight, steps);
             m.isSignature = true;
             return m;
         }
 
-        static AttackDef Sweep(string id, int windup, int active, int recovery, float damage, float radius)
+        internal static AttackDef Sweep(string id, int windup, int active, int recovery, float damage, float radius)
         {
             return new AttackDef
             {
@@ -144,7 +144,7 @@ namespace Shura
         }
 
         /// <summary>Several projectiles thrown at once in a fan; each one parries back on its own.</summary>
-        static AttackDef Fan(string id, int windup, int recovery, int track, float damage, float posture, float reflectedPosture,
+        internal static AttackDef Fan(string id, int windup, int recovery, int track, float damage, float posture, float reflectedPosture,
                              float speed, int count, float spread, string art)
         {
             AttackDef a = Shot(id, windup, recovery, track, damage, posture, reflectedPosture, speed);
@@ -155,7 +155,7 @@ namespace Shura
         }
 
         /// <summary>A circle marked on the floor under the target that explodes after the fuse.</summary>
-        static AttackDef Blast(string id, int windup, int recovery, float damage, float posture, float radius, int fuse,
+        internal static AttackDef Blast(string id, int windup, int recovery, float damage, float posture, float radius, int fuse,
                                BlastKind kind, int count = 1, float scatter = 0f)
         {
             return new AttackDef
@@ -166,7 +166,7 @@ namespace Shura
             };
         }
 
-        static AttackDef Summon(string id, int windup, int recovery, int count)
+        internal static AttackDef Summon(string id, int windup, int recovery, int count)
         {
             return new AttackDef
             {
@@ -175,7 +175,7 @@ namespace Shura
             };
         }
 
-        static AttackDef Stance(string id, int windup)
+        internal static AttackDef Stance(string id, int windup)
         {
             return new AttackDef
             {
@@ -184,7 +184,7 @@ namespace Shura
             };
         }
 
-        static AttackDef Feint(string id, int windup)
+        internal static AttackDef Feint(string id, int windup)
         {
             return new AttackDef
             {
@@ -193,7 +193,7 @@ namespace Shura
             };
         }
 
-        static AttackDef With(AttackDef a, System.Action<AttackDef> setup)
+        internal static AttackDef With(AttackDef a, System.Action<AttackDef> setup)
         {
             setup(a);
             return a;
@@ -717,23 +717,26 @@ namespace Shura
         /// <summary>Met only through the road (events), never placed by the room generator.</summary>
         public static readonly EnemyDef[] Specials = { Kitsune };
 
-        static readonly Dictionary<string, EnemyDef> ById = BuildIndex();
+        // Built on first use: the Lords (BossDefs) reference these builders, so the index must not
+        // be built while either class is still initialising.
+        static Dictionary<string, EnemyDef> byId;
+        static Dictionary<string, EnemyDef> ById => byId ?? (byId = BuildIndex());
 
-        static AttackDef Teleporting(AttackDef a)
+        internal static AttackDef Teleporting(AttackDef a)
         {
             a.teleportBehind = true;
             return a;
         }
 
         /// <summary>A spirit blow: steel does not stop it — only a Troca Perfeita (or a dodge).</summary>
-        static AttackDef Spirit(AttackDef a)
+        internal static AttackDef Spirit(AttackDef a)
         {
             a.kind = AttackKind.Spirit;
             return a;
         }
 
         /// <summary>A cursed blow: blocking it curses you (heals stop, Shura rises).</summary>
-        static AttackDef Cursed(AttackDef a)
+        internal static AttackDef Cursed(AttackDef a)
         {
             a.cursed = true;
             return a;
@@ -803,6 +806,7 @@ namespace Shura
             foreach (EnemyDef def in All) index[def.id] = def;
             foreach (EnemyDef def in Minions) index[def.id] = def;
             foreach (EnemyDef def in Specials) index[def.id] = def;
+            foreach (EnemyDef def in BossDefs.Defs()) index[def.id] = def;
             return index;
         }
 

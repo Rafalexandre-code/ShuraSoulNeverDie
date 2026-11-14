@@ -36,6 +36,10 @@ namespace Shura
         public int ChallengesWon;
         /// <summary>The way this road is walked (design doc §7.8).</summary>
         public RunMode Mode;
+        /// <summary>Lords of the biomes (and Ashuras) defeated this run.</summary>
+        public int BossesKilled;
+        /// <summary>The ending the Ashura's fall decided (§8.6), waiting for the room to end.</summary>
+        public string PendingEnding;
         /// <summary>Finished runs when this one began: the layers open with them (§7.7). Max = everything.</summary>
         public int UnlockRuns = int.MaxValue;
 

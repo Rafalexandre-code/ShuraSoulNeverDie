@@ -121,6 +121,7 @@ namespace Shura
         {
             switch (ending)
             {
+                case Endings.Secret: return "AS CAMÉLIAS CAEM INTEIRAS";
                 case EndingLiberation: return "LIBERTAÇÃO";
                 case EndingShura: return "O NOVO ASHURA";
                 default: return "RODA ETERNA";
@@ -131,6 +132,9 @@ namespace Shura
         {
             switch (ending)
             {
+                case Endings.Secret:
+                    return "O Ashura cai, e atrás do trono está Tsubaki, com a lâmina baixa. \"Os seus Generais também caíram. Não sobrou ninguém para nos prender aqui.\" " +
+                           "Vocês dois saem pelo portão do Shuradō como as camélias caem: inteiras, sem perder uma pétala.";
                 case EndingLiberation:
                     return "No fim da estrada não há inimigo. Há um rio, e do outro lado ninguém segura uma espada. " +
                            "Você pousa a lâmina na margem, e pela primeira vez em mil vidas ela não pede sangue. A roda para de girar. Você atravessa.";

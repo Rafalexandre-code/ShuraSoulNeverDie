@@ -248,6 +248,7 @@ namespace Shura
             TickRoad();
             TickTraits();
             if (TickYield()) return;
+            TickBoss();
 
             switch (CurrentState)
             {
@@ -598,6 +599,7 @@ namespace Shura
             if (enraged && !attack.stance && !attack.burrow) stepWindup = Mathf.Max(8, Mathf.RoundToInt(stepWindup * 0.72f));
             if (ArmWound) stepWindup = Mathf.RoundToInt(stepWindup * 1.2f);
             stepWindup = KalpaWindup(stepWindup);
+            stepWindup = BossWindup(stepWindup);
             bool hiddenBlade = Target != null && Target.Stance == Kamae.Waki;
             // The SWAP reading breaks the rhythm the same way the early parry does.
             float hold = Mathf.Max(traits.Delay, traits.Swap * 0.8f);
@@ -624,6 +626,8 @@ namespace Shura
 
         void TickAttack()
         {
+            // Yuki-onna: the ring freezes halfway, and so does the blow.
+            if (FrostHolding()) return;
             StepFrame++;
             AttackDef attack = CurrentAttack;
             // Arrows cue on their own flight; melee cues when the ring closes. Feints, stances
@@ -839,6 +843,15 @@ namespace Shura
             Thaw();
             if (!CanBeHit) return StrikeResult.None;
             Vector2 contact = Position - hitDir * Radius;
+            // A Lord in its web, behind its hands, or rising into its next phase barely feels it.
+            float shield = BossShield();
+            if (shield < 1f)
+            {
+                damage *= shield;
+                posture *= shield;
+                if (shield > 0f && (Webbed || SkullClosed) && rng.NextFloat() < 0.35f)
+                    world.Fx.Popup(Webbed ? Strings.PopupWebbed : Strings.PopupSkullClosed, Position + Vector2.up * 1.6f, pal.uiDim);
+            }
             // A blow on someone kneeling is an execution.
             if (Kneeling)
             {
@@ -1126,6 +1139,12 @@ namespace Shura
 
         void FinishDying()
         {
+            // A Lord in its first phases only ends the phase.
+            if (TryPhaseShift(false))
+            {
+                gibbed = false;
+                return;
+            }
             world.Coordinator.Release(this);
             CurrentMove = null;
             Health = 0f;
@@ -1377,7 +1396,7 @@ namespace Shura
             // What this computer's duelist sees: nothing in Mushin, Frenzy, or with wounded eyes.
             PlayerController viewer = world.Host;
             bool veiled = Veiled && Vector2.Distance(viewer.Position, Position) > 3f;
-            if (!world.ShowTimingIndicator || viewer.RingsHidden || veiled || !world.RingVisibleTo(viewer.Position, Position) || SilentFor(viewer))
+            if (!world.ShowTimingIndicator || viewer.RingsHidden || veiled || !world.RingVisibleTo(viewer.Position, Position) || SilentFor(viewer) || world.BossDarkness)
             {
                 timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
                 if (timingInner != null) timingInner.enabled = false;

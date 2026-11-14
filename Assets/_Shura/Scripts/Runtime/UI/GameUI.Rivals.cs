@@ -103,6 +103,28 @@ namespace Shura
             kit.Bar(new Rect(bar.x, bar.yMax + 4f, bar.width, 8f), e.Posture.Ratio, Pal.gold, Color.black.WithAlpha(0.6f));
         }
 
+        /// <summary>A Lord's banner: name and title, its three phase marks, health, posture, and the hint of its Breaking Point.</summary>
+        void DrawBossBanner()
+        {
+            Enemy e = game.World?.BossInRoom;
+            if (e == null || e.IsGone || e.Boss == null) return;
+            BossDef b = e.Boss;
+            var bar = new Rect(VW * 0.5f - 420f, 236f, 840f, 24f);
+            Label(new Rect(0, bar.y - 46f, VW, 40f), b.name + ", " + b.title, cardKindStyle, Pal.shu);
+            // Three marks, like a deathblow count: the phases still standing are lit.
+            for (int i = 0; i < BossDefs.Phases; i++)
+            {
+                var mark = new Rect(bar.x - 120f + i * 36f, bar.y - 4f, 30f, 30f);
+                bool standing = i >= e.Phase - 1;
+                kit.Dab(mark, standing ? Pal.shu : Color.black.WithAlpha(0.5f));
+            }
+            kit.Bar(bar, Mathf.Clamp01(e.Health / Mathf.Max(1f, e.MaxHealth)), Pal.shu, Color.black.WithAlpha(0.7f));
+            kit.Bar(new Rect(bar.x, bar.yMax + 4f, bar.width, 10f), e.Posture.Ratio, Pal.gold, Color.black.WithAlpha(0.6f));
+            string state = e.Webbed ? Strings.PopupWebbed : e.SkullClosed ? Strings.PopupSkullClosed : string.Format(Strings.BossPhaseMarks, e.Phase, BossDefs.Phases);
+            Label(new Rect(bar.xMax + 16f, bar.y - 4f, 300f, 30f), state, capsStyle, e.Webbed || e.SkullClosed ? UiKit.PaperDim : Pal.gold);
+            if (e.Phase < BossDefs.Phases) Label(new Rect(0, bar.yMax + 16f, VW, 26f), string.Format(Strings.BossBreak, b.breakName), capsCenterStyle, UiKit.PaperDim);
+        }
+
         /// <summary>"ATRASO ●●○": a reading and its marks (the third invites a counter-reading).</summary>
         static string ReadingWithMarks(ReadingId id, int level)
         {

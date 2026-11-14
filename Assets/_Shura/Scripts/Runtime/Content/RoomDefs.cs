@@ -439,6 +439,18 @@ namespace Shura
         static RoomDef GenerateCore(ulong runSeed, int depth, RouteNode node)
         {
             if (RouteMap.IsEncounter(node.kind)) return Encounter(runSeed, depth, node);
+            // The last room of five biomes is a Lord's throne; every fifty rooms, the Ashura's (§5.2).
+            BossDef lord = BossDefs.ForDepth(depth);
+            if (lord != null)
+            {
+                // A new enemy is still met alone first; then the Lord comes down from its throne.
+                var court = new List<EnemySpawn[]>();
+                foreach (string newcomer in NewEnemiesAt(depth)) court.Add(new[] { new EnemySpawn(newcomer) });
+                court.Add(new[] { new EnemySpawn(lord.body.id, true) });
+                var throne = new RoomDef("Trono de " + lord.name, depth, Biomes.ForDepth(depth), 26f, 16f, true,
+                                         court.ToArray(), ArenaShape.Octagon, Mix(runSeed, depth + 1000));
+                return throne;
+            }
             var rng = new SeededRandom(Mix(runSeed, depth + node.index * 101));
             Biome biome = Biomes.ForDepth(depth);
             bool guardian = IsGuardianDepth(depth);

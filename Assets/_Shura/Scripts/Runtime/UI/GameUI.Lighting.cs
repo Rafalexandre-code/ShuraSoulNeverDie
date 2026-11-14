@@ -63,6 +63,8 @@ namespace Shura
             Fireflies.Night = Mathf.Clamp01((ambient - 0.12f) / 0.3f);
             // Trait "Olhar Noturno": the disciple sees in the dark.
             if (w.Host?.Build != null && w.Host.Build.Modifiers.nightSight) ambient *= 0.5f;
+            // Ō-Kyūketsuki's third phase: a duel in the dark.
+            if (w.BossDarkness) ambient = Mathf.Max(ambient, 0.62f);
 
             Rect b = w.Bounds;
             b.xMin -= 19f;

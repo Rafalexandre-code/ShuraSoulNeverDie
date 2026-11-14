@@ -307,11 +307,14 @@ namespace Shura
                     break;
                 case RunMode.Tower:
                     Meta.towerBest = Mathf.Max(Meta.towerBest, Run.RoomsCleared);
-                    if (victory) LastLegacy.ending = "torre";
+                    if (victory) LastLegacy.ending = Run.PendingEnding ?? "torre";
                     break;
                 case RunMode.Pilgrimage:
                     Meta.pilgrimageBest = Mathf.Max(Meta.pilgrimageBest, Run.RoomsCleared);
-                    if (victory) LastLegacy.ending = GameModes.EndingFor(KarmaRules.Of(Run));
+                    if (victory) LastLegacy.ending = Run.PendingEnding ?? GameModes.EndingFor(KarmaRules.Of(Run));
+                    break;
+                default:
+                    if (victory && !string.IsNullOrEmpty(Run.PendingEnding)) LastLegacy.ending = Run.PendingEnding;
                     break;
             }
             if (!string.IsNullOrEmpty(LastLegacy.ending) && !Meta.endings.Contains(LastLegacy.ending)) Meta.endings.Add(LastLegacy.ending);

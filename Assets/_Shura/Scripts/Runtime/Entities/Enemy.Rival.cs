@@ -21,6 +21,12 @@ namespace Shura
         Vector2 fleeTo;
         int yieldFrames;
 
+        /// <summary>The Ashura's arms strike with him: the next attack comes now.</summary>
+        public void Provoke()
+        {
+            if (CurrentState == State.Engage && !Yielding) idleTimer = Mathf.Min(idleTimer, 2);
+        }
+
         public void MakeRival(Rival r)
         {
             RivalId = r.id;

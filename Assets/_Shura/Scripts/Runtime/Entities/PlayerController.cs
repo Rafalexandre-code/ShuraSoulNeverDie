@@ -928,6 +928,7 @@ namespace Shura
                     world.TryMaster(attacker, SignatureAnswer.PerfectParry, incoming.signature);
                     if (incoming.signature && attacker != null) world.RecordScroll(attacker, ScrollEvent.SignatureParry);
                     if (swap) run.Profile.OnSwapParry();
+                    world.OnBossParried(attacker, clashPoint, swap);
                     // Counter-reading: a clean parry against the ones who expected an early one or a swap.
                     float counter = swap ? 1f : world.CounterReading(CounterAct.Parry, clashPoint);
                     world.Fx.Emit(swap ? FxType.SwapParry : FxType.PerfectParry, clashPoint, toDir, FlowLevel, Weapon.color);

@@ -154,8 +154,8 @@ namespace Shura
             }
         }
 
-        float KiMoveMult => (Exhausted ? 0.6f : 1f) * world.MoveMultWorld;
-        float KiDodgeDistance => (Stance == Kamae.Gedan ? 0.8f : 1f) * (HasWound(WoundRegion.Leg) ? 0.7f : 1f);
+        float KiMoveMult => (Exhausted ? 0.6f : 1f) * world.MoveMultWorld * world.WebMult(Position);
+        float KiDodgeDistance => (Stance == Kamae.Gedan ? 0.8f : 1f) * (HasWound(WoundRegion.Leg) ? 0.7f : 1f) * world.WebMult(Position);
         int DodgeFrames => Mathf.Max(6, Mathf.RoundToInt(t.dodgeFrames * (Stance == Kamae.Gedan ? 0.8f : 1f)));
         public float HealMult =>
             (ShuraLevel >= 1 ? 0.8f : 1f) * (HasWound(WoundRegion.Torso) ? 0.5f : 1f) * (curseTime > 0f ? 0.5f : 1f) * (Build?.HealMultExtra ?? 1f) *

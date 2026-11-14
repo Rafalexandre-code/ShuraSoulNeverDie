@@ -1081,6 +1081,19 @@ namespace Shura
 
         void AdvanceAfterRoom()
         {
+            // The Ashura fell: liberation, a new Ashura, the secret — or the wheel turns again (§8.6).
+            if (!string.IsNullOrEmpty(Run.PendingEnding))
+            {
+                if (Run.PendingEnding != GameModes.EndingWheel || Run.Mode == RunMode.Pilgrimage)
+                {
+                    Victory();
+                    return;
+                }
+                Meta.endings.Remove(GameModes.EndingWheel);
+                Meta.endings.Add(GameModes.EndingWheel);
+                UI.Toast(Strings.ToastWheelTurns, Config.palette.gold);
+                Run.PendingEnding = null;
+            }
             // The Tower's top, the Pilgrimage's last room: the road ends here.
             int goal = GameModes.Goal(Run.Mode);
             if (goal > 0 && Run.RoomsCleared >= goal)

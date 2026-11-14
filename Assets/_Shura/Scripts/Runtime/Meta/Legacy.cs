@@ -42,7 +42,7 @@ namespace Shura
         {
             var r = new LegacyReport { heat = run.Oaths.Heat };
             PlayerBuild b = run.Main;
-            r.steel = Temple.SteelForRun(b.CelestialSteel, run.ElitesKilled);
+            r.steel = Temple.SteelForRun(b.CelestialSteel, run.ElitesKilled) + 2 * run.BossesKilled;
             r.fragments = b.SoulFragments;
             r.petals = Oaths.Petals(r.heat, run.RoomsCleared, run.ChallengesWon);
             r.karma = run.Karma * KarmaWeight + (b.Muramasa ? -10 : 0) + (b.Shura >= 100f ? -5 : 0);

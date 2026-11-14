@@ -652,6 +652,8 @@ namespace Shura
                     return "AFIXOS DE ELITE: os Guardiões profundos carregam marcas — vingativo, espelhado, possuído, gêmeo, velado, ancestral. Leia o nome antes de golpear.";
                 case HintId.Morale:
                     return "MORAL: o líder caiu e os humanos perderam a coragem. Quem se ajoelha espera: " + (gamepad ? "X" : "E") + " ao lado poupa (Bushidō), um golpe executa (Shura).";
+                case HintId.Boss:
+                    return "SENHOR DO BIOMA: três fases, cada uma com a sua barra de postura. Ache o Ponto de Ruptura (a resposta de mestre ao golpe-assinatura dele) para pular uma fase inteira e ganhar um item exclusivo.";
                 case HintId.Rival:
                     return "RIVAL: quem te matou ganhou nome, levou parte dos seus Ecos e voltou. Vencê-lo devolve os Ecos com 50% a mais e a técnica dele.";
                 default:

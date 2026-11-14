@@ -163,6 +163,7 @@ namespace Shura
         Soul,
         Morale,
         Rival,
+        Boss,
     }
 
     /// <summary>

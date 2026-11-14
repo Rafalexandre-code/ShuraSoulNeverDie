@@ -236,6 +236,8 @@ namespace Shura
             KarmaRules.HonorDuels = Meta.MissionDone(TeaGuests.Tsubaki);
             World.ShowTimingIndicator = Settings.timingIndicator && Run.Mode != RunMode.Master;
             Run.Oaths = Run.Has(Feature.Oaths) ? OathSet.From(Meta) : new OathSet();
+            // Online: the Oath the party voted for in the lobby (§9.7).
+            if (Net.Active && Net.JoinedCount > 0) Net.ApplyGroupOath(Run.Oaths);
             // The rivals the route map can draw lairs for; the reading the Shura remembers.
             Rivals.Roster.Clear();
             if (Run.Has(Feature.Rivals) && Run.Mode != RunMode.Tower) Rivals.Roster.AddRange(Meta.rivals);

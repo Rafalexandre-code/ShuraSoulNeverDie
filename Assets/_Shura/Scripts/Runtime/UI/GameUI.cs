@@ -328,6 +328,20 @@ namespace Shura
                         adjust = dir => game.CycleHostArt(dir),
                     });
                     AddItem(Strings.LobbyWeapons, game.OpenArsenal);
+                    items.Add(new MenuItem
+                    {
+                        label = Strings.LobbyPact,
+                        value = () => game.Net.HostPactLabel(),
+                        activate = () => game.Net.CycleHostPact(1),
+                        adjust = dir => game.Net.CycleHostPact(dir),
+                    });
+                    items.Add(new MenuItem
+                    {
+                        label = Strings.LobbyOath,
+                        value = () => NetSession.OathLabel(game.Net.HostOathVote, 0),
+                        activate = () => game.Net.CycleHostOath(1),
+                        adjust = dir => game.Net.CycleHostOath(dir),
+                    });
                     if (game.Steam.Ready) AddItem(Strings.SteamInvite, OpenInvites);
                     AddItem(Strings.Altar, game.OpenAltar);
                     AddItem(Strings.LobbyClose, game.CloseLobby);
@@ -466,6 +480,16 @@ namespace Shura
                     break;
                 case Game.Mode.GameOver:
                     AddItem(game.Meta.heirs.Count > 0 ? Strings.HeirChoose : Strings.NewRun, game.NewRunFromEnd);
+                    if (game.LastInk != null)
+                    {
+                        items.Add(new MenuItem
+                        {
+                            label = Strings.InkItem,
+                            value = () => "“" + game.LastInk.Text + "”",
+                            activate = () => game.EditInk(1, true),
+                            adjust = dir => game.EditInk(dir, false),
+                        });
+                    }
                     AddItem(Strings.Arsenal, game.OpenArsenal);
                     AddItem(Strings.Temple, game.OpenTemple);
                     AddItem(Strings.MainMenu, game.QuitToMenu);

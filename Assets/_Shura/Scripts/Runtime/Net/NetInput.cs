@@ -46,6 +46,8 @@ namespace Shura
         public int ah;
         /// <summary>The player's own Altar das Almas levels ("vigor:5,postura:4"); browsers send none.</summary>
         public string mt;
+        /// <summary>The joining duelist's presence packet (§9.5), as JSON; browsers send none.</summary>
+        public string pk;
     }
 
     /// <summary>

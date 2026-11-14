@@ -95,6 +95,12 @@ namespace Shura
             }
         }
 
+        /// <summary>An Exorcist's parry: the talisman burns away at the next moment.</summary>
+        public void ReleaseSeal()
+        {
+            if (sealedFrames > 1) sealedFrames = 1;
+        }
+
         /// <summary>The corrupted priest's talisman: no technique works for a while.</summary>
         public void SealTechniques(int frames)
         {

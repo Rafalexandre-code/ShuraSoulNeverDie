@@ -93,7 +93,13 @@ namespace Shura
         public void MakeMirror(PlayerController of)
         {
             if (of == null) return;
-            EnemyDef copy = EnemyDefs.InnerAsura(of);
+            MirrorMoves(EnemyDefs.InnerAsura(of));
+        }
+
+        /// <summary>The mirror takes a duelist's combo and keeps its own signature.</summary>
+        public void MirrorMoves(EnemyDef copy)
+        {
+            if (copy == null) return;
             var list = new System.Collections.Generic.List<MoveDef>(copy.moves);
             foreach (MoveDef m in Def.moves)
             {
@@ -101,6 +107,18 @@ namespace Shura
             }
             moves = list.ToArray();
         }
+
+        /// <summary>The new Ashura: a friend's combo joins the King's own.</summary>
+        public void AddMoves(MoveDef[] extra)
+        {
+            if (extra == null || extra.Length == 0) return;
+            var list = new System.Collections.Generic.List<MoveDef>(moves);
+            list.AddRange(extra);
+            moves = list.ToArray();
+        }
+
+        /// <summary>The boss banner's name when a friend became the Ashura.</summary>
+        public string BossNameOverride { get; set; }
 
         /// <summary>The Hunt: the shadow appears at the duelist's back and strikes.</summary>
         public void AppearBehind(PlayerController t)

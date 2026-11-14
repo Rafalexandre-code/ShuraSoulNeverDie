@@ -59,7 +59,7 @@ namespace Shura
         void OnEcologySpawn(Enemy e)
         {
             if (e.Def.mimic && lastFallen != null) e.Mimic(lastFallen);
-            if (e.Def.mirror) e.MakeMirror(Host);
+            if (e.Def.mirror) MirrorFor(e, Host);
         }
 
         void TickEcology()

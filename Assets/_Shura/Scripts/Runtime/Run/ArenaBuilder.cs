@@ -282,6 +282,15 @@ namespace Shura
                     bool e = Walkable(layout, statueCells, x + 1, y), w = Walkable(layout, statueCells, x - 1, y);
                     bool ne = Walkable(layout, statueCells, x + 1, y + 1), nw = Walkable(layout, statueCells, x - 1, y + 1);
                     bool se = Walkable(layout, statueCells, x + 1, y - 1), sw = Walkable(layout, statueCells, x - 1, y - 1);
+                    // An inner corner (a step of a diagonal, the notch of a cross): the sheet has no
+                    // piece for it, so the horizontal and the vertical bands meet in a mitre.
+                    if (art && (s ^ n) && (e ^ w))
+                    {
+                        var h = new Vector2Int(ox + 3, s ? oy : oy + 4);
+                        var v = new Vector2Int(e ? ox : ox + 4, oy + 1);
+                        BlitMitre(canvas, cw, ch, wallPx, wallSheet.width, wallSheet.height, h, v, s, e, x * Tile, y * Tile, style.tint);
+                        continue;
+                    }
                     Vector2Int piece;
                     // The middle of the long edge (column 3) is seamless; column 1 ends in a joint.
                     if (s) piece = new Vector2Int(ox + 3, oy);
@@ -342,6 +351,36 @@ namespace Shura
             for (int py = 0; py < Tile; py++)
             {
                 for (int px = 0; px < Tile; px++) canvas[(y * Tile + py) * cw + x * Tile + px] = c32;
+            }
+        }
+
+        /// <summary>
+        /// Two band tiles cut along the diagonal: each pixel comes from the band whose floor edge
+        /// is nearer, so the stone turns the corner without a seam.
+        /// </summary>
+        static void BlitMitre(Color32[] canvas, int cw, int ch, Color32[] sheet, int sheetW, int sheetH,
+                              Vector2Int horizontal, Vector2Int vertical, bool floorBelow, bool floorRight, int dx, int dy, Color tint)
+        {
+            int hx = horizontal.x * Tile, hy = sheetH - (horizontal.y + 1) * Tile;
+            int vx = vertical.x * Tile, vy = sheetH - (vertical.y + 1) * Tile;
+            if (hx < 0 || hy < 0 || vx < 0 || vy < 0 || hx + Tile > sheetW || vx + Tile > sheetW) return;
+            for (int y = 0; y < Tile; y++)
+            {
+                int ty = dy + y;
+                if (ty < 0 || ty >= ch) continue;
+                int toHorizontal = floorBelow ? y : Tile - 1 - y;
+                for (int x = 0; x < Tile; x++)
+                {
+                    int tx = dx + x;
+                    if (tx < 0 || tx >= cw) continue;
+                    int toVertical = floorRight ? Tile - 1 - x : x;
+                    Color32 c = toHorizontal <= toVertical ? sheet[(hy + y) * sheetW + hx + x] : sheet[(vy + y) * sheetW + vx + x];
+                    if (c.a < 128) continue;
+                    canvas[ty * cw + tx] = new Color32(
+                        (byte)Mathf.Clamp(c.r * tint.r, 0f, 255f),
+                        (byte)Mathf.Clamp(c.g * tint.g, 0f, 255f),
+                        (byte)Mathf.Clamp(c.b * tint.b, 0f, 255f), 255);
+                }
             }
         }
 

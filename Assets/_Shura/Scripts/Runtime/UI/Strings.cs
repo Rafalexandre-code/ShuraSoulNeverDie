@@ -454,8 +454,8 @@ namespace Shura
         public const string NetLeft = "{0} saiu";
         public const string NetPortError = "Não deu para abrir a porta {0}: {1}";
         public const string OnlineBadge = "ONLINE  ·  {0} duelistas";
-        public const string ReviveHold = "Segure E para reviver {0}";
-        public const string ReviveHoldPad = "Segure X para reviver {0}";
+        public const string ReviveHold = "Segure E para reviver {0}  ·  E + B: oferecer uma técnica (na hora)";
+        public const string ReviveHoldPad = "Segure X para reviver {0}  ·  X + L3: oferecer uma técnica (na hora)";
         public const string YouFell = "Você caiu. Um aliado pode te reviver ficando sobre você e segurando E.";
         public const string PopupGuardBroken = "GUARDA QUEBRADA";
 
@@ -656,6 +656,10 @@ namespace Shura
                     return "FACÇÕES: humanos, yokai, oni e mortos brigam entre si quando o golpe de um acerta o outro. A Xamã só cura os seus, o Onryō levanta humanos caídos e o Kappa foge do fogo.";
                 case HintId.Formation:
                     return "FORMAÇÃO: alguns inimigos lutam juntos. Leia quem protege quem e quebre a peça certa primeiro.";
+                case HintId.Roles:
+                    return "PAPÉIS: os inimigos caçam quem os ameaça (dano, parries perfeitos, Kiai, kamae alta). Montante/Kanabō seguram a atenção, Tessen cura a postura de quem está perto, Wakizashi fere mais quem luta com outro, Shakujō quebra selos e espíritos.";
+                case HintId.Presence:
+                    return "PRESENÇA: amigos com quem você jogou deixam mensagens de tinta e manchas de sangue nas mesmas profundidades. " + (gamepad ? "X" : "E") + " sobre a tinta aprova a mensagem; sobre a mancha, mostra os últimos passos de quem caiu.";
                 case HintId.Boss:
                     return "SENHOR DO BIOMA: três fases, cada uma com a sua barra de postura. Ache o Ponto de Ruptura (a resposta de mestre ao golpe-assinatura dele) para pular uma fase inteira e ganhar um item exclusivo.";
                 case HintId.Rival:

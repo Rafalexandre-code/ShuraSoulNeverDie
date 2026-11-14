@@ -37,6 +37,7 @@ namespace Shura
             // The scar you left: a wound that never closed.
             if (System.Enum.TryParse(r.scar, out WoundRegion scar)) enemy.Wound(scar);
             Fx.Toast(r.name, Config.palette.danger);
+            if (!string.IsNullOrEmpty(r.foreign)) Fx.Toast(string.Format(Strings.RivalLent, r.foreign), Config.palette.uiText);
             Fx.Toast("“" + Rivals.Taunt(r, Depth) + "”", Config.palette.uiText);
             HintOnce(HintId.Rival);
             return enemy;

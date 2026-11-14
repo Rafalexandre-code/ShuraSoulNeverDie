@@ -24,7 +24,7 @@ namespace Shura
     ///   * input leaves every frame something changes, with each press counted, so a lost
     ///     packet never loses a press.
     /// </summary>
-    public sealed class RemoteSession
+    public sealed partial class RemoteSession
     {
         public sealed class Snap
         {
@@ -266,6 +266,12 @@ namespace Shura
                     break;
                 case "room":
                     OnRoom(m);
+                    break;
+                case "presence":
+                    OnPresence(m);
+                    break;
+                case "lobbyx":
+                    OnLobbyExtra(m);
                     break;
                 case "rewards":
                     Cards.Clear();
@@ -786,7 +792,8 @@ namespace Shura
             GameSettings s = game.Settings;
             sb.Clear();
             sb.Append("{\"t\":\"join\",\"name\":").Str(GuestName).Append(",\"a\":").Str(s.Loadout(s.weaponA)).Append(",\"b\":").Str(s.Loadout(s.weaponB))
-              .Append(",\"art\":").Int(s.playerArt).Append(",\"mt\":").Str(game.Meta.LevelsCode()).Append('}');
+              .Append(",\"art\":").Int(s.playerArt).Append(",\"mt\":").Str(game.Meta.LevelsCode())
+              .Append(",\"pk\":").Str(PresenceJson()).Append('}');
             Send(sb.ToString());
         }
 
@@ -839,6 +846,11 @@ namespace Shura
             botTick++;
             Snap s = Latest;
             if (s == null) return;
+            if (Between && MyPact < 0 && botTick % 30 == 15 && s.P != null && s.P.Count > 1)
+            {
+                CyclePact(1);
+                CycleOath(1);
+            }
             if (Between && !Ready && botTick % 30 == 0) ToggleReady();
             if (Cards.Count > 0 && botTick % 40 == 0) Pick(0);
             if (Doors.Count > 0 && MyVote < 0 && botTick % 40 == 0) Vote(0);

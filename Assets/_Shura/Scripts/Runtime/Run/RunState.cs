@@ -53,6 +53,8 @@ namespace Shura
         public readonly List<KalpaRule> KalpaRules = new List<KalpaRule>();
         /// <summary>The wounded ronin walks with the party this many more rooms.</summary>
         public int AllyRooms;
+        /// <summary>A friend's spirit already came to help in this run (once per run, §9.5).</summary>
+        public bool SpiritCame;
         /// <summary>The door the party came through (null before the first choice).</summary>
         public RouteNode CurrentNode;
 

@@ -62,7 +62,8 @@ namespace Shura
                 });
             }
             Label(new Rect(right.x + 70f, right.y + 46f, 700f, 32f), string.Format(Strings.LobbyPartyCount, partySlots.Count, PartyScaling.MaxPlayers), capsStyle, UiKit.Shu);
-            DrawPartySlots(new Rect(right.x + 60f, right.y + 90f, right.width - 120f, 368f));
+            DrawPartySlots(new Rect(right.x + 60f, right.y + 90f, right.width - 120f, 340f));
+            FitLabel(new Rect(right.x + 70f, right.y + 440f, right.width - 140f, 30f), net.LobbyPartyLine(), smallStyle, UiKit.InkSoft);
 
             // How friends get in.
             float y = right.y + 484f;
@@ -210,7 +211,8 @@ namespace Shura
                 }
             }
             Label(new Rect(right.x + 70f, right.y + 46f, 700f, 32f), string.Format(Strings.LobbyPartyCount, partySlots.Count, PartyScaling.MaxPlayers), capsStyle, UiKit.Shu);
-            DrawPartySlots(new Rect(right.x + 60f, right.y + 90f, right.width - 120f, 368f));
+            DrawPartySlots(new Rect(right.x + 60f, right.y + 90f, right.width - 120f, 340f));
+            FitLabel(new Rect(right.x + 70f, right.y + 440f, right.width - 140f, 30f), r.LobbyPartyLine(), smallStyle, UiKit.InkSoft);
 
             float y = right.y + 484f;
             Label(new Rect(right.x + 70f, y, 700f, 32f), Strings.RemoteHowTitle, capsStyle, UiKit.Shu);

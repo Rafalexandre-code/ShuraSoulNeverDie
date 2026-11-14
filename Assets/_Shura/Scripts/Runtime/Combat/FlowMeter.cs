@@ -52,6 +52,9 @@ namespace Shura
             return Level;
         }
 
+        /// <summary>A shared pool (Blood Pact): the meter takes the pool's value.</summary>
+        public void Set(float points) => Points = Mathf.Clamp(points, 0f, maxPoints);
+
         public int DropLevels(int levels)
         {
             int target = Mathf.Max(0, Level - Mathf.Max(1, levels));

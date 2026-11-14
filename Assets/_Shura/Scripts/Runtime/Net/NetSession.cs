@@ -15,7 +15,7 @@ namespace Shura
     /// <see cref="PlayerController"/>, and streams the state back ~30 times a second together
     /// with every hit, parry and drop of blood. Up to 8 players (host + 7).
     /// </summary>
-    public sealed class NetSession
+    public sealed partial class NetSession
     {
         public const int DefaultPort = 7777;
         /// <summary>45 a second: less waiting between what the host sees and what the guests see.</summary>
@@ -44,6 +44,10 @@ namespace Shura
             public readonly List<RewardDef> choices = new List<RewardDef>();
             /// <summary>Cards still to take (a dispute gives two).</summary>
             public int picksLeft = 1;
+            /// <summary>Lobby: the duelist they offer a Blood Pact to (-1 nobody, 0 the host).</summary>
+            public int pact = -1;
+            /// <summary>Lobby: the Oath they vote for ("" none).</summary>
+            public string oathVote = "";
         }
 
         readonly Game game;
@@ -270,6 +274,12 @@ namespace Shura
                 case "inv":
                     if (r.joined) SendInventory(r);
                     break;
+                case "pact":
+                    if (r.joined) ChoosePact(r, m.i);
+                    break;
+                case "oath":
+                    if (r.joined) VoteOath(r, m.a);
+                    break;
                 case "gping":
                     // A native guest measures its own ping (it predicts its duelist that far ahead).
                     server.Send(r.id, "{\"t\":\"gpong\",\"c\":" + m.c.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "}");
@@ -312,6 +322,8 @@ namespace Shura
             sb.Append("{\"t\":\"welcome\",\"id\":").Int(r.id).Append(",\"art\":").Int(r.art).Append('}');
             server.Send(r.id, sb.ToString());
             if (roomMessage != null) server.Send(r.id, roomMessage);
+            ReceivePresence(r, m.pk);
+            BroadcastLobbyExtra();
             game.UI.Toast(string.Format(Strings.NetJoined, r.name), game.Config.palette.gold);
             Debug.Log("[Shura][Net] Entrou: " + r.name + " (" + r.address + ") com " + r.weaponA + "+" + r.weaponB);
         }
@@ -319,6 +331,7 @@ namespace Shura
         /// <summary>The run's builds exist: every guest's takes their own Altar das Almas.</summary>
         public void AfterRunBegan()
         {
+            SealPacts();
             foreach (Remote r in remotes.Values)
             {
                 if (r.joined && r.player?.Build != null) ApplyOwnAltar(r, true);
@@ -554,6 +567,7 @@ namespace Shura
             if (!remotes.TryGetValue(id, out Remote r)) return;
             remotes.Remove(id);
             r.input.Release();
+            ForgetPacts(id);
             if (r.player != null)
             {
                 game.World.RemovePlayer(r.player);

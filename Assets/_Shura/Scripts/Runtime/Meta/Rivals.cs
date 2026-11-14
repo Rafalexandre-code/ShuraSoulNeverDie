@@ -29,6 +29,8 @@ namespace Shura
         /// <summary>Where you wounded it (a WoundRegion name), and what it costs it now.</summary>
         public string scar = "";
         public string victim = "";
+        /// <summary>A friend's rival lent by the online presence (§9.5): their name, empty for your own.</summary>
+        public string foreign = "";
         /// <summary>A General's bodyguards lost to fallen captains, and its fury.</summary>
         public int guardsLost;
         public bool furious;
@@ -47,6 +49,7 @@ namespace Shura
             if (victim == null) victim = "";
             if (name == null) name = "";
             if (surname == null) surname = "";
+            if (foreign == null) foreign = "";
         }
     }
 

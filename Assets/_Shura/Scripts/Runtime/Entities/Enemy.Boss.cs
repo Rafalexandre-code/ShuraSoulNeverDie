@@ -29,7 +29,7 @@ namespace Shura
         {
             Boss = b;
             Phase = 1;
-            moves = b.phases[0];
+            moves = WithGroupBlow(b.phases[0]);
             Webbed = b.kind == BossKind.Web;
         }
 
@@ -48,7 +48,7 @@ namespace Shura
             if (Boss == null || Phase >= BossDefs.Phases) return false;
             Phase++;
             if (breakThrough) BrokeThrough = true;
-            moves = Boss.phases[Phase - 1];
+            moves = WithGroupBlow(Boss.phases[Phase - 1]);
             world.Coordinator.Release(this);
             CurrentMove = null;
             Health = MaxHealth;

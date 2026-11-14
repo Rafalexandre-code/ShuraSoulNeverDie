@@ -860,6 +860,7 @@ namespace Shura
             if (Run == null || Run.Banked) return;
             Run.EcosBanked = MetaRules.EcosForRun(Run);
             Run.Banked = true;
+            RecordPresence(died);
             int runsBefore = Meta.runs;
             Meta.RecordRun(Run.EcosBanked, Run.RoomsCleared, victory);
             BankLegacy(died, victory);
@@ -871,6 +872,30 @@ namespace Shura
         void SaveMeta()
         {
             MetaStore.Save(Meta, metaPath);
+        }
+
+        /// <summary>Save now (a friend's presence arrived online).</summary>
+        public void PersistMeta() => SaveMeta();
+
+        /// <summary>The ink message written where the duelist fell this run (edited on the death screen).</summary>
+        public InkMessage LastInk { get; private set; }
+
+        /// <summary>A fall or the end of a run: the spirit learns your habits; a fall leaves a stain and a message.</summary>
+        void RecordPresence(bool died)
+        {
+            LastInk = null;
+            if (World?.Host == null || World.TutorialRoom || Run.Mode == RunMode.Tower || Run.RoomsCleared <= 0 && !died) return;
+            Presence.RecordSpirit(Meta, Settings.playerName, World.Host, Run.Profile);
+            if (died) LastInk = Presence.RecordDeath(Meta, Settings.playerName, World.Depth, World.Host.Position, World.Host.LastHurtBy, World.Host.ArtIndex, World.HostTrail);
+        }
+
+        /// <summary>The death screen: the message changes words (← →) or its sentence (Enter).</summary>
+        public void EditInk(int dir, bool template)
+        {
+            if (LastInk == null) return;
+            if (template) LastInk.template = (LastInk.template + 1) % Presence.Templates.Length;
+            else LastInk.word = (LastInk.word + (dir >= 0 ? 1 : Presence.Words.Length - 1)) % Presence.Words.Length;
+            SaveMeta();
         }
 
         void SpawnEmbers(float dt)
@@ -1084,6 +1109,8 @@ namespace Shura
             // The Ashura fell: liberation, a new Ashura, the secret — or the wheel turns again (§8.6).
             if (!string.IsNullOrEmpty(Run.PendingEnding))
             {
+                // You became the Ashura: your friends will meet you at the end of their runs for a week.
+                if (Run.PendingEnding == GameModes.EndingShura) Presence.RecordAshura(Meta, Settings.playerName, World.Host);
                 if (Run.PendingEnding != GameModes.EndingWheel || Run.Mode == RunMode.Pilgrimage)
                 {
                     Victory();

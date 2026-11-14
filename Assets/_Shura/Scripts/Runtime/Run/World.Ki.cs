@@ -32,6 +32,7 @@ namespace Shura
         public void RegisterKiai(PlayerController p)
         {
             if (Run == null) return;
+            if (p.IsAlive) AddThreat(p, 40f);
             kiaiTimes[p] = Run.Elapsed;
             int together = 0;
             foreach (KeyValuePair<PlayerController, float> k in kiaiTimes)
@@ -54,6 +55,7 @@ namespace Shura
 
         public void RegisterResonance(Enemy e, PlayerController p)
         {
+            OnPartyParry(p, e);
             if (Run == null || e == null) return;
             if (!resonance.TryGetValue(e, out Dictionary<PlayerController, float> map))
             {

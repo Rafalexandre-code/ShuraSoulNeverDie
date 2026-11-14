@@ -97,20 +97,25 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 | 8.6 | Finais | ✅ os quatro, ao derrotar o Ashura (O Novo Ashura como chefe dos amigos vem com o online) |
 | 8.7 | História no ambiente | ✅ itens, lendas dos inimigos, corvos, raposas, pétalas no Mushin |
 
-## Fase 5 — Inimigos, IA e online (§5, §9) — 🔶 partes 1 a 3 (v0.11.0 a v0.13.0); falta o online
+## Fase 5 — Inimigos, IA e online (§5, §9) — 🔶 partes 1 a 4 (v0.11.0 a v0.14.0); falta o PvP
 
 | § | Item | Estado |
 |---|---|---|
-| 5.1 | Rivais do Shuradō (Nêmesis) | ✅ (rivais na run de amigos ficam para a parte do online) |
+| 5.1 | Rivais do Shuradō (Nêmesis) | ✅ (e os rivais de um amigo entram no seu roster — parte 4) |
 | 5.2 | Chefes de bioma (Kagutsuchi, Jorōgumo, Ō-Kyūketsuki, Gashadokuro Colossal, Yuki-onna, Ashura) | ✅ |
 | 5.3 | Ecologia e facções | ✅ |
 | 5.4 | Formações e combos | ✅ |
 | 5.5 | Afixos de elite | ✅ (Fase 1) |
 | 5.6 | IA adaptativa 2.0 | ✅ |
 | 5.7 | Moral e rendição | ✅ |
-| 5.8 | Doze inimigos novos | ✅ (o Espelho do Shura copia o próprio duelista até o online trazer as runs de outros jogadores) |
+| 5.8 | Doze inimigos novos | ✅ (o Espelho do Shura copia a arma de um amigo quando há um) |
 | 9.1 | Ações conjuntas | 🟡 kiai em grupo, ressonância e golpe de grupo feitos (Fase 1) |
-| 9.2–9.7 | Ameaça e papéis, queda e resgate, Pacto de Sangue, presença assíncrona, PvP, lobby como lugar | ⏳ |
+| 9.2 | Ameaça e papéis | ✅ |
+| 9.3 | Queda e resgate | ✅ |
+| 9.4 | Pacto de Sangue | ✅ |
+| 9.5 | Presença assíncrona | ✅ sem servidor: o que cada um deixa viaja quando vocês jogam juntos |
+| 9.6 | Modos competitivos (PvP) | ⏳ exige netcode de rollback (simulação revertida a cada frame): uma parte própria |
+| 9.7 | Lobby como lugar | 🟡 o voto do Juramento do grupo e os pactos no lobby; andar e treinar no pátio do Templo fica com o PvP |
 
 ## HUD de batalha (pedido do diretor, antes da Fase 3) — ✅
 
@@ -271,6 +276,28 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
   - **Sacerdote Corrompido** — talismãs que **selam as suas técnicas por 5 s** (*Selo Proibido*: o parry perfeito sela os golpes vermelhos de quem atacou).
   - **Duelista Cego** — **não vê você**: se você ficar imóvel, ele perde o rastro (*Ouvido Interior*: +1 frame de parry).
   - **Espelho do Shura** — luta com **a sua própria arma e o seu combo** (*Reflexo*: o parry perfeito devolve o golpe).
+
+## Fase 5, parte 4: jogar junto, não só lado a lado (v0.14.0) — ✅
+
+- **Ameaça e papéis (§9.2)**: com dois ou mais duelistas, os inimigos escolhem o alvo pela **ameaça** — dano causado, parries perfeitos (+30), Kiai (+40, a "provocação") — que se apaga 20% por segundo; 25 de ameaça pesam como um metro de distância. A kamae **Jōdan** atrai 60% mais. O papel nasce das lâminas (anunciado no início de cada sala):
+  - **Vanguarda** (Montante, Kanabō): ameaça ×1,6.
+  - **Guardião** (Tessen): o parry perfeito devolve 15 de postura a quem está a até 3,5 m.
+  - **Caçador** (Wakizashi): +30% de dano em quem está lutando com outro.
+  - **Exorcista** (Shakujō): o parry perfeito queima os selos dos aliados perto (o Sacerdote Corrompido) e deixa sólidos os espíritos em volta.
+- **Queda e resgate (§9.3)**: quem cai vira **espírito** e ainda dá um **Kiai espiritual** (Aparar + Esquivar) a cada 10 s, que interrompe golpes e conta para o kiai em grupo. Cada **parry perfeito** perto de um caído adianta o resgate em **0,4 s**. **Oferenda**: segurando E sobre o caído, aperte **B** (L3 no controle) para sacrificar a sua técnica mais fraca e levantá-lo na hora.
+- **Pacto de Sangue (§9.4)**: no lobby, cada um escolhe a quem oferece o pacto; quando dois escolhem um ao outro, o pacto sela. Na run, os dois **dividem o Fluxo e o Shura** (um só medidor) e, se um cair, o outro entra em **Frenesi** por 10 s (+50% de dano).
+- **Juramento do grupo (§9.7)**: no lobby, cada um vota um Juramento; o mais votado (o anfitrião desempata) vale para a run de todos, somado aos juramentos do anfitrião.
+- **Presença assíncrona (§9.5)**, sem servidor: quando vocês jogam juntos, cada jogo manda ao outro um pacote com o que o duelista deixou, e ele fica salvo para as runs seguintes de cada um.
+  - **Mensagens de tinta**: quem morre deixa uma frase de vocabulário fixo onde caiu ("cuidado: a corrente", "tente kamae baixa"...). A morte sugere a palavra, e na tela de morte dá para trocar (← → a palavra, Enter a frase). Na run de um amigo, a mensagem aparece no chão da mesma profundidade; E sobre ela a **aprova**, e a aprovação chega ao autor na próxima vez que vocês jogarem juntos (contada uma vez só).
+  - **Manchas de sangue**: a queda guarda os últimos 5 s de passos; E sobre a mancha mostra o **fantasma** refazendo o caminho até cair. Aparecem as dos amigos e as das suas vidas passadas (a sua linhagem).
+  - **Espírito de um amigo**: uma vez por run, numa sala de combate, o espírito de um amigo entra para lutar ao seu lado com a arma e o ritmo gravados desse amigo (os pacientes esperam mais entre golpes).
+  - **O Novo Ashura**: quem chega ao final "O Novo Ashura" vira, por **uma semana**, o Ashura das runs dos amigos — o nome no trono e o combo da sua arma somado aos golpes do Rei.
+  - **Rivais de amigos**: os dois rivais mais fortes de um amigo entram no seu roster como capitães (com "Rival de Fulano"), com a fala que lembra quem eles mataram.
+  - O **Espelho do Shura** passa a refletir a arma de um amigo, quando há um.
+  - Limites: as mensagens, manchas e fantasmas aparecem no mundo do anfitrião (ou no jogo solo). Mortes de convidados não deixam mancha, e jogadores pelo navegador não têm pacote.
+- **Correções**:
+  - **Bordas das arenas** (pedido do diretor): nos octógonos, cruzes e pátios, a faixa de pedra parava em cada degrau da diagonal. Os cantos para dentro agora são montados em meia-esquadria, e a borda segue contínua.
+  - **Senhores dos Biomas online**: com dois ou mais jogadores, criar um chefe quebrava, porque o golpe de grupo era montado antes de o chefe ter golpes. Agora os chefes também recebem o golpe de grupo, a cada fase.
 
 ## Apresentação e acessibilidade (§10) — ⏳
 

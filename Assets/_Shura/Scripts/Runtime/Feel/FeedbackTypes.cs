@@ -166,6 +166,8 @@ namespace Shura
         Boss,
         Factions,
         Formation,
+        Roles,
+        Presence,
     }
 
     /// <summary>

@@ -99,6 +99,16 @@ namespace Shura
         float sealBarY;
 
         /// <summary>White broken ring: a huge blow only two duelists parrying together can stop.</summary>
+        /// <summary>A guardian facing a party also carries the blow only two can parry together.</summary>
+        MoveDef[] WithGroupBlow(MoveDef[] own)
+        {
+            if (own == null || world == null || world.PartySize < 2 || !IsElite) return own;
+            var list = new MoveDef[own.Length + 1];
+            own.CopyTo(list, 0);
+            list[own.Length] = GroupBlow;
+            return list;
+        }
+
         static readonly MoveDef GroupBlow = new MoveDef
         {
             id = "golpe_do_grupo", minRange = 0f, maxRange = 3.4f, weight = 1,
@@ -190,12 +200,8 @@ namespace Shura
             if (toPlayer.sqrMagnitude > 1e-4f) Facing = toPlayer.normalized;
 
             moves = def.moves;
-            if (scaling.elite && owner.PartySize >= 2)
-            {
-                moves = new MoveDef[def.moves.Length + 1];
-                def.moves.CopyTo(moves, 0);
-                moves[def.moves.Length] = GroupBlow;
-            }
+            // A Lord gets its moves from its phases after birth (def.moves is empty until then).
+            if (scaling.elite && def.moves != null) moves = WithGroupBlow(def.moves);
             if (def.tint != Color.white) SetBodyLook(def.tint, Color.clear);
             float barY = VisualTop + 0.25f;
             sealBarY = barY;

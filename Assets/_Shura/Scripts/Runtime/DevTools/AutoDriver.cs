@@ -99,7 +99,14 @@ namespace Shura
                     // Online test: start once the expected browser players are in (or give up waiting).
                     if (game.Net.JoinedCount >= game.Launch.HostWait || modeTime > 40f)
                     {
-                        if (ShotThenAct("lobby", wait))
+                        // A Blood Pact with the first guest and a vote for the first Oath (§9.4, §9.7).
+                        if (game.Net.JoinedCount > 0 && game.Net.HostPact < 0)
+                        {
+                            game.Net.CycleHostPact(1);
+                            game.Net.CycleHostOath(1);
+                        }
+                        bool pactReady = game.Net.JoinedCount == 0 || game.Net.Mutual(0, game.Net.HostPact) || modeTime > 30f;
+                        if (pactReady && ShotThenAct("lobby", wait))
                         {
                             Debug.Log("[Shura][Auto] começando online com " + game.World.Players.Count + " jogadores");
                             game.StartRun();

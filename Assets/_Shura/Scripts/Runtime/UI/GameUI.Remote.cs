@@ -163,6 +163,20 @@ namespace Shura
                     adjust = CycleGuestArt,
                 });
                 AddItem(Strings.LobbyWeapons, game.OpenArsenal);
+                items.Add(new MenuItem
+                {
+                    label = Strings.LobbyPact,
+                    value = () => Remote.PactLabel(),
+                    activate = () => Remote.CyclePact(1),
+                    adjust = dir => Remote.CyclePact(dir),
+                });
+                items.Add(new MenuItem
+                {
+                    label = Strings.LobbyOath,
+                    value = () => NetSession.OathLabel(Remote.MyOathVote, 0),
+                    activate = () => Remote.CycleOath(1),
+                    adjust = dir => Remote.CycleOath(dir),
+                });
                 AddItem(Strings.Altar, game.OpenAltar);
                 AddItem(Strings.Settings, game.OpenSettings);
                 AddItem(Strings.RemoteLeave, game.LeaveRemote);

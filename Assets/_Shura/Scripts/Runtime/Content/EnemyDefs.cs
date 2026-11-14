@@ -1003,9 +1003,12 @@ namespace Shura
         /// their combo as its chain, their Troca strike as its red signature. Built fresh every
         /// time so it always matches the build that summoned it.
         /// </summary>
-        public static EnemyDef InnerAsura(PlayerController owner)
+        public static EnemyDef InnerAsura(PlayerController owner) => InnerAsura(owner.Weapon, owner.ArtIndex, owner.DisplayName);
+
+        /// <summary>A duelist's combo turned into an enemy's moves (the inner Asura, a friend's spirit, the new Ashura).</summary>
+        public static EnemyDef InnerAsura(WeaponDef w, int artIndex, string name)
         {
-            WeaponDef w = owner.Weapon;
+            w = w ?? WeaponDefs.Katana;
             var steps = new List<AttackDef>();
             PlayerAttackDef[] combo = w.combo ?? new PlayerAttackDef[0];
             for (int i = 0; i < combo.Length; i++)
@@ -1038,10 +1041,10 @@ namespace Shura
                     shape = sw.shape, lunge = Mathf.Max(0.8f, sw.lunge + sw.dash),
                 }));
             }
-            int art = Mathf.Clamp(owner.ArtIndex, 0, PlayerController.PartyArt.Length - 1);
+            int art = Mathf.Clamp(artIndex, 0, PlayerController.PartyArt.Length - 1);
             return new EnemyDef
             {
-                id = "asura_interior", displayName = "Asura de " + owner.DisplayName,
+                id = "asura_interior", displayName = "Asura de " + name,
                 art = PlayerController.PartyArt[art], weaponArt = w.art, artScale = 1.1f,
                 shape = Shape.Diamond, color = ColorUtil.Hex("#3A0A12"),
                 weaponLength = w.length, weaponColor = ColorUtil.Hex("#D7263D"), bloodColor = ColorUtil.Hex("#2A0008"),

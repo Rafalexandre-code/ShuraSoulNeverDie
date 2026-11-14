@@ -312,7 +312,7 @@ namespace Shura
                 {
                     if (e != enemy && !e.IsGone && e.Target == p) load++;
                 }
-                float score = Vector2.Distance(p.Position, enemy.Position) + load * 4f;
+                float score = Vector2.Distance(p.Position, enemy.Position) + load * 4f - ThreatPull(p);
                 if (p.Exhausted && Adaptation.Pressure > AdaptiveTraits.ActiveThreshold) score -= 4f;
                 if (score < bestScore)
                 {
@@ -403,6 +403,8 @@ namespace Shura
                 p.ResetForRoom(PartySpawn(i));
             }
             if (firstRoom) HintOnce(HintId.Controls);
+            AssignRoles();
+            BeginPresence(room);
             if (Run != null && Run.AllyRooms > 0) SpawnAlly();
             if (room.weather != Weather.Clear) HintOnce(HintId.Weather);
             ClearBossRoom();
@@ -428,12 +430,15 @@ namespace Shura
             Run.Profile.Tick(SimClock.Dt, ActiveEnemyCount > 0 && Host.IsAlive);
             if (++adaptationTimer >= SimClock.TickRate) RefreshAdaptation();
             Coordinator.Tick();
+            TickOfferings();
             for (int i = 0; i < Players.Count; i++)
             {
                 actor = Players[i];
                 Players[i].Tick();
             }
             actor = null;
+            TickParty();
+            TickPresence();
             Standoff.Tick();
             TickRituals();
             TickBosses();
@@ -602,6 +607,7 @@ namespace Shura
             enemy.Init(this, def, at, Config, Run.Rng, scaling, summoner);
             Enemies.Add(enemy);
             if (lord != null) BeginBoss(enemy, lord);
+            if (lord != null) ApplyNewAshura(enemy, lord);
             OnEcologySpawn(enemy);
             return enemy;
         }
@@ -988,8 +994,10 @@ namespace Shura
                     // A blow from the front when they read you as a flanker or a waiter: counter-reading.
                     if (Vector2.Dot(e.Facing, hitDir) < -0.3f) finalPosture *= CounterReading(CounterAct.FrontHit, e.Position);
                 }
+                if (applyRewardHooks) finalDamage *= PartyDamageMult(Player, e);
                 StrikeResult result = e.ReceivePlayerHit(finalDamage, finalPosture, hitDir, unblockable);
                 if (result != StrikeResult.Hit || !applyRewardHooks) continue;
+                AddThreat(Player, finalDamage);
                 AfterWeaponHit(e);
 
                 if (crit) Fx.Emit(FxType.Crit, e.Position, hitDir, finalDamage, e.Def.bloodColor);

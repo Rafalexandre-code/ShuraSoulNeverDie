@@ -86,6 +86,8 @@ namespace Shura
         public List<Rival> fallenRivals = new List<Rival>();
         /// <summary>"O Shura Lembra": how the enemies read you at the end of the last runs (§5.6).</summary>
         public List<ReadingMemory> readings = new List<ReadingMemory>();
+        /// <summary>Online presence (§9.5): your messages, stains and spirit, and what friends left.</summary>
+        public PresenceData presence = new PresenceData();
 
         public int Stat(string id)
         {
@@ -478,6 +480,8 @@ namespace Shura
             if (readings == null) readings = new List<ReadingMemory>();
             readings.RemoveAll(r => r == null || r.values == null || r.values.Length != AdaptiveTraits.All.Length);
             while (readings.Count > ReadingMemory.Keep) readings.RemoveAt(0);
+            if (presence == null) presence = new PresenceData();
+            presence.Sanitize();
             version = CurrentVersion;
         }
 

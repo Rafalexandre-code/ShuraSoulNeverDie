@@ -110,7 +110,7 @@ namespace Shura
             if (e == null || e.IsGone || e.Boss == null) return;
             BossDef b = e.Boss;
             var bar = new Rect(VW * 0.5f - 420f, 236f, 840f, 24f);
-            Label(new Rect(0, bar.y - 46f, VW, 40f), b.name + ", " + b.title, cardKindStyle, Pal.shu);
+            Label(new Rect(0, bar.y - 46f, VW, 40f), e.BossNameOverride ?? b.name + ", " + b.title, cardKindStyle, Pal.shu);
             // Three marks, like a deathblow count: the phases still standing are lit.
             for (int i = 0; i < BossDefs.Phases; i++)
             {

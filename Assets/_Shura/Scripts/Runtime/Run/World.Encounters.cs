@@ -30,6 +30,8 @@ namespace Shura
         public bool Exit;
         public Func<PlayerController, bool> Act;
         public readonly HashSet<PlayerController> UsedBy = new HashSet<PlayerController>();
+        /// <summary>Raio do corpo sólido (o mímico): ninguém atravessa; 0 = dá para pisar em cima.</summary>
+        public float Solid;
         /// <summary>Said no to this duelist (nothing to purify, an empty bag…) until they step off it.</summary>
         public readonly HashSet<PlayerController> Refused = new HashSet<PlayerController>();
         public readonly Dictionary<PlayerController, float> Progress = new Dictionary<PlayerController, float>();
@@ -54,6 +56,9 @@ namespace Shura
         public const float OfferingHoldSeconds = 0.5f;
         public const float ExitHoldSeconds = 0.8f;
         const float OfferingReach = 1.1f;
+
+        /// <summary>De quão longe se usa a oferenda: de cima dela, ou encostado no corpo do mímico.</summary>
+        public static float ReachOf(Offering o) => o.Exit ? 1.8f : Mathf.Max(OfferingReach, o.Solid + 0.65f);
 
         public readonly List<Offering> Offerings = new List<Offering>();
         /// <summary>The banner of an encounter room (the event's name and its words).</summary>
@@ -144,17 +149,26 @@ namespace Shura
             go.transform.position = o.Position;
             o.Root = go.transform;
             int order = -Mathf.RoundToInt(o.Position.y * 20f);
-            var ring = SpriteUtil.Make("Ring", go.transform, ShapeLibrary.Get(Shape.Ring), o.Color.WithAlpha(0.45f), Sorting.Ground + 2);
-            ring.transform.localScale = Vector3.one * (o.Exit ? 3.2f : 1.6f);
+            // O mímico tem sombra e aura próprias: sem o anel no chão.
+            if (o.Sheet != MimicArt)
+            {
+                var ring = SpriteUtil.Make("Ring", go.transform, ShapeLibrary.Get(Shape.Ring), o.Color.WithAlpha(0.45f), Sorting.Ground + 2);
+                ring.transform.localScale = Vector3.one * (o.Exit ? 3.2f : 1.6f);
+            }
             DressOffering(go.transform, o.Sheet, o.Tile, o.Character, o.Exit, order);
         }
 
         /// <summary>The cursed blade has no tile of its own: a katana planted in the middle of its ring.</summary>
         public const string MuramasaArt = "muramasa";
+        /// <summary>O baú amaldiçoado é um mímico vivo e animado (Feel/MimicChest.cs).</summary>
+        public const string MimicArt = "mimic";
+        /// <summary>Raio do corpo do mímico, em unidades (o jogador alcança a 1,1 do centro).</summary>
+        const float MimicBodyRadius = 0.85f;
 
         /// <summary>An offering's art (also drawn by an online guest from the same fields).</summary>
         public static void DressOffering(Transform go, string sheet, RectInt tile, string character, bool exit, int order)
         {
+            if (sheet == MimicArt && MimicChest.Dress(go, order) != null) return;
             if (sheet == MuramasaArt)
             {
                 var glow = SpriteUtil.Make("Thirst", go, ShapeLibrary.Get(Shape.SoftCircle), ColorUtil.Hex("#B3261E").WithAlpha(0.45f), order - 1);
@@ -201,7 +215,7 @@ namespace Shura
                 if (o.Spent) continue;
                 foreach (PlayerController p in Players)
                 {
-                    bool near = p.IsAlive && Vector2.Distance(p.Position, o.Position) <= OfferingReach;
+                    bool near = p.IsAlive && Vector2.Distance(p.Position, o.Position) <= ReachOf(o);
                     // Stepping off lets a refused duelist try again.
                     if (!near) o.Refused.Remove(p);
                     bool holding = near && !fighting && o.AvailableTo(p) && p.Input != null && p.Input.InteractHeld;
@@ -450,7 +464,8 @@ namespace Shura
         void BuildTreasure(SeededRandom rng, int depth)
         {
             Color purple = ColorUtil.Hex("#B06CFF");
-            Tile(Add("Abrir o baú amaldiçoado", "Um item épico ou melhor… e uma maldição por 3 salas.", 0, purple, p =>
+            Offering chest = null;
+            chest = Tile(Add("Abrir o baú amaldiçoado", "Um item épico ou melhor… e uma maldição por 3 salas.", 0, purple, p =>
             {
                 Rarity r = ItemGenerator.RollRarity(p.Build.Rng, depth + 6, true);
                 if (r < Rarity.Epic) r = Rarity.Epic;
@@ -459,11 +474,19 @@ namespace Shura
                 RunCurse curse = RunCurses.Random(p.Build.Rng);
                 p.Build.ApplyCurse(curse, 3);
                 p.ApplyStats(false);
-                Fx.ItemCollected(item, eq, p.Position);
-                Say(p, "MALDIÇÃO: " + RunCurses.Name(curse), purple);
-                Fx.Emit(FxType.Curse, p.Position, Vector2.up, 1f, purple);
+                Fx.ItemCollected(item, eq, chest.Position + Vector2.up * 0.6f);
+                // A regra vale já; o aviso chega junto com a maldição que o mímico cospe.
+                void Cursed()
+                {
+                    Say(p, "MALDIÇÃO: " + RunCurses.Name(curse), purple);
+                    Fx.Emit(FxType.Curse, p.Position, Vector2.up, 1f, purple);
+                }
+                MimicChest mimic = chest.Root != null ? chest.Root.GetComponent<MimicChest>() : null;
+                if (mimic != null) mimic.Devour(() => p != null ? p.Position : chest.Position, Cursed);
+                else Cursed();
                 return true;
-            }), "tiles_element", 3, 1, 1, 1);
+            }), MimicArt, 0, 0, 1, 1);
+            chest.Solid = MimicBodyRadius;
             EncounterText = "Um baú lacrado com selos rasgados. O que está dentro vale muito. O que vem junto, também.";
         }
 

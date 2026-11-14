@@ -86,7 +86,7 @@ namespace Shura
                 Color c = o.Spent || !available ? UiKit.PaperDim.WithAlpha(0.6f) : o.Color;
                 string title = o.Title + (o.Price > 0 ? "  ·  " + o.Price + " Mon" : "");
                 Label(new Rect(g.x - 260f, g.y - 30f, 520f, 30f), title, smallStyleCenter, c);
-                bool near = Vector2.Distance(me.Position, o.Position) <= (o.Exit ? 1.8f : 1.1f);
+                bool near = Vector2.Distance(me.Position, o.Position) <= World.ReachOf(o);
                 if (near && !string.IsNullOrEmpty(o.Detail))
                 {
                     var box = new Rect(g.x - 260f, g.y - 96f, 520f, 64f);

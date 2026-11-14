@@ -226,3 +226,36 @@ Para o diretor decidir: fica, sai ou muda? Se ficar, sugiro trocar os anéis sob
   inimigos pela trilha em uma flag (a regra A.2.8 pede tirar algo quando se acrescenta um
   medidor no HUD).
 ```
+
+---
+
+```
+PEDIDO DO DIRETOR — Baú amaldiçoado vivo (mímico) — v0.16.5
+Fora do plano: o baú estava feio e sem corpo.
+Arte (regra nova do diretor: procurar arte gratuita antes de desenhar; se nada servir
+  perfeitamente, partir da mais próxima e desenhar/animar por cima):
+  - Pesquisados: "Chest and Mimic" (Redshrike/IndigoFenix, OpenGameArt, CC-BY 3.0: pequeno
+    e com pouca cara de criatura), "Mimic + Chest" (Toy Master: sem licença escrita) e
+    "Chest Mimic" (joraxus, itch.io: uso comercial e modificação livres, sem redistribuição
+    do pacote). Escolhido o do joraxus: respira, lambe, mastiga e dá o bote com a língua.
+  - Por cima: madeira recolorida em roxo, boca carmim, a fechadura virou um olho verde-ácido
+    com pupila em fenda, quadro novo de piscar (Tools/art_mimic/pack.py →
+    Resources/Art/Extra/mimic_purple.png). Desenhado no jogo: sombra, aura que pulsa,
+    fiapos de maldição saindo da boca, brilho do olho e a maldição — um crânio em chamas
+    roxas (3 quadros) com rastro.
+Feito:
+  - Feel/MimicChest.cs: parado ele respira e às vezes pisca, lambe ou mastiga (e olha para
+    o outro lado). Ao abrir: vira para o jogador, abre a bocarra, cospe o crânio num arco
+    até o jogador; o aviso "MALDIÇÃO: …" e o efeito saem quando ele acerta. Depois fica
+    saciado (aura fraca) e volta a descansar. Em grupo, cada jogador que abre leva o seu.
+  - Corpo sólido (Offering.Solid, raio 0,85): ninguém atravessa; usa-se encostado (o
+    alcance cresce com o corpo: World.ReachOf). Sem o anel roxo no chão.
+  - O item épico salta do baú, não do jogador. A regra (item e maldição) não mudou.
+  - Créditos: CREDITS.md e tela de créditos.
+Testes: 209 → 212 (folha existe, criatura monta, só o mímico tem corpo). Bots: 3, 11, 29, 41
+  — prof. 20/19/16/18, 0 exceções (a 29 passou por um baú amaldiçoado).
+Capturas: docs/redesenho/amostras/mimico-bau.png (parado, bote, maldição) e mimico-folha.png.
+Limite: o convidado online vê o mímico parado e animado, mas não o bote (o anfitrião vê).
+Atenção (licença): o pacote do joraxus não pode ser redistribuído, e o repositório no GitHub
+  é público. Decisão do diretor antes de enviar.
+```

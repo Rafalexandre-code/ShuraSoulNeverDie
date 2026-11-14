@@ -371,6 +371,7 @@ namespace Shura
         int burstCounter;
         bool swingBurstDone;
         bool finisherBurstDone;
+        bool mimicBurstDone;
 
         /// <summary>Consecutive-frame captures of a swing and a finisher, to judge animation fluidity.</summary>
         void UpdateBursts()
@@ -390,9 +391,17 @@ namespace Shura
                 burstStride = 3;
                 burstCounter = 0;
             }
+            // O mímico abrindo e cuspindo a maldição (cerca de 1,4 s).
+            if (!mimicBurstDone && MimicChest.LastDevourFrame > 0 && Time.frameCount - MimicChest.LastDevourFrame <= 1)
+            {
+                mimicBurstDone = true;
+                burstFrames = 16;
+                burstStride = 5;
+                burstCounter = 0;
+            }
             if (burstFrames <= 0) return;
             if (burstCounter++ % burstStride != 0) return;
-            Shot(burstStride == 1 ? "swing" : "finisher");
+            Shot(burstStride == 1 ? "swing" : burstStride == 5 ? "mimico" : "finisher");
             burstFrames--;
         }
 

@@ -1776,6 +1776,17 @@ namespace Shura
                 }
             }
 
+            // Oferendas com corpo (o mímico): ninguém passa por dentro.
+            foreach (Offering o in Offerings)
+            {
+                if (o.Solid <= 0f) continue;
+                foreach (PlayerController p in Players) PushOut(p, o.Position, o.Solid);
+                for (int i = 0; i < Enemies.Count; i++)
+                {
+                    if (IsSolid(Enemies[i])) PushOut(Enemies[i], o.Position, o.Solid);
+                }
+            }
+
             foreach (PlayerController p in Players) ClampToArena(p);
             for (int i = 0; i < Enemies.Count; i++) ClampToArena(Enemies[i]);
         }
@@ -1797,6 +1808,16 @@ namespace Shura
             float total = a.Mass + b.Mass;
             a.Position -= n * overlap * (b.Mass / total);
             b.Position += n * overlap * (a.Mass / total);
+        }
+
+        /// <summary>Empurra um lutador para fora de um corpo redondo e fixo.</summary>
+        static void PushOut(Fighter f, Vector2 center, float radius)
+        {
+            Vector2 d = f.Position - center;
+            float min = radius + f.Radius;
+            if (d.sqrMagnitude >= min * min) return;
+            float dist = d.magnitude;
+            f.Position = center + (dist > 1e-4f ? d / dist : Vector2.down) * min;
         }
 
         /// <summary>Walls and statues: fighters slide along them.</summary>

@@ -1907,16 +1907,25 @@ namespace Shura
             Vector2 dir = f.Position - trap.origin;
             if (trap.type == TrapType.FlameJet) dir = trap.direction;
             dir = dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector2.up;
+            bool blade = trap.type == TrapType.Blade;
+            if (blade)
+            {
+                // A lâmina arremessa para fora do eixo e no sentido em que gira.
+                var spinSide = new Vector2(-dir.y, dir.x) * Mathf.Sign(trap.spin);
+                dir = (dir + spinSide * 0.6f).normalized;
+                trap.Hits++;
+            }
             if (f is PlayerController p)
             {
                 actor = p;
-                p.ReceiveHazard(trap.damage, trap.posture, dir);
+                p.ReceiveHazard(trap.damage, trap.posture, dir, blade ? Config.player.bladeTrapKnockback : 0f);
                 actor = null;
             }
             else if (f is Enemy e)
             {
                 // Luring enemies into traps pays: they take more than you do.
                 e.ReceiveHazard(trap.damage * 1.5f, trap.posture * 1.5f, dir);
+                if (blade) e.Shove(dir, Config.player.bladeTrapEnemyShove, null);
             }
         }
 

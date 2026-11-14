@@ -40,6 +40,8 @@
         "hurtStunFrames": 16,
         "hurtInvulnFrames": 40,
         "hurtKnockback": 4.0,
+        "bladeTrapKnockback": 28.0,
+        "bladeTrapEnemyShove": 2.2,
         "actionBufferFrames": 8,
         "parryBufferFrames": 3,
         "healOnRoomClear": 20.0,

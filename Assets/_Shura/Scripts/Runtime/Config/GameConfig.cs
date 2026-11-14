@@ -86,6 +86,10 @@ namespace Shura
         public int hurtStunFrames = 16;
         public int hurtInvulnFrames = 40;
         public float hurtKnockback = 4f;
+        [Tooltip("Lâmina giratória: velocidade com que ela arremessa quem encosta (unidades/s; o atordoamento freia, ~2 unidades).")]
+        public float bladeTrapKnockback = 28f;
+        [Tooltip("Lâmina giratória: distância que ela arremessa um inimigo (unidades).")]
+        public float bladeTrapEnemyShove = 2.2f;
 
         [Header("Buffer de entrada")]
         public int actionBufferFrames = 8;

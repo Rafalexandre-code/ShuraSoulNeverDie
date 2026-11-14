@@ -466,19 +466,15 @@ namespace Shura
                 status = string.Format(Strings.PopupCharge, p.charge);
                 statusColor = p.weapon.trail;
             }
-            if (p.curse != null && p.curseRooms > 0)
-            {
-                status = (status != null ? status + "  ·  " : "") + p.curse + " (" + p.curseRooms + ")";
-                statusColor = ColorUtil.Hex("#C08CFF");
-            }
-            if (p.muramasa) status = (status != null ? status + "  ·  " : "") + "Muramasa";
+            // As maldições viram ícones (com dica ao passar o mouse); o resto do status vem ao lado.
+            float cursesW = DrawCurseIcons(x, 264f, p);
             if (p.soulName != null && (p.soulReady || p.soulSeconds > 0))
             {
                 string soul = p.soulSeconds > 0 ? string.Format(Strings.HudSoulActive, p.soulName, p.soulSeconds) : string.Format(Strings.HudSoulReady, p.soulName);
                 status = (status != null ? status + "  ·  " : "") + soul;
                 if (p.soulSeconds > 0) statusColor = ColorUtil.Hex("#B07CFF");
             }
-            if (status != null) FitLabel(new Rect(x, 266f, w + 50f, 30f), status, smallStyle, statusColor);
+            if (status != null) FitLabel(new Rect(x + cursesW, 266f, w + 50f - cursesW, 30f), status, smallStyle, statusColor);
 
             if (Feature.LocalWounds) DrawWoundDoll(new Rect(card.xMax - 66f, 66f, 50f, 90f), p);
         }

@@ -415,7 +415,7 @@ namespace Shura
         public const string CreditInspirationTitle = "INSPIRAÇÕES";
         public const string CreditInspiration = "Sekiro, Nine Sols, Dead Cells, Hades, Hollow Knight, Katana ZERO";
         public const string CreditArtTitle = "ARTE";
-        public const string CreditArt = "\"Ninja Adventure\" de Pixel-Boy e AAA (CC0)\n\"Chest Mimic\" de joraxus (base do baú amaldiçoado)";
+        public const string CreditArt = "\"Ninja Adventure\" de Pixel-Boy e AAA (CC0)\n\"Chest Mimic\" de joraxus · \"aMazing Maze Sprites\" de TimberwolfGames\n\"1-bit Pixel Icons\" de Nikoichu (CC0)";
         public const string CreditMusicTitle = "TRILHA";
         public const string CreditMusic = "Tozan e Yoiyami (CC0)\n\"Self Discipline\" de Tsorthan Grove e \"Samurai\" de TAD (CC-BY 4.0)\n\"Taiko Drums\" de jobro e \"Blackmoor Ninjas\" de Matthew Pablo, matthewpablo.com (CC-BY 3.0)";
         public const string CreditSoundTitle = "SONS";
@@ -470,7 +470,7 @@ namespace Shura
             "SHURA  ·  Protótipo M1\n\n" +
             "Direção criativa: Rafael Alexandre de Pinho Lopes\n" +
             "Design, programação e efeitos: Claude (Anthropic)  ·  Feito com Unity 6\n\n" +
-            "Arte: \"Ninja Adventure\" de Pixel-Boy e AAA (CC0); \"Chest Mimic\" de joraxus\n" +
+            "Arte: \"Ninja Adventure\" de Pixel-Boy e AAA (CC0); \"Chest Mimic\" de joraxus; \"aMazing Maze Sprites\" de TimberwolfGames; \"1-bit Pixel Icons\" de Nikoichu (CC0)\n" +
             "Trilha: Tozan e Yoiyami (CC0); \"Self Discipline\" de Tsorthan Grove e \"Samurai\" de TAD (CC-BY 4.0);\n" +
             "\"Taiko Drums\" de jobro e \"Blackmoor Ninjas\" de Matthew Pablo, matthewpablo.com (CC-BY 3.0)\n" +
             "Sons: StarNinjas, EZduzziteh, Still North Media e coleções CC0 do OpenGameArt.org\n" +

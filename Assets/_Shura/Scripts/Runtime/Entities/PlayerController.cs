@@ -131,7 +131,8 @@ namespace Shura
 
         /// <summary>Traps: no parry, no block; a dodge's i-frames still slip through.</summary>
         /// <summary>Traps and floor blasts. Returns true when a dodge carried the player through it.</summary>
-        public bool ReceiveHazard(float damage, float posture, Vector2 dir)
+        /// <param name="knock">Velocidade do arremesso (a lâmina giratória); 0 = o recuo normal do golpe.</param>
+        public bool ReceiveHazard(float damage, float posture, Vector2 dir, float knock = 0f)
         {
             if (!IsAlive) return false;
             if (IsDodgeInvulnerable) return true;
@@ -139,6 +140,7 @@ namespace Shura
             hazardAttack.damage = damage;
             hazardAttack.postureDamage = posture;
             TakeHit(hazardAttack, -dir, 1f);
+            if (knock > 0f && IsAlive && dir.sqrMagnitude > 1e-4f) Velocity = dir.normalized * knock;
             return false;
         }
 

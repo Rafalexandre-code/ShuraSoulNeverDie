@@ -28,6 +28,8 @@ namespace Shura
         public Vector2Int PixelSize;
         public Vector2 PixelPivot;
         public bool Moss;
+        /// <summary>Sempre ao luar (o Bosque Selvagem): escuro azulado mínimo e vaga-lumes acesos.</summary>
+        public bool Moonlit;
 
         public void AddBrazier(Vector2 flamePos, SpriteRenderer flame, Sprite[] frames, SpriteRenderer glow)
         {

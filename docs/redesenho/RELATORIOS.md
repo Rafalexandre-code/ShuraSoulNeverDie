@@ -259,3 +259,43 @@ Limite: o convidado online vê o mímico parado e animado, mas não o bote (o an
 Atenção (licença): o pacote do joraxus não pode ser redistribuído, e o repositório no GitHub
   é público. Decisão do diretor antes de enviar.
 ```
+
+---
+
+```
+PEDIDOS DO DIRETOR — Armadilhas samurai, floresta ao luar e ícones das maldições — v0.16.6
+Fora do plano.
+Armadilhas (base: "aMazing Maze Sprites" de TimberwolfGames, recolorido e redesenhado):
+  - Estacas -> takeyari: fosso com moldura de madeira (uma moldura só por fora em fossos de
+    várias células); no aviso as pontas de bambu tremem e avermelham; ativas, brotam em 4
+    quadros, ficam e se recolhem. Erguidas, ficam de pé entre os lutadores.
+  - Jato de fogo -> oni de pedra (olhos e boca em brasa no aviso) com chão chamuscado na faixa.
+  - Lâmina giratória -> duas katanas presas a uma tsuba sobre pedestal de pedra, com rastro do
+    giro e aço que se suja de sangue a cada golpe (TrapDef.Hits, só visual). Sem o círculo no
+    chão. Quem encosta é ARREMESSADO para fora do eixo, no sentido do giro (jogador: 28 u/s,
+    ~2 unidades; inimigo: empurrão de 2,2). Números em GameConfig.player / Balance.json.
+Bosque Selvagem ao luar (referência do diretor: mata noturna azul):
+  - Natureza do Ninja Adventure recolorida para a noite (tiles_nature_night.png): copas
+    verde-azuladas, troncos de ardósia, cerejeiras rosa acesas com halo.
+  - Chão: capim verde-azulado e trilhas escuras, calculado no pixel do mundo — continua sem
+    costura para fora da arena e escurece aos poucos. Sem a faixa escura reta da borda.
+  - Limite natural: cerca viva de moitas e samambaias em cada célula que encosta no chão, com
+    sombra macia; atrás, emaranhado denso de pinheiros, árvores redondas, cerejeiras e
+    pinheiros de luar, mais ralo e mais escuro quanto mais fundo.
+  - Lagos (ShuraWater): reflexo escuro das copas pendurado na margem de cima, caminho da lua
+    em traços que tremem, estrelas e vaga-lumes refletidos; vitórias-régias, lótus brancos
+    com luz e flores rosadas acesas na margem.
+  - Luz: sempre noite de lua (escuro mínimo azulado 0,42), vaga-lumes acesos, luz das
+    lanternas menos alaranjada (sem manchas roxas).
+  - Árvores com corpo exato: pivô no tronco medido no desenho e só a base dos troncos é
+    sólida (o maciço de pinheiros tem 3 troncos). Os blocos de estátua viram chão na mata
+    (sem os quadrados escuros sob as árvores).
+  - Lagos, árvores e flores nunca caem sobre armadilhas.
+Maldições: ícones no cartão do HUD (Nikoichu, CC0: sem cura, frágil, desajeitado, inquieto,
+  Muramasa) com o número de salas; passar o mouse abre uma caixa que acompanha o cursor com
+  o nome e o que a maldição faz.
+Testes: 212/212. Bots: 3, 11, 29, 41 — prof. 20/20/20/20, 0 exceções.
+Atenção (licença): TimberwolfGames e joraxus pedem que o pacote não seja redistribuído; o
+  diretor mandou enviar tudo ao GitHub (repositório público).
+Próximo pedido na fila: tirar os símbolos azuis de ataque e fazer brilhar a arma de quem ataca.
+```

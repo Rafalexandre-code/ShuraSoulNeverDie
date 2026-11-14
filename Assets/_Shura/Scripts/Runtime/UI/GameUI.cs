@@ -863,6 +863,7 @@ namespace Shura
                     if (game.Tutorial.Active) DrawTutorial();
                 }
                 if (mode == Game.Mode.Playing || (remoteDuel && RemoteHintFree)) DrawHint();
+                if (mode == Game.Mode.Playing) DrawCurseTooltip();
                 UseCanvas(false);
             }
 

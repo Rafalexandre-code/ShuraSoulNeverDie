@@ -102,6 +102,16 @@ namespace Shura
 
         public static string Name(RunCurse c) => Names[(int)c];
         public static string Text(RunCurse c) => Texts[(int)c];
+
+        /// <summary>A maldição pelo nome (o HUD do convidado online só recebe o nome).</summary>
+        public static RunCurse FromName(string name)
+        {
+            for (int i = 1; i < Names.Length; i++)
+            {
+                if (Names[i] == name) return (RunCurse)i;
+            }
+            return RunCurse.None;
+        }
         public static RunCurse Random(SeededRandom rng) => (RunCurse)rng.Range(1, 5);
     }
 }

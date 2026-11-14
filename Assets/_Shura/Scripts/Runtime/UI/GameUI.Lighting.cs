@@ -17,6 +17,9 @@ namespace Shura
         const float BrokenGloomRadius = 9.5f;
         const float PlayerLightRadius = 3.2f;
         const float MaxDark = 0.93f;
+        /// <summary>Escuro mínimo do bosque ao luar (0 = dia claro, 1 = breu).</summary>
+        const float MoonlitAmbient = 0.42f;
+        bool moonlit;
 
         Texture2D lightTex;
         Color32[] lightPx;
@@ -59,6 +62,9 @@ namespace Shura
             int total = lightLanterns.Count + lightBroken.Count;
             float brokenFrac = total > 0 ? lightBroken.Count / (float)total : 0f;
             float ambient = DayClock.Darkness(hour) + 0.62f * Mathf.Pow(brokenFrac, 1.1f);
+            // O Bosque Selvagem é sempre noite de lua: um mínimo de escuro azulado.
+            moonlit = w.Decor.Moonlit;
+            if (moonlit) ambient = Mathf.Max(ambient, MoonlitAmbient);
             // The fireflies come out with the dark.
             Fireflies.Night = Mathf.Clamp01((ambient - 0.12f) / 0.3f);
             // Trait "Olhar Noturno": the disciple sees in the dark.
@@ -137,7 +143,7 @@ namespace Shura
                 float k = i * 1.7f;
                 radius[i] = LanternRadius * (1f + 0.05f * Mathf.Sin(t * 2.3f + k) + 0.03f * Mathf.Sin(t * 5.7f + k * 2.1f) + 0.02f * Mathf.Sin(t * 13f + k * 3.3f));
             }
-            var dark = new Color(0.012f, 0.016f, 0.055f);
+            var dark = moonlit ? new Color(0.02f, 0.06f, 0.17f) : new Color(0.012f, 0.016f, 0.055f);
             var warm = new Color(1f, 0.6f, 0.24f);
             float sx = b.width / tw, sy = b.height / th;
             for (int y = 0; y < th; y++)
@@ -182,7 +188,7 @@ namespace Shura
                         light += 0.5f * a * a;
                     }
                     float aDark = Mathf.Clamp01(d - light) * MaxDark;
-                    float aWarm = 0.11f * Mathf.Clamp01(light) * (1f - aDark);
+                    float aWarm = (moonlit ? 0.05f : 0.11f) * Mathf.Clamp01(light) * (1f - aDark);
                     float alpha = aDark + aWarm;
                     Color c = alpha > 1e-4f ? (dark * aDark + warm * aWarm) / alpha : dark;
                     lightPx[y * tw + x] = new Color32((byte)(c.r * 255f), (byte)(c.g * 255f), (byte)(c.b * 255f), (byte)(Mathf.Clamp01(alpha) * 255f));

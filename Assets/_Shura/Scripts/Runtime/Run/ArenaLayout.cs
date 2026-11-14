@@ -49,6 +49,8 @@ namespace Shura
         public int offset;
         public float damage;
         public float posture;
+        /// <summary>Quantos golpes a armadilha já deu nesta sala (só visual: a katana se suja de sangue).</summary>
+        public int Hits;
 
         /// <summary>0 idle, 1 warning, 2 active (cycling traps; blades are always active).</summary>
         public int PhaseAt(int tick)

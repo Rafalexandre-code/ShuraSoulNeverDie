@@ -195,3 +195,34 @@ Riscos percebidos:
   - Sem fôlego e sem ferimentos o jogo ficou mais fácil para o robô; o balanceamento de
     dano dos inimigos precisa ser revisto com o painel (WP-02) e no WP-20.
 ```
+
+---
+
+```
+EXPERIMENTO DO DIRETOR — Trilha de ritmo (estilo BPM) — v0.16.4
+Fora do plano: pedido direto do diretor, só para testar se o combate fica mais ritmado.
+Feito:
+  - Trilha embaixo, no centro da tela (UI/GameUI.Rhythm.cs). Os golpes que miram você
+    entram pela esquerda ~54 quadros antes e cruzam o marcador central no instante ideal
+    da resposta (o mesmo instante do aviso de tempo do anel):
+      1 barra azul = aparar · 2 vermelhas = esquivar · 2 laranja = Troca Perfeita ·
+      1 cinza tracejada = finta (espere) · 1 verde = amaldiçoado (aparar; não bloquear).
+    Embaixo do marcador aparece a tecla da próxima resposta.
+  - Depois de um parry perfeito, uma barra dourada vem da DIREITA e chega ao centro 16
+    quadros depois: atacar com ±5 quadros dela dá "NO TEMPO!" e o primeiro golpe que acertar
+    faz ×1,5 de postura e ×1,2 de dano. Fora da janela: "fora do tempo", sem bônus.
+  - O marcador acende com a última batida (PERFEITO, TROCA, ESQUIVOU, bloqueou, levou).
+  - Opções → "Trilha de ritmo (teste)" liga/desliga (vem ligada). Desligada, some a trilha e
+    o bônus do contra-ataque. Só o anfitrião / jogo solo.
+Arquivos: Run/World.Rhythm.cs (relógio, batidas, bônus), UI/GameUI.Rhythm.cs (desenho),
+  Run/World.cs (ligações), Entities/PlayerController.cs (golpe iniciado), Core/Game.cs,
+  UI/GameSettings.cs, UI/GameUI.cs (opção), UI/Strings.Redesign.cs.
+Testes: 209/209. Bots: sementes 3, 11, 29, 41 — prof. 20/19/14/18, 0 exceções.
+Capturas: docs/redesenho/amostras/ritmo-trilha.png (os 4 estados) e ritmo-tela.png.
+Números (constantes de teste em World.Rhythm.cs; vão para o Balance.json se o diretor
+  aprovar): atraso da batida 16 f, tolerância ±5 f, postura ×1,5, dano ×1,2, antecedência
+  da trilha 54 f.
+Para o diretor decidir: fica, sai ou muda? Se ficar, sugiro trocar os anéis sobre os
+  inimigos pela trilha em uma flag (a regra A.2.8 pede tirar algo quando se acrescenta um
+  medidor no HUD).
+```

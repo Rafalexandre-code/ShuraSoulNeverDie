@@ -38,6 +38,8 @@ namespace Shura
         /// <summary>WP-01: telemetria local (arquivos .jsonl no próprio computador). Ligada por padrão; o jogador é avisado.</summary>
         public bool telemetry = true;
         public bool telemetryNoticeShown;
+        /// <summary>Experimento do diretor: a trilha de ritmo embaixo da tela (BPM). Ligada para o teste.</summary>
+        public bool rhythmTrack = true;
         /// <summary>Chosen screen resolution (0 = the monitor's own).</summary>
         public int resolutionWidth;
         public int resolutionHeight;

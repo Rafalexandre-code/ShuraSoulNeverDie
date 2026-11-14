@@ -732,6 +732,7 @@ namespace Shura
         void StartAttack(int index)
         {
             run.Profile.OnAttack();
+            world.NotifyAttackStarted(this);
             if (index == 0) comboSpent = 0f;
             SpendStamina(AttackStamina);
             comboSpent += AttackStamina;

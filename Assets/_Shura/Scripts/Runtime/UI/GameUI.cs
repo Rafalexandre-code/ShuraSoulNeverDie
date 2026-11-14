@@ -437,6 +437,8 @@ namespace Shura
                     AddToggle(Strings.TimingIndicator, () => s.timingIndicator, v => s.timingIndicator = v);
                     Help(Strings.HelpTiming);
                     AddToggle(Strings.Hints, () => s.hints, v => s.hints = v);
+                    AddToggle(Strings.RhythmTrack, () => s.rhythmTrack, v => s.rhythmTrack = v);
+                    Help(Strings.HelpRhythmTrack);
                     AddToggle(Strings.Telemetry, () => s.telemetry, v => s.telemetry = v);
                     Help(Strings.HelpTelemetry);
                     Help(Strings.HelpHints);
@@ -855,6 +857,7 @@ namespace Shura
                 else
                 {
                     DrawHud();
+                    DrawRhythmTrack();
                     DrawPopups();
                     if ((game.World.Player == null || !game.World.Player.InMushin) && !SilentHud) DrawLog();
                     if (game.Tutorial.Active) DrawTutorial();

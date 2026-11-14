@@ -249,6 +249,7 @@ namespace Shura
                 }
             }
 
+            World.RhythmEnabled = Settings.rhythmTrack;
             switch (CurrentMode)
             {
                 case Mode.Playing:

@@ -204,8 +204,11 @@ namespace Shura
         /// <summary>Telemetria (WP-01): uma finalização (tipo: "rapida" ou "dirigida"; nível: perfeito/linha/limpo/falho).</summary>
         public event Action<PlayerController, Enemy, string, string> FinisherResolved;
 
-        public void NotifyAttackResolved(PlayerController p, in IncomingAttack inc, HitOutcome o, float damage, int sinceParry, int sinceSwap, int dodgeFrame) =>
+        public void NotifyAttackResolved(PlayerController p, in IncomingAttack inc, HitOutcome o, float damage, int sinceParry, int sinceSwap, int dodgeFrame)
+        {
             AttackResolved?.Invoke(p, inc, o, damage, sinceParry, sinceSwap, dodgeFrame);
+            OnRhythmAttackResolved(p, o);
+        }
 
         public void NotifyFinisher(PlayerController p, Enemy e, string kind, string grade) => FinisherResolved?.Invoke(p, e, kind, grade);
 
@@ -424,6 +427,7 @@ namespace Shura
             if (room.weather != Weather.Clear) HintOnce(HintId.Weather);
             ClearBossRoom();
             ClearEcology();
+            ClearRhythm();
             BeginRitualsForRoom();
             RivalInRoom = null;
             waveLeader = null;
@@ -443,6 +447,7 @@ namespace Shura
         {
             if (Run == null) return;
             Run.Profile.Tick(SimClock.Dt, ActiveEnemyCount > 0 && Host.IsAlive);
+            TickRhythm();
             if (++adaptationTimer >= SimClock.TickRate) RefreshAdaptation();
             Coordinator.Tick();
             TickOfferings();
@@ -1010,6 +1015,12 @@ namespace Shura
                     if (Vector2.Dot(e.Facing, hitDir) < -0.3f) finalPosture *= CounterReading(CounterAct.FrontHit, e.Position);
                 }
                 if (applyRewardHooks) finalDamage *= PartyDamageMult(Player, e);
+                // Trilha de ritmo (experimento): o contra-ataque no tempo da batida bate mais forte.
+                if (applyRewardHooks && TakeRiposteBonus(Player))
+                {
+                    finalDamage *= RiposteDamageMult;
+                    finalPosture *= RipostePostureMult;
+                }
                 StrikeResult result = e.ReceivePlayerHit(finalDamage, finalPosture, hitDir, unblockable);
                 if (result != StrikeResult.Hit || !applyRewardHooks) continue;
                 AddThreat(Player, finalDamage);

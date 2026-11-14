@@ -79,6 +79,25 @@ namespace Shura
         public bool minion;
         /// <summary>One line for the bestiary and the "new enemy" toast.</summary>
         public string lore;
+
+        // ── Phase 5, part 3 ──
+        /// <summary>Multiplies the art (the new enemies share sprites with old ones).</summary>
+        public Color tint = Color.white;
+        /// <summary>Ōmukade: segments, each with its own posture bar.</summary>
+        public int segments;
+        /// <summary>Nue: movesets it cycles through with every perfect parry it suffers.</summary>
+        public MoveDef[][] natures;
+        public string[] natureNames;
+        /// <summary>Tsukumogami: health never takes it down — only a finisher.</summary>
+        public bool onlyFinisher;
+        /// <summary>The blind duelist: attacks only what it hears.</summary>
+        public bool blind;
+        /// <summary>Nopperabō: copies the moves of whoever fell last.</summary>
+        public bool mimic;
+        /// <summary>Espelho do Shura: a copy of a duelist's own weapon.</summary>
+        public bool mirror;
+
+        public EnemyDef Clone() => (EnemyDef)MemberwiseClone();
     }
 
     /// <summary>
@@ -685,11 +704,246 @@ namespace Shura
             },
         };
 
+        // ── Twelve new enemies (design doc §5.8) ─────────────────────────────────────
+
+        /// <summary>Three wind weasels: a cut, then two more from where you are not looking.</summary>
+        public static readonly EnemyDef Kamaitachi = new EnemyDef
+        {
+            id = "kamaitachi", displayName = "Kamaitachi", art = "Tengu", weaponArt = "weapon_Sai", artScale = 0.85f, tint = ColorUtil.Hex("#B8F0C0"),
+            shape = Shape.Diamond, color = ColorUtil.Hex("#7FD39B"),
+            maxHealth = 55f, maxPosture = 50f, radius = 0.36f, moveSpeed = 4.6f, preferredRange = 2.2f,
+            blockChance = 0.1f, postureRegenPerSecond = 12f, idleMin = 40, idleMax = 75,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.TriSickle,
+            lore = "Três doninhas do vento: a primeira corta, as outras duas aparecem cada uma de um lado.",
+            moves = new[]
+            {
+                Move("lufada", 0f, 2.2f, 3, Arc("lufada", 14, 3, 20, 10, 9f, 10f, 12f, 1.5f, 100f, 0.8f)),
+                Signature("tres_doninhas", 0f, 3.0f, 2,
+                          Arc("doninha_1", 18, 3, 4, 12, 8f, 9f, 14f, 1.5f, 110f, 0.6f),
+                          Teleporting(Arc("doninha_2", 14, 3, 4, 8, 8f, 9f, 14f, 1.5f, 110f, 0.4f)),
+                          Teleporting(Arc("doninha_3", 14, 3, 24, 8, 9f, 10f, 16f, 1.5f, 110f, 0.4f))),
+            },
+        };
+
+        /// <summary>The long neck: it bites over the statues you hide behind.</summary>
+        public static readonly EnemyDef Rokurokubi = new EnemyDef
+        {
+            id = "rokurokubi", displayName = "Rokurokubi", art = "Monk2", artScale = 1.0f, unarmed = true, tint = ColorUtil.Hex("#EAD9FF"),
+            shape = Shape.Capsule, color = ColorUtil.Hex("#C9A0FF"),
+            maxHealth = 70f, maxPosture = 60f, radius = 0.4f, moveSpeed = 2.6f, preferredRange = 3.6f,
+            blockChance = 0.2f, postureRegenPerSecond = 9f, idleMin = 45, idleMax = 85,
+            signatureAnswer = SignatureAnswer.CounterThrust, techniqueId = RewardIds.LookOver,
+            lore = "O pescoço estica por cima das estátuas: atrás de uma pedra ninguém está seguro.",
+            moves = new[]
+            {
+                Move("pescoco", 2.0f, 5.2f, 3, Line("pescoco", 24, 4, 26, 18, 13f, 14f, 16f, 5.0f, 0.7f, 0f)),
+                Move("mordida_alta", 0f, 2.0f, 2, Arc("mordida_alta", 18, 4, 24, 12, 11f, 12f, 14f, 1.5f, 110f, 0.5f)),
+                Signature("bote_do_pescoco", 2.5f, 6.2f, 2, Line("bote_do_pescoco", 30, 5, 30, 24, 18f, 0f, 0f, 6.0f, 0.9f, 0.4f, AttackKind.Thrust)),
+            },
+        };
+
+        /// <summary>A small spider: webs on the floor that catch the dodge.</summary>
+        public static readonly EnemyDef AranhaMenor = new EnemyDef
+        {
+            id = "aranha_menor", displayName = "Jorōgumo Menor", art = "SorcererBlack", artScale = 0.85f, unarmed = true, tint = ColorUtil.Hex("#C9A0FF"),
+            shape = Shape.Diamond, color = ColorUtil.Hex("#9B6BCF"),
+            maxHealth = 60f, maxPosture = 55f, radius = 0.36f, moveSpeed = 3.4f, preferredRange = 3.0f,
+            blockChance = 0.15f, postureRegenPerSecond = 10f, idleMin = 40, idleMax = 80,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.SilkThread,
+            lore = "Uma filha da Senhora Aranha. As teias dela no chão prendem a esquiva.",
+            moves = new[]
+            {
+                Move("presas", 0f, 1.9f, 3, Arc("presas", 16, 3, 22, 10, 10f, 12f, 14f, 1.4f, 100f, 0.6f)),
+                Move("teia_no_chao", 2f, 9f, 3, With(Blast("teia_no_chao", 26, 28, 8f, 10f, 1.2f, 40, BlastKind.Spirit), a => a.leavesWeb = true)),
+                Signature("salto_da_aranha_menor", 2.5f, 7f, 2, Arc("salto_da_aranha_menor", 24, 4, 26, 16, 14f, 14f, 18f, 1.6f, 110f, 2.2f)),
+            },
+        };
+
+        /// <summary>No face: it fights with the moves of whoever fell last.</summary>
+        public static readonly EnemyDef Nopperabo = new EnemyDef
+        {
+            id = "nopperabo", displayName = "Nopperabō", art = "FighterWhite", weaponArt = "weapon_Sword", tint = ColorUtil.Hex("#F4F1EA"), mimic = true,
+            shape = Shape.Circle, color = ColorUtil.Hex("#E9E1C9"),
+            maxHealth = 70f, maxPosture = 60f, radius = 0.4f, moveSpeed = 3.2f, preferredRange = 1.6f,
+            blockChance = 0.25f, postureRegenPerSecond = 10f, idleMin = 40, idleMax = 75,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.EmptyMask,
+            lore = "Sem rosto. Imita os golpes (e os anéis) do último inimigo que caiu.",
+            moves = new[]
+            {
+                Move("tapa_sem_rosto", 0f, 2.0f, 3, Arc("tapa_sem_rosto", 18, 4, 22, 12, 11f, 13f, 16f, 1.5f, 110f, 0.5f)),
+                Signature("rosto_vazio", 0f, 2.2f, 2, Arc("rosto_vazio", 26, 5, 28, 20, 16f, 18f, 22f, 1.7f, 130f, 0.6f)),
+            },
+        };
+
+        /// <summary>A flying length of cloth: it wraps and smothers.</summary>
+        public static readonly EnemyDef IttanMomen = new EnemyDef
+        {
+            id = "ittan_momen", displayName = "Ittan-momen", art = "Spirit", artScale = 1.15f, unarmed = true, flying = true, tint = Color.white,
+            shape = Shape.Capsule, color = ColorUtil.Hex("#F1E8D6"),
+            maxHealth = 55f, maxPosture = 50f, radius = 0.4f, moveSpeed = 3.8f, preferredRange = 3.0f,
+            blockChance = 0f, evadeChance = 0.2f, postureRegenPerSecond = 10f, idleMin = 40, idleMax = 80,
+            signatureAnswer = SignatureAnswer.PerfectDodge, techniqueId = RewardIds.Shroud,
+            lore = "Um tecido que voa. Se te enrolar, sufoca: o fôlego vai embora.",
+            moves = new[]
+            {
+                Move("chicote_de_pano", 0f, 2.4f, 3, Arc("chicote_de_pano", 16, 3, 20, 10, 9f, 11f, 14f, 2.0f, 90f, 0.6f)),
+                Signature("mortalha", 0f, 3.4f, 2, With(Arc("mortalha", 28, 6, 32, 22, 16f, 0f, 0f, 1.6f, 70f, 2.4f, AttackKind.Grab), a => a.drainsBreath = true)),
+            },
+        };
+
+        /// <summary>A living wall: it closes the way and pushes.</summary>
+        public static readonly EnemyDef Nurikabe = new EnemyDef
+        {
+            id = "nurikabe", displayName = "Nurikabe", art = "Cyclope", artScale = 1.6f, unarmed = true, superArmor = true, tint = ColorUtil.Hex("#A8A8A0"),
+            shape = Shape.Square, color = ColorUtil.Hex("#8C8C84"),
+            maxHealth = 130f, maxPosture = 140f, radius = 0.7f, mass = 3f, moveSpeed = 1.6f, preferredRange = 1.6f,
+            blockChance = 0.35f, postureRegenPerSecond = 8f, idleMin = 55, idleMax = 95,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.WalkingWall,
+            lore = "Uma parede viva. Fecha o caminho e empurra quem estiver na frente.",
+            moves = new[]
+            {
+                Move("empurrao", 0f, 2.2f, 3, With(Arc("empurrao", 26, 6, 30, 18, 12f, 26f, 22f, 1.9f, 140f, 0.8f), a => a.pushBack = 3f)),
+                Move("muro_que_anda", 0f, 3.0f, 2, With(Sweep("muro_que_anda", 34, 8, 34, 16f, 2.4f), a => a.pushBack = 4f)),
+                Signature("parede_que_cai", 0f, 2.4f, 2, Arc("parede_que_cai", 36, 6, 36, 24, 24f, 30f, 30f, 2.2f, 150f, 0.4f)),
+            },
+        };
+
+        /// <summary>The great centipede: three segments, each with its own posture.</summary>
+        public static readonly EnemyDef Omukade = new EnemyDef
+        {
+            id = "omukade", displayName = "Ōmukade", art = "Slime", artScale = 1.25f, unarmed = true, segments = 3, tint = ColorUtil.Hex("#E06050"),
+            shape = Shape.Capsule, color = ColorUtil.Hex("#C0392B"),
+            maxHealth = 90f, maxPosture = 50f, radius = 0.5f, mass = 1.6f, moveSpeed = 3.0f, preferredRange = 1.8f,
+            blockChance = 0.1f, postureRegenPerSecond = 9f, idleMin = 40, idleMax = 75,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.SegmentedShell,
+            lore = "A centopeia gigante. Cada segmento tem a sua postura: quebre os três para finalizá-la.",
+            moves = new[]
+            {
+                Move("mandibulas", 0f, 2.0f, 3,
+                     Arc("mandibulas_1", 16, 3, 6, 10, 10f, 12f, 14f, 1.5f, 100f, 0.6f),
+                     Arc("mandibulas_2", 12, 3, 24, 8, 10f, 12f, 14f, 1.5f, 100f, 0.6f)),
+                Move("investida_de_patas", 2f, 6f, 2, Line("investida_de_patas", 26, 8, 30, 20, 14f, 16f, 18f, 4.0f, 0.9f, 3.0f)),
+                Signature("veneno_das_cem_patas", 0f, 2.2f, 2, Cursed(Arc("veneno_das_cem_patas", 24, 4, 28, 16, 14f, 16f, 22f, 1.6f, 120f, 0.6f))),
+            },
+        };
+
+        static readonly MoveDef NueRoar = Signature("rugido_quimera", 0f, 2.4f, 1, Arc("rugido_quimera", 30, 5, 30, 20, 18f, 20f, 26f, 2.0f, 140f, 0.6f));
+
+        static readonly MoveDef[] NueMonkey =
+        {
+            Move("macaco", 0f, 2.0f, 3,
+                 Arc("macaco_1", 14, 3, 4, 10, 9f, 10f, 12f, 1.5f, 110f, 0.6f),
+                 Arc("macaco_2", 12, 3, 4, 8, 9f, 10f, 12f, 1.5f, 110f, 0.6f),
+                 Arc("macaco_3", 12, 3, 24, 8, 10f, 11f, 14f, 1.5f, 110f, 0.6f)),
+            NueRoar,
+        };
+
+        static readonly MoveDef[] NueTiger =
+        {
+            Move("tigre", 1.5f, 6f, 3, Line("tigre", 24, 8, 30, 18, 16f, 18f, 20f, 4.2f, 1.0f, 3.2f)),
+            Move("garra_de_tigre", 0f, 2.2f, 2, Arc("garra_de_tigre", 20, 4, 26, 14, 15f, 18f, 20f, 1.8f, 130f, 0.8f)),
+            NueRoar,
+        };
+
+        static readonly MoveDef[] NueSerpent =
+        {
+            Move("serpente", 0f, 3.6f, 3, Line("serpente", 22, 5, 26, 16, 13f, 0f, 0f, 3.4f, 0.6f, 1.2f, AttackKind.Thrust)),
+            Move("presa_venenosa", 0f, 2.0f, 2, Cursed(Arc("presa_venenosa", 20, 4, 24, 14, 12f, 14f, 18f, 1.6f, 100f, 0.6f))),
+            NueRoar,
+        };
+
+        /// <summary>The chimera: monkey, tiger and serpent — it changes nature with every parry.</summary>
+        public static readonly EnemyDef Nue = new EnemyDef
+        {
+            id = "nue", displayName = "Nue", art = "MonkeyBoxerRed", artScale = 1.25f, unarmed = true, tint = ColorUtil.Hex("#D9A26B"),
+            shape = Shape.Diamond, color = ColorUtil.Hex("#C58B4F"),
+            maxHealth = 100f, maxPosture = 80f, radius = 0.45f, mass = 1.6f, moveSpeed = 3.6f, preferredRange = 1.8f,
+            blockChance = 0.15f, postureRegenPerSecond = 10f, idleMin = 35, idleMax = 70,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.ThreeNatures,
+            lore = "Cara de macaco, corpo de tigre, cauda de serpente. A cada parry perfeito, muda de natureza.",
+            natureNames = new[] { "Macaco", "Tigre", "Serpente" },
+            natures = new[] { NueMonkey, NueTiger, NueSerpent },
+            moves = NueMonkey,
+        };
+
+        /// <summary>A possessed blade fighting alone: only a finisher puts it to rest.</summary>
+        public static readonly EnemyDef Tsukumogami = new EnemyDef
+        {
+            id = "tsukumogami", displayName = "Tsukumogami", art = "Flam", weaponArt = "weapon_Katana", artScale = 0.9f, flying = true, onlyFinisher = true,
+            tint = ColorUtil.Hex("#D8DEE9"), shape = Shape.Diamond, color = ColorUtil.Hex("#AFC2D8"),
+            maxHealth = 60f, maxPosture = 55f, radius = 0.36f, moveSpeed = 4.0f, preferredRange = 1.8f,
+            blockChance = 0.2f, postureRegenPerSecond = 9f, idleMin = 35, idleMax = 70,
+            signatureAnswer = SignatureAnswer.CounterThrust, techniqueId = RewardIds.LivingBlade,
+            lore = "Uma espada que fez cem anos e ganhou alma. A vida não a derruba: só uma finalização.",
+            moves = new[]
+            {
+                Move("corte_possuido", 0f, 2.2f, 3,
+                     Arc("corte_possuido_1", 16, 3, 6, 10, 10f, 12f, 14f, 1.6f, 110f, 0.7f),
+                     Arc("corte_possuido_2", 12, 3, 24, 8, 11f, 12f, 16f, 1.6f, 110f, 0.7f)),
+                Move("rodopio", 0f, 2.0f, 2, Sweep("rodopio", 26, 6, 26, 12f, 1.8f)),
+                Signature("lamina_viva", 0f, 3.4f, 2, Line("lamina_viva", 26, 5, 28, 18, 16f, 0f, 0f, 3.6f, 0.6f, 2.0f, AttackKind.Thrust)),
+            },
+        };
+
+        /// <summary>A corrupted priest: talismans that seal your techniques for five seconds.</summary>
+        public static readonly EnemyDef Sacerdote = new EnemyDef
+        {
+            id = "sacerdote", displayName = "Sacerdote Corrompido", art = "Monk", weaponArt = "weapon_Stick", tint = ColorUtil.Hex("#B08AE0"),
+            shape = Shape.Capsule, color = ColorUtil.Hex("#8E5BD0"),
+            maxHealth = 75f, maxPosture = 65f, radius = 0.4f, moveSpeed = 2.6f, preferredRange = 4f,
+            blockChance = 0.3f, postureRegenPerSecond = 9f, idleMin = 50, idleMax = 90,
+            signatureAnswer = SignatureAnswer.PerfectDodge, techniqueId = RewardIds.ForbiddenSeal,
+            lore = "Os talismãs dele selam as suas técnicas por cinco segundos. Esquive através da explosão.",
+            moves = new[]
+            {
+                Move("cajado", 0f, 2.0f, 3, Arc("cajado", 20, 4, 24, 14, 11f, 14f, 16f, 1.7f, 110f, 0.5f)),
+                Move("talisma_proibido", 2.5f, 11f, 3, With(Blast("talisma_proibido", 30, 28, 10f, 12f, 1.3f, 46, BlastKind.Talisman), a => a.sealsTechniques = true)),
+                Signature("selo_triplo_proibido", 2.5f, 11f, 2,
+                          With(Blast("selo_triplo_proibido", 40, 34, 12f, 14f, 1.2f, 50, BlastKind.Talisman, 3, 2.4f), a => a.sealsTechniques = true)),
+            },
+        };
+
+        /// <summary>The blind duelist: he does not see you — he hears your steps and your blade.</summary>
+        public static readonly EnemyDef ZatoCego = new EnemyDef
+        {
+            id = "zato_cego", displayName = "Duelista Cego", art = "Master", weaponArt = "weapon_Katana", blind = true, tint = ColorUtil.Hex("#E8E2D0"),
+            shape = Shape.Pentagon, color = ColorUtil.Hex("#D8D2C2"),
+            maxHealth = 80f, maxPosture = 70f, radius = 0.42f, moveSpeed = 3.0f, preferredRange = 1.8f,
+            blockChance = 0.4f, postureRegenPerSecond = 10f, idleMin = 30, idleMax = 60,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.InnerEar,
+            lore = "Não vê você. Ouve os seus passos e a sua lâmina: fique imóvel e ele perde o rastro.",
+            moves = new[]
+            {
+                Move("corte_cego", 0f, 2.2f, 3,
+                     Arc("corte_cego_1", 18, 4, 6, 12, 12f, 14f, 18f, 1.8f, 120f, 0.6f),
+                     Arc("corte_cego_2", 14, 4, 26, 8, 13f, 14f, 18f, 1.8f, 120f, 0.6f)),
+                Signature("iai_do_cego", 0f, 2.6f, 2, Arc("iai_do_cego", 22, 4, 30, 6, 22f, 24f, 30f, 2.2f, 140f, 1.2f)),
+            },
+        };
+
+        /// <summary>The Shura's mirror: a copy of a duelist, with that duelist's own weapon.</summary>
+        public static readonly EnemyDef Espelho = new EnemyDef
+        {
+            id = "espelho", displayName = "Espelho do Shura", art = "NinjaDark", weaponArt = "weapon_Katana", mirror = true, tint = ColorUtil.Hex("#C8D6E5"),
+            shape = Shape.Diamond, color = ColorUtil.Hex("#9FB3C8"),
+            maxHealth = 90f, maxPosture = 70f, radius = 0.42f, moveSpeed = 3.6f, preferredRange = 1.6f,
+            blockChance = 0.35f, postureRegenPerSecond = 10f, idleMin = 30, idleMax = 60,
+            signatureAnswer = SignatureAnswer.PerfectParry, techniqueId = RewardIds.Reflection,
+            lore = "Um reflexo de outro samurai preso no Shuradō: a arma dele, os golpes dele, os vícios dele.",
+            moves = new[]
+            {
+                Move("reflexo_1", 0f, 2.0f, 3, Arc("reflexo_1", 18, 4, 22, 12, 12f, 14f, 16f, 1.6f, 120f, 0.6f)),
+                Signature("reflexo", 0f, 2.4f, 2, Arc("reflexo", 26, 5, 28, 18, 16f, 18f, 24f, 1.8f, 130f, 0.8f)),
+            },
+        };
+
         public static readonly EnemyDef[] All =
         {
             Ronin, Lanceiro, Monge, Kenkaku, Carrasco, Arqueiro, Sombra, Escudeiro,
             Kunoichi, Bombardeiro, Tengu, Onmyoji, Curandeira, Lanterna, Onryo, Kappa,
             Ciclope, Lodo, Berserker, Raijin, Olho, Vampiro, Esqueleto, Boxeador,
+            Kamaitachi, Rokurokubi, AranhaMenor, Nopperabo, IttanMomen, Nurikabe,
+            Omukade, Nue, Tsukumogami, Sacerdote, ZatoCego, Espelho,
         };
 
         public static readonly EnemyDef[] Minions = { Hitodama, LodoPequeno, RaijinSombra };

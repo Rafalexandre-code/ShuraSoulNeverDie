@@ -224,8 +224,11 @@ namespace Shura
                 shoveLeft = 0f;
                 Stun(50);
                 other.Stun(50);
-                StartBrawl(other);
-                other.StartBrawl(this);
+                if (Factions.Hostile(Def, other.Def))
+                {
+                    StartBrawl(other);
+                    other.StartBrawl(this);
+                }
                 world.Fx.Emit(FxType.SlamImpact, (Position + other.Position) * 0.5f, shoveDir, 1.6f);
                 world.Fx.Popup(Strings.PopupKnockedDown, other.Position + Vector2.up * 1.3f, pal.gold);
                 return;
@@ -301,6 +304,11 @@ namespace Shura
             if (!CombatMath.Overlaps(attack.shape, Position, Facing, foe.Position, foe.Radius)) return;
             Vector2 dir = (foe.Position - Position).normalized;
             foe.ReceiveHazard(attack.damage * PowerMult, attack.postureDamage * PowerMult, dir);
+            if (foe.IsGone)
+            {
+                Inherit();
+                return;
+            }
             foe.StartBrawl(this);
         }
 

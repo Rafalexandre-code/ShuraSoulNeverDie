@@ -24,6 +24,8 @@ namespace Shura
         public void MarkElement(Element e)
         {
             if (!CanBeHit || e == Element.None) return;
+            // The Kappa runs from fire (§5.3).
+            if (e == Element.Fire && Def.id == "kappa") Scare(120);
             if (elementFrames > 0 && ActiveElement != Element.None && ActiveElement != e)
             {
                 Element first = ActiveElement;

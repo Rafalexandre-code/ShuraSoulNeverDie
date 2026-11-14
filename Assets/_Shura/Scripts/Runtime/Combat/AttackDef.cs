@@ -114,6 +114,14 @@ namespace Shura
         public bool cursed;
         /// <summary>A huge group blow (white broken ring): only two duelists parrying together stop it.</summary>
         public bool groupStrike;
+        /// <summary>Ittan-momen: it smothers — a hit drains breath.</summary>
+        public bool drainsBreath;
+        /// <summary>Nurikabe: hit or blocked, the duelist is pushed this far.</summary>
+        public float pushBack;
+        /// <summary>The spider's blast leaves a web on the floor.</summary>
+        public bool leavesWeb;
+        /// <summary>The corrupted priest's talisman seals the duelist's techniques.</summary>
+        public bool sealsTechniques;
 
         public bool IsProjectile => projectileSpeed > 0f;
         public bool IsBlast => blastRadius > 0f;

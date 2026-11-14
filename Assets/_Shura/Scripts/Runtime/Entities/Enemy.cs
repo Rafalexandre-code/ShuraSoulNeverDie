@@ -196,6 +196,7 @@ namespace Shura
                 def.moves.CopyTo(moves, 0);
                 moves[def.moves.Length] = GroupBlow;
             }
+            if (def.tint != Color.white) SetBodyLook(def.tint, Color.clear);
             float barY = VisualTop + 0.25f;
             sealBarY = barY;
             barBack = SpriteUtil.Make("BarBack", transform, ShapeLibrary.Get(Shape.Pixel), new Color(0f, 0f, 0f, 0.65f), Sorting.Overlay);
@@ -249,6 +250,8 @@ namespace Shura
             TickTraits();
             if (TickYield()) return;
             TickBoss();
+            TickEcologyTimers();
+            if (TickScared()) return;
 
             switch (CurrentState)
             {
@@ -317,6 +320,7 @@ namespace Shura
                 foreach (Enemy e in world.Enemies)
                 {
                     if (e == this || e.IsGone || e.CurrentState == State.Reassembling) continue;
+                    if (Factions.Of(e.Def) != Factions.Of(Def)) continue;
                     if (Vector2.Distance(e.Position, Position) > Def.healRadius) continue;
                     if (e.Health >= e.MaxHealth && e.Posture.Ratio <= 0f) continue;
                     e.Mend(e.MaxHealth * Def.healFraction, 15f);
@@ -463,6 +467,7 @@ namespace Shura
             {
                 if (a.IsDangerous) dangerous = true;
             }
+            if (dangerous && dangerSealed > 0) return 0;
             float bias = dangerous ? 1f + 1.5f * world.Adaptation.Danger : 1f;
             if (enraged && m.isSignature) bias *= 3f;
             return Mathf.Max(1, Mathf.RoundToInt(m.weight * bias * 2f));
@@ -490,6 +495,12 @@ namespace Shura
 
         void TryChooseAttack(float dist)
         {
+            // The blind duelist waits for a sound.
+            if (!CanHearTarget())
+            {
+                idleTimer = 12;
+                return;
+            }
             int total = 0;
             foreach (MoveDef m in moves)
             {
@@ -743,8 +754,10 @@ namespace Shura
                     at += CombatMath.FromAngle(a) * attack.blastScatter;
                 }
                 at = world.Layout.NearestFloor(at, 0.1f);
-                world.ScheduleEnemyBlast(this, at, attack.blastRadius, attack.blastFuse + i * 6, attack.damage * PowerMult,
-                                         attack.postureDamage * PowerMult, attack.blastKind, false, CurrentMove != null && CurrentMove.isSignature);
+                EnemyBlast blast = world.ScheduleEnemyBlast(this, at, attack.blastRadius, attack.blastFuse + i * 6, attack.damage * PowerMult,
+                                                             attack.postureDamage * PowerMult, attack.blastKind, false, CurrentMove != null && CurrentMove.isSignature);
+                blast.Web = attack.leavesWeb;
+                blast.SealsTechniques = attack.sealsTechniques;
             }
         }
 
@@ -785,6 +798,7 @@ namespace Shura
         /// <summary>Perfectly parried: the blade stops and bounces back; the swing ends.</summary>
         public void OnParried(float posture)
         {
+            NextNature();
             LoseKalpaFlow();
             Expose();
             Squash(0.82f, 1.15f);
@@ -851,6 +865,11 @@ namespace Shura
                 posture *= shield;
                 if (shield > 0f && (Webbed || SkullClosed) && rng.NextFloat() < 0.35f)
                     world.Fx.Popup(Webbed ? Strings.PopupWebbed : Strings.PopupSkullClosed, Position + Vector2.up * 1.6f, pal.uiDim);
+            }
+            if (FormationGuarded && Vector2.Dot(Facing, hitDir) < 0.3f)
+            {
+                damage *= 0.6f;
+                posture *= 0.6f;
             }
             // A blow on someone kneeling is an execution.
             if (Kneeling)
@@ -927,6 +946,11 @@ namespace Shura
             if (!Def.superArmor && CurrentState != State.Attacking && CurrentState != State.Broken) Velocity = hitDir * et.hitKnockback;
             world.Fx.Emit(FxType.HitEnemy, contact, hitDir, damage, Def.bloodColor);
 
+            if (Health <= 0f && Def.onlyFinisher)
+            {
+                Health = 1f;
+                world.Fx.Popup(Strings.PopupOnlyFinisher, Position + Vector2.up * 1.3f, pal.uiDim);
+            }
             if (Health <= 0f)
             {
                 Die();
@@ -994,6 +1018,7 @@ namespace Shura
             dotAccumulator = 0f;
             Health -= dealt;
             world.Fx.Emit(FxType.DotTick, Position, Vector2.up, dealt, dotElement == Element.Blood ? Def.bloodColor : Elements.Color(dotElement));
+            if (Health <= 0f && Def.onlyFinisher) Health = 1f;
             if (Health <= 0f) Die();
         }
 
@@ -1076,6 +1101,7 @@ namespace Shura
 
         void BreakPosture()
         {
+            if (SegmentBreak()) return;
             Expose();
             world.Coordinator.Release(this);
             CurrentMove = null;
@@ -1551,6 +1577,8 @@ namespace Shura
             if (Flashing) glow = Color.white;
             if (gibbed) c.a = 0f;
             glow.a *= c.a;
+            Color defTint = Def.tint;
+            c = new Color(c.r * defTint.r, c.g * defTint.g, c.b * defTint.b, c.a * defTint.a);
             SetBodyLook(c, glow);
             shadow.enabled = !gibbed && !IsBurrowed;
             weapon.enabled = !gibbed && !Def.unarmed && !IsBurrowed && CurrentState != State.Reassembling;

@@ -20,7 +20,7 @@ namespace Shura.Tests
             foreach (string id in RoomGenerator.RosterIds()) Assert.IsFalse(EnemyDefs.Get(id).minion, id + " is a minion in the room roster");
             foreach (EnemyDef d in EnemyDefs.All)
             {
-                Assert.LessOrEqual(RoomGenerator.UnlockDepth(d.id), 12, d.id + " is never met (or met too late)");
+                Assert.LessOrEqual(RoomGenerator.UnlockDepth(d.id), 24, d.id + " is never met (or met too late)");
                 Assert.IsFalse(string.IsNullOrEmpty(d.lore), d.id + " needs a line for the new-enemy toast");
             }
         }
@@ -118,7 +118,7 @@ namespace Shura.Tests
         public void Rooms_IntroduceTwoNewcomersEachAlone()
         {
             int met = 1;
-            for (int depth = 1; depth <= 12; depth++)
+            for (int depth = 1; depth <= 24; depth++)
             {
                 List<string> newcomers = RoomGenerator.NewEnemiesAt(depth);
                 Assert.That(newcomers.Count, Is.InRange(1, 2), "depth " + depth);
@@ -137,7 +137,7 @@ namespace Shura.Tests
                     Assert.AreNotEqual("olho", boss.id);
                 }
             }
-            Assert.AreEqual(EnemyDefs.All.Length, met, "the whole bestiary is met by depth 12");
+            Assert.AreEqual(EnemyDefs.All.Length, met, "the whole bestiary is met by depth 24");
         }
     }
 }

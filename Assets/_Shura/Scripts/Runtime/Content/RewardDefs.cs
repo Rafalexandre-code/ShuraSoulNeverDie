@@ -30,8 +30,24 @@ namespace Shura
         public const string StubbornBones = "tec_ossos_teimosos";
         public const string CounterPunch = "tec_contragolpe";
 
+        // Phase 5, part 3: the techniques of the twelve new enemies.
+        public const string TriSickle = "tec_foice_triplice";
+        public const string LookOver = "tec_olhar_por_cima";
+        public const string SilkThread = "tec_fio_de_seda";
+        public const string EmptyMask = "tec_mascara_vazia";
+        public const string Shroud = "tec_mortalha";
+        public const string WalkingWall = "tec_muro_andante";
+        public const string SegmentedShell = "tec_carapaca_segmentada";
+        public const string ThreeNatures = "tec_tres_naturezas";
+        public const string LivingBlade = "tec_arma_viva";
+        public const string ForbiddenSeal = "tec_selo_proibido";
+        public const string InnerEar = "tec_ouvido_interior";
+        public const string Reflection = "tec_reflexo";
+
         public static readonly string[] Techniques =
         {
+            TriSickle, LookOver, SilkThread, EmptyMask, Shroud, WalkingWall,
+            SegmentedShell, ThreeNatures, LivingBlade, ForbiddenSeal, InnerEar, Reflection,
             PatientBlade, MirrorThrust, PhantomStep, DuelistRhythm, ExecutionerBlow, ReflexArrow, Ambush, Bulwark,
             KunaiFan, ShortFuse, IaiDraw, ExplosiveSeal, ShamanBlessing, LivingLantern, EtherealBody, KappaCurrent,
             OniCrush, SlimeHunger, Frenzy, ShadowCopy, SentinelBlink, BloodThirst, StubbornBones, CounterPunch,
@@ -69,6 +85,18 @@ namespace Shura
             switch (id)
             {
                 case RewardIds.PatientBlade: return new PatientBladeTechnique();
+                case RewardIds.TriSickle: return new TriSickleTechnique();
+                case RewardIds.LookOver: return new LookOverTechnique();
+                case RewardIds.SilkThread: return new SilkThreadTechnique();
+                case RewardIds.EmptyMask: return new EmptyMaskTechnique();
+                case RewardIds.Shroud: return new ShroudTechnique();
+                case RewardIds.WalkingWall: return new WalkingWallTechnique();
+                case RewardIds.SegmentedShell: return new SegmentedShellTechnique();
+                case RewardIds.ThreeNatures: return new ThreeNaturesTechnique();
+                case RewardIds.LivingBlade: return new LivingBladeTechnique();
+                case RewardIds.ForbiddenSeal: return new ForbiddenSealTechnique();
+                case RewardIds.InnerEar: return new InnerEarTechnique();
+                case RewardIds.Reflection: return new ReflectionTechnique();
                 case RewardIds.MirrorThrust: return new MirrorThrustTechnique();
                 case RewardIds.PhantomStep: return new PhantomStepTechnique();
                 case RewardIds.DuelistRhythm: return new DuelistRhythmTechnique();

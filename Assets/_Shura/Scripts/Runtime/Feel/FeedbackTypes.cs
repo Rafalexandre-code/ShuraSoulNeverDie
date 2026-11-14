@@ -164,6 +164,8 @@ namespace Shura
         Morale,
         Rival,
         Boss,
+        Factions,
+        Formation,
     }
 
     /// <summary>

@@ -29,6 +29,7 @@ namespace Shura
 
         void TickRituals()
         {
+            TickQuietAndSeal();
             if (Build == null || !IsAlive || input == null) return;
             bool calm = world.RoomCleared && world.ActiveEnemyCount == 0 && !world.TutorialRoom;
             if (!calm || chiburiDone)
@@ -73,6 +74,46 @@ namespace Shura
                 else world.Fx.Popup(off < 0 ? Strings.PopupNotoEarly : Strings.PopupNotoLate, Position + Vector2.up * 1.3f, pal.uiDim);
             }
             chiburiFrames = 0;
+        }
+
+        int quietFrames;
+        int sealedFrames;
+
+        /// <summary>Standing still, blade at rest: the blind duelist loses you.</summary>
+        public bool Quiet => quietFrames > 24;
+
+        void TickQuietAndSeal()
+        {
+            bool still = Velocity.sqrMagnitude < 0.3f && (CurrentState == State.Free || CurrentState == State.Parry);
+            quietFrames = still ? quietFrames + 1 : 0;
+            if (sealedFrames > 0 && --sealedFrames == 0 && Build != null)
+            {
+                Build.TechniquesSealed = false;
+                Build.RecomputeModifiers();
+                ApplyStats(false);
+                world.Fx.Popup(Strings.PopupTechniquesFree, Position + Vector2.up * 1.3f, pal.gold);
+            }
+        }
+
+        /// <summary>The corrupted priest's talisman: no technique works for a while.</summary>
+        public void SealTechniques(int frames)
+        {
+            if (Build == null || !IsAlive) return;
+            bool was = sealedFrames > 0;
+            sealedFrames = Mathf.Max(sealedFrames, frames);
+            if (was) return;
+            Build.TechniquesSealed = true;
+            Build.RecomputeModifiers();
+            ApplyStats(false);
+            world.Fx.Popup(Strings.PopupTechniquesSealed, Position + Vector2.up * 1.4f, ColorUtil.Hex("#B08AE0"));
+            world.HintOnce(HintId.Factions);
+        }
+
+        /// <summary>Pushed by a living wall.</summary>
+        public void KnockBack(Vector2 dir, float distance)
+        {
+            if (!IsAlive || dir.sqrMagnitude < 1e-4f) return;
+            Velocity = dir.normalized * distance * 6f;
         }
 
         /// <summary>A bow before the standoff (Interact).</summary>

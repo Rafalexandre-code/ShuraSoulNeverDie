@@ -17,7 +17,14 @@ namespace Shura
 
         float fireInset;
         Transform bossProps;
-        readonly List<Vector2> webs = new List<Vector2>();
+        struct WebSpot
+        {
+            public Vector2 at;
+            public float until;
+            public SpriteRenderer view;
+        }
+
+        readonly List<WebSpot> webs = new List<WebSpot>();
         readonly List<Enemy> bossMinions = new List<Enemy>();
         Enemy.State bossPrevState;
         int bossTick;
@@ -149,18 +156,16 @@ namespace Shura
             for (int i = 0; i < count; i++)
             {
                 Vector2 p = Layout.NearestFloor(new Vector2(rng.Range(b.xMin + 2f, b.xMax - 2f), rng.Range(b.yMin + 2f, b.yMax - 2f)), WebRadius);
-                webs.Add(p);
-                SpriteRenderer w = SpriteUtil.Make("Web", bossProps, WebSprite, Color.white, Sorting.Ground + 5);
-                w.transform.position = p;
+                AddWeb(p, 100000f);
             }
         }
 
         /// <summary>Jorōgumo's webs bind: steps and dodges inside them shrink.</summary>
         public float WebMult(Vector2 at)
         {
-            foreach (Vector2 w in webs)
+            foreach (WebSpot w in webs)
             {
-                if ((w - at).sqrMagnitude < WebRadius * WebRadius) return 0.5f;
+                if ((w.at - at).sqrMagnitude < WebRadius * WebRadius) return 0.5f;
             }
             return 1f;
         }

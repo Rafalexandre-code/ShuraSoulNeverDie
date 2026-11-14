@@ -45,6 +45,8 @@ namespace Shura
         public float ArtAngle;
         /// <summary>Passes through every enemy instead of stopping at the first.</summary>
         public bool Piercing;
+        /// <summary>The Storm: a thunder copy already turned it once.</summary>
+        public bool Redirected;
         /// <summary>A shuriken: catches leaps, charges and dives before they land.</summary>
         public bool Interrupts;
         /// <summary>Sprite name for browser players (empty = arrow).</summary>
@@ -85,6 +87,9 @@ namespace Shura
         public bool Signature;
         public Color Color;
         public Transform Root;
+        /// <summary>The spider's blast leaves a web; the priest's seals techniques.</summary>
+        public bool Web;
+        public bool SealsTechniques;
         public SpriteRenderer Fill;
         public SpriteRenderer Ring;
         public SpriteRenderer Icon;
@@ -401,6 +406,7 @@ namespace Shura
             if (Run != null && Run.AllyRooms > 0) SpawnAlly();
             if (room.weather != Weather.Clear) HintOnce(HintId.Weather);
             ClearBossRoom();
+            ClearEcology();
             BeginRitualsForRoom();
             RivalInRoom = null;
             waveLeader = null;
@@ -431,6 +437,8 @@ namespace Shura
             Standoff.Tick();
             TickRituals();
             TickBosses();
+            TickEcology();
+            TickWebs();
             for (int i = 0; i < Enemies.Count; i++) Enemies[i].Tick();
             TickProjectiles();
             TickBursts();
@@ -565,6 +573,7 @@ namespace Shura
             }
             // A dispute: two factions already at each other's throats.
             if (CurrentRoom != null && CurrentRoom.kind == RoomKind.Dispute) StartDispute(list);
+            DetectFormation(list);
             return list;
         }
 
@@ -593,6 +602,7 @@ namespace Shura
             enemy.Init(this, def, at, Config, Run.Rng, scaling, summoner);
             Enemies.Add(enemy);
             if (lord != null) BeginBoss(enemy, lord);
+            OnEcologySpawn(enemy);
             return enemy;
         }
 
@@ -898,10 +908,15 @@ namespace Shura
                 HitOutcome outcome = p.ReceiveAttack(incoming);
                 actor = null;
                 connected = true;
+                // The living wall pushes, hit or blocked.
+                if (attack.pushBack > 0f && (outcome == HitOutcome.Hit || outcome == HitOutcome.Blocked))
+                    p.KnockBack(p.Position - attacker.Position, attack.pushBack);
                 if (outcome == HitOutcome.Hit)
                 {
                     attacker.DamagedPlayer = true;
                     OnBossHit(attacker, p);
+                    OnFormationBlowLanded(attacker, attack);
+                    if (attack.drainsBreath) p.DrainBreath(35f);
                     attacker.OnDealtDamage(attack.damage * attacker.PowerMult);
                     attacker.OnLandedHitKalpa();
                     if (CurrentRoom != null && CurrentRoom.challenge == ChallengeKind.NoHit) FailChallenge();
@@ -1034,8 +1049,8 @@ namespace Shura
         /// Marks a circle that explodes after <paramref name="fuse"/> frames. Players inside get hurt
         /// unless they dodge through the blast; a dying lantern's blast hurts enemies as well.
         /// </summary>
-        public void ScheduleEnemyBlast(Enemy owner, Vector2 position, float radius, int fuse, float damage, float posture,
-                                       BlastKind kind, bool hitsEnemies, bool signature = false)
+        public EnemyBlast ScheduleEnemyBlast(Enemy owner, Vector2 position, float radius, int fuse, float damage, float posture,
+                                             BlastKind kind, bool hitsEnemies, bool signature = false)
         {
             var go = new GameObject("Blast");
             go.transform.SetParent(root, false);
@@ -1053,6 +1068,7 @@ namespace Shura
             b.Ring.transform.localScale = Vector3.one * radius * 2f;
             Blasts.Add(b);
             RenderBlast(b);
+            return b;
         }
 
         void TickBlasts()
@@ -1069,10 +1085,12 @@ namespace Shura
                     Vector2 dir = p.Position - b.Position;
                     actor = p;
                     bool dodged = p.ReceiveHazard(b.Damage, b.Posture, dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector2.up);
+                    if (!dodged && b.SealsTechniques) p.SealTechniques(5 * SimClock.TickRate);
                     // Dodging through a bomb or talisman as it goes off is a perfect dodge.
                     if (dodged && b.Owner != null && !b.HitsEnemies) p.CreditPerfectDodge(b.Owner, b.Signature);
                     actor = null;
                 }
+                if (b.Web) AddWeb(b.Position, 8f);
                 if (b.HitsEnemies)
                 {
                     for (int e = 0; e < Enemies.Count; e++)
@@ -1081,6 +1099,12 @@ namespace Shura
                         if (en == b.Owner || !en.CanBeHit || Vector2.Distance(en.Position, b.Position) > b.Radius + en.Radius * 0.6f) continue;
                         Vector2 dir = en.Position - b.Position;
                         en.ReceiveHazard(b.Damage * 1.5f, b.Posture * 1.5f, dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector2.up);
+                        // A blast of the other people turns the survivor on its owner; a kill feeds it.
+                        if (b.Owner != null && !b.Owner.IsGone && Factions.Hostile(en.Def, b.Owner.Def))
+                        {
+                            if (en.IsGone) b.Owner.Inherit();
+                            else en.StartBrawl(b.Owner);
+                        }
                     }
                 }
                 Object.Destroy(b.Root.gameObject);
@@ -1413,6 +1437,7 @@ namespace Shura
             Run.Meta?.RecordEnemy(enemy.Def.id, true);
             if (enemy.IsRival) OnRivalDefeated(enemy);
             if (enemy.IsBoss) OnBossDefeated(enemy);
+            OnEcologyDeath(enemy);
             enemy.OnDefeated?.Invoke(enemy);
             enemy.OnDefeated = null;
             // A duel won: the foe's technique is guaranteed, mastered or not.
@@ -1526,7 +1551,11 @@ namespace Shura
                 // Walls and statues stop arrows.
                 bool dead = p.Life <= 0 || !Layout.IsFloorAt(p.Position);
 
-                if (!dead && !p.Reflected) dead = TickHostileProjectile(p);
+                if (!dead && !p.Reflected)
+                {
+                    RedirectStormBolt(p);
+                    dead = TickHostileProjectile(p);
+                }
                 else if (!dead) dead = TickFriendlyProjectile(p);
 
                 if (!dead) continue;
@@ -1604,7 +1633,7 @@ namespace Shura
                 if (SidestepsTool(e, p)) continue;
                 if (p.Interrupts) e.InterruptLeap();
                 // A reflected arrow that hits someone else turns them on the archer.
-                if (p.Owner != null && p.Owner != e) e.StartBrawl(p.Owner);
+                if (p.Owner != null && p.Owner != e && Factions.Hostile(e.Def, p.Owner.Def)) e.StartBrawl(p.Owner);
                 e.ReceivePlayerHit(p.Damage, p.Posture, p.Direction, true);
                 if (p.Element != Element.None) e.MarkElement(p.Element);
                 if (!p.Piercing) return true;

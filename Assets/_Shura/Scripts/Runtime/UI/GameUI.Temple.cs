@@ -931,6 +931,7 @@ namespace Shura
             if (e.reassembles) traits.Add("se remonta");
             if (!string.IsNullOrEmpty(e.summonId)) traits.Add("invoca");
             if (e.clones) traits.Add("cria clones");
+            traits.Insert(0, string.Format(Strings.LibraryFaction, Factions.Name(Factions.Of(e))));
             if (traits.Count > 0) Label(new Rect(x, y, w, 34f), string.Join("  ·  ", traits), smallStyle, UiKit.InkSoft);
         }
 

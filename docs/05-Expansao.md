@@ -97,18 +97,18 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 | 8.6 | Finais | ✅ os quatro, ao derrotar o Ashura (O Novo Ashura como chefe dos amigos vem com o online) |
 | 8.7 | História no ambiente | ✅ itens, lendas dos inimigos, corvos, raposas, pétalas no Mushin |
 
-## Fase 5 — Inimigos, IA e online (§5, §9) — 🔶 partes 1 e 2 (v0.11.0, v0.12.0)
+## Fase 5 — Inimigos, IA e online (§5, §9) — 🔶 partes 1 a 3 (v0.11.0 a v0.13.0); falta o online
 
 | § | Item | Estado |
 |---|---|---|
 | 5.1 | Rivais do Shuradō (Nêmesis) | ✅ (rivais na run de amigos ficam para a parte do online) |
 | 5.2 | Chefes de bioma (Kagutsuchi, Jorōgumo, Ō-Kyūketsuki, Gashadokuro Colossal, Yuki-onna, Ashura) | ✅ |
-| 5.3 | Ecologia e facções | ⏳ |
-| 5.4 | Formações e combos | ⏳ |
+| 5.3 | Ecologia e facções | ✅ |
+| 5.4 | Formações e combos | ✅ |
 | 5.5 | Afixos de elite | ✅ (Fase 1) |
 | 5.6 | IA adaptativa 2.0 | ✅ |
 | 5.7 | Moral e rendição | ✅ |
-| 5.8 | Doze inimigos novos | ⏳ |
+| 5.8 | Doze inimigos novos | ✅ (o Espelho do Shura copia o próprio duelista até o online trazer as runs de outros jogadores) |
 | 9.1 | Ações conjuntas | 🟡 kiai em grupo, ressonância e golpe de grupo feitos (Fase 1) |
 | 9.2–9.7 | Ameaça e papéis, queda e resgate, Pacto de Sangue, presença assíncrona, PvP, lobby como lugar | ⏳ |
 
@@ -247,6 +247,30 @@ Também: a linha do HUD mostra porta, hora, clima, Kalpa e a regra do bioma; o n
 - **Ashura, Rei do Shuradō** (sala 50 e a cada 50): **três braços, três armas, três anéis ao mesmo tempo** — os dois braços flutuantes atacam junto com ele — e na terceira fase ergue o seu **Asura Interior**, com as suas técnicas. Ruptura: *O Julgamento Aparado*.
 - **Finais** (§8.6), decididos na queda do Ashura: **Libertação** (Karma acima de +60), **O Novo Ashura** (com o Shura em 100), **As Camélias Caem Inteiras** (o final secreto: a missão de Tsubaki e os cinco Generais rivais vingados) e **Roda Eterna** (o Karma neutro: a jornada segue para o próximo Kalpa). Na Peregrinação e na Torre, a última sala é o Ashura.
 - Cada chefe derrotado rende 2 Aço Celeste a mais; os elites com afixos e a regra dos Guardiões Gêmeos não se aplicam aos chefes.
+
+## Fase 5, parte 3: facções, formações e doze inimigos novos (v0.13.0) — ✅
+
+- **Quatro facções**: **Humanos** (duelistas, ninjas, monges), **Yokai**, **Oni** e **Mortos** (Onryō, esqueletos, vampiros). Elas só brigam entre si quando o golpe de uma acerta a outra — uma Reversão que arremessa um contra o outro, um empurrão, uma flecha desviada ou uma bomba — e quem vence uma briga **absorve o morto** e fica mais forte. A Biblioteca mostra a facção de cada inimigo.
+- **Ecologia**: a **Xamã só cura os da própria facção**; o **Onryō levanta humanos caídos** perto dele como **Possuídos** (mais fracos, roxos, somem com ele); o **Kappa foge do fogo**; o **Chōchin-obake** (a lanterna) atrai **fogos-fátuos que explodem sobre os Oni**.
+- **Formações** (uma onda em cada ~6 numa sala de combate, quando os membros já apareceram): a tela anuncia o nome e a dica.
+  - **Falange** (Escudeiro + 2 Lanceiros): os lanceiros perto do escudo levam 40% menos de frente. Quebre o escudeiro primeiro.
+  - **Ritual** (Onmyōji + Xamã): um invoca, a outra cura; interromper um (um parry, uma quebra) **atordoa os dois**.
+  - **Caçada** (Kunoichi + Sombra): quando a kunoichi ataca, a Sombra **aparece nas suas costas**.
+  - **Ponte** (Arqueiro + Carrasco): quando a corrente do Carrasco te pega, o Arqueiro dispara na hora.
+  - **Tempestade** (Ninja do Trovão + Olho Vigia): as cópias do ninja **desviam os raios** do Olho na sua direção.
+- **Doze inimigos novos**, um a cada profundidade da 14ª à 25ª, cada um ensinando uma **técnica nova**:
+  - **Kamaitachi** — três doninhas: o combo vem de lados diferentes (*Foice Tríplice*: depois de um parry perfeito, o próximo golpe corta três vezes).
+  - **Rokurokubi** — o pescoço alcança longe, por cima das estátuas (*Olhar por Cima*: anéis 20% mais cedo).
+  - **Jorōgumo Menor** — deixa **teias no chão** que prendem o passo e a esquiva (*Fio de Seda*: a esquiva deixa os inimigos perto lentos).
+  - **Nopperabō** — sem rosto, **luta com os golpes do último inimigo que caiu** (*Máscara Vazia*: finalizar dá +30% de dano por três golpes).
+  - **Ittan-momen** — o pano voador **enrola e sufoca**, roubando o fôlego (*Mortalha*: esquiva perfeita sufoca quem atacou).
+  - **Nurikabe** — a parede viva **empurra** mesmo quando você bloqueia (*Muro Andante*: bloquear gasta menos e empurra).
+  - **Ōmukade** — a centopeia tem **três segmentos, cada um com a sua postura**: quebre os três para finalizar (*Carapaça Segmentada*).
+  - **Nue** — a quimera **muda de natureza (macaco, tigre, serpente) a cada parry perfeito** que leva (*Três Naturezas*).
+  - **Tsukumogami** — a espada possuída **só cai finalizada** (*Arma Viva*: depois de um parry perfeito, a sua outra arma corta sozinha).
+  - **Sacerdote Corrompido** — talismãs que **selam as suas técnicas por 5 s** (*Selo Proibido*: o parry perfeito sela os golpes vermelhos de quem atacou).
+  - **Duelista Cego** — **não vê você**: se você ficar imóvel, ele perde o rastro (*Ouvido Interior*: +1 frame de parry).
+  - **Espelho do Shura** — luta com **a sua própria arma e o seu combo** (*Reflexo*: o parry perfeito devolve o golpe).
 
 ## Apresentação e acessibilidade (§10) — ⏳
 

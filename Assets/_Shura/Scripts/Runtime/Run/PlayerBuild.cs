@@ -71,6 +71,8 @@ namespace Shura
         /// <summary>Altar "Corpo de Diamante": the first wound of each room is ignored.</summary>
         public bool IgnoreFirstWound;
         public bool FirstWoundIgnored;
+        /// <summary>Sealed by a corrupted priest's talisman (§5.8).</summary>
+        public bool TechniquesSealed;
 
         // ── The road (design doc §6) ────────────────────────────────────────────────
         /// <summary>Mon: the run's coin, spent at merchants, smiths, beggars and dice.</summary>
@@ -259,7 +261,11 @@ namespace Shura
             (OwnMeta ?? run?.Meta)?.ApplyTo(m);
             run?.Oaths.Apply(m);
             Effects.Clear();
-            Effects.AddRange(Owned);
+            // A corrupted priest's seal: the techniques sleep for a while.
+            foreach (RewardDef r in Owned)
+            {
+                if (!(TechniquesSealed && r is TechniqueDef)) Effects.Add(r);
+            }
             foreach (Item item in Equipped)
             {
                 if (item != null) Effects.Add(item);

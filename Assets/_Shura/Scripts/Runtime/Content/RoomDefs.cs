@@ -324,6 +324,19 @@ namespace Shura
             new RosterEntry("raijin", 11, 1.8f),
             new RosterEntry("esqueleto", 11, 2.0f),
             new RosterEntry("berserker", 12, 2.2f),
+            // Phase 5, part 3 (§5.8): one newcomer per depth.
+            new RosterEntry("kamaitachi", 13, 1.6f),
+            new RosterEntry("rokurokubi", 14, 1.7f),
+            new RosterEntry("aranha_menor", 15, 1.6f, false),
+            new RosterEntry("nopperabo", 16, 1.8f),
+            new RosterEntry("ittan_momen", 17, 1.7f, false),
+            new RosterEntry("nurikabe", 18, 2.6f),
+            new RosterEntry("omukade", 19, 2.2f),
+            new RosterEntry("nue", 20, 2.4f),
+            new RosterEntry("tsukumogami", 21, 1.9f),
+            new RosterEntry("sacerdote", 22, 1.9f, false),
+            new RosterEntry("zato_cego", 23, 2.3f),
+            new RosterEntry("espelho", 24, 2.4f),
         };
 
         static readonly string[] Places =
@@ -491,7 +504,9 @@ namespace Shura
                     waves.Add(both.ToArray());
                     continue;
                 }
-                waves.Add(FillWave(rng, depth, budget * (0.8f + 0.2f * w), maxPerWave, Faction.Any, Biomes.TimeAt(depth), biome.rule));
+                // Now and then a wave is a formation that fights as one (§5.4).
+                EnemySpawn[] formation = node.kind == RoomKind.Combat ? Formations.TryPick(Mix(runSeed, depth * 31 + w + 5000), depth) : null;
+                waves.Add(formation ?? FillWave(rng, depth, budget * (0.8f + 0.2f * w), maxPerWave, Faction.Any, Biomes.TimeAt(depth), biome.rule));
             }
 
             // Stepping by 7 through 12 places (coprime) never repeats a name within 12 rooms.
@@ -527,18 +542,8 @@ namespace Shura
         }
 
         /// <summary>Spirits, beasts and demons (the night brings more of them; corruption feeds them).</summary>
-        public static bool IsYokai(string id)
-        {
-            switch (id)
-            {
-                case "lanterna": case "onryo": case "kappa": case "tengu": case "ciclope": case "lodo": case "olho":
-                case "vampiro": case "esqueleto": case "boxeador": case "raijin": case "hitodama": case "lodo_pequeno":
-                case "raijin_sombra": case "berserker":
-                    return true;
-                default:
-                    return false;
-            }
-        }
+        /// <summary>Not human: yokai, oni and the dead (the two sides of a dispute).</summary>
+        public static bool IsYokai(string id) => Factions.Of(id) != EnemyFaction.Human;
 
         /// <summary>The dead: weak at dawn.</summary>
         public static bool IsUndead(string id) => id == "onryo" || id == "esqueleto" || id == "vampiro" || id == "hitodama";

@@ -6,6 +6,10 @@ namespace Shura
         // WP-01: telemetria local.
         public const string Telemetry = "Telemetria local";
         public const string HelpTelemetry = "Grava cada run num arquivo no seu computador (anéis, mortes, escolhas) para afinar o jogo. Nada é enviado pela internet.";
+        // O aviso de tempo antigo, agora opcional.
+        public const string TimingRings = "Anéis de tempo (antigo)";
+        public const string HelpTimingRings = "Além do brilho da arma, mostra o anel que se fecha sobre o inimigo.";
+
         // Maldições no HUD: a dica que acompanha o mouse.
         public const string CurseRoomsLeft = "Faltam {0} sala(s) para ela passar. O Santuário purifica.";
         public const string CurseMuramasaTitle = "Muramasa";

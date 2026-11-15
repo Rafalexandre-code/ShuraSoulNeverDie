@@ -275,7 +275,7 @@ namespace Shura
             float fogRange = env != null ? MiniJson.F(env, 5) : 0f;
             bool ringsHidden = me != null && (MiniJson.B(me, 50) || MiniJson.B(me, 57));
             float ringScale = me != null ? Mathf.Max(0.3f, MiniJson.F(me, 51, 1f)) : 1f;
-            bool showRings = game.Settings.timingIndicator && !ringsHidden;
+            bool showRings = game.Settings.timingIndicator && game.Settings.timingRings && !ringsHidden;
             if (b.E != null)
             {
                 foreach (object o in b.E)

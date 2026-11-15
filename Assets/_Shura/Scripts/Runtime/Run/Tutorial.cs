@@ -22,6 +22,47 @@ namespace Shura
         }
 
         public const int LessonCount = (int)Step.Done;
+
+        /// <summary>
+        /// Lições de mecânicas cortadas pelo redesenho (atrás de flag) não são dadas: o tutorial pula
+        /// a troca de guarda, a bandagem e os selos enquanto elas estiverem desligadas.
+        /// </summary>
+        public static bool Teaches(Step s)
+        {
+            switch (s)
+            {
+                case Step.Stances: return Feature.KamaeSwitch;
+                case Step.Bandage: return Feature.LocalWounds;
+                case Step.Seals: return Feature.KiSealsBase;
+                default: return true;
+            }
+        }
+
+        /// <summary>A próxima lição dada depois desta.</summary>
+        static Step NextLesson(Step s)
+        {
+            Step n = s + 1;
+            while (n < Step.Done && !Teaches(n)) n++;
+            return n;
+        }
+
+        /// <summary>Quantas lições de prática há (sem o prólogo, o HUD e as cortadas) e em qual estamos.</summary>
+        public static int PracticeCount
+        {
+            get
+            {
+                int n = 0;
+                for (Step s = Step.Move; s < Step.Done; s++) if (Teaches(s)) n++;
+                return n;
+            }
+        }
+
+        public static int PracticeIndex(Step current)
+        {
+            int n = 0;
+            for (Step s = Step.Move; s <= current && s < Step.Done; s++) if (Teaches(s)) n++;
+            return n;
+        }
         const float FlashSeconds = 1.25f;
         const float AutoSeconds = 9f;
         const int AttackGap = 105;
@@ -108,6 +149,10 @@ namespace Shura
         public float LineTime { get; private set; }
         int linePressBase;
         Vector2 walkTarget;
+        /// <summary>Prólogo: onde o mestre para (ponto Y, a leste) e onde ele está agora.</summary>
+        Vector2 masterTarget, masterAt;
+        /// <summary>Passo do prólogo (unidades por segundo): os dois andam devagar até o seu ponto.</summary>
+        const float PrologueWalkSpeed = 1.7f;
 
         /// <summary>The world waits: the title card and the conversation.</summary>
         public bool HoldWorld => Active && Current == Step.Prologue && ProloguePhase != 1;
@@ -179,7 +224,9 @@ namespace Shura
 
         public void Begin()
         {
-            Enter(game.Launch.Tutorial && game.Launch.TutorialStep >= 0 ? (Step)Mathf.Clamp(game.Launch.TutorialStep, 0, LessonCount - 1) : Step.Prologue);
+            Step first = game.Launch.Tutorial && game.Launch.TutorialStep >= 0 ? (Step)Mathf.Clamp(game.Launch.TutorialStep, 0, LessonCount - 1) : Step.Prologue;
+            if (!Teaches(first)) first = NextLesson(first);
+            Enter(first);
         }
 
         public void Stop()
@@ -223,10 +270,19 @@ namespace Shura
                     PhaseTime = 0f;
                     LineIndex = 0;
                     LineTime = 0f;
+                    // Uma linha horizontal: o duelista entra pelo oeste até o ponto X, o mestre
+                    // pelo leste até o ponto Y; ali param e se encaram de perfil.
                     Rect f = World.Layout.FloorBounds;
-                    if (partner == null || partner.IsGone) partner = World.SpawnPartner(EnemyDefs.Sensei, World.Layout.NearestFloor(new Vector2(f.center.x, f.center.y + 1.6f), 0.6f), true);
-                    p.Teleport(World.Layout.NearestFloor(new Vector2(f.center.x - 5.5f, f.yMin + 1.2f), 0.6f));
-                    walkTarget = World.Layout.NearestFloor(partner.Position + Vector2.down * 1.8f, 0.6f);
+                    float lineY = f.center.y;
+                    Vector2 masterStart = World.Layout.NearestFloor(new Vector2(f.xMax - 2.5f, lineY), 0.6f);
+                    if (partner == null || partner.IsGone) partner = World.SpawnPartner(EnemyDefs.Sensei, masterStart, true);
+                    partner.Teleport(masterStart);
+                    masterAt = masterStart;
+                    masterTarget = World.Layout.NearestFloor(new Vector2(f.center.x + 1.4f, lineY), 0.6f);
+                    p.Teleport(World.Layout.NearestFloor(new Vector2(f.xMin + 2.5f, lineY), 0.6f));
+                    walkTarget = World.Layout.NearestFloor(new Vector2(f.center.x - 1.4f, lineY), 0.6f);
+                    p.Facing = Vector2.right;
+                    partner.Facing = Vector2.left;
                     savedInput = p.Input;
                     p.SetInput(cinema);
                     break;
@@ -370,16 +426,33 @@ namespace Shura
                 case Step.Prologue:
                     if (ProloguePhase == 1)
                     {
-                        // A slow, steady walk up to the master.
+                        // O duelista anda, devagar, até o ponto X.
                         Vector2 to = walkTarget - p.Position;
-                        cinema.Walk = to.magnitude > 0.25f ? to.normalized * 0.55f : Vector2.zero;
-                        if (to.magnitude <= 0.25f)
+                        bool heroThere = to.magnitude <= 0.2f;
+                        cinema.Walk = heroThere ? Vector2.zero : to.normalized * 0.55f;
+                        if (heroThere)
                         {
-                            p.Facing = Vector2.up;
+                            p.Velocity = Vector2.zero;
+                            p.Facing = Vector2.right;
+                        }
+                        // O mestre anda até o ponto Y por conta do roteiro (a IA de treino não conduz aqui).
+                        bool masterThere = WalkMaster();
+                        if (heroThere && masterThere)
+                        {
+                            // Parados, de perfil, um encarando o outro: começa a conversa.
+                            p.Velocity = Vector2.zero;
+                            p.Facing = Vector2.right;
                             ProloguePhase = 2;
                             LineTime = 0f;
                             linePressBase = game.Controls.PressCounts[0];
                         }
+                    }
+                    else if (partner != null && !partner.IsGone)
+                    {
+                        // Durante o título e a conversa ninguém se mexe.
+                        partner.Position = masterAt;
+                        partner.Velocity = Vector2.zero;
+                        partner.Facing = Vector2.left;
                     }
                     break;
                 case Step.Move:
@@ -432,6 +505,21 @@ namespace Shura
                     if (partner == null || partner.IsGone) Complete();
                     break;
             }
+        }
+
+        /// <summary>Um passo do mestre rumo ao ponto Y; true quando chegou (parado, olhando para o oeste).</summary>
+        bool WalkMaster()
+        {
+            if (partner == null || partner.IsGone) return true;
+            Vector2 to = masterTarget - masterAt;
+            float step = PrologueWalkSpeed * SimClock.Dt;
+            bool there = to.magnitude <= step;
+            masterAt = there ? masterTarget : masterAt + to.normalized * step;
+            // A posição é do roteiro: o que a IA tenha feito neste passo é desfeito.
+            partner.Position = masterAt;
+            partner.Velocity = there ? Vector2.zero : to.normalized * PrologueWalkSpeed;
+            partner.Facing = Vector2.left;
+            return there;
         }
 
         /// <summary>The red blow came and went without touching the duelist who moved out of it: that is a dodge too.</summary>
@@ -525,7 +613,7 @@ namespace Shura
             if (Flash > 0f)
             {
                 Flash -= dt;
-                if (Flash <= 0f) Enter(Current + 1);
+                if (Flash <= 0f) Enter(NextLesson(Current));
                 return;
             }
             if (Frozen)

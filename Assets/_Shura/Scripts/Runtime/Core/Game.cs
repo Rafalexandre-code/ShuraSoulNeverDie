@@ -250,6 +250,7 @@ namespace Shura
             }
 
             World.RhythmEnabled = Settings.rhythmTrack;
+            World.ShowTimingRings = Settings.timingRings;
             switch (CurrentMode)
             {
                 case Mode.Playing:

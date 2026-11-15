@@ -299,3 +299,29 @@ Atenção (licença): TimberwolfGames e joraxus pedem que o pacote não seja red
   diretor mandou enviar tudo ao GitHub (repositório público).
 Próximo pedido na fila: tirar os símbolos azuis de ataque e fazer brilhar a arma de quem ataca.
 ```
+
+---
+
+```
+PEDIDOS DO DIRETOR — Arma que brilha, fôlego de volta, tutorial e diálogo — v0.16.7
+Fora do plano.
+  - Aviso de tempo: o anel sobre o inimigo virou a opção "Anéis de tempo (antigo)",
+    desligada. O aviso padrão é a arma de quem ataca (Feel/WeaponGlow.cs): contorno de luz de
+    1 px na cor da resposta, brilho ao longo da lâmina, faíscas do cabo à ponta cada vez mais
+    rápidas e, no instante de responder, o "kira" — estrela de luz na ponta. Finta: o brilho falha.
+  - Fôlego de volta (DECISÃO DO DIRETOR, 15 nov 2026): Feature.Stamina = true por padrão
+    (limita o ataque sem fim). Volta tudo o que a flag cobre: custo, exaustão, Brilho do
+    Respiro, barra no HUD; as conversões do WP-03 saem junto.
+  - Tutorial: lições e páginas do tour de mecânicas cortadas são puladas enquanto a flag
+    estiver desligada (guardas, bandagem, ferimentos, selos); a contagem "lição N de M" conta
+    só as dadas. O HUD não desenha mais as 4 guardas nem a bandagem com as flags desligadas.
+  - Prólogo: o duelista entra pelo oeste e o mestre pelo leste na mesma linha; cada um anda até
+    o seu ponto, PARA e se encaram de perfil (sem ficar andando no lugar durante a conversa).
+  - Diálogo no padrão de RPG: cena visível, caixa sólida com moldura dourada dupla, retratos
+    com a pixel art dos dois DE PERFIL, quem fala aceso com ensō, placa com o nome, texto
+    maior; sem a numeração das falas.
+  - Takeyari: o fosso ganhou uma grade de ripas de bambu com os furos das estacas (não parece
+    mais um buraco).
+Testes: 212/212 (os da flag ajustados ao fôlego ligado). Bots: 3, 11, 29, 41 — prof. 20/20/20/20,
+  0 exceções. Tutorial completo no tour de capturas, 0 exceções.
+```

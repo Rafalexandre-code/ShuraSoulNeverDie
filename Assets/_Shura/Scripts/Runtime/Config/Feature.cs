@@ -22,8 +22,11 @@ namespace Shura
         public sealed class Flags
         {
             // ── WP-03: núcleo do combate ──────────────────────────────────────────────
-            /// <summary>WP-03 · Fôlego (Kokū): custo de ataque/esquiva, exaustão, Brilho do Respiro. Padrão: false (cortado).</summary>
-            public bool Stamina = false;
+            /// <summary>
+            /// WP-03 · Fôlego (Kokū): custo de ataque/esquiva, exaustão, Brilho do Respiro. Padrão: true —
+            /// o diretor o trouxe de volta (15 nov 2026): limita o ataque sem fim, que matava rápido demais.
+            /// </summary>
+            public bool Stamina = true;
             /// <summary>WP-03 · Ferimentos localizados no jogador, bandagem (H) e boneco do HUD. Padrão: false.</summary>
             public bool LocalWounds = false;
             /// <summary>WP-03 · Selos de Ki na base (tecla G); vira a técnica "Selo Interno". Padrão: false.</summary>

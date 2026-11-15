@@ -28,11 +28,12 @@ namespace Shura.Tests
         }
 
         [Test]
-        public void TheDefaultIsTheNewDesign_OnlyTheThirdWeaponStaysOn()
+        public void TheDefaultIsTheNewDesign_OnlyTheThirdWeaponAndStaminaStayOn()
         {
             Feature.Reset();
-            foreach (string n in Planned) Assert.AreEqual(n == "ThirdWeapon", Feature.Get(n), n);
-            Assert.IsFalse(Feature.Stamina);
+            // O fôlego voltou por decisão do diretor (15 nov 2026).
+            foreach (string n in Planned) Assert.AreEqual(n == "ThirdWeapon" || n == "Stamina", Feature.Get(n), n);
+            Assert.IsTrue(Feature.Stamina);
             Assert.IsTrue(Feature.ThirdWeapon);
         }
 
@@ -43,14 +44,14 @@ namespace Shura.Tests
             foreach (string n in Planned) Assert.IsTrue(Feature.Get(n), n);
             Assert.IsTrue(Feature.Stamina && Feature.RivalHierarchy && Feature.StatLoot);
             Feature.Reset();
-            Assert.IsFalse(Feature.Stamina);
+            Assert.IsFalse(Feature.LocalWounds);
         }
 
         [Test]
         public void APartialJson_ChangesOnlyItsKeys()
         {
-            Feature.Apply("{\"Stamina\":true,\"PvpRanked\":true}");
-            Assert.IsTrue(Feature.Stamina);
+            Feature.Apply("{\"Stamina\":false,\"PvpRanked\":true}");
+            Assert.IsFalse(Feature.Stamina);
             Assert.IsTrue(Feature.PvpRanked);
             Assert.IsFalse(Feature.LocalWounds);
             Assert.IsTrue(Feature.ThirdWeapon);

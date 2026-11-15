@@ -201,6 +201,7 @@ namespace Shura
             BuildView(owner, PixelArt.Character(def.art), def.radius * size, size * def.artScale);
             Sprite weaponArt = def.weapon == Shape.Bow ? PixelArt.WeaponCentered(def.weaponArt) : PixelArt.Weapon(def.weaponArt);
             BuildWeapon(weaponArt != null ? weaponArt : ShapeLibrary.Get(def.weapon), weaponArt != null ? Color.white : def.weaponColor, def.weaponLength * size);
+            weaponGlow = new WeaponGlow(weapon, weaponColor);
             eliteAura = SpriteUtil.Make("GuardianAura", transform, ShapeLibrary.Get(Shape.SoftCircle), pal.gold, Sorting.Shadow + 3);
             eliteAura.enabled = scaling.elite;
             Teleport(spawn);
@@ -1423,6 +1424,7 @@ namespace Shura
             {
                 timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
                 if (timingInner != null) timingInner.enabled = false;
+                weaponGlow?.Hide();
                 return;
             }
 
@@ -1442,11 +1444,22 @@ namespace Shura
             {
                 timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
                 if (timingInner != null) timingInner.enabled = false;
+                weaponGlow?.Hide();
                 return;
             }
             size *= viewer.RingScale;
 
             Color c = RingColor(kind);
+            // O aviso principal: a arma brilha na cor da resposta e o "kira" estoura na ponta na hora.
+            float flash = StepFrame < cue ? -1f : 1f - Mathf.Clamp01((StepFrame - cue) / (float)lead);
+            weaponGlow?.Show(c, t, flash, Time.deltaTime, kind == RingKind.Feint);
+            // O anel sobre o inimigo ficou como opção (Anéis de tempo, antigo).
+            if (!world.ShowTimingRings)
+            {
+                timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
+                if (timingInner != null) timingInner.enabled = false;
+                return;
+            }
             Sprite pattern = ShapeLibrary.RingPattern((int)kind);
             timingTarget.sprite = pattern;
             timingApproach.sprite = pattern;
@@ -1487,6 +1500,7 @@ namespace Shura
         }
 
         SpriteRenderer timingInner;
+        WeaponGlow weaponGlow;
 
         /// <summary>How long the ring takes to close, as this computer's duelist sees it (Ampulheta Quebrada shortens it).</summary>
         int ApproachFrames => Mathf.Max(4, Mathf.RoundToInt(feel.timingApproachFrames * (world.Host.Build != null ? world.Host.Build.Modifiers.ringWarningMult : 1f)));

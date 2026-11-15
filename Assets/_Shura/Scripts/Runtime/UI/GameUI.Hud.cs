@@ -391,7 +391,8 @@ namespace Shura
             kit.Enso(new Rect(med.x - 6f, med.y - 6f, med.width + 12f, med.height + 12f), ring, Time.unscaledTime * (6f + 10f * flow));
             int k = (int)p.stance;
             Label(new Rect(med.x - 10f, med.yMax - 10f, med.width + 20f, 34f), KamaeKanji[k] + "  " + PlayerController.KamaeName(p.stance), capsCenterStyle, Pal.playerAccent);
-            DrawStanceRow(new Rect(med.x - 10f, med.yMax + 26f, med.width + 20f, 64f), p);
+            // As quatro guardas só aparecem com a troca de guarda ligada (cortada no WP-03).
+            if (Feature.KamaeSwitch) DrawStanceRow(new Rect(med.x - 10f, med.yMax + 26f, med.width + 20f, 64f), p);
             hudMarks[HudPart.Portrait] = new Rect(med.x - 8f, med.y - 8f, med.width + 16f, med.height + 44f);
             hudMarks[HudPart.Stances] = new Rect(med.x - 14f, med.yMax + 22f, med.width + 28f, 72f);
 
@@ -662,14 +663,17 @@ namespace Shura
             LayerLock(gourds, Unlockable.Gourd);
             x = gourds.xMax + 12f;
 
-            // Bandages.
-            var band = new Rect(x, y, 96f, 106f);
-            hudMarks[HudPart.Bandage] = new Rect(band.x - 6f, band.y - 12f, band.width + 12f, band.height + 18f);
-            Slot(band, UiKit.PaperDim.WithAlpha(0.35f), false);
-            DrawSpriteTinted(new Rect(band.x + 22f, band.y + 14f, 52f, 44f), HudArt.Bandage(), p.bandages > 0 ? Color.white : new Color(1f, 1f, 1f, 0.35f));
-            Label(new Rect(band.x, band.y + 62f, band.width, 30f), "× " + p.bandages, cardKindStyleSmall, p.bandages > 0 ? UiKit.PaperText : UiKit.PaperDim);
-            Key(new Rect(band.xMax - 30f, band.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Bandage));
-            x = band.xMax + 12f;
+            // Bandages (só com os ferimentos ligados; cortados no WP-03).
+            if (Feature.LocalWounds)
+            {
+                var band = new Rect(x, y, 96f, 106f);
+                hudMarks[HudPart.Bandage] = new Rect(band.x - 6f, band.y - 12f, band.width + 12f, band.height + 18f);
+                Slot(band, UiKit.PaperDim.WithAlpha(0.35f), false);
+                DrawSpriteTinted(new Rect(band.x + 22f, band.y + 14f, 52f, 44f), HudArt.Bandage(), p.bandages > 0 ? Color.white : new Color(1f, 1f, 1f, 0.35f));
+                Label(new Rect(band.x, band.y + 62f, band.width, 30f), "× " + p.bandages, cardKindStyleSmall, p.bandages > 0 ? UiKit.PaperText : UiKit.PaperDim);
+                Key(new Rect(band.xMax - 30f, band.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Bandage));
+                x = band.xMax + 12f;
+            }
 
             // The tool and its spirit papers.
             var tool = new Rect(x, y, 196f, 106f);

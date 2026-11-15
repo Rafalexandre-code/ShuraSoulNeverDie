@@ -219,6 +219,31 @@ for y in range(16):
     for x in range(16):
         c = (52, 36, 28) if y <= 3 else (24, 16, 14) if y <= 6 else (14, 10, 10)
         wall.putpixel((x, y), c + (255,))
+# A grade de ripas de bambu que cobre o fosso (pedido do diretor: parecia um buraco).
+# Ripas horizontais de 3 px com nós, frestas escuras entre elas e os furinhos por onde as
+# estacas saem. Pisa-se por cima sem medo; o perigo é o que sai dos furos.
+def grate(base):
+    g = base.copy()
+    light, mid, dark, gap = (196, 206, 120), (150, 172, 82), (98, 122, 52), (12, 9, 9)
+    for y in range(16):
+        for x in range(16):
+            row = y % 4
+            if row == 3:
+                c = gap
+            else:
+                c = light if row == 0 else mid if row == 1 else dark
+                if (x + (y // 4) * 3) % 6 == 0:          # nós do bambu
+                    c = tuple(max(0, v - 34) for v in c)
+            g.putpixel((x, y), c + (255,))
+    for y in (1, 5, 9, 13):                              # os furos das estacas
+        for x in (3, 8, 12):
+            g.putpixel((x, y), gap + (255,))
+            g.putpixel((x, y + 1), (30, 22, 18, 255))
+    return g
+
+
+hole = grate(hole)
+wall = grate(wall)
 OUT.alpha_composite(hole, (0, 88))
 OUT.alpha_composite(wall, (16, 88))
 OUT.alpha_composite(piece(lambda x, y: y <= 1), (32, 88))

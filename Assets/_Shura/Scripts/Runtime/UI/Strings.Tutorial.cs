@@ -79,7 +79,7 @@ namespace Shura
         static readonly string[] TourTexts =
         {
             "Antes de empunhar a lâmina, conheça a sua tela. Cada parte do HUD conta algo que você vai precisar no meio da luta. O tempo está parado: leia com calma.",
-            "O medalhão mostra o seu duelista na pose da guarda atual (o kanji embaixo diz qual). O anel em volta acende em dourado quando você tem Fluxo, e fica vermelho no Asura.",
+            "O medalhão mostra o seu duelista na guarda da arma em mãos (o kanji embaixo diz qual: cada arma tem a sua). O anel em volta acende em dourado quando você tem Fluxo, e fica vermelho no Asura.",
             "Jōdan, Chūdan, Gedan e Waki. Cada guarda muda o dano, a janela do aparar e o jeito dos cortes. A acesa é a que você está usando. Troque com 1–4 (no controle, o direcional).",
             "Chegou a zero, a jornada acaba. A faixa clara mostra o dano que acabou de entrar. Cure com a cabaça, ao vencer cada sala e com algumas técnicas e itens.",
             "Enche quando você bloqueia ou leva golpes na guarda. Cheia, a sua guarda QUEBRA e você fica aberto. O aparar perfeito não gasta a sua postura — e enche a do inimigo.",
@@ -99,10 +99,34 @@ namespace Shura
             "Agora, ao dojo. Cada lição só termina quando você faz o que ela pede, e o mestre só ataca quando a lição manda. Esc duas vezes pula o tutorial a qualquer momento.",
         };
 
-        public static int TutorialTourCount => TourTitles.Length;
-        public static GameUI.HudPart TutorialTourPart(int i) => TourParts[UnityEngine.Mathf.Clamp(i, 0, TourParts.Length - 1)];
-        public static string TutorialTourTitle(int i) => TourTitles[UnityEngine.Mathf.Clamp(i, 0, TourTitles.Length - 1)];
-        public static string TutorialTourText(int i) => TourTexts[UnityEngine.Mathf.Clamp(i, 0, TourTexts.Length - 1)];
+        /// <summary>
+        /// As páginas do tour que valem agora: as de partes do HUD cortadas pelo redesenho (as quatro
+        /// guardas, o boneco de ferimentos, a bandagem) somem enquanto a mecânica estiver desligada.
+        /// </summary>
+        static System.Collections.Generic.List<int> TourPages()
+        {
+            var pages = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < TourParts.Length; i++)
+            {
+                GameUI.HudPart p = TourParts[i];
+                if (p == GameUI.HudPart.Stances && !Feature.KamaeSwitch) continue;
+                if ((p == GameUI.HudPart.Wounds || p == GameUI.HudPart.Bandage) && !Feature.LocalWounds) continue;
+                if (p == GameUI.HudPart.Breath && !Feature.Stamina) continue;
+                pages.Add(i);
+            }
+            return pages;
+        }
+
+        static int TourPage(int i)
+        {
+            System.Collections.Generic.List<int> pages = TourPages();
+            return pages[UnityEngine.Mathf.Clamp(i, 0, pages.Count - 1)];
+        }
+
+        public static int TutorialTourCount => TourPages().Count;
+        public static GameUI.HudPart TutorialTourPart(int i) => TourParts[TourPage(i)];
+        public static string TutorialTourTitle(int i) => TourTitles[TourPage(i)];
+        public static string TutorialTourText(int i) => TourTexts[TourPage(i)];
 
         public static string TutorialTitle(Tutorial.Step s)
         {

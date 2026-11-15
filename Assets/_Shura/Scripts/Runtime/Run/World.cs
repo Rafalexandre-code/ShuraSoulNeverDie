@@ -183,6 +183,8 @@ namespace Shura
         public int Depth => CurrentRoom != null ? CurrentRoom.depth : 0;
         /// <summary>Accessibility/readability option: the shrinking "press now" ring.</summary>
         public bool ShowTimingIndicator { get; set; } = true;
+        /// <summary>O anel antigo que se fecha sobre o inimigo (opção); o aviso padrão é a arma brilhando.</summary>
+        public bool ShowTimingRings { get; set; }
 
         public event Action RoomClearedEvent;
         /// <summary>A relic asks the game to slow time (seconds).</summary>

@@ -436,6 +436,8 @@ namespace Shura
                     Section(Strings.SectionGame);
                     AddToggle(Strings.TimingIndicator, () => s.timingIndicator, v => s.timingIndicator = v);
                     Help(Strings.HelpTiming);
+                    AddToggle(Strings.TimingRings, () => s.timingRings, v => s.timingRings = v);
+                    Help(Strings.HelpTimingRings);
                     AddToggle(Strings.Hints, () => s.hints, v => s.hints = v);
                     AddToggle(Strings.RhythmTrack, () => s.rhythmTrack, v => s.rhythmTrack = v);
                     Help(Strings.HelpRhythmTrack);

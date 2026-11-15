@@ -400,7 +400,7 @@ namespace Shura
         public const string HelpUiScale = "O tamanho do HUD durante a luta (retrato, cinto, Fluxo, registro). Os menus não mudam.";
         public const string HelpView = "Quanto da arena a câmera mostra. Mais alto: câmera mais afastada e personagens menores.";
         public const string HelpShake = "A força da tremida de tela nos golpes, parries e explosões.";
-        public const string HelpTiming = "O anel que se fecha sobre o inimigo marcando a hora de aparar (azul) ou esquivar (vermelho).";
+        public const string HelpTiming = "A arma de quem ataca brilha na cor da resposta (azul aparar, vermelho esquivar, roxo Troca Perfeita) e uma estrela de luz estoura na ponta na hora certa.";
         public const string HelpHints = "As dicas curtas que aparecem no canto esquerdo quando algo novo acontece.";
         public const string HelpBlood = "Desligado, o sangue vira faíscas e as finalizações ficam limpas.";
         public const string HelpFlashes = "Diminui os clarões de tela (parries, golpes recebidos). Recomendado para quem é sensível à luz.";

@@ -84,7 +84,7 @@ namespace Shura
             DrawRect(new Rect(card.x + 12f, card.y + 8f, card.width - 24f, card.height - 14f), new Color(0.05f, 0.04f, 0.05f, 0.74f));
             kit.InkPanel(card, 0.9f);
             DrawRect(new Rect(card.x + 30f, card.y + 14f, 6f, card.height - 28f), UiKit.Shu.WithAlpha(0.9f));
-            Label(new Rect(card.x + 54f, card.y + 14f, 300f, 26f), string.Format(Strings.TutorialLesson, (int)t.Current - 1, Tutorial.LessonCount - 2), capsStyle, Pal.gold);
+            Label(new Rect(card.x + 54f, card.y + 14f, 300f, 26f), string.Format(Strings.TutorialLesson, Tutorial.PracticeIndex(t.Current), Tutorial.PracticeCount), capsStyle, Pal.gold);
             Label(new Rect(card.x + 54f, card.y + 36f, textW, 54f), t.Title, tutorialTitleStyle, UiKit.PaperText);
             Label(new Rect(card.x + 54f, card.y + 92f, textW, textH), text, tutorialTextStyle, UiKit.PaperText.WithAlpha(0.92f));
 
@@ -158,36 +158,70 @@ namespace Shura
             DrawRect(new Rect(0f, VH - h, VW, h), Color.black);
         }
 
+        GUIStyle dialogueTextStyle, dialogueNameStyle;
+
+        static readonly Color DialogueInk = new Color(0.055f, 0.04f, 0.07f, 0.96f);
+        static readonly Color DialogueInkSoft = new Color(0.1f, 0.075f, 0.12f, 0.96f);
+
         /// <summary>
-        /// Two faces fill the screen — the duelist on the left, the master on the right — the one
-        /// who speaks lit and close, the other in shadow; the words type themselves below.
+        /// A conversa do prólogo, no padrão de diálogo de RPG: a cena continua visível (escurecida,
+        /// com faixas de cinema), uma caixa sólida embaixo com moldura dourada dupla, os dois
+        /// duelistas em pixel art DE PERFIL nas molduras das pontas (o herói olhando para a direita,
+        /// o mestre para a esquerda), quem fala aceso e com o ensō atrás, quem escuta na sombra, a
+        /// placa com o nome sobre a moldura de quem fala e as palavras se escrevendo no meio.
         /// </summary>
         void DrawPrologueTalk(Tutorial t, float time)
         {
             Rect full = FullScreen;
-            DrawRect(full, new Color(0.02f, 0.015f, 0.03f, 0.9f));
-            if (vignette != null) DrawTex(full, vignette, new Color(0f, 0f, 0f, 0.6f));
+            DrawRect(full, new Color(0.01f, 0.01f, 0.03f, 0.45f));
+            DrawLetterbox(0.75f);
+            if (dialogueTextStyle == null)
+            {
+                dialogueTextStyle = new GUIStyle(tutorialTextStyle) { fontSize = 30, alignment = TextAnchor.UpperLeft, wordWrap = true };
+                dialogueNameStyle = new GUIStyle(tutorialTitleStyle) { fontSize = 40, alignment = TextAnchor.MiddleCenter };
+            }
             int speaker = Strings.PrologueSpeaker(t.LineIndex);
-            float into = Mathf.Clamp01(t.LineTime / 0.35f);
-            DrawFace(new Rect(160f, 120f, 560f, 560f), PixelArt.Image("face_hero"), speaker == 0, into, time, false);
-            DrawFace(new Rect(VW - 720f, 120f, 560f, 560f), PixelArt.Image("face_master"), speaker == 1, into, time, true);
+            float into = Mathf.Clamp01(t.LineTime / 0.3f);
+            Color heroInk = UiKit.Shu, masterInk = Pal.gold;
+            Color speakerInk = speaker == 1 ? masterInk : heroInk;
 
-            // The words.
-            var box = new Rect(140f, VH - 300f, VW - 280f, 240f);
-            kit.InkPanel(box, 0.96f);
-            DrawRect(new Rect(box.x + 30f, box.y + 20f, 6f, box.height - 40f), (speaker == 1 ? Pal.gold : UiKit.Shu).WithAlpha(0.9f));
+            // A caixa: sólida, com moldura dupla e cantos marcados.
+            const float boxH = 268f, portrait = 236f;
+            var box = new Rect(150f, VH - boxH - 70f, VW - 300f, boxH);
+            DrawRect(new Rect(box.x - 6f, box.y - 6f, box.width + 12f, box.height + 12f), Pal.gold.WithAlpha(0.85f));
+            DrawRect(new Rect(box.x - 3f, box.y - 3f, box.width + 6f, box.height + 6f), DialogueInk);
+            DrawRect(new Rect(box.x + 2f, box.y + 2f, box.width - 4f, box.height - 4f), Pal.gold.WithAlpha(0.35f));
+            DrawRect(new Rect(box.x + 4f, box.y + 4f, box.width - 8f, box.height - 8f), DialogueInk);
+            foreach (Vector2 corner in new[] { new Vector2(box.x, box.y), new Vector2(box.xMax, box.y), new Vector2(box.x, box.yMax), new Vector2(box.xMax, box.yMax) })
+                DrawRect(new Rect(corner.x - 9f, corner.y - 9f, 18f, 18f), Pal.gold);
+
+            // Os retratos de perfil nas pontas da caixa.
+            var heroSlot = new Rect(box.x + 16f, box.y + (boxH - portrait) * 0.5f, portrait, portrait);
+            var masterSlot = new Rect(box.xMax - 16f - portrait, heroSlot.y, portrait, portrait);
+            PlayerController hero = game.World != null ? game.World.Host : null;
+            string heroArt = PlayerController.PartyArt[Mathf.Clamp(hero != null ? hero.ArtIndex : 0, 0, PlayerController.PartyArt.Length - 1)];
+            DrawProfile(heroSlot, heroArt, ArtDir.Right, speaker == 0, into, time, heroInk);
+            DrawProfile(masterSlot, EnemyDefs.Sensei.art, ArtDir.Left, speaker == 1, into, time, masterInk);
+
+            // A placa do nome sobre a moldura de quem fala.
+            Rect slot = speaker == 1 ? masterSlot : heroSlot;
             string name = speaker == 1 ? Strings.PrologueMaster : Strings.PrologueHero;
-            Label(new Rect(box.x + 60f, box.y + 18f, 600f, 54f), name, tutorialTitleStyle, speaker == 1 ? Pal.gold : UiKit.PaperText);
+            var plate = new Rect(slot.center.x - 150f, box.y - 58f, 300f, 54f);
+            DrawRect(new Rect(plate.x - 3f, plate.y - 3f, plate.width + 6f, plate.height + 6f), speakerInk.WithAlpha(0.9f));
+            DrawRect(plate, DialogueInkSoft);
+            Label(plate, name, dialogueNameStyle, speakerInk);
+
+            // As palavras, entre os dois retratos.
+            var text = new Rect(heroSlot.xMax + 34f, box.y + 30f, masterSlot.x - heroSlot.xMax - 68f, boxH - 76f);
             string line = Strings.PrologueText(t.LineIndex);
             int shown = Mathf.Clamp(Mathf.FloorToInt(t.LineTime * Strings.PrologueCharsPerSecond), 0, line.Length);
-            Label(new Rect(box.x + 60f, box.y + 80f, box.width - 120f, box.height - 100f), line.Substring(0, shown), tutorialTextStyle, UiKit.PaperText);
+            Label(text, line.Substring(0, shown), dialogueTextStyle, UiKit.PaperText);
             if (shown >= line.Length)
             {
-                float blink = 0.5f + 0.5f * Mathf.Sin(time * 6f);
-                Label(new Rect(box.xMax - 90f, box.yMax - 60f, 50f, 40f), "▼", capsCenterStyle, Pal.gold.WithAlpha(blink));
+                float bob = Mathf.Sin(time * 6f) * 4f;
+                Label(new Rect(text.xMax - 40f, box.yMax - 50f + bob, 40f, 36f), "▼", capsCenterStyle, speakerInk);
             }
-            Label(new Rect(0f, VH - 50f, VW, 34f), Strings.PrologueKeys, smallStyleCenter, UiKit.PaperDim);
-            Label(new Rect(0f, 40f, VW, 40f), string.Format(Strings.PrologueCount, t.LineIndex + 1, Strings.PrologueLineCount), capsCenterStyle, UiKit.PaperDim.WithAlpha(0.7f));
+            Label(new Rect(0f, VH - 46f, VW, 34f), Strings.PrologueKeys, smallStyleCenter, UiKit.PaperDim);
 
             Event e = Event.current;
             if (!game.Launch.Automated && e.type == EventType.MouseDown && e.button == 0)
@@ -197,29 +231,25 @@ namespace Shura
             }
         }
 
-        /// <summary>A face, close: the head of the pixel figure, very large, breathing.</summary>
-        void DrawFace(Rect r, Sprite s, bool speaking, float into, float time, bool right)
+        /// <summary>
+        /// Um duelista de perfil numa moldura: a pixel art do jogo, ampliada sem borrar, respirando.
+        /// Quem fala fica aceso, um pouco maior e com o ensō; quem escuta, na sombra.
+        /// </summary>
+        void DrawProfile(Rect slot, string artId, ArtDir dir, bool speaking, float into, float time, Color ink)
         {
-            // An ensō behind the one who speaks.
-            float lit = speaking ? Mathf.Lerp(0.4f, 1f, into) : Mathf.Lerp(1f, 0.32f, into);
-            float scale = speaking ? Mathf.Lerp(0.94f, 1.04f, into) : 0.9f;
-            scale *= 1f + 0.012f * Mathf.Sin(time * 1.6f + (right ? 1f : 0f));
-            var c = r.center;
-            var rr = new Rect(c.x - r.width * 0.5f * scale, c.y - r.height * 0.5f * scale, r.width * scale, r.height * scale);
-            if (speaking) kit.Enso(new Rect(rr.x + 30f, rr.y + 30f, rr.width - 60f, rr.height - 60f), (right ? Pal.gold : UiKit.Shu).WithAlpha(0.55f * into), time * 8f);
+            float lit = speaking ? Mathf.Lerp(0.45f, 1f, into) : Mathf.Lerp(1f, 0.38f, into);
+            DrawRect(new Rect(slot.x - 3f, slot.y - 3f, slot.width + 6f, slot.height + 6f), ink.WithAlpha(speaking ? 0.85f : 0.3f));
+            DrawRect(slot, DialogueInkSoft);
+            if (speaking) kit.Enso(new Rect(slot.x + 18f, slot.y + 18f, slot.width - 36f, slot.height - 36f), ink.WithAlpha(0.5f * into), time * 8f);
+            CharacterArt art = PixelArt.Character(artId);
+            Sprite s = art != null ? art.idle[(int)dir] : null;
             if (s == null) return;
-            // The portrait, whole.
-            Rect tr = s.textureRect;
-            Texture tex = s.texture;
-            float crop = 1f;
-            var uv = new Rect(tr.x / tex.width, (tr.y + tr.height * (1f - crop)) / tex.height, tr.width / tex.width, tr.height * crop / tex.height);
-            float aspect = tr.width / (tr.height * crop);
-            float h = rr.height * 0.82f, w = h * aspect;
-            var dst = new Rect(rr.center.x - w * 0.5f, rr.center.y - h * 0.5f + 20f, w, h);
-            Color old = GUI.color;
-            GUI.color = new Color(lit, lit, lit * (speaking ? 1f : 1.15f), 1f);
-            GUI.DrawTextureWithTexCoords(dst, tex, uv);
-            GUI.color = old;
+            // Respira devagar; quem fala balança de leve com as palavras.
+            float breath = 1f + 0.02f * Mathf.Sin(time * 1.8f + slot.x);
+            float talk = speaking ? Mathf.Abs(Mathf.Sin(time * 9f)) * 3f * into : 0f;
+            float size = slot.width * (speaking ? 1.05f : 0.95f);
+            var r = new Rect(slot.center.x - size * 0.5f, slot.center.y - size * 0.5f * breath - talk + 10f, size, size * breath);
+            DrawSpriteTinted(r, s, new Color(lit, lit, lit * (speaking ? 1f : 1.12f), 1f));
         }
 
         void DrawSkipBanner()

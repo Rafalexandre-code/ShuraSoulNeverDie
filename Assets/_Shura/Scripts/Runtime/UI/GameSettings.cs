@@ -44,6 +44,8 @@ namespace Shura
         public int resolutionWidth;
         public int resolutionHeight;
         public bool timingIndicator = true;
+        /// <summary>O anel antigo sobre o inimigo; desligado, o aviso é só o brilho da arma.</summary>
+        public bool timingRings = false;
         public bool blood = true;
         /// <summary>false = Ninja Adventure tracks; true = "Samurai Nights" in five layers.</summary>
         public bool samuraiNights;

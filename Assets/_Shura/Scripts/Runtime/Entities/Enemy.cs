@@ -385,6 +385,8 @@ namespace Shura
 
         void Enter(State state)
         {
+            // Saiu do duelo (atordoado, quebrado, recuando…): o golpe anunciado não vem mais.
+            if (state != State.Engage && state != State.Attacking) CancelIntent();
             CurrentState = state;
             StateFrame = 0;
         }
@@ -465,6 +467,8 @@ namespace Shura
             if (!player.IsAlive && !brawling) return;
             // A training partner strikes only when the lesson asks.
             if (Training) TickTraining(dist);
+            // O golpe anunciado chega na hora marcada (a trilha de ritmo já o mostra).
+            else if (TickIntent()) { }
             else if (--idleTimer <= 0) TryChooseAttack(dist);
         }
 
@@ -537,7 +541,7 @@ namespace Shura
             {
                 MoveDef chosen = NextMove;
                 NextMove = null;
-                StartMove(chosen);
+                CommitMove(chosen);
                 return;
             }
             int roll = rng.Range(0, total);
@@ -547,14 +551,21 @@ namespace Shura
                 int w = MoveWeight(m);
                 if (roll < w)
                 {
-                    StartMove(m);
+                    CommitMove(m);
                     return;
                 }
                 roll -= w;
             }
         }
 
+        /// <summary>Começa um golpe já (treino, investida forçada): planeja e vai.</summary>
         void StartMove(MoveDef move)
+        {
+            PlanMove(move);
+            StartPlannedMove(move);
+        }
+
+        void StartPlannedMove(MoveDef move)
         {
             OnMoveStartedCursed();
             CurrentMove = move;
@@ -616,24 +627,42 @@ namespace Shura
         /// (the ring and the trembling blade show it); longer tracking always commits at least
         /// 6 frames before impact so a well-timed dodge still works.
         /// </summary>
-        void AdaptStep(AttackDef attack)
+        /// <summary>
+        /// A preparação de um golpe: a do golpe, acelerada pelo frenesi, e às vezes segurada pela
+        /// leitura adaptativa. Calculada quando o combo é decidido (Enemy.Intent), para a trilha
+        /// de ritmo mostrar todas as batidas antes.
+        /// </summary>
+        int PlanWindup(AttackDef attack, out bool adapted)
         {
             AdaptiveTraits traits = world.Adaptation;
-            stepWindup = attack.windup;
-            stepAdapted = false;
+            int windup = attack.windup;
+            adapted = false;
             // A frenzy speeds up every swing; the ring still closes on the real impact.
-            if (enraged && !attack.stance && !attack.burrow) stepWindup = Mathf.Max(8, Mathf.RoundToInt(stepWindup * 0.72f));
-            if (ArmWound) stepWindup = Mathf.RoundToInt(stepWindup * 1.2f);
-            stepWindup = KalpaWindup(stepWindup);
-            stepWindup = BossWindup(stepWindup);
+            if (enraged && !attack.stance && !attack.burrow) windup = Mathf.Max(8, Mathf.RoundToInt(windup * 0.72f));
+            if (ArmWound) windup = Mathf.RoundToInt(windup * 1.2f);
+            windup = KalpaWindup(windup);
+            windup = BossWindup(windup);
             bool hiddenBlade = Target != null && Target.Stance == Kamae.Waki;
             // The SWAP reading breaks the rhythm the same way the early parry does.
             float hold = Mathf.Max(traits.Delay, traits.Swap * 0.8f);
             if (!hiddenBlade && !attack.NoMeleeHit && !attack.burrow && !attack.teleportBehind && rng.NextFloat() < hold * 0.6f * world.AdaptationSpeed)
             {
-                stepWindup += rng.Range(8, 19);
-                stepAdapted = true;
+                windup += rng.Range(8, 19);
+                adapted = true;
             }
+            return windup;
+        }
+
+        void AdaptStep(AttackDef attack)
+        {
+            AdaptiveTraits traits = world.Adaptation;
+            // O plano do combo, feito na decisão; um golpe fora do plano é planejado agora.
+            if (plannedFor == CurrentMove && CurrentMove != null && StepIndex < plannedWindup.Length && CurrentMove.steps[StepIndex] == attack)
+            {
+                stepWindup = plannedWindup[StepIndex];
+                stepAdapted = plannedAdapted[StepIndex];
+            }
+            else stepWindup = PlanWindup(attack, out stepAdapted);
             int trackBonus = Mathf.RoundToInt(6f * traits.Track);
             stepTrack = Mathf.Min(attack.trackUntil + trackBonus, Mathf.Max(attack.trackUntil, stepWindup - 6));
             // Always commit a few frames before impact, even when a frenzy shortened the windup.
@@ -1424,7 +1453,13 @@ namespace Shura
             {
                 timingGlow.enabled = timingTarget.enabled = timingApproach.enabled = false;
                 if (timingInner != null) timingInner.enabled = false;
-                weaponGlow?.Hide();
+                // A intenção: a arma já acende de leve na cor do primeiro golpe anunciado.
+                if (HasIntent && world.ShowTimingIndicator && !world.Host.RingsHidden && !SilentFor(world.Host))
+                {
+                    RingKind first = KindOf(intentMove.steps[0], plannedFor == intentMove && plannedAdapted[0]);
+                    weaponGlow?.Show(RingColor(first), 0.15f + 0.1f * Mathf.Sin(Time.time * 6f), -1f, Time.deltaTime, first == RingKind.Feint);
+                }
+                else weaponGlow?.Hide();
                 return;
             }
 

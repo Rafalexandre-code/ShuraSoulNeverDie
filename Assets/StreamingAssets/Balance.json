@@ -117,6 +117,7 @@
         "zoomPunchFinisher": 0.45,
         "timingApproachFrames": 36,
         "timingCueLeadFrames": 4,
+        "attackIntentMinLeadFrames": 54,
         "baseTempo": 0.82,
         "tempoPerFlowLevel": 0.07,
         "flowZoomPerLevel": 0.12,

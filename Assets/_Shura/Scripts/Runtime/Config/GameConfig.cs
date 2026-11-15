@@ -197,6 +197,8 @@ namespace Shura
         public int timingApproachFrames = 36;
         [Tooltip("O anel fecha esta quantidade de frames ANTES do golpe acertar (meio da janela perfeita).")]
         public int timingCueLeadFrames = 4;
+        [Tooltip("Antecedência mínima de todo golpe (quadros): decidido o ataque, o inimigo anuncia e só acerta depois disso. A trilha de ritmo mostra a batida desde o anúncio.")]
+        public int attackIntentMinLeadFrames = 54;
 
         [Header("Ritmo global")]
         [Tooltip("Velocidade do jogo no Fluxo 0. Abaixo de 1 = duelo mais pausado e legível.")]

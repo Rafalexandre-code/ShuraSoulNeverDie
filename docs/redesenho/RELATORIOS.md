@@ -325,3 +325,29 @@ Fora do plano.
 Testes: 212/212 (os da flag ajustados ao fôlego ligado). Bots: 3, 11, 29, 41 — prof. 20/20/20/20,
   0 exceções. Tutorial completo no tour de capturas, 0 exceções.
 ```
+
+---
+
+```
+PEDIDO DO DIRETOR — Trilha de ritmo que se PREVÊ, e bonita — v0.16.8
+Problema: golpes de preparação curta faziam a nota nascer quase em cima do centro (dava para
+  adivinhar, não prever); combos só mostravam o golpe em curso.
+Feito:
+  - Intenção de ataque (Entities/Enemy.Intent.cs): ao decidir o golpe, o inimigo planeja o
+    combo inteiro (a preparação de cada golpe, inclusive a pausa da leitura adaptativa) e só
+    começa depois de uma antecedência mínima: o primeiro golpe nunca acerta antes de
+    attackIntentMinLeadFrames (54 quadros, 0,9 s; GameConfig.feel / Balance.json) depois do
+    anúncio. Enquanto anuncia, a arma já acende de leve na cor do golpe. Atordoado, quebrado
+    ou recuando, o anúncio é cancelado. (Treino e investidas forçadas começam na hora.)
+  - A trilha mostra exatamente essa antecedência: toda nota entra pela borda esquerda e anda
+    em velocidade constante até a zona de acerto. Um combo chega como uma fila de notas
+    ligadas por um fio, cada uma na sua batida.
+  - Visual novo (UI/GameUI.Rhythm.cs): placa laqueada com frisos dourados, marcas de compasso
+    correndo na velocidade das notas, notas como cápsulas de luz que crescem ao chegar, com
+    rastro (vermelha com losango de perigo; laranja dupla ligada; finta tracejada), zona de
+    acerto com ensō, linha de julgamento e a faixa da janela perfeita do tamanho real; ao
+    responder, anel que se abre com faíscas e o nome saltando; a tecla certa sob o centro.
+Efeito no jogo: a antecedência mínima deixa os inimigos rápidos mais legíveis (e um pouco
+  mais lentos). Ajustável no painel (F1).
+Testes: 212/212. Bots: 3, 11, 29, 41 — prof. 20/20/20/14, 0 exceções.
+```

@@ -1,11 +1,18 @@
-# Packs a Unity Windows build for players, in the two shapes the launcher supports:
-#   <Out>\Shura-Windows.zip  -> folder: Shura.exe (launcher, icon) + jogo\ (the build) + the guide
-#   <Out>\Shura.exe          -> single file: the whole game inside one executable
+# Packs a Unity Windows build for players.
 #
-#   powershell -File Tools\launcher\package.ps1 -Build <Unity build folder> -Out <folder>
+# Padrão (desde a v0.16.8): <Out>\Shura-Windows.zip com a pasta "Shura" contendo a build do
+# Unity DIRETO (Shura.exe é o executável do próprio Unity, ao lado do UnityPlayer.dll assinado
+# pela Unity) e o guia. Sem lançador: antivírus como o McAfee apagavam o lançador de arquivo
+# único porque ele se comporta como um "dropper" (um .exe que carrega outro .exe dentro de si,
+# extrai em %LOCALAPPDATA% e o executa).
+#
+# -Launcher: o formato antigo, com o lançador (pasta + arquivo único). Só para uso interno.
+#
+#   powershell -File Tools\launcher\package.ps1 -Build <Unity build folder> -Out <folder> [-Launcher]
 param(
     [Parameter(Mandatory = $true)][string]$Build,
-    [Parameter(Mandatory = $true)][string]$Out
+    [Parameter(Mandatory = $true)][string]$Out,
+    [switch]$Launcher
 )
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -25,6 +32,17 @@ New-Item -ItemType Directory $work | Out-Null
 $game = Join-Path $work "jogo"
 Copy-Item $Build $game -Recurse
 Get-ChildItem $game -Directory -Recurse | Where-Object { $_.Name -like "*DoNotShip*" } | Remove-Item -Recurse -Force
+
+if (-not $Launcher) {
+    # O formato limpo: a pasta do jogo como o Unity a gera, mais o guia.
+    $plain = Join-Path $work "Shura"
+    Move-Item $game $plain
+    Copy-Item $guide (Join-Path $plain "COMO_JOGAR_ONLINE.txt")
+    Compress-Archive -Path $plain -DestinationPath (Join-Path $Out "Shura-Windows.zip") -CompressionLevel Optimal
+    Remove-Item $work -Recurse -Force
+    Get-ChildItem $Out | Select-Object Name, @{ n = "MB"; e = { [math]::Round($_.Length / 1MB, 1) } }
+    return
+}
 
 $refs = @("/r:$fw\System.Windows.Forms.dll", "/r:$fw\System.Drawing.dll", "/r:$fw\System.IO.Compression.dll", "/r:$fw\System.IO.Compression.FileSystem.dll")
 

@@ -496,6 +496,7 @@ namespace Shura
             // Restarting mid-run still banks what was earned: progress is never thrown away.
             if (Run != null && !Run.Banked) BankRun();
             RunMode mode = ModeForNextRun();
+            RoomGenerator.StandoffEvery = Config.player.standoffEvery;
             Run = new RunState(SeedFor(mode), Config.flow, Meta) { Mode = mode };
             string weaponA = Launch.Automated && Launch.WeaponA != null ? Launch.WeaponA : Settings.Loadout(Settings.weaponA);
             string weaponB = Launch.Automated && Launch.WeaponB != null ? Launch.WeaponB : Settings.Loadout(Settings.weaponB);

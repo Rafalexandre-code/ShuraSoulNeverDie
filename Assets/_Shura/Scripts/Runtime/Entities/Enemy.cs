@@ -978,8 +978,16 @@ namespace Shura
             }
 
             blockStreak = 0;
-            // From behind: +50% posture.
-            if (Vector2.Dot(Facing, hitDir) > 0.5f) posture *= 1.5f;
+            // From behind: +50% posture — e o kanji 背 (WP-06), no máximo um por segundo.
+            if (Vector2.Dot(Facing, hitDir) > 0.5f)
+            {
+                posture *= 1.5f;
+                if (world.Run != null && world.Run.Elapsed - lastBackKanji > 1f)
+                {
+                    lastBackKanji = world.Run.Elapsed;
+                    world.Fx.Emit(FxType.PositionKanji, Position, hitDir, 0f);
+                }
+            }
             RegisterHitRegion(hitDir);
             if (TwinOf != null && !TwinOf.IsGone)
             {
@@ -1154,7 +1162,7 @@ namespace Shura
             CurrentMove = null;
             Velocity = Vector2.zero;
             Enter(State.Broken);
-            world.Fx.Emit(FxType.PostureBreak, Position, Facing, Radius, pal.gold);
+            world.Fx.Emit(IsBoss ? FxType.BossBreak : FxType.PostureBreak, Position, Facing, Radius, pal.gold);
             world.HintOnce(HintId.Finisher);
         }
 

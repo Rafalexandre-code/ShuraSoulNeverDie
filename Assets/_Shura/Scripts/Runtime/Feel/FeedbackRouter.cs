@@ -17,6 +17,15 @@ namespace Shura
         }
 
         FeelTuning Feel => game.Config.feel;
+        /// <summary>WP-06: a hierarquia de impacto (Balance.json, feel.impact).</summary>
+        ImpactTable Hit => game.Config.feel.impact;
+
+        void SlowMoIf(float seconds, float scale)
+        {
+            if (seconds > 0f) game.SlowMo(seconds, scale);
+        }
+
+        static readonly string[] PositionKanjis = { "背", "壁", "倒" };
         Palette Pal => game.Config.palette;
         int FlowLevel => game.Run != null ? game.Run.Flow.Level : 0;
         /// <summary>1 at Flow 0, growing with each level.</summary>
@@ -157,10 +166,11 @@ namespace Shura
 
                 case FxType.SwapParry:
                     // Troca Perfeita: the biggest parry in the game.
-                    clock.AddHitstop(Feel.hitstopPerfectParry + 3 + ImpactHitstop);
-                    cam.Shake(Feel.shakePerfectParry * 1.4f * impact);
+                    clock.AddHitstop(Hit.swapParryHitstop);
+                    cam.Shake(Hit.swapParryShake);
                     cam.Punch(Feel.zoomPunchPerfectParry * 1.6f);
-                    game.SlowMo(0.3f, 0.35f);
+                    // Rastro de tinta (sem câmera lenta: WP-06).
+                    vfx.Line(pos - dir * 1.2f, dir, 2.4f, 0.4f, new Color(0.04f, 0.04f, 0.07f, 0.9f), Hit.swapInkTrailFrames / 60f);
                     vfx.ClashStar(pos, 2.2f * impact, Pal.gold);
                     vfx.Sparks(pos, dir, 26 * sparks, Pal.spark, 13f, 80f);
                     vfx.Ring(pos, 0.2f, 2.4f, Pal.gold, 0.35f);
@@ -384,8 +394,8 @@ namespace Shura
                     break;
 
                 case FxType.HitEnemy:
-                    clock.AddHitstop(Feel.hitstopHit + ImpactHitstop);
-                    cam.Shake(Feel.shakeHit * impact);
+                    clock.AddHitstop(Hit.hitHitstop);
+                    cam.Shake(Hit.hitShake);
                     vfx.Sparks(pos, dir, 5 * sparks, Color.white, 7f * impact);
                     vfx.Blood(pos, dir, 8 + 5 * sparks, 6.5f * impact, 35f, col);
                     vfx.Ring(pos, 0.1f, 0.6f * impact, Color.white.WithAlpha(0.7f), 0.15f);
@@ -405,8 +415,8 @@ namespace Shura
                     break;
 
                 case FxType.PlayerBlock:
-                    clock.AddHitstop(Feel.hitstopBlock);
-                    cam.Shake(Feel.shakeBlock);
+                    clock.AddHitstop(Hit.blockHitstop);
+                    cam.Shake(Hit.blockShake);
                     vfx.ClashStar(pos, 0.9f, Pal.spark);
                     vfx.Sparks(pos, dir, 8, Pal.spark, 6f);
                     audio.Play(Sfx.Clash, 0.75f, 0.82f);
@@ -414,8 +424,8 @@ namespace Shura
                     break;
 
                 case FxType.PerfectParry:
-                    clock.AddHitstop(Feel.hitstopPerfectParry + ImpactHitstop);
-                    cam.Shake(Feel.shakePerfectParry * impact);
+                    clock.AddHitstop(Hit.perfectParryHitstop);
+                    cam.Shake(Hit.perfectParryShake);
                     cam.Punch(Feel.zoomPunchPerfectParry * impact);
                     vfx.ClashStar(pos, 1.6f * impact, Pal.playerAccent);
                     vfx.Sparks(pos, dir, 18 * sparks, Pal.spark, 11f * impact, 70f);
@@ -434,8 +444,10 @@ namespace Shura
                     break;
 
                 case FxType.CounterThrust:
-                    clock.AddHitstop(Feel.hitstopCounter + ImpactHitstop);
-                    cam.Shake(Feel.shakeCounter * impact);
+                    // Mikiri: uma resposta de mestre.
+                    clock.AddHitstop(Hit.masterHitstop);
+                    cam.Shake(Hit.masterShake);
+                    ui.Popup("見切", pos + Vector2.up * 1.1f, Pal.gold);
                     cam.Punch(Feel.zoomPunchPerfectParry * 1.4f * impact);
                     vfx.ClashStar(pos, 1.8f * impact, Pal.playerAccent);
                     vfx.Sparks(pos, dir, 22 * sparks, Pal.spark, 12f, 40f);
@@ -446,10 +458,44 @@ namespace Shura
                     ui.Flash(Color.white, 0.15f);
                     break;
 
+                case FxType.BossBreak:
+                    clock.AddHitstop(Hit.bossBreakHitstop);
+                    cam.Shake(Hit.bossBreakShake);
+                    cam.Punch(Feel.zoomPunchFinisher);
+                    SlowMoIf(Hit.bossBreakSlowMoSeconds, Hit.bossBreakSlowMoScale);
+                    vfx.Ring(pos, magnitude * 1.2f, magnitude * 6f, Pal.gold, 0.6f);
+                    vfx.Burst(pos, 30, Pal.gold, 8f);
+                    audio.Play(Sfx.PostureBreak, 1f, 0.8f);
+                    ui.Popup("破", pos + Vector2.up * 1.2f, Pal.gold);
+                    ui.Flash(Pal.gold, 0.25f);
+                    break;
+
+                case FxType.MasterAnswer:
+                    clock.AddHitstop(Hit.masterHitstop);
+                    cam.Shake(Hit.masterShake);
+                    vfx.Ring(pos, 0.2f, 1.6f, Pal.gold, 0.3f);
+                    audio.Play(Sfx.Glint, 0.8f, 0.9f);
+                    ui.Popup(magnitude >= 0.5f ? "投" : "降", pos + Vector2.up * 1.6f, Pal.gold);
+                    break;
+
+                case FxType.ParrySpam:
+                    // Um "tic" seco: a janela foi cortada por apertar de novo cedo demais.
+                    audio.Play(Sfx.SheathClick, 0.45f, 1.9f);
+                    vfx.Ring(pos, 0.5f, 0.3f, new Color(0.6f, 0.62f, 0.66f, 0.7f), 0.15f);
+                    break;
+
+                case FxType.PositionKanji:
+                {
+                    int k = Mathf.Clamp(Mathf.RoundToInt(magnitude), 0, PositionKanjis.Length - 1);
+                    ui.Popup(PositionKanjis[k], pos + Vector2.up * 1.2f, k == 0 ? Pal.gold : Color.white);
+                    audio.Play(k == 0 ? Sfx.Slice : Sfx.Crunch, 0.45f, k == 0 ? 1.4f : 0.9f);
+                    break;
+                }
+
                 case FxType.PostureBreak:
-                    clock.AddHitstop(Feel.hitstopPostureBreak + ImpactHitstop);
-                    cam.Shake(Feel.shakePostureBreak * impact);
-                    game.SlowMo(Feel.slowMoBreakSeconds, Feel.slowMoBreakScale);
+                    clock.AddHitstop(Hit.breakHitstop);
+                    cam.Shake(Hit.breakShake);
+                    SlowMoIf(Hit.breakSlowMoSeconds, Feel.slowMoBreakScale);
                     vfx.Ring(pos, magnitude * 1.2f, magnitude * 4f, Pal.gold, 0.4f);
                     vfx.Burst(pos, 14 * sparks, Pal.gold, 6f);
                     audio.Play(Sfx.PostureBreak, 1f);
@@ -458,11 +504,13 @@ namespace Shura
 
                 case FxType.Finisher:
                 {
+                    // magnitude: 0,5 rápida · 1 dirigida · 2 último inimigo da sala.
                     bool lastKill = magnitude >= 2f;
-                    clock.AddHitstop(Feel.hitstopFinisher + ImpactHitstop);
-                    cam.Shake(Feel.shakeFinisher * impact * (lastKill ? 1.3f : 1f));
-                    cam.Punch(Feel.zoomPunchFinisher * impact * (lastKill ? 1.5f : 1f));
-                    if (lastKill) game.SlowMo(Feel.slowMoLastKillSeconds, Feel.slowMoLastKillScale);
+                    bool quick = magnitude < 0.75f;
+                    clock.AddHitstop(lastKill ? Hit.lastKillHitstop : quick ? Hit.quickFinisherHitstop : Hit.directedFinisherHitstop);
+                    cam.Shake(lastKill ? Hit.lastKillShake : quick ? Hit.quickFinisherShake : Hit.directedFinisherShake);
+                    cam.Punch(Feel.zoomPunchFinisher * (lastKill ? 1.5f : quick ? 0.6f : 1f));
+                    if (lastKill) SlowMoIf(Hit.lastKillSlowMoSeconds, Hit.lastKillSlowMoScale);
                     vfx.ClashStar(pos, 2.2f * impact, Pal.gold);
                     vfx.Sparks(pos, dir, 14 * sparks, Pal.gold, 10f, 30f);
                     vfx.Ring(pos, 0.3f, 3f * impact, Color.white, 0.35f);
@@ -473,8 +521,8 @@ namespace Shura
                 }
 
                 case FxType.PlayerHurt:
-                    clock.AddHitstop(Feel.hitstopHurt);
-                    cam.Shake(Feel.shakeHurt);
+                    clock.AddHitstop(Hit.hurtHitstop);
+                    cam.Shake(Hit.hurtShake);
                     vfx.Sparks(pos, dir, 12, Pal.danger, 8f);
                     audio.Play(Sfx.Hurt, 0.9f);
                     ui.HurtVignette();

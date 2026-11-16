@@ -80,6 +80,7 @@ namespace Shura
         // ── Shove, brawl, loot, standoff ──────────────────────────────────────────────
         Vector2 shoveDir;
         float shoveLeft;
+        float lastBackKanji = -10f;
         public Enemy InfightTarget { get; private set; }
         int infightFrames;
         /// <summary>The finishing cut went through the sword arm: twice the chance of an item.</summary>
@@ -218,6 +219,7 @@ namespace Shura
             {
                 shoveLeft = 0f;
                 world.Fx.Emit(FxType.SlamImpact, Position + shoveDir * Radius, -shoveDir, 1.4f);
+                world.Fx.Emit(FxType.PositionKanji, Position, -shoveDir, 1f);
                 ApplyPosture(15f);
                 return;
             }
@@ -235,7 +237,7 @@ namespace Shura
                     other.StartBrawl(this);
                 }
                 world.Fx.Emit(FxType.SlamImpact, (Position + other.Position) * 0.5f, shoveDir, 1.6f);
-                world.Fx.Popup(Strings.PopupKnockedDown, other.Position + Vector2.up * 1.3f, pal.gold);
+                world.Fx.Emit(FxType.PositionKanji, (Position + other.Position) * 0.5f, shoveDir, 2f);
                 return;
             }
             Position = next;
@@ -450,6 +452,14 @@ namespace Shura
         {
             Squash(0.82f, 1.18f);
             Position += Facing * 0.12f;
+        }
+
+        /// <summary>WP-06: o duelista errou o saque — o líder ataca primeiro (com o anel normal).</summary>
+        public void SeizeFirstBlow()
+        {
+            if (IsGone) return;
+            idleTimer = 1;
+            world.Fx.Popup(Strings.PopupFoeDrawsFirst, Position + Vector2.up * 1.5f, pal.danger);
         }
 
         public void StandoffLunge(Vector2 toward)

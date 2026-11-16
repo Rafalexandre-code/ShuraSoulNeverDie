@@ -439,3 +439,41 @@ Bots: 3, 11, 29, 41 — prof. 20/20/16/18, 0 exceções. Telemetria input_use do
 Não feito: a opção "segurar ou alternar" para bloqueio e trava (E.17.3) — fica para o WP-17
   (acessibilidade); os ícones Xbox/PlayStation já existiam e continuam.
 ```
+
+---
+
+```
+WP-06 — Sensação: hierarquia de impacto, finalização, Iai, Mushin, ataques fora da tela — v0.16.11
+Feito:
+  1. Tabela única de impacto (Config/GameConfig.cs → ImpactTable; Balance.json → feel.impact),
+     com os números do plano: golpe 2 f leve · bloqueio 3 f · parry 6 f médio · Troca 8 f médio
+     + rastro de tinta 4 f (sem a câmera lenta de antes) · resposta de mestre 8 f + kanji dourado
+     (見切 Mikiri, 降 Descida, 投 Arremesso) · quebra de postura 10 f forte SEM câmera lenta (era
+     0,25 s) · finalização rápida 6 f · dirigida 12 f · último inimigo 14 f + 0,9 s · quebra de
+     chefe 16 f máximo + 0,6 s (破) · tomar dano 4 f forte + borda manchada. O Fluxo não soma
+     mais ao hit-stop (a escada fica estável); continua nas faíscas e no som.
+  2. Finalização: TOQUE = rápida (resultado "limpo" automático, 18 f); SEGURAR atacar (10 f) =
+     mira dirigida com os três níveis. Elites, chefes, Guardião e último inimigo da sala abrem a
+     dirigida direto. Corte perfeito: +15 vida (era 25), sobe um nível de Fluxo, saque em dobro;
+     sem Mon (nem no perfeito, nem no "na linha").
+  3. Iai: errar o saque não custa vida — o líder ataca primeiro (anel normal) e a sala começa sem
+     o bônus. Frequência: um por bloco de 4 profundidades (saco embaralhado), nunca dois seguidos.
+     Os números antigos voltam por dado (player.standoffMissDamage=30, standoffEvery=0).
+  4. Mushin: o HUD some, a leitura não — os anéis/brilho da arma e a trilha continuam; as cargas
+     de esquiva aparecem sob os pés.
+  5. Seta fora da tela: inimigo fora da tela que começa um golpe contra você ganha uma seta na
+     borda, com a cor e a forma do anel (lê-se também sem cor).
+  6. Anti-spam: quando a janela do aparar (ou da Troca) é cortada por apertar cedo de novo, a
+     lâmina fica cinza por 20 f e toca um "tic" seco.
+  7. Posicionamento: 背 (golpe pelas costas, no máximo 1 por segundo por inimigo), 壁 (empurrado
+     na parede), 倒 (derrubou outro), com som.
+Testes: 231/231 (novos: ImpactTests — a tabela e a escada, nenhuma câmera lenta comum, Iai no
+  máximo 1 a cada 4 e nunca seguido, padrões da finalização e do Iai).
+Bots: 3, 11, 29, 41 — prof. 20/20/20/20, 0 exceções. Telemetria: finalizações "rapida/limpo" e
+  "dirigida/perfeito" aparecem nas runs (os dois caminhos funcionam).
+Capturas: docs/redesenho/amostras/wp06_finalizacao_rapida.png. A seta fora da tela e o Mushin
+  NÃO apareceram nas rodadas automáticas (as arenas cabem quase inteiras na tela; o Mushin pede
+  sequência 10 com Fluxo cheio) — o AutoDriver agora fotografa os dois quando acontecerem.
+  A revisão "60 s quadro a quadro" do aceite é do playtest humano.
+Fora do WP-06: o Arremesso priorizar fossos e armadilhas (E.2.7) não foi feito.
+```

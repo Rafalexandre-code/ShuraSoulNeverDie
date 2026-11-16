@@ -559,6 +559,24 @@ namespace Shura
             Enemy e = finisherTarget;
             Velocity = Vector2.zero;
 
+            if (finisherQuick)
+            {
+                // WP-06: a finalização rápida — um corte através, curto (18 quadros).
+                if (e != null && !finisherKilled)
+                {
+                    if (f <= 4)
+                    {
+                        Vector2 beyond = finisherAnchor + finisherDir * (e.Radius + Radius + 0.6f);
+                        Position = Vector2.Lerp(finisherStart, beyond, CombatMath.EaseOutCubic(f / 4f));
+                    }
+                    if (f == 3) Impact(e, 0.6f);
+                    e.HoldAt(finisherAnchor, 1f);
+                    if (f == 8) Kill(e);
+                }
+                if (f >= t.quickFinisherFrames) Enter(State.Free);
+                return;
+            }
+
             if (e != null && !finisherKilled)
             {
                 switch (finisherStyle)
@@ -655,7 +673,11 @@ namespace Shura
             world.ProfileParryPress(PerfectParryFrames);
             int window = PerfectParryFrames;
             // Only a whiffed parry is punished, so a flurry can be answered blow by blow.
-            if (framesSinceParryPress < t.parrySpamWindow && !lastParrySucceeded) window = Mathf.Max(1, window / 2);
+            if (framesSinceParryPress < t.parrySpamWindow && !lastParrySucceeded)
+            {
+                window = Mathf.Max(1, window / 2);
+                MarkSpam();
+            }
             framesSinceParryPress = 0;
             lastParrySucceeded = false;
             parryWindow = window;
@@ -685,7 +707,11 @@ namespace Shura
             charge[activeWeapon] = 0;
             world.ProfileParryPress(PerfectParryFrames);
             int window = PerfectParryFrames;
-            if (framesSinceSwap < t.swapSpamWindow && !lastSwapSucceeded) window = Mathf.Max(1, window / 2);
+            if (framesSinceSwap < t.swapSpamWindow && !lastSwapSucceeded)
+            {
+                window = Mathf.Max(1, window / 2);
+                MarkSpam();
+            }
             framesSinceSwap = 0;
             lastSwapSucceeded = false;
             // A wounded sword arm cannot turn the swap into a parry (nor can an oath of one blade).
@@ -791,6 +817,11 @@ namespace Shura
             finisherStart = Position;
             finisherAnchor = target.Position;
             finisherKilled = false;
+            finisherQuick = false;
+            // WP-06: toque = finalização rápida; segurar = mira dirigida. Elites, chefes, o Guardião e o
+            // último inimigo da sala abrem a mira dirigida direto (o momento merece).
+            finisherDirected = t.quickFinisherHoldFrames <= 0 || DirectedByDefault(target);
+            aimFrom = finisherDirected ? 0 : t.quickFinisherHoldFrames;
             Velocity = Vector2.zero;
             // The golden line runs from the duelist to a random point of the enemy's body.
             float r = target.Radius;
@@ -798,11 +829,15 @@ namespace Shura
             AimLineAngle = CombatMath.AngleDegrees(AimPoint - Position);
             CutPrecision = 0f;
             Enter(State.FinisherAim);
-            world.HintOnce(HintId.FinisherCut);
+            if (finisherDirected) world.HintOnce(HintId.FinisherCut);
             Squash(0.8f, 1.2f);
             world.Fx.Emit(FxType.FinisherStart, target.Position, finisherDir, (int)finisherStyle);
             return true;
         }
+
+        bool DirectedByDefault(Enemy target) =>
+            target.IsElite || target.IsBoss || (world.CurrentRoom != null && world.CurrentRoom.guardian) ||
+            (world.ActiveEnemyCount <= 1 && world.IsLastWave);
 
         int RecoveryFrames(PlayerAttackDef step)
         {
@@ -1073,6 +1108,7 @@ namespace Shura
             {
                 descendFrames = DescendFrames;
                 Squash(0.7f, 1.3f);
+                world.Fx.Emit(FxType.MasterAnswer, Position, toDir, 0f);
                 world.Fx.Popup(Strings.PopupDescend, Position + Vector2.up * 1.3f, pal.gold);
                 world.HintOnce(HintId.MasterAnswers);
             }
@@ -1080,6 +1116,7 @@ namespace Shura
             {
                 // Reversão: the grabber is thrown over the shoulder.
                 attacker.Throw(toDir * -1f, this);
+                world.Fx.Emit(FxType.MasterAnswer, attacker.Position, toDir, 1f);
                 world.Fx.Popup(Strings.PopupReversal, attacker.Position + Vector2.up * 1.3f, pal.gold);
                 world.HintOnce(HintId.MasterAnswers);
             }
@@ -1444,6 +1481,9 @@ namespace Shura
             }
             if (Flashing) glow = Color.white.WithAlpha(c.a);
             SetBodyLook(c, glow);
+
+            // WP-06: a janela foi cortada pelo anti-spam — a lâmina fica cinza por um instante.
+            if (SpamGrayFrames > 0) weapon.color = Color.Lerp(weapon.color, new Color(0.5f, 0.52f, 0.56f, weapon.color.a), 0.85f);
 
             float facingAngle = FacingAngle;
             RenderOffhandAndChain(c.a);

@@ -7,12 +7,12 @@ namespace Shura
     /// The Iai standoff (design doc §3.8): some rooms open with the duelists facing the wave's
     /// leader. Hold Attack and release the instant he truly advances — he feints 0 to 3 times
     /// first (more with depth). A clean draw kills him (at full Flow, up to three more fall);
-    /// releasing early, or never, costs 30 health before the fight begins.
+    /// releasing early, or never, lets the leader strike first (WP-06; the old 30 health is
+    /// player.standoffMissDamage).
     /// </summary>
     public sealed class Standoff
     {
         public const int AdvanceWindow = 14;
-        const float Penalty = 30f;
 
         readonly World world;
         readonly HashSet<PlayerController> failed = new HashSet<PlayerController>();
@@ -114,10 +114,14 @@ namespace Shura
             if (!anyLeft) End();
         }
 
+        bool leaderStrikesFirst;
+
         void Punish(PlayerController p)
         {
             failed.Add(p);
-            p.StandoffCut(Penalty);
+            float damage = world.Config.player.standoffMissDamage;
+            if (damage > 0f) p.StandoffCut(damage);
+            else leaderStrikesFirst = true;
         }
 
         void Win(PlayerController p)
@@ -145,6 +149,9 @@ namespace Shura
             BowFrames = 0;
             Advancing = false;
             foreach (Enemy e in world.Enemies) e.HeldInSpawn = false;
+            // Errou o saque: a sala começa com o golpe do líder (anel normal), sem o bônus.
+            if (leaderStrikesFirst && Leader != null && !Leader.IsGone) Leader.SeizeFirstBlow();
+            leaderStrikesFirst = false;
             Leader = null;
         }
     }

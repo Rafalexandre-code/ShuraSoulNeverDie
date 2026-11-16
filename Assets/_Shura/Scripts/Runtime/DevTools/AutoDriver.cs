@@ -376,10 +376,22 @@ namespace Shura
         /// <summary>Consecutive-frame captures of a swing and a finisher, to judge animation fluidity.</summary>
         /// <summary>Os tipos de anel já fotografados (uma captura de cada, no quadro em que fecha).</summary>
         readonly HashSet<int> ringShots = new HashSet<int>();
+        bool arrowShot, mushinShot;
 
         void UpdateBursts()
         {
             PlayerController p = game.World.Player;
+            // WP-06: a primeira seta fora da tela e o primeiro Mushin.
+            if (!arrowShot && GameUI.LastOffscreenArrowFrame >= Time.frameCount - 1)
+            {
+                arrowShot = true;
+                Shot("seta_fora_da_tela");
+            }
+            if (!mushinShot && p.InMushin)
+            {
+                mushinShot = true;
+                Shot("mushin");
+            }
             foreach (Enemy e in game.World.Enemies)
             {
                 if (e.NetRing != 2 || ringShots.Contains(e.NetRingKind) || Vector2.Distance(e.Position, p.Position) > 7f) continue;

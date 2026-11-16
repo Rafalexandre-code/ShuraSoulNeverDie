@@ -6,6 +6,7 @@ namespace Shura
         // ── Rituals ──
         public const string PopupBow = "REVERÊNCIA";
         public const string PopupFoeBows = "O adversário se curva";
+        public const string PopupFoeDrawsFirst = "ELE SACA PRIMEIRO";
         public const string PopupCoward = "GOLPE COVARDE";
         public const string PopupPraying = "orando…";
         public const string PopupChiburi = "CHIBURI";

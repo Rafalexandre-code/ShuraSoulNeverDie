@@ -101,6 +101,14 @@ namespace Shura
         StandoffAdvance,
         /// <summary>The target lock takes (magnitude 1) or lets go (0).</summary>
         LockOn,
+        /// <summary>WP-06: a postura de um chefe quebrou (o impacto máximo).</summary>
+        BossBreak,
+        /// <summary>WP-06: resposta de mestre (Descida, Arremesso; o Mikiri é o CounterThrust). magnitude 0 Descida, 1 Arremesso.</summary>
+        MasterAnswer,
+        /// <summary>WP-06: o anti-spam cortou a janela do aparar: lâmina cinza e um "tic" seco.</summary>
+        ParrySpam,
+        /// <summary>WP-06: feedback de posicionamento. magnitude 0 = 背 (costas), 1 = 壁 (parede), 2 = 倒 (derrubada).</summary>
+        PositionKanji,
     }
 
     public enum HintId

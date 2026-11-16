@@ -345,6 +345,30 @@ namespace Shura
         };
 
         public const int GuardianEvery = 5;
+
+        /// <summary>
+        /// O Iai (WP-06, D-21): a partir da profundidade 2, cada bloco de N profundidades
+        /// (player.standoffEvery, 4) sorteia UMA para o impasse; a sorteada nunca vem logo depois
+        /// da do bloco anterior. N = 0 volta ao sorteio antigo (20% por sala).
+        /// </summary>
+        /// <summary>Copiado de player.standoffEvery quando a run começa (Game.NewRun).</summary>
+        public static int StandoffEvery = 4;
+
+        public static bool StandoffAt(ulong runSeed, int depth)
+        {
+            if (depth < 2) return false;
+            int every = StandoffEvery;
+            if (every <= 0) return new SeededRandom(Mix(runSeed, depth + 2000)).NextFloat() < 0.2f;
+            return depth == StandoffDepthInBlock(runSeed, (depth - 2) / every, every);
+        }
+
+        static int StandoffDepthInBlock(ulong runSeed, int block, int every)
+        {
+            int start = 2 + block * every;
+            int pick = start + new SeededRandom(Mix(runSeed, 2000 + block)).Range(0, every);
+            if (block > 0 && pick == StandoffDepthInBlock(runSeed, block - 1, every) + 1) pick = Mathf.Min(start + every - 1, pick + 1);
+            return pick;
+        }
         const float MaxBudget = 6.5f;
 
         public static bool IsGuardianDepth(int depth) => depth % GuardianEvery == GuardianEvery - 1;
@@ -529,8 +553,8 @@ namespace Shura
                 shape = ArenaShape.Octagon;
             }
             var room = new RoomDef(name, depth, biome, width, height, guardian, waves.ToArray(), shape, Mix(runSeed, depth + 1000));
-            // One room in five (from depth 2) opens with a standoff.
-            room.standoff = !guardian && node.kind != RoomKind.Dispute && depth >= 2 && new SeededRandom(Mix(runSeed, depth + 2000)).NextFloat() < 0.2f;
+            // WP-06: no máximo um impasse a cada 4 profundidades (saco embaralhado), nunca dois seguidos.
+            room.standoff = !guardian && node.kind != RoomKind.Dispute && StandoffAt(runSeed, depth);
             return room;
         }
 

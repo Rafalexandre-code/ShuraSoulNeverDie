@@ -1358,6 +1358,8 @@ namespace Shura
             if (game.World.Standoff.Active) DrawStandoffBars(game.World.Standoff.Advancing);
             if (p.AimingCut) DrawFinisherAim(p);
             DrawAffixLabels();
+            // WP-06: a seta de quem ataca de fora da tela (fica até no Mushin).
+            DrawOffscreenThreats();
             PlayerController local = game.World.Host;
             if (local != null && local.LockTarget != null) DrawLockReticle(local.LockTarget.RenderPosition, local.LockTarget.BarHeight);
             if (p.Build != null && p.Build.Modifiers.dragonEye) DrawDragonEye();
@@ -1366,6 +1368,7 @@ namespace Shura
             if (p.InMushin)
             {
                 DrawMushinHud();
+                DrawDodgePipsUnderfoot(p);
                 Panel(5, PartyRect(game.World.Players.Count));
                 DrawParty();
                 UiKit.Fade = 1f;

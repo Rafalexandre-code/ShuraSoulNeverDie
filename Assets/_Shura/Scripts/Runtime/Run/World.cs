@@ -1196,7 +1196,8 @@ namespace Shura
             if (dir.sqrMagnitude < 1e-4f) dir = Player.Facing;
             // Magnitude 2 marks the last enemy of the room: the router plays the slow-motion kill.
             bool lastOne = ActiveEnemyCount <= 1 && IsLastWave;
-            Fx.Emit(FxType.Finisher, enemy.Position, dir, lastOne ? 2f : 1f, enemy.Def.bloodColor);
+            // WP-06: 0,5 = finalização rápida (o impacto menor da hierarquia).
+            Fx.Emit(FxType.Finisher, enemy.Position, dir, lastOne ? 2f : Player.FinisherWasQuick ? 0.5f : 1f, enemy.Def.bloodColor);
             Fx.Popup(Player.Weapon.finisherName.ToUpperInvariant(), enemy.Position + Vector2.up * 1f, Color.white);
             // A Lord between phases is cut, not torn apart.
             if (!(enemy.IsBoss && enemy.Phase < BossDefs.Phases)) Fx.Gore(style, enemy.Position, dir, enemy.BodySprite, enemy.BodyColor, enemy.Def.bloodColor, enemy.Radius);

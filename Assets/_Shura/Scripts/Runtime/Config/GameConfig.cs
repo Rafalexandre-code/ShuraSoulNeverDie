@@ -90,6 +90,18 @@ namespace Shura
         public float bladeTrapKnockback = 28f;
         [Tooltip("Lâmina giratória: distância que ela arremessa um inimigo (unidades).")]
         public float bladeTrapEnemyShove = 2.2f;
+        [Tooltip("WP-06: quadros segurando ATACAR sobre um inimigo quebrado para abrir a mira dirigida; soltar antes = finalização rápida. 0 = sempre dirigida (como antes).")]
+        public int quickFinisherHoldFrames = 10;
+        [Tooltip("WP-06: duração da finalização rápida (quadros).")]
+        public int quickFinisherFrames = 18;
+        [Tooltip("WP-06: vida do corte PERFEITO na mira dirigida (era 25).")]
+        public float perfectCutHeal = 15f;
+        [Tooltip("WP-06: errar o saque do Iai custa esta vida (era 30). 0 = em vez disso o líder ataca primeiro.")]
+        public float standoffMissDamage = 0f;
+        [Tooltip("WP-06: no máximo um Iai a cada N profundidades (saco embaralhado, nunca dois seguidos). 0 = o sorteio antigo de 20% por sala.")]
+        public int standoffEvery = 4;
+        [Tooltip("WP-06: quadros em que a lâmina fica cinza quando o anti-spam cortou a janela do aparar.")]
+        public int parrySpamGrayFrames = 20;
 
         [Header("Buffer de entrada")]
         public int actionBufferFrames = 8;
@@ -159,6 +171,44 @@ namespace Shura
         public float recoverySpeedPerLevel = 0.06f;
     }
 
+
+    /// <summary>
+    /// WP-06 · Tabela única de impacto (plano, tabela do WP-06). Um evento comum nunca usa câmera
+    /// lenta; o Fluxo não soma mais ao hit-stop (a hierarquia fica estável). Tremor: leve 0,15 ·
+    /// médio 0,3 · forte 0,45 · máximo 0,6. Hit-stop em quadros; câmera lenta em segundos (0 = nenhuma).
+    /// </summary>
+    [Serializable]
+    public sealed class ImpactTable
+    {
+        [Tooltip("Golpe comum acerta.")] public int hitHitstop = 2;
+        public float hitShake = 0.15f;
+        [Tooltip("Bloqueio.")] public int blockHitstop = 3;
+        public float blockShake = 0.15f;
+        [Tooltip("Parry perfeito.")] public int perfectParryHitstop = 6;
+        public float perfectParryShake = 0.3f;
+        [Tooltip("Troca Perfeita (com rastro de tinta).")] public int swapParryHitstop = 8;
+        public float swapParryShake = 0.3f;
+        public int swapInkTrailFrames = 4;
+        [Tooltip("Resposta de mestre: Mikiri, Descida, Arremesso (kanji dourado curto).")] public int masterHitstop = 8;
+        public float masterShake = 0.3f;
+        [Tooltip("Quebra de postura comum (sem câmera lenta; era 0,25 s).")] public int breakHitstop = 10;
+        public float breakShake = 0.45f;
+        public float breakSlowMoSeconds = 0f;
+        [Tooltip("Finalização rápida (toque).")] public int quickFinisherHitstop = 6;
+        public float quickFinisherShake = 0.3f;
+        [Tooltip("Finalização dirigida (segurar).")] public int directedFinisherHitstop = 12;
+        public float directedFinisherShake = 0.45f;
+        [Tooltip("Último inimigo da sala.")] public int lastKillHitstop = 14;
+        public float lastKillShake = 0.45f;
+        public float lastKillSlowMoSeconds = 0.9f;
+        public float lastKillSlowMoScale = 0.25f;
+        [Tooltip("Quebra de postura de chefe / Ponto de Ruptura.")] public int bossBreakHitstop = 16;
+        public float bossBreakShake = 0.6f;
+        public float bossBreakSlowMoSeconds = 0.6f;
+        public float bossBreakSlowMoScale = 0.35f;
+        [Tooltip("Tomar dano (tremor aleatório, borda da tela manchada).")] public int hurtHitstop = 4;
+        public float hurtShake = 0.45f;
+    }
     [Serializable]
     public sealed class FeelTuning
     {
@@ -214,6 +264,8 @@ namespace Shura
         public float slowMoLastKillScale = 0.25f;
         public float slowMoBreakSeconds = 0.25f;
         public float slowMoBreakScale = 0.5f;
+        [Tooltip("WP-06: a hierarquia de impacto (hit-stop, tremor, câmera lenta) de cada evento.")]
+        public ImpactTable impact = new ImpactTable();
 
         [Header("Ambiente")]
         public float embersPerSecond = 6f;

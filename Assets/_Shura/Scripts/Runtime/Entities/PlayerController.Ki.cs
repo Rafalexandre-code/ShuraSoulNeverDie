@@ -119,7 +119,19 @@ namespace Shura
         public const float CutPerfectDegrees = 4f;
         public const float CutLineDegrees = 12f;
         public const float CutCleanDegrees = 24f;
-        public bool AimingCut => CurrentState == State.FinisherAim;
+        public bool AimingCut => CurrentState == State.FinisherAim && finisherDirected;
+        /// <summary>WP-06: a última finalização foi a rápida (toque).</summary>
+        public bool FinisherWasQuick => finisherQuick;
+        bool finisherDirected, finisherQuick;
+        int aimFrom;
+        /// <summary>WP-06: quadros restantes da lâmina cinza do anti-spam.</summary>
+        public int SpamGrayFrames { get; private set; }
+
+        void MarkSpam()
+        {
+            SpamGrayFrames = t.parrySpamGrayFrames;
+            world.Fx.Emit(FxType.ParrySpam, Position, Facing, 0f);
+        }
         public Enemy AimTarget => finisherTarget;
 
         // ── Standoff ──────────────────────────────────────────────────────────────────
@@ -187,7 +199,7 @@ namespace Shura
         public float KiLifesteal => (ShuraLevel >= 2 ? 0.05f : 0f) * world.LifestealMultWorld + (world.LifestealMultWorld > 1f ? 0.04f : 0f);
         bool PostureUnbreakable => ShuraLevel >= 3 || InAsura;
         /// <summary>This duelist no longer sees timing rings (Frenzy, Mushin, eyes wound).</summary>
-        public bool RingsHidden => ShuraLevel >= 3 || InMushin || RingHiddenFrames > 0 || InAsura || Mods.hiddenRings;
+        public bool RingsHidden => ShuraLevel >= 3 || RingHiddenFrames > 0 || InAsura || Mods.hiddenRings;
         /// <summary>In Shura "Thirst" the rings look 15% smaller to this duelist.</summary>
         public float RingScale => ShuraLevel >= 2 ? 0.85f : 1f;
 
@@ -209,6 +221,7 @@ namespace Shura
             if (kamaeCooldown > 0) kamaeCooldown--;
             if (descendFrames > 0) descendFrames--;
             if (kiaiCooldown > 0) kiaiCooldown--;
+            if (SpamGrayFrames > 0) SpamGrayFrames--;
             if (grabCooldown > 0) grabCooldown--;
             if (RingHiddenFrames > 0) RingHiddenFrames--;
             if (CycleFramesLeft > 0) CycleFramesLeft--;
@@ -807,13 +820,39 @@ namespace Shura
                 return;
             }
             e.HoldAt(finisherAnchor, 1f);
+            if (!finisherDirected)
+            {
+                // Soltou antes: a finalização rápida. Segurou: abre a mira dirigida.
+                if (!input.AttackHeld)
+                {
+                    QuickCut(e);
+                    return;
+                }
+                if (StateFrame < aimFrom) return;
+                finisherDirected = true;
+                world.HintOnce(HintId.FinisherCut);
+            }
             Vector2 aim = input.AimDirection(Position);
             if (aim.sqrMagnitude < 0.01f && input.Move.sqrMagnitude > 0.04f) aim = input.Move.normalized;
             if (aim.sqrMagnitude > 0.01f) Facing = aim.normalized;
-            bool cut = StateFrame >= FinisherAimFrames || (StateFrame >= 8 && input.Buffer.Consume(BufferedAction.Attack));
+            int aimed = StateFrame - aimFrom;
+            bool cut = aimed >= FinisherAimFrames || (aimed >= 8 && input.Buffer.Consume(BufferedAction.Attack));
             if (!cut) return;
             ResolveCut(e);
             finisherDir = Facing;
+            Enter(State.Finisher);
+        }
+
+        /// <summary>WP-06: a finalização rápida (toque): resultado "limpo" automático, animação curta.</summary>
+        void QuickCut(Enemy e)
+        {
+            world.NotifyFinisher(this, e, "rapida", "limpo");
+            CutPrecision = 0.35f;
+            world.AddFlow(2f);
+            finisherQuick = true;
+            finisherDir = (e.Position - Position).sqrMagnitude > 1e-4f ? (e.Position - Position).normalized : Facing;
+            Facing = finisherDir;
+            finisherStart = Position;
             Enter(State.Finisher);
         }
 
@@ -836,11 +875,11 @@ namespace Shura
             }
             if (error <= CutPerfectDegrees)
             {
-                // Exactly on the line: the perfect cut.
-                Heal(25f);
-                world.AddFlow(12f);
+                // Exactly on the line: the perfect cut. WP-06: +15 de vida, um nível de Fluxo, saque em
+                // dobro — sem moedas (moeda no clímax é ruído).
+                Heal(t.perfectCutHeal);
+                world.AddFlow(PointsToNextFlowLevel());
                 e.DropsDouble = true;
-                if (Build != null) Build.Mon += 15;
                 world.Run.BonusEcos += MetaRules.RoomEcos(world.Depth) / 2;
                 CalmShura(10f);
                 world.Fx.Popup(Strings.PopupCutPerfect, e.Position + Vector2.up * 1.6f, pal.gold);
@@ -851,8 +890,7 @@ namespace Shura
             else if (error <= CutLineDegrees)
             {
                 Heal(10f);
-                world.AddFlow(5f);
-                if (Build != null) Build.Mon += 5;
+                world.AddFlow(3f);
                 world.Fx.Popup(Strings.PopupCutLine, e.Position + Vector2.up * 1.4f, pal.gold);
             }
             else if (error <= CutCleanDegrees)
@@ -872,6 +910,16 @@ namespace Shura
             }
         }
 
+
+        /// <summary>Quantos pontos faltam para o próximo nível de Fluxo (no máximo, 1).</summary>
+        float PointsToNextFlowLevel()
+        {
+            if (Build == null) return 1f;
+            int lvl = Build.Flow.Level;
+            int[] th = flowTuning.levelThresholds;
+            float next = lvl < th.Length ? th[lvl] : flowTuning.maxPoints;
+            return Mathf.Max(1f, next - Build.Flow.Points);
+        }
 
         // ── Iai standoff ──────────────────────────────────────────────────────────────
 

@@ -234,9 +234,9 @@ namespace Shura
         public const string PopupCycle = "CICLO DAS DUAS LÂMINAS";
         public const string PopupCutLine = "CORTE EM LINHA";
         public const string PopupCutPerfect = "CORTE PERFEITO";
-        public const string PopupSpiritThrough = "ATRAVESSOU! Troca (Q) ou esquiva";
+        public const string PopupSpiritThrough = "ATRAVESSOU! Responda com a Troca";
         public const string PopupCutClean = "corte limpo";
-        public const string ToastCutPerfect = "Corte perfeito: +25 vida, Fluxo, 15 Mon, ecos e saque em dobro.";
+        public const string ToastCutPerfect = "Corte perfeito: +15 vida, um nível de Fluxo, ecos e saque em dobro.";
         public const string HudCutPerfect = "PERFEITO";
         public const string PopupCutArm = "BRAÇO DECEPADO";
         public const string PopupCutHead = "DECAPITADO";
@@ -624,7 +624,7 @@ namespace Shura
                         ? "ELO: trocar de arma no meio do combo dá um golpe de transição com nome próprio. Três elos seguidos abrem o Ciclo das Duas Lâminas."
                         : "ELO: troque de arma logo depois do último golpe do combo. A arma que ENTRA dá o seu Elo — cada uma tem o seu (a katana corta duas vezes, o montante quebra o dobro de postura…). Três Elos seguidos abrem o Ciclo das Duas Lâminas.";
                 case HintId.FinisherCut:
-                    return "CORTE DIRIGIDO: na finalização, uma linha dourada sai de você até um ponto do inimigo. Mire a lâmina sobre ela e ataque: quanto mais exato, mais sangue e mais recompensa — exatamente na linha é o CORTE PERFEITO (vida, Fluxo, Mon, ecos e saque em dobro).";
+                    return "FINALIZAR: um TOQUE em atacar é a finalização rápida. SEGURE atacar para o CORTE DIRIGIDO: uma linha dourada sai de você até um ponto do inimigo — mire a lâmina sobre ela e solte o golpe. Exatamente na linha é o CORTE PERFEITO (vida, Fluxo, ecos e saque em dobro). Elites, chefes e o último inimigo da sala abrem o corte dirigido direto.";
                 case HintId.MasterAnswers:
                     return "RESPOSTAS DE MESTRE: esquive PARA CIMA de uma varredura (descida), PARA TRÁS de uma agarrada (arremesso), e apare a investida em Chūdan para empurrar.";
                 case HintId.Feint:

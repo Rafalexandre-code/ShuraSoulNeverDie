@@ -48,6 +48,8 @@ namespace Shura
         public bool Rings;
         /// <summary>"-shuraArt id": a Arte das runs automáticas (kiai, shuriken, fumaca, sino, corrente).</summary>
         public string Art;
+        /// <summary>"-shuraRelic id": as runs automáticas começam com esta relíquia (ex.: rel_mascara_hannya).</summary>
+        public string Relic;
 
         /// <summary>"-shuraHost N": open the online room and start once N browser players joined (or after 40 s).</summary>
         public bool Host;
@@ -107,6 +109,9 @@ namespace Shura
                             options.TutorialStep = lesson;
                             i++;
                         }
+                        break;
+                    case "-shuraRelic":
+                        if (i + 1 < args.Length) options.Relic = args[++i];
                         break;
                     case "-shuraArt":
                         if (i + 1 < args.Length) options.Art = args[++i];

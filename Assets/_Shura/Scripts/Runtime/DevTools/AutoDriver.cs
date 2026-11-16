@@ -377,6 +377,8 @@ namespace Shura
         /// <summary>Os tipos de anel já fotografados (uma captura de cada, no quadro em que fecha).</summary>
         readonly HashSet<int> ringShots = new HashSet<int>();
         bool arrowShot, mushinShot;
+        bool wasAsura;
+        int asuraFalls;
 
         void UpdateBursts()
         {
@@ -447,6 +449,10 @@ namespace Shura
             if (shots) UpdateBursts();
             // The soul form, twice: as it takes the body and halfway through.
             PlayerController host = game.World != null ? game.World.Host : null;
+            // WP-07: conta as Quedas no Shuradō (o Asura Interior vem depois de cada uma).
+            bool asuraNow = host != null && host.InAsura;
+            if (asuraNow && !wasAsura) asuraFalls++;
+            wasAsura = asuraNow;
             // The tour shows the target lock too.
             if (shots && host != null) host.DevForceLock = true;
             if (shots && host != null && host.InSoul && soulShots < 2 && host.SoulFramesLeft < PlayerController.SoulFrames - 20 - soulShots * 200)
@@ -619,6 +625,9 @@ namespace Shura
                 sb.Append(" finalizacoes=").Append(run.Finishers);
                 sb.Append(" tecnicasAbsorvidas=").Append(run.TechniquesAbsorbed);
                 sb.Append(" fluxo=").Append(run.Flow.Level);
+                // WP-07: o Caminho do Asura e o Shura da run (e se o Asura Interior já caiu).
+                sb.Append(" caminho=").Append(run.Main.AsuraPath ? "sim" : "nao").Append(" shura=").Append(Mathf.RoundToInt(run.Main.Shura))
+                  .Append(" quedas=").Append(asuraFalls).Append(" karma=").Append(run.Karma);
                 sb.Append(" vida=").Append(Mathf.CeilToInt(game.World.Player.Health));
                 sb.Append(" tempoSim=").Append(run.Elapsed.ToString("0.0")).Append('s');
                 sb.Append(" semente=").Append(run.Seed);

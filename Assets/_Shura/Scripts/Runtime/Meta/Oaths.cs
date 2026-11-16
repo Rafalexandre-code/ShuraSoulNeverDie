@@ -35,6 +35,8 @@ namespace Shura
         public const string BloodPath = "caminho_de_sangue";
         public const string DemonBell = "sino_do_demonio";
         public const string EarlyKalpa = "kalpa_precoce";
+        /// <summary>WP-07: o Caminho do Asura — o medidor de Shura acompanha a run (escolha, não imposição).</summary>
+        public const string AsuraPath = "caminho_do_asura";
 
         public static readonly OathDef[] All =
         {
@@ -58,6 +60,8 @@ namespace Shura
                 levels = new[] { "Elites ganham um afixo a mais, em qualquer profundidade." } },
             new OathDef { id = EarlyKalpa, name = "Kalpa Precoce", kanji = "劫", maxLevel = 1, heat = 3,
                 levels = new[] { "Uma regra do Kalpa II já na profundidade 1." } },
+            new OathDef { id = AsuraPath, name = "Caminho do Asura", kanji = "修", maxLevel = 1, heat = 2,
+                levels = new[] { "O medidor de Shura acompanha a run: Ira, Sede, Frenesi, a Queda no Shuradō e o Asura Interior. A lua cheia volta ao céu." } },
         };
 
         public static OathDef Get(string id)

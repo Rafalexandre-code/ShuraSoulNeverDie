@@ -540,7 +540,7 @@ namespace Shura
                 case 0: // The begging monk
                     Add("Dar 50 Mon", "Karma +1 e uma bênção.", 50, c, p =>
                     {
-                        Run.Karma++;
+                        ChangeKarma(1);
                         GiveBlessing(p);
                         return true;
                     }).Character = "Monk";
@@ -604,7 +604,7 @@ namespace Shura
                             p.ApplyStats(false);
                             Say(p, "JIZŌ ABENÇOOU: " + p.Build.Equipped[slot].Name, Rarities.Color(old.rarity + 1));
                         }
-                        Run.Karma++;
+                        ChangeKarma(1);
                         return true;
                     }), "tiles_house", 5, 15, 1, 2);
                     Tile(Add("Rezar", "Cura 40% da vida.", 0, Config.palette.blessing, p =>
@@ -617,7 +617,7 @@ namespace Shura
                     Add("Ajudar", "Ele luta ao lado do grupo por 3 salas. Karma +1.", 0, c, p =>
                     {
                         CloseChoices();
-                        Run.Karma++;
+                        ChangeKarma(1);
                         Run.AllyRooms = 3;
                         SpawnAlly();
                         return true;
@@ -625,7 +625,7 @@ namespace Shura
                     Tile(Add("Finalizar", "A técnica dele é sua. Karma −2, Shura +15.", 0, danger, p =>
                     {
                         CloseChoices();
-                        Run.Karma -= 2;
+                        ChangeKarma(-2);
                         p.Build.AddPendingTechnique(RewardIds.PatientBlade);
                         p.AddShura(15f);
                         Fx.Emit(FxType.Finisher, p.Position + p.Facing, p.Facing, 1f, EnemyDefs.Ronin.bloodColor);
@@ -702,7 +702,7 @@ namespace Shura
                     {
                         p.Build.Muramasa = true;
                         p.Build.RecomputeModifiers();
-                        Run.Karma--;
+                        ChangeKarma(-1);
                         Say(p, "A LÂMINA TEM SEDE", danger);
                         Fx.Emit(FxType.ShuraRise, p.Position, Vector2.up, 2f, Config.palette.shu);
                         return true;
@@ -716,12 +716,12 @@ namespace Shura
                         Enemy foe = SpawnEncounterFoe(EnemyDefs.Kenkaku, true);
                         foe.OnDefeated = _ =>
                         {
-                            Run.Karma += 2;
+                            ChangeKarma(2);
                             Run.Meta?.AddStat(TeaGuests.StatHonor, 1);
                             // Tsubaki spread the word: honour is worth more.
                             if (Run.Meta != null && Run.Meta.MissionDone(TeaGuests.Tsubaki))
                             {
-                                Run.Karma++;
+                                ChangeKarma(1);
                                 Run.Meta.petals += 5;
                                 Fx.Toast(Strings.ToastTsubakiHonor, ColorUtil.Hex("#E0465A"));
                             }

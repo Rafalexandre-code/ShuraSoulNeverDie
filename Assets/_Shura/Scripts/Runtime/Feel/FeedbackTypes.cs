@@ -109,6 +109,8 @@ namespace Shura
         ParrySpam,
         /// <summary>WP-06: feedback de posicionamento. magnitude 0 = 背 (costas), 1 = 壁 (parede), 2 = 倒 (derrubada).</summary>
         PositionKanji,
+        /// <summary>WP-07: uma ação de Karma. magnitude = o quanto mudou (+ Bushidō 義, − Shura 修).</summary>
+        Karma,
     }
 
     public enum HintId

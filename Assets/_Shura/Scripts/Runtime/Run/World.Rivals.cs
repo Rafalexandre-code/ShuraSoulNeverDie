@@ -112,7 +112,7 @@ namespace Shura
                 if (!e.Kneeling || e.IsGone || Vector2.Distance(e.Position, p.Position) > 2.2f + e.Radius) continue;
                 e.Spare();
                 Fx.Popup(Strings.PopupSpared, e.Position + Vector2.up * 1.3f, ColorUtil.Hex("#7FC4FF"));
-                if (Run != null) Run.Karma++;
+                if (Run != null) ChangeKarma(1);
                 return;
             }
         }
@@ -121,7 +121,7 @@ namespace Shura
         public void OnExecution(Enemy e)
         {
             Fx.Popup(Strings.PopupExecuted, e.Position + Vector2.up * 1.3f, Config.palette.danger);
-            if (Run != null) Run.Karma -= 2;
+            if (Run != null) ChangeKarma(-2);
             Player?.AddShura(8f);
         }
 
@@ -132,7 +132,7 @@ namespace Shura
             {
                 if (!e.Kneeling || e.IsGone) continue;
                 e.Spare();
-                if (Run != null) Run.Karma++;
+                if (Run != null) ChangeKarma(1);
             }
         }
 

@@ -477,3 +477,32 @@ Capturas: docs/redesenho/amostras/wp06_finalizacao_rapida.png. A seta fora da te
   A revisão "60 s quadro a quadro" do aceite é do playtest humano.
 Fora do WP-06: o Arremesso priorizar fossos e armadilhas (E.2.7) não foi feito.
 ```
+
+---
+
+```
+WP-07 — Shura opcional e Karma visível — v0.16.12
+Feito:
+  1. ShuraMeterBase=false de fato: o medidor só existe no CAMINHO DO ASURA — a relíquia Máscara
+     Hannya, a Lâmina de Muramasa (evento) ou o juramento novo "Caminho do Asura" (修, Calor 2;
+     no Jardim; a liberação só após a 1ª vitória é do WP-11). Sem o Caminho o Shura não sobe e a
+     linha SHURA some do cartão. Com ele, tudo como antes: Ira, Sede, Frenesi, a Queda e o Asura
+     Interior. (PlayerBuild.AsuraPath; ligar a flag devolve o medidor para todos.)
+  2. A lua cheia (que acende o Shura) só nasce no céu de quem está no Caminho.
+  3. Karma visível: toda ação de Karma (12 lugares: eventos, rituais, rivais) passa por
+     World.ChangeKarma e acende 義 (Bushidō, azul, sino) ou 修 (Shura, vermelho, batida grave)
+     sobre o samurai. A tela de morte ganhou a linha "Karma" (+3 義 Bushidō / −2 修 Shura / 0).
+Teste do aceite (bots, 0 exceções em todos):
+  - design novo, sem Caminho (sementes 3, 11, 29, 41): prof. 20/20/20/20, caminho=nao, shura=0.
+  - com a Máscara Hannya (-shuraRelic rel_mascara_hannya; sementes 3, 11): prof. 20/20,
+    caminho=sim, 6 e 4 Quedas no Shuradō — o Asura Interior continua funcionando.
+  - jogo antigo (-shuraFeatures legacy; sementes 3, 11, 29): medidor para todos, 1/1/4 Quedas.
+Testes: 235/235 (novos: AsuraPathTests — sem Caminho não há medidor; Máscara, Muramasa e
+  juramento abrem; a flag antiga devolve; o juramento existe com 修).
+Amostras: docs/redesenho/amostras/wp07_hud_sem_e_com_caminho.png, wp07_morte_karma.png.
+  O kanji de Karma não apareceu nas capturas (nenhum evento de Karma nas rodadas).
+Ferramentas: o resumo dos bots agora diz caminho, shura, quedas e karma; -shuraRelic id.
+
+▶ PLAYTEST 1 — o núcleo (WP-03 a WP-07) está pronto. O plano para aqui: o diretor joga e decide
+  antes do WP-08.
+```

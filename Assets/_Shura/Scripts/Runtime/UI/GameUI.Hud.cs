@@ -264,6 +264,8 @@ namespace Shura
             public ToolKind tool;
             /// <summary>WP-05: a Arte no encaixe e as cargas dela.</summary>
             public ArtId artSlot;
+            /// <summary>WP-07: o medidor de Shura só aparece no Caminho do Asura.</summary>
+            public bool asuraPath;
             public int artCharges;
             public bool hasBuild = true;
 
@@ -314,6 +316,7 @@ namespace Shura
                 mon = b.Mon;
                 tool = b.Tool;
                 artSlot = b.Art;
+                asuraPath = b.AsuraPath;
                 artCharges = b.ArtCharges;
             }
 
@@ -350,6 +353,8 @@ namespace Shura
                 string c = MiniJson.S(r, 55);
                 curse = string.IsNullOrEmpty(c) ? null : c;
                 curseRooms = MiniJson.I(r, 56);
+                // Convidado: o anfitrião não manda a flag; quem tem Shura ou a Muramasa está no Caminho.
+                asuraPath = Feature.ShuraMeterBase || shura > 0f || MiniJson.B(r, 64);
                 state = (PlayerController.State)MiniJson.I(r, 59);
                 moving = MiniJson.B(r, 60);
                 string a = MiniJson.S(r, 61), o = MiniJson.S(r, 62);
@@ -445,11 +450,14 @@ namespace Shura
             float sh = p.shura;
             int lvl = p.shuraLevel;
             float sx = x + half + 20f;
+            if (p.asuraPath)
+            {
             float rage = lvl > 0 ? 1f + 0.08f * lvl * Mathf.Sin(Time.unscaledTime * (4f + 3f * lvl)) : 1f;
             Icon(new Rect(sx - 2f, 181f, 24f * rage, 24f * rage), HudArt.Oni(), lvl > 0 ? Color.white : new Color(1f, 1f, 1f, 0.45f));
             FitLabel(new Rect(sx + 28f, 182f, half - 28f, 24f), lvl > 0 ? Strings.HudShura + " · " + ShuraRules.LevelName(lvl) : Strings.HudShura, capsStyle, lvl > 0 ? Pal.shu : UiKit.PaperDim);
             Color shc = p.asura ? Color.Lerp(Pal.shu, Color.white, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 10f)) : Pal.shu;
             kit.Bar(new Rect(sx - 6f, 206f, half + 6f, 14f), sh, shc, Color.black.WithAlpha(0.7f));
+            }
 
             // Dodges: wind marks.
             Icon(new Rect(x - 2f, 231f, 24f, 24f), HudArt.Feather(), Color.white);

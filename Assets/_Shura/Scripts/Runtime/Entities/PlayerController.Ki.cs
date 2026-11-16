@@ -628,7 +628,9 @@ namespace Shura
         /// <summary>The Shura only rises (kills, pain at low health, forbidden things) and never cools by itself.</summary>
         public void AddShura(float amount)
         {
-            if (Build == null || amount <= 0f || InAsura || FacingInnerAsura || !world.Has(Unlockable.ShuraMeter)) return;
+            if (Build == null || amount <= 0f || InAsura || FacingInnerAsura) return;
+            // WP-07: sem o Caminho do Asura não há medidor (no jogo antigo, ele abria após 6 runs).
+            if (!Build.AsuraPath || (Feature.ShuraMeterBase && !world.Has(Unlockable.ShuraMeter))) return;
             int before = ShuraLevel;
             Build.Shura = Mathf.Min(ShuraRules.Max, Build.Shura + amount * Build.ShuraGainMult * world.ShuraGainMult * Mods.shuraGainMult);
             int after = ShuraLevel;

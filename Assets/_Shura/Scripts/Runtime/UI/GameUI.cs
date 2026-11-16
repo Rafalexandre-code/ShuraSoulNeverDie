@@ -1318,14 +1318,17 @@ namespace Shura
                     new[] { Strings.StatTechniques, run.TechniquesAbsorbed.ToString() },
                     new[] { Strings.StatBestStreak, run.BestStreak.ToString() },
                     new[] { Strings.StatTime, FormatTime(run.Elapsed) },
+                    new[] { Strings.StatKarma, run.Karma > 0 ? string.Format(Strings.StatKarmaBushido, run.Karma) : run.Karma < 0 ? string.Format(Strings.StatKarmaShura, run.Karma) : Strings.StatKarmaNeutral },
                     new[] { Strings.StatSeed, run.Seed.ToString() },
                 };
-                float y = panel.y + 34;
+                float y = panel.y + 22;
                 foreach (string[] row in rows)
                 {
+                    bool karma = row[0] == Strings.StatKarma;
+                    Color kc = !karma ? UiKit.Ink : run.Karma > 0 ? UiKit.Ai : run.Karma < 0 ? UiKit.Shu : UiKit.InkSoft;
                     Label(new Rect(panel.x + 70, y, 420, 36), row[0], bodyStyle, UiKit.InkSoft);
-                    Label(new Rect(panel.x + 400, y, 290, 36), row[1], bodyRightStyle, UiKit.Ink);
-                    y += 36;
+                    Label(new Rect(panel.x + 400, y, 290, 36), row[1], bodyRightStyle, kc);
+                    y += 33;
                 }
                 Label(new Rect(0, 766f, VW, 44f), string.Format(Strings.EcosEarned, run.EcosBanked, game.Meta.ecos), ecosSmallStyle, Pal.gold);
                 // What the journey left: the currencies, the Karma, and the disciple's fate.

@@ -506,6 +506,7 @@ namespace Shura
             ArtId art = Arts.Parse(Launch.Automated && Launch.Art != null ? Launch.Art : Settings.art);
             Run.Main.Art = Arts.FromCardOnly(art) || (!Launch.Automated && !Arts.Unlocked(art, Meta)) ? ArtId.Kiai : art;
             Run.Main.ArtCharges = Arts.MaxCharges;
+            if (Launch.Automated && Launch.Relic != null) Run.Main.Acquire(RewardRegistry.Create(Launch.Relic));
             PrepareJourney();
             if (Run.Modifiers.startFlowPoints > 0f) Run.Flow.Add(Run.Modifiers.startFlowPoints);
             roomClearTimer = -1;
@@ -1022,6 +1023,8 @@ namespace Shura
         {
             room.time = Run.Clock.Period;
             if (room.weather == Weather.FullMoon && room.time != TimeOfDay.Night) room.weather = Weather.Clear;
+            // WP-07: a lua cheia acende o Shura — só nasce para quem está no Caminho do Asura.
+            if (room.weather == Weather.FullMoon && !Run.Main.AsuraPath) room.weather = Weather.Clear;
         }
 
         /// <summary>The day marks its passing: a line on screen, and a sound or a light.</summary>

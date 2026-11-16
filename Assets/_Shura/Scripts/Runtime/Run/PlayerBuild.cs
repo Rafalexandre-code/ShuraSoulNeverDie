@@ -89,6 +89,13 @@ namespace Shura
         public int CurseRooms;
         /// <summary>The Muramasa blade: much more damage, and the Shura rises on its own.</summary>
         public bool Muramasa;
+
+        /// <summary>
+        /// WP-07: o Caminho do Asura está ativo — a Máscara Hannya, a Lâmina de Muramasa ou o
+        /// juramento "Caminho do Asura". Só então o medidor de Shura existe (ShuraMeterBase o liga sempre).
+        /// </summary>
+        public bool AsuraPath => Feature.ShuraMeterBase || Muramasa || Owns(RoadRelics.HannyaMask) ||
+                                 (run != null && run.Oaths.Level(Oaths.AsuraPath) > 0);
         /// <summary>The wandering smith's whetstone (+damage for the run).</summary>
         public float Sharpened;
         /// <summary>A duel of honour: no techniques, no items while it lasts.</summary>

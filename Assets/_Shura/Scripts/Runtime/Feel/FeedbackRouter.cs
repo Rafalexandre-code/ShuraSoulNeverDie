@@ -484,6 +484,18 @@ namespace Shura
                     vfx.Ring(pos, 0.5f, 0.3f, new Color(0.6f, 0.62f, 0.66f, 0.7f), 0.15f);
                     break;
 
+                case FxType.Karma:
+                {
+                    bool honor = magnitude > 0f;
+                    Color kc = honor ? Pal.playerAccent : Pal.shu;
+                    ui.Popup((honor ? "義" : "修") + (Mathf.Abs(magnitude) >= 2f ? " ×" + Mathf.RoundToInt(Mathf.Abs(magnitude)) : ""), pos, kc);
+                    vfx.Ring(pos + Vector2.down * 1.2f, 0.3f, 1.2f, kc.WithAlpha(0.6f), 0.4f);
+                    vfx.Rising(pos + Vector2.down * 1.4f, 0.5f, kc, 8);
+                    if (honor) audio.Play(Sfx.Chime, 0.7f, 1.3f, 0f);
+                    else audio.Play(Sfx.Danger, 0.6f, 0.6f, 0f);
+                    break;
+                }
+
                 case FxType.PositionKanji:
                 {
                     int k = Mathf.Clamp(Mathf.RoundToInt(magnitude), 0, PositionKanjis.Length - 1);

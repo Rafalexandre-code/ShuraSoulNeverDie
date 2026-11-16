@@ -63,7 +63,7 @@ namespace Shura
             Fx.Popup(Strings.PopupBow, p.Position + Vector2.up * 1.4f, ColorUtil.Hex("#7FC4FF"));
             if (Run != null && !TutorialRoom)
             {
-                Run.Karma++;
+                ChangeKarma(1);
                 Run.Meta?.AddStat(TeaGuests.StatBows, 1);
             }
         }
@@ -73,7 +73,7 @@ namespace Shura
         {
             Fx.Popup(Strings.PopupCoward, p.Position + Vector2.up * 1.4f, Config.palette.danger);
             p.AddShura(10f);
-            if (Run != null && !TutorialRoom) Run.Karma--;
+            if (Run != null && !TutorialRoom) ChangeKarma(-1);
         }
 
         // ── Prayer at statues and lanterns (§8.5) ─────────────────────────────────────

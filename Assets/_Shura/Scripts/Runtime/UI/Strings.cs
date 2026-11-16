@@ -160,6 +160,10 @@ namespace Shura
         public const string ToastStreak = "SEQUÊNCIA PERFEITA x{0}!";
         public const string StatTime = "Tempo";
         public const string StatSeed = "Semente";
+        public const string StatKarma = "Karma";
+        public const string StatKarmaBushido = "{0:+0;-0;0}  義 Bushidō";
+        public const string StatKarmaShura = "{0:+0;-0;0}  修 Shura";
+        public const string StatKarmaNeutral = "0  —";
 
         public const string HudHealth = "VIDA";
         public const string HudPosture = "POSTURA";

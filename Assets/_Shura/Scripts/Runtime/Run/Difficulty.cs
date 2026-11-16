@@ -177,6 +177,9 @@ namespace Shura
             }
             // What the Shura remembers from earlier lives is a floor, not a ceiling.
             foreach (ReadingId id in AdaptiveTraits.All) t.Set(id, Mathf.Max(t.Get(id), Baseline.Get(id) * 0.8f));
+            // WP-04: punir a Troca Perfeita é punir o jogador por jogar o jogo. A leitura TROCA só
+            // volta com AiReadsExtended.
+            if (!Feature.AiReadsExtended) t.swap = 0f;
             return t;
         }
     }

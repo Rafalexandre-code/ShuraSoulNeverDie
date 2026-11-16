@@ -71,6 +71,7 @@ namespace Shura
                 case HitOutcome.SwapParry: Beat(RhythmBeat.Swap); break;
                 case HitOutcome.Blocked: Beat(RhythmBeat.Block); break;
                 case HitOutcome.PerfectDodge:
+                case HitOutcome.Evaded:
                 case HitOutcome.CounterThrust: Beat(RhythmBeat.Dodge); break;
                 case HitOutcome.Hit: Beat(RhythmBeat.Hit); break;
             }

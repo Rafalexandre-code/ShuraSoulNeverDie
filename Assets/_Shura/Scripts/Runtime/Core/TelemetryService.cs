@@ -213,11 +213,7 @@ namespace Shura
         public static string RingOf(AttackDef a)
         {
             if (a == null) return "?";
-            if (a.groupStrike) return "grupo";
-            if (a.feint) return "finta";
-            if (a.cursed) return "maldito";
-            if (a.kind == AttackKind.Spirit) return "roxo";
-            return a.IsDangerous ? "vermelho" : "ciano";
+            return Rings.TelemetryName(Rings.Of(a, false));
         }
 
         void OnAttackResolved(PlayerController p, IncomingAttack inc, HitOutcome o, float damage, int sinceParry, int sinceSwap, int dodgeFrame)
@@ -232,6 +228,7 @@ namespace Shura
                 case HitOutcome.Blocked: response = "block"; delta = lead - sinceParry; break;
                 case HitOutcome.SwapParry: response = "swap"; delta = lead - sinceSwap; break;
                 case HitOutcome.PerfectDodge:
+                case HitOutcome.Evaded:
                 case HitOutcome.CounterThrust: response = "dodge"; if (dodgeFrame >= 0) delta = lead - dodgeFrame; break;
                 default:
                     // Levou o golpe: a resposta tentada (se houve) e o quanto errou.

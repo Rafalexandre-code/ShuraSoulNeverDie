@@ -728,14 +728,10 @@ namespace Shura
         /// <summary>Swapping at the end of a combo throws a Link: a blow of its own for each pair of weapons.</summary>
         void StartElo(WeaponDef from, WeaponDef to)
         {
-            PlayerAttackDef baseStep = to.swapStrike;
-            eloStep = new PlayerAttackDef
-            {
-                name = EloNames.For(from.id, to.id), style = baseStep.style, windup = Mathf.Max(3, baseStep.windup - 2),
-                active = baseStep.active, recovery = baseStep.recovery, damage = baseStep.damage * 0.85f, posture = baseStep.posture,
-                shape = baseStep.shape, lunge = baseStep.lunge, fromAngle = baseStep.fromAngle, toAngle = baseStep.toAngle,
-                extend = baseStep.extend, hits = baseStep.hits, pull = baseStep.pull, dash = baseStep.dash,
-            };
+            // WP-04: 10 Elos, um por arma que entra; o nome do par fica como sabor.
+            EloRule rule = Feature.NamedLinks45 ? null : EloRules.For(to.id);
+            string pair = EloNames.For(from.id, to.id);
+            eloStep = EloRules.Build(to.swapStrike, rule, rule != null ? rule.name : pair);
             if (world.Run.Elapsed - lastEloTime > 4f) eloChain = 0;
             lastEloTime = world.Run.Elapsed;
             eloChain++;
@@ -743,6 +739,11 @@ namespace Shura
             Velocity = Vector2.zero;
             Enter(State.SwapStrike);
             world.Fx.Popup(eloStep.name.ToUpperInvariant(), Position + Vector2.up * 1.1f, pal.gold);
+            if (rule != null)
+            {
+                world.Fx.Popup(pair, Position + Vector2.up * 1.6f, pal.gold.WithAlpha(0.6f));
+                EloBurstNow(rule, to);
+            }
             world.Fx.Emit(FxType.Elo, Position, Facing, eloChain, to.trail);
             BeginSwapStrikeMastery();
             world.WeaponSwapPower(this, Weapon.swapPower);
@@ -753,6 +754,36 @@ namespace Shura
                 CycleFramesLeft = CycleFrames;
                 eloChain = 0;
                 world.Fx.Popup(Strings.PopupCycle, Position + Vector2.up * 1.5f, pal.gold);
+            }
+        }
+
+        /// <summary>O efeito extra do Elo da arma que entra (EloRules), no começo do golpe.</summary>
+        void EloBurstNow(EloRule rule, WeaponDef to)
+        {
+            float reach = Mathf.Max(2.2f, eloStep.shape.range + 0.4f);
+            switch (rule.burst)
+            {
+                case EloBurst.Stun:
+                case EloBurst.Gust:
+                case EloBurst.Bleed:
+                    foreach (Enemy e in world.Enemies)
+                    {
+                        if (!e.CanBeHit) continue;
+                        Vector2 d = e.Position - Position;
+                        if (d.magnitude > reach) continue;
+                        if (rule.burst == EloBurst.Stun) e.Stun(24);
+                        else if (rule.burst == EloBurst.Gust) e.Shove(d.sqrMagnitude > 1e-4f ? d.normalized : Facing, 2.6f, this);
+                        else e.ApplyDot(4f, 3f, Element.Blood);
+                    }
+                    break;
+                case EloBurst.Quake:
+                    world.ScheduleBurst(Position + Facing * 0.8f, eloStep.windup + 1, 2.6f, 8f, 22f, to.trail);
+                    world.Fx.Emit(FxType.SlamImpact, Position, Facing, 2.4f);
+                    break;
+                case EloBurst.Bell:
+                    Posture.Recover(25f);
+                    CalmShura(8f);
+                    break;
             }
         }
 

@@ -351,3 +351,56 @@ Efeito no jogo: a antecedência mínima deixa os inimigos rápidos mais legívei
   mais lentos). Ajustável no painel (F1).
 Testes: 212/212. Bots: 3, 11, 29, 41 — prof. 20/20/20/14, 0 exceções.
 ```
+
+---
+
+```
+WP-04 — Anéis e Troca Perfeita como terceira resposta — v0.16.9
+Feito:
+  1. Quatro anéis (Combat/Rings.cs, fonte única para anel, brilho da arma, trilha de ritmo, som
+     e telemetria): ciano liso = aparar · vermelho com losango = esquivar · roxo pontilhado =
+     Troca Perfeita · tracejado = esperar. Cada um com um id de som (anel_ciano, anel_vermelho,
+     anel_roxo, anel_finta) e um som provisório distinto ao fechar ("tim", batida grave, sino,
+     batida abafada); a finta agora também soa. Os sons de verdade entram no WP-17.
+  2. Roxo = Troca Perfeita: aparar atravessa a lâmina; esquivar só evita, SEM ganho (resultado
+     novo "Evaded": sem Fluxo, sem selo, sem efeito de esquiva perfeita). A exceção do Talismã
+     saiu. Ambos voltam com a flag nova LegacySpiritAnswers.
+  3. CursedRing=false: golpes "malditos" mostram ciano e bloquear não amaldiçoa mais.
+     DoubleRingType=false: o golpe segurado pela leitura adaptativa é só um ciano que fecha mais
+     tarde (a trilha já mostra a batida no lugar certo).
+  4. Branco partido: já só existia com 2+ jogadores (conferido).
+  5. Elos (Combat/EloRules.cs): NamedLinks45=false → 10 comportamentos, um por arma que ENTRA:
+     Katana Fio Duplo (corta 2×) · Montante Peso da Montanha (postura ×2) · Gêmeas Enxame (3
+     cortes + sangria) · Naginata Varrida do Horizonte (círculo largo, +35% alcance) ·
+     Kusarigama Laço da Corrente (+50% alcance, puxa) · Manoplas Punho Atordoante (atordoa) ·
+     Tessen Vento do Leque (corte em círculo, afasta) · Kanabō Terremoto do Oni (onda de choque)
+     · Shakujō Sino do Templo (+25 de postura, −8 Shura) · Wakizashi Golpe Furtivo (sai na hora,
+     +30%). O nome do par (os 45) aparece menor, como sabor.
+  6. Distribuição por ato: o Ato I (prof. 0–4) já não tinha roxo nem finta nos inimigos e no
+     Senhor; a brecha era o evento da Kitsune (assinatura roxa) a partir da prof. 2 — agora só
+     do Ato II em diante (RunEvents.MinDepth).
+  7. A IA não lê mais a TROCA (adiantado do WP-13; volta com AiReadsExtended).
+Capturas: docs/redesenho/amostras/wp04_aneis.png (em cima: brilho da arma + trilha; embaixo: com
+  os anéis antigos ligados, opção nova de linha de comando -shuraRings) e wp04_aneis_daltonico.png
+  (a mesma folha em simulação de deuteranopia: as notas se distinguem pela forma).
+  Falta a captura do anel ciano no modo "anéis ligados" (essa rodada não fotografou um).
+Testes: 221/221 (novos: RingsAndLinksTests — 4 anéis distintos, maldito/duplo, roxo, Ato I sem
+  roxo nem finta, Kitsune fora do Ato I, 10 Elos distintos, IA sem TROCA).
+Bots: 3, 11, 29, 41 — prof. 20/20/20/20 (antes 20/20/20/14), 0 exceções, 10–18 Trocas Perfeitas.
+Fora do plano (não feito): na tabela de E.2.4, "esquiva evita sem ganho" também aparece na linha
+  do ciano; o WP-04 só pede isso no roxo, então a esquiva perfeita do ciano continua como era.
+  Algozes (rivais) de inimigos roxos ainda podem surgir cedo; decisão do WP-14.
+
+PEDIDOS DO DIRETOR (no meio do WP-04) — mesma versão
+  - Cerejeira rosa: virou sakura ao luar com tronco, galhos e copa com volume
+    (Tools/art_traps/gen_night_nature.py); a colisão das árvores cobre a base inteira desenhada
+    (antes era 0,8 m de 1,6 m).
+  - Chefe/rival travado na árvore: o caminho dos inimigos ignorava troncos e lanternas (só via
+    as células do chão) e mirava através da árvore. Agora células com corpo sólido saem da
+    navegação, e quem está numa delas sai pela vizinha livre.
+  - "Buracos enormes": eram as trilhas de terra em azul-marinho chapado (pareciam fossos) e a
+    faixa de chão nu entre a cerca viva e a mata. Trilhas viraram capim gasto que se mistura; a
+    faixa ganhou mata fechada (moitas e árvores baixas).
+  - Baú/mímico: o corpo era um círculo de 0,85 m que passava da base do desenho; virou uma caixa
+    medida nos pixels — os pés param na base do baú.
+```

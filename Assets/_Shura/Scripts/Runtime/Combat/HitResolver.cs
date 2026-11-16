@@ -12,6 +12,8 @@ namespace Shura
         PerfectDodge,
         CounterThrust,
         Ignored,
+        /// <summary>Esquivou de um golpe espiritual (roxo): evita, sem ganho nenhum (WP-04).</summary>
+        Evaded,
     }
 
     /// <summary>What a player strike did to an enemy.</summary>
@@ -53,8 +55,10 @@ namespace Shura
         public float counterDot;
         /// <summary>For group blows: enough duelists answered at once for parries to count.</summary>
         public bool groupAnswered;
-        /// <summary>Wears a talisman: a perfect parry also stops spirit blows.</summary>
+        /// <summary>Wears a talisman: a perfect parry also stops spirit blows (só com LegacySpiritAnswers).</summary>
         public bool spiritWard;
+        /// <summary>Esquivar de um golpe espiritual conta como esquiva perfeita (só com LegacySpiritAnswers).</summary>
+        public bool spiritDodgeCounts;
     }
 
     /// <summary>
@@ -67,6 +71,8 @@ namespace Shura
         {
             if (d.dodgeIFrames)
             {
+                // O roxo pede a Troca Perfeita: a esquiva só evita.
+                if (attack.kind == AttackKind.Spirit && !d.spiritDodgeCounts) return HitOutcome.Evaded;
                 if (attack.kind == AttackKind.Thrust && IsDodgingToward(d)) return HitOutcome.CounterThrust;
                 return HitOutcome.PerfectDodge;
             }

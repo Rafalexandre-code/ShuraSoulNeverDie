@@ -914,8 +914,9 @@ namespace Shura
                 hurtInvulnerable = hurtInvuln > 0 || CurrentState == State.Finisher || CurrentState == State.FinisherAim || CurrentState == State.SwapStrike,
                 parryWindow = CurrentState == State.Parry && StateFrame < parryWindow + ParryWindow.Forgiveness(t, attack, world.Config.feel.timingApproachFrames),
                 swapWindow = CurrentState == State.Swap && StateFrame < swapWindow,
-                // A talisman worn lets an ordinary parry stop a spirit blow.
-                spiritWard = Build != null && Build.Equipped[(int)ItemSlot.Talisman] != null,
+                // A talisman worn lets an ordinary parry stop a spirit blow — exceção cortada no WP-04.
+                spiritWard = Feature.LegacySpiritAnswers && Build != null && Build.Equipped[(int)ItemSlot.Talisman] != null,
+                spiritDodgeCounts = Feature.LegacySpiritAnswers,
                 guarding = CurrentState == State.Parry,
                 facing = Facing,
                 toAttacker = toAttacker,
@@ -997,7 +998,7 @@ namespace Shura
                         }
                     }
                     SpendStamina(attack.postureDamage * power);
-                    if (attack.cursed) Curse();
+                    if (Rings.Curses(attack)) Curse();
                     if (Posture.Add(attack.postureDamage * power * t.blockPostureMultiplier * Mods.blockWearMult) && !PostureUnbreakable) GuardBreak(toDir);
                     break;
 
@@ -1040,6 +1041,12 @@ namespace Shura
                     for (int i = 0; i < Build.Effects.Count; i++) Build.Effects[i].OnPerfectDodge(world, attacker);
                     break;
 
+                case HitOutcome.Evaded:
+                    // Saiu do caminho do golpe espiritual: salvo, mas a resposta era a troca.
+                    world.Fx.Emit(FxType.Dodge, Position, dodgeDir);
+                    world.HintOnce(HintId.SpiritBlow);
+                    break;
+
                 case HitOutcome.Hit:
                     // Parried a spirit blow with bare steel: say why it went through.
                     if (attack.kind == AttackKind.Spirit && CurrentState == State.Parry)
@@ -1047,7 +1054,7 @@ namespace Shura
                         world.Fx.Popup(Strings.PopupSpiritThrough, Position + Vector2.up * 1.5f, ColorUtil.Hex("#B07CFF"));
                         world.HintOnce(HintId.SpiritBlow);
                     }
-                    if (attack.cursed) Curse();
+                    if (Rings.Curses(attack)) Curse();
                     TakeHit(attack, toDir, power);
                     break;
             }

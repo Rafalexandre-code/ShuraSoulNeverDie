@@ -164,6 +164,8 @@ namespace Shura
                     }
                     case RoomKind.Event:
                         n.eventId = KarmaRules.Event(seed + (ulong)depth * 5UL + (ulong)n.index, RunEvents.Count);
+                        // Cedo demais para este evento: o seguinte da lista toma o lugar.
+                        while (depth < RunEvents.MinDepth(n.eventId)) n.eventId = (n.eventId + 1) % RunEvents.Count;
                         break;
                 }
             }

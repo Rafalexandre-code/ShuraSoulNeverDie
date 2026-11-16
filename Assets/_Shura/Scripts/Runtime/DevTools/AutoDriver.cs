@@ -374,9 +374,19 @@ namespace Shura
         bool mimicBurstDone;
 
         /// <summary>Consecutive-frame captures of a swing and a finisher, to judge animation fluidity.</summary>
+        /// <summary>Os tipos de anel já fotografados (uma captura de cada, no quadro em que fecha).</summary>
+        readonly HashSet<int> ringShots = new HashSet<int>();
+
         void UpdateBursts()
         {
             PlayerController p = game.World.Player;
+            foreach (Enemy e in game.World.Enemies)
+            {
+                if (e.NetRing != 2 || ringShots.Contains(e.NetRingKind) || Vector2.Distance(e.Position, p.Position) > 7f) continue;
+                ringShots.Add(e.NetRingKind);
+                Shot("anel_" + Rings.TelemetryName((RingKind)e.NetRingKind));
+                break;
+            }
             if (!swingBurstDone && p.CurrentState == PlayerController.State.Attack && p.StateFrame <= 1)
             {
                 swingBurstDone = true;

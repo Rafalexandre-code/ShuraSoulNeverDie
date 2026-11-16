@@ -1621,7 +1621,7 @@ namespace Shura
             if (!p.Cued && soonest <= Config.feel.timingCueLeadFrames)
             {
                 p.Cued = true;
-                Fx.Emit(FxType.TimingCue, p.Position, p.Direction, 0f);
+                Fx.Emit(FxType.TimingCue, p.Position, p.Direction, (float)Rings.Of(p.Attack, false));
             }
 
             if (Vector2.Distance(p.Position, victim.Position) > victim.Radius + p.Radius) return false;
@@ -1635,6 +1635,7 @@ namespace Shura
                     Reflect(p);
                     return false;
                 case HitOutcome.PerfectDodge:
+                case HitOutcome.Evaded:
                 case HitOutcome.Ignored:
                     p.PassedPlayer = true;
                     return false;
@@ -1782,6 +1783,16 @@ namespace Shura
             foreach (Offering o in Offerings)
             {
                 if (o.Solid <= 0f) continue;
+                if (o.SolidBox.width > 0f)
+                {
+                    var box = new Rect(o.Position + o.SolidBox.position, o.SolidBox.size);
+                    foreach (PlayerController p in Players) PushOutBox(p, box);
+                    for (int i = 0; i < Enemies.Count; i++)
+                    {
+                        if (IsSolid(Enemies[i])) PushOutBox(Enemies[i], box);
+                    }
+                    continue;
+                }
                 foreach (PlayerController p in Players) PushOut(p, o.Position, o.Solid);
                 for (int i = 0; i < Enemies.Count; i++)
                 {
@@ -1820,6 +1831,28 @@ namespace Shura
             if (d.sqrMagnitude >= min * min) return;
             float dist = d.magnitude;
             f.Position = center + (dist > 1e-4f ? d / dist : Vector2.down) * min;
+        }
+
+        /// <summary>Empurra o círculo de um lutador para fora de uma caixa (desliza pelas bordas).</summary>
+        static void PushOutBox(Fighter f, Rect box)
+        {
+            Vector2 p = f.Position;
+            var closest = new Vector2(Mathf.Clamp(p.x, box.xMin, box.xMax), Mathf.Clamp(p.y, box.yMin, box.yMax));
+            Vector2 d = p - closest;
+            float r = f.Radius, dist = d.magnitude;
+            if (dist >= r) return;
+            if (dist > 1e-5f)
+            {
+                f.Position = p + d / dist * (r - dist);
+                return;
+            }
+            float left = p.x - box.xMin, right = box.xMax - p.x, down = p.y - box.yMin, up = box.yMax - p.y;
+            float m = Mathf.Min(Mathf.Min(left, right), Mathf.Min(down, up));
+            if (m == left) p.x = box.xMin - r;
+            else if (m == right) p.x = box.xMax + r;
+            else if (m == down) p.y = box.yMin - r;
+            else p.y = box.yMax + r;
+            f.Position = p;
         }
 
         /// <summary>Walls and statues: fighters slide along them.</summary>

@@ -47,6 +47,11 @@ namespace Shura
             public bool DoubleRingType = false;
             /// <summary>WP-04 · 45 Elos com comportamento próprio (vira 10, um por arma que entra). Padrão: false.</summary>
             public bool NamedLinks45 = false;
+            /// <summary>
+            /// WP-04 · Exceções antigas do anel roxo: o Talismã deixa o parry segurar o golpe espiritual e
+            /// esquivar dele conta como esquiva perfeita. Padrão: false (roxo = Troca Perfeita; esquiva evita sem ganho).
+            /// </summary>
+            public bool LegacySpiritAnswers = false;
 
             // ── WP-05: teclas e Arte ──────────────────────────────────────────────────
             /// <summary>WP-05 · Ferramentas antigas (R/T, papéis espirituais, petardo, óleo) e teclas G/V/B/H/T/1–4. Padrão: false.</summary>
@@ -127,6 +132,7 @@ namespace Shura
         public static bool CursedRing => current.CursedRing;
         public static bool DoubleRingType => current.DoubleRingType;
         public static bool NamedLinks45 => current.NamedLinks45;
+        public static bool LegacySpiritAnswers => current.LegacySpiritAnswers;
         public static bool LegacyToolsAndKeys => current.LegacyToolsAndKeys;
         public static bool ShuraMeterBase => current.ShuraMeterBase;
         public static bool ExtraWeapons => current.ExtraWeapons;

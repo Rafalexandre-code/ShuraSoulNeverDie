@@ -685,11 +685,12 @@ namespace Shura
             if (FrostHolding()) return;
             StepFrame++;
             AttackDef attack = CurrentAttack;
-            // Arrows cue on their own flight; melee cues when the ring closes. Feints, stances
-            // and ranged releases never ring: the ring only ever means a real blow.
-            if (attack.ShowsTimingRing && StepFrame == TelegraphTiming.CueFrame(CueWindup, feel.timingCueLeadFrames))
+            // Arrows cue on their own flight; melee cues when the ring closes. Stances and ranged
+            // releases never ring. A finta fecha com a sua batida abafada (WP-04): cada tipo de anel
+            // tem o seu som (Rings.Sound), e a magnitude leva o tipo.
+            if ((attack.ShowsTimingRing || attack.feint) && StepFrame == TelegraphTiming.CueFrame(CueWindup, feel.timingCueLeadFrames))
             {
-                world.Fx.Emit(FxType.TimingCue, Position, Facing, attack.IsDangerous ? 1f : 0f);
+                world.Fx.Emit(FxType.TimingCue, Position, Facing, (float)CurrentRingKind);
             }
 
             PlayerController victim = Target != null ? Target : world.Host;

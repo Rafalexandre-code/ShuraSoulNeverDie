@@ -30,8 +30,13 @@ namespace Shura
         public bool Exit;
         public Func<PlayerController, bool> Act;
         public readonly HashSet<PlayerController> UsedBy = new HashSet<PlayerController>();
-        /// <summary>Raio do corpo sólido (o mímico): ninguém atravessa; 0 = dá para pisar em cima.</summary>
+        /// <summary>Raio do corpo sólido (o mímico): ninguém atravessa; 0 = dá para pisar em cima. Também mede o alcance.</summary>
         public float Solid;
+        /// <summary>
+        /// O corpo como caixa, relativa à posição (o mímico): casa com o desenho, ao contrário de um
+        /// círculo. Largura 0 = usa o círculo de Solid.
+        /// </summary>
+        public Rect SolidBox;
         /// <summary>Said no to this duelist (nothing to purify, an empty bag…) until they step off it.</summary>
         public readonly HashSet<PlayerController> Refused = new HashSet<PlayerController>();
         public readonly Dictionary<PlayerController, float> Progress = new Dictionary<PlayerController, float>();
@@ -164,6 +169,12 @@ namespace Shura
         public const string MimicArt = "mimic";
         /// <summary>Raio do corpo do mímico, em unidades (o jogador alcança a 1,1 do centro).</summary>
         const float MimicBodyRadius = 0.85f;
+        /// <summary>
+        /// O pé do baú, medido nos pixels do quadro parado (x 10–32, y 15–28 de 36x30, ×1,25, pé em
+        /// -0,45): a caixa vai de -0,37 a 0,72 no desenho. O corpo de quem encosta é um círculo nos
+        /// pés, então a caixa sobe e estreita um raio de corpo: os pés param na base do desenho.
+        /// </summary>
+        static readonly Rect MimicFootprint = new Rect(-0.5f, -0.05f, 1.2f, 0.55f);
 
         /// <summary>An offering's art (also drawn by an online guest from the same fields).</summary>
         public static void DressOffering(Transform go, string sheet, RectInt tile, string character, bool exit, int order)
@@ -487,6 +498,7 @@ namespace Shura
                 return true;
             }), MimicArt, 0, 0, 1, 1);
             chest.Solid = MimicBodyRadius;
+            chest.SolidBox = MimicFootprint;
             EncounterText = "Um baú lacrado com selos rasgados. O que está dentro vale muito. O que vem junto, também.";
         }
 

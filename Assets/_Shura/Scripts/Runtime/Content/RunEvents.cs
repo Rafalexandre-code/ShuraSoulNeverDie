@@ -6,6 +6,15 @@ namespace Shura
     /// </summary>
     public static class RunEvents
     {
+        /// <summary>A Kitsune Disfarçada: desmascarada, luta com um golpe roxo.</summary>
+        public const int Kitsune = 1;
+
+        /// <summary>
+        /// A profundidade mínima de um evento. O roxo só entra com o primeiro yokai espiritual
+        /// (WP-04: o Ato I é só ciano e vermelho), então a Kitsune espera o Ato II.
+        /// </summary>
+        public static int MinDepth(int id) => id == Kitsune ? Biomes.RoomsPerBiome : 0;
+
         static readonly string[] Titles =
         {
             "O Monge Mendigo",

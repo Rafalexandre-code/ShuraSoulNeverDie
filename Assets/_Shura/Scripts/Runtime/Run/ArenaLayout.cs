@@ -184,7 +184,41 @@ namespace Shura
         readonly List<Rect> solids = new List<Rect>();
         public IReadOnlyList<Rect> Solids => solids;
 
-        public void AddSolid(Rect r) => solids.Add(r);
+        public void AddSolid(Rect r)
+        {
+            solids.Add(r);
+            navBlocked = null;
+            fields.Clear();
+        }
+
+        bool[] navBlocked;
+
+        /// <summary>
+        /// Uma célula de chão por onde o caminho pode passar: sem um corpo sólido (tronco de árvore,
+        /// lanterna) no miolo. Sem isto o caminho mirava através da árvore e o inimigo travava nela.
+        /// </summary>
+        bool NavOpen(int x, int y)
+        {
+            if (!IsFloor(x, y)) return false;
+            if (navBlocked == null)
+            {
+                navBlocked = new bool[W * H];
+                for (int i = 0; i < solids.Count; i++)
+                {
+                    Rect s = solids[i];
+                    for (int cy = 0; cy < H; cy++)
+                    {
+                        for (int cx = 0; cx < W; cx++)
+                        {
+                            Vector2 c = CellCenter(cx, cy);
+                            var inner = new Rect(c.x - 0.35f, c.y - 0.35f, 0.7f, 0.7f);
+                            if (inner.Overlaps(s)) navBlocked[cy * W + cx] = true;
+                        }
+                    }
+                }
+            }
+            return !navBlocked[y * W + x];
+        }
 
         public bool InSolid(Vector2 p)
         {
@@ -320,7 +354,27 @@ namespace Shura
             Vector2Int here = CellAt(from);
             if (!IsFloor(here.x, here.y)) here = CellAt(Resolve(from, radius));
             int[] field = FieldTo(goal);
-            if (field == null || !IsFloor(here.x, here.y) || field[here.y * W + here.x] < 0) return straight / dist;
+            if (field == null || !IsFloor(here.x, here.y)) return straight / dist;
+            if (field[here.y * W + here.x] < 0)
+            {
+                // De pé numa célula com tronco: sai para a vizinha livre mais perto do alvo.
+                Vector2Int exit = here;
+                int bestExit = int.MaxValue;
+                foreach (Vector2Int s in Steps)
+                {
+                    Vector2Int n = here + s;
+                    if (!IsFloor(n.x, n.y)) continue;
+                    int v = field[n.y * W + n.x];
+                    if (v >= 0 && v < bestExit && Clear(from, CellCenter(n.x, n.y), radius * 0.6f))
+                    {
+                        bestExit = v;
+                        exit = n;
+                    }
+                }
+                if (exit == here) return straight / dist;
+                Vector2 e = CellCenter(exit.x, exit.y) - from;
+                return e.sqrMagnitude > 1e-6f ? e.normalized : straight / dist;
+            }
 
             // Look a few cells down the path and head for the furthest one in plain sight:
             // fighters cut corners smoothly instead of zig-zagging through cell centres.
@@ -373,9 +427,9 @@ namespace Shura
         bool Walkable(Vector2Int from, Vector2Int step)
         {
             Vector2Int n = from + step;
-            if (!IsFloor(n.x, n.y)) return false;
+            if (!NavOpen(n.x, n.y)) return false;
             // Diagonals only where both sides are open (no squeezing between corners).
-            return step.x == 0 || step.y == 0 || (IsFloor(from.x + step.x, from.y) && IsFloor(from.x, from.y + step.y));
+            return step.x == 0 || step.y == 0 || (NavOpen(from.x + step.x, from.y) && NavOpen(from.x, from.y + step.y));
         }
 
         /// <summary>Path lengths (in steps) from every floor cell to the goal, cached per goal.</summary>

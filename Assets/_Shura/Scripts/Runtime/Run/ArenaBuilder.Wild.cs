@@ -33,9 +33,13 @@ namespace Shura
             public float pivotX;
             public Vector2[] trunks;
             public float halfWidth;
+            /// <summary>Altura do corpo sólido a partir do pé (a base da copa e o chão sob ela).</summary>
+            public float depth = 0.5f;
         }
 
-        static readonly TreeArt PineArt = new TreeArt { tile = Pine, pivotX = 11f / 32f, trunks = new[] { Vector2.zero }, halfWidth = 0.32f };
+        // Medido nos pixels (16 px = 1 m): a base das copas tem ~26 px de largura; o corpo sólido
+        // cobre a base inteira, para ninguém entrar visualmente na árvore.
+        static readonly TreeArt PineArt = new TreeArt { tile = Pine, pivotX = 11f / 32f, trunks = new[] { Vector2.zero }, halfWidth = 0.62f };
         static readonly TreeArt ClusterArt = new TreeArt
         {
             tile = PineCluster, pivotX = 27f / 64f, halfWidth = 0.32f,
@@ -43,11 +47,11 @@ namespace Shura
         };
         static readonly TreeArt[] RoundArts =
         {
-            new TreeArt { tile = RoundTrees[0], pivotX = 15.5f / 32f, trunks = new[] { Vector2.zero }, halfWidth = 0.4f },
-            new TreeArt { tile = RoundTrees[1], pivotX = 15.5f / 32f, trunks = new[] { Vector2.zero }, halfWidth = 0.4f },
-            new TreeArt { tile = RoundTrees[2], pivotX = 15.5f / 32f, trunks = new[] { Vector2.zero }, halfWidth = 0.4f },
+            new TreeArt { tile = RoundTrees[0], pivotX = 15.5f / 32f, trunks = new[] { Vector2.zero }, halfWidth = 0.72f },
+            new TreeArt { tile = RoundTrees[1], pivotX = 15.5f / 32f, trunks = new[] { Vector2.zero }, halfWidth = 0.55f },
+            new TreeArt { tile = RoundTrees[2], pivotX = 15.5f / 32f, trunks = new[] { Vector2.zero }, halfWidth = 0.55f },
         };
-        static readonly TreeArt BlossomArt = new TreeArt { tile = Blossom, pivotX = 15.5f / 32f, trunks = new[] { Vector2.zero }, halfWidth = 0.4f };
+        static readonly TreeArt BlossomArt = new TreeArt { tile = Blossom, pivotX = 15.5f / 32f, trunks = new[] { Vector2.zero }, halfWidth = 0.7f };
 
         static Sprite TreeSprite(TreeArt t) => PixelArt.Region(NightSheet, t.tile.x, t.tile.y, t.tile.width, t.tile.height, new Vector2(t.pivotX, 0.05f));
 
@@ -59,7 +63,7 @@ namespace Shura
             foreach (Vector2 trunk in t.trunks)
             {
                 Vector2 c = at + trunk * scale;
-                layout.AddSolid(new Rect(c.x - hw, c.y - 0.12f, hw * 2f, 0.42f));
+                layout.AddSolid(new Rect(c.x - hw, c.y - 0.1f, hw * 2f, t.depth * scale));
             }
         }
 
@@ -226,14 +230,19 @@ namespace Shura
             float clump = Hash((wx >> 1) + seed, wy >> 1);
             float patch = Mathf.PerlinNoise(world.x * 0.18f + seed, world.y * 0.18f);
             float moon = Mathf.PerlinNoise(world.x * 0.07f + seed * 0.3f, world.y * 0.07f + 11f);
-            float fade = Mathf.Lerp(1f, 0.3f, Mathf.SmoothStep(0f, 1f, outside / 7f));
-            // Trilhas de terra escura onde a clareira é mais pisada (só dentro e logo na beira).
+            float fade = Mathf.Lerp(1f, 0.55f, Mathf.SmoothStep(0f, 1f, outside / 7f));
+            float g = (0.8f + 0.35f * patch + 0.08f * (clump - 0.5f) + 0.25f * moon) * fade;
+            // Trilhas de terra pisada (só dentro e logo na beira): capim gasto, só um pouco mais
+            // escuro e com pedrinhas, e a borda se mistura no capim. Antes era um azul-marinho
+            // chapado que, à noite, parecia um buraco.
             if (patch < 0.3f && outside < 0.6f)
             {
-                float k = (0.85f + 0.2f * clump) * fade;
-                return Rgb(0.15f * k, 0.15f * k, 0.22f * k);
+                float w = Mathf.SmoothStep(0f, 1f, (0.3f - patch) / 0.08f) * 0.75f;
+                if (Hash(wx >> 1, (wy >> 1) + 3) > 1f - w) w *= 0.55f;          // borda esfarrapada
+                float k = (0.88f + 0.16f * clump) * fade;
+                if (n > 0.975f) return Rgb(0.2f * k, 0.25f * k, 0.3f * k);     // pedrinha ao luar
+                return Rgb(Mathf.Lerp(0.07f * g, 0.1f * k, w), Mathf.Lerp(0.2f * g, 0.16f * k, w), Mathf.Lerp(0.24f * g, 0.2f * k, w));
             }
-            float g = (0.8f + 0.35f * patch + 0.08f * (clump - 0.5f) + 0.25f * moon) * fade;
             if (n > 0.992f) return Rgb(0.2f * fade, 0.44f * fade, 0.48f * fade);                // folha pegando a lua
             if (n < 0.0012f && moon > 0.55f && outside < 0.5f) return Rgb(1f, 0.62f, 0.8f);     // florzinha rosa acesa (rara)
             // Fora da arena, folhas caídas: manchas um pouco mais escuras e frias.
@@ -287,11 +296,12 @@ namespace Shura
             var ground = SpriteUtil.Make("Wilds", parent, Sprite.Create(tex, new Rect(0, 0, gw, gh), Vector2.zero, Tile), Color.white, Sorting.Floor - 10);
             ground.transform.localPosition = origin;
 
-            // O limite: uma cerca viva de moitas e samambaias em cada célula que encosta no chão.
-            AddLivingHedge(parent, layout, seed);
-
             // Embaixo a mata começa mais longe: as copas sobem e cobririam a luta.
             Rect clear = new Rect(fb.xMin - 1.2f, fb.yMin - 1.6f, fb.width + 2.4f, fb.height + 2.4f);
+
+            // O limite: uma cerca viva de moitas e samambaias em cada célula que encosta no chão, e
+            // mata baixa fechada em toda célula de fora que as árvores não cobrem (sem buracos).
+            AddLivingHedge(parent, layout, seed, clear);
             Sprite pine = TreeSprite(PineArt);
             Sprite cluster = TreeSprite(ClusterArt);
             Sprite blossom = TreeSprite(BlossomArt);
@@ -346,17 +356,27 @@ namespace Shura
         /// moitas e samambaias de tamanhos variados, tortas e sobrepostas, com uma sombra macia
         /// por baixo. Lê-se como mata fechada (não dá para passar), sem nenhuma linha reta.
         /// </summary>
-        static void AddLivingHedge(Transform parent, ArenaLayout layout, int seed)
+        static void AddLivingHedge(Transform parent, ArenaLayout layout, int seed, Rect clear)
         {
             Sprite soft = ShapeLibrary.Get(Shape.SoftCircle);
             var bushes = new Sprite[Undergrowth.Length];
             for (int i = 0; i < bushes.Length; i++) bushes[i] = PixelArt.Region(NightSheet, Undergrowth[i].x, Undergrowth[i].y, 1, 1, new Vector2(0.5f, 0.1f));
-            for (int cy = -1; cy <= layout.H; cy++)
+            var round = new Sprite[RoundTrees.Length];
+            for (int i = 0; i < round.Length; i++) round[i] = TreeSprite(RoundArts[i]);
+            Sprite pine = TreeSprite(PineArt);
+            // As árvores da mata só nascem fora de "clear" (alargado meio metro para o sorteio delas).
+            Rect inner = new Rect(clear.xMin - 0.6f, clear.yMin - 0.6f, clear.width + 1.2f, clear.height + 1.2f);
+            for (int cy = -4; cy <= layout.H + 3; cy++)
             {
-                for (int cx = -1; cx <= layout.W; cx++)
+                for (int cx = -4; cx <= layout.W + 3; cx++)
                 {
-                    if (layout.IsFloor(cx, cy) || !NearFloor(layout, cx, cy)) continue;
+                    if (layout.IsFloor(cx, cy)) continue;
                     Vector2 cell = layout.Origin + new Vector2(cx + 0.5f, cy + 0.5f);
+                    if (!NearFloor(layout, cx, cy))
+                    {
+                        if (inner.Contains(cell)) FillThicket(parent, layout, cx, cy, cell, seed, bushes, round, pine, soft);
+                        continue;
+                    }
                     var shade = SpriteUtil.Make("SombraDaMata", parent, soft, new Color(0.01f, 0.03f, 0.06f, 0.55f), Sorting.Floor + 1);
                     shade.transform.localPosition = cell;
                     shade.transform.localScale = new Vector3(1.9f, 1.6f, 1f);
@@ -372,6 +392,39 @@ namespace Shura
                         r.color = Color.Lerp(Color.white, new Color(0.7f, 0.78f, 0.9f), b * 0.6f);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Mata fechada numa célula de fora que não encosta no chão e que as árvores do fundo não
+        /// alcançam: moitas mais escuras e, às vezes, uma árvore baixa. Tapa o chão nu entre a cerca
+        /// viva e a mata (os "buracos").
+        /// </summary>
+        static void FillThicket(Transform parent, ArenaLayout layout, int cx, int cy, Vector2 cell, int seed,
+                                Sprite[] bushes, Sprite[] round, Sprite pine, Sprite soft)
+        {
+            var shade = SpriteUtil.Make("SombraDaMata", parent, soft, new Color(0.01f, 0.03f, 0.06f, 0.6f), Sorting.Floor + 1);
+            shade.transform.localPosition = cell;
+            shade.transform.localScale = new Vector3(2.1f, 1.9f, 1f);
+            float t = Hash(cx * 19 + seed, cy * 23 + 7);
+            if (t > 0.45f)
+            {
+                Sprite s = t > 0.8f ? pine : round[(int)(Hash(cx + 5, cy + seed) * round.Length) % round.Length];
+                SpriteRenderer tree = Prop(parent, "MataFechada", s, cell + new Vector2((t - 0.6f) * 0.5f, -0.35f), 0.85f + 0.3f * t);
+                if (tree != null)
+                {
+                    tree.flipX = t > 0.62f;
+                    tree.color = new Color(0.78f, 0.84f, 0.95f);
+                }
+            }
+            for (int i = 0; i < 3; i++)
+            {
+                float a = Hash(cx * 37 + i * 11 + seed, cy * 13 + i), b = Hash(cx * 7 + i * 3, cy * 41 + i * 9 + seed);
+                var p = cell + new Vector2((a - 0.5f) * 1.0f, (b - 0.5f) * 0.9f);
+                SpriteRenderer r = Prop(parent, "MataFechada", bushes[(int)(Hash(cx * 3 + i, cy + seed * 5) * bushes.Length) % bushes.Length], p, 1.1f + 0.5f * a);
+                if (r == null) continue;
+                r.flipX = b > 0.5f;
+                r.color = Color.Lerp(new Color(0.85f, 0.9f, 1f), new Color(0.62f, 0.7f, 0.85f), b);
             }
         }
 

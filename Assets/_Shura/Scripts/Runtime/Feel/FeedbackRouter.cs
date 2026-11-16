@@ -509,7 +509,11 @@ namespace Shura
 
                 case FxType.TimingCue:
                     if (!game.Settings.timingIndicator) break;
-                    audio.Play(Sfx.Glint, magnitude > 0.5f ? 0.55f : 0.45f, magnitude > 0.5f ? 0.8f : 1f, 0f);
+                {
+                    // Um som por tipo de anel (provisório até o WP-17; ver Rings.Sound).
+                    RingSound s = Rings.Sound((RingKind)Mathf.RoundToInt(magnitude));
+                    audio.Play(s.sfx, s.volume, s.pitch, 0f);
+                }
                     break;
 
                 case FxType.Dodge:

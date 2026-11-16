@@ -11,7 +11,11 @@ namespace Shura.Tests
             Assert.AreEqual("ciano", TelemetryService.RingOf(new AttackDef { kind = AttackKind.Normal }));
             Assert.AreEqual("roxo", TelemetryService.RingOf(new AttackDef { kind = AttackKind.Spirit }));
             Assert.AreEqual("finta", TelemetryService.RingOf(new AttackDef { kind = AttackKind.Normal, feint = true }));
+            // WP-04: sem o anel verde, o golpe maldito é ciano; com a flag CursedRing, volta "maldito".
+            Assert.AreEqual("ciano", TelemetryService.RingOf(new AttackDef { kind = AttackKind.Normal, cursed = true }));
+            Feature.Set("CursedRing", true);
             Assert.AreEqual("maldito", TelemetryService.RingOf(new AttackDef { kind = AttackKind.Normal, cursed = true }));
+            Feature.Reset();
             Assert.AreEqual("grupo", TelemetryService.RingOf(new AttackDef { kind = AttackKind.Normal, groupStrike = true }));
             Assert.AreEqual("?", TelemetryService.RingOf(null));
             foreach (EnemyDef d in EnemyDefs.All)

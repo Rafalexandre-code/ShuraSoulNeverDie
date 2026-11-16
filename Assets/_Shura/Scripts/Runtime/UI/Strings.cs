@@ -597,13 +597,15 @@ namespace Shura
                 case HintId.Wounds:
                     return "FERIMENTOS: golpes fortes ferem uma região. Braço: a troca falha. Perna: esquiva curta. Tronco: sangra. Olhos: os anéis somem por um tempo. Enfaixe-se.";
                 case HintId.Curse:
-                    return "AMALDIÇOADO: golpes roxos amaldiçoam quem só bloqueia. Apare perfeitamente ou esquive.";
+                    return "AMALDIÇOADO: golpes de anel verde amaldiçoam quem só bloqueia. Apare perfeitamente ou esquive.";
                 case HintId.Shura:
                     return "SHURA: matar sem misericórdia enche a barra vermelha. Ira, Sede, Frenesi… e ao transbordar você cai no Shuradō. Aparar perfeitamente acalma.";
                 case HintId.Asura:
                     return "VOCÊ É O ASURA: seus golpes não podem ser bloqueados. Quando passar, o seu Asura Interior virá cobrar.";
                 case HintId.Elo:
-                    return "ELO: trocar de arma no meio do combo dá um golpe de transição com nome próprio. Três elos seguidos abrem o Ciclo das Duas Lâminas.";
+                    return Feature.NamedLinks45
+                        ? "ELO: trocar de arma no meio do combo dá um golpe de transição com nome próprio. Três elos seguidos abrem o Ciclo das Duas Lâminas."
+                        : "ELO: troque de arma logo depois do último golpe do combo. A arma que ENTRA dá o seu Elo — cada uma tem o seu (a katana corta duas vezes, o montante quebra o dobro de postura…). Três Elos seguidos abrem o Ciclo das Duas Lâminas.";
                 case HintId.FinisherCut:
                     return "CORTE DIRIGIDO: na finalização, uma linha dourada sai de você até um ponto do inimigo. Mire a lâmina sobre ela e ataque: quanto mais exato, mais sangue e mais recompensa — exatamente na linha é o CORTE PERFEITO (vida, Fluxo, Mon, ecos e saque em dobro).";
                 case HintId.MasterAnswers:
@@ -617,7 +619,7 @@ namespace Shura
                 case HintId.InnerAsura:
                     return "O ASURA INTERIOR: só você pode vencê-lo. Ele luta com as suas armas.";
                 case HintId.GroupBlow:
-                    return "GOLPE DO GRUPO (anel duplo): só dois duelistas aparando juntos seguram.";
+                    return "GOLPE DO GRUPO (anel branco partido): só dois duelistas aparando juntos seguram.";
                 case HintId.Route:
                     return "O MAPA: escolha a próxima porta. Cada símbolo diz o que espera atrás dela — combate, duelo, desafio, santuário, mercador, ferreiro, evento, tesouro.";
                 case HintId.Encounter:
@@ -643,9 +645,7 @@ namespace Shura
                 case HintId.Reactions:
                     return "REAÇÃO ELEMENTAL: um inimigo marcado por um elemento e atingido por outro reage. Fogo+Gelo = Vapor (cega) · Gelo+Raio = Estilhaço (postura) · Fogo+Vento = Tornado Ígneo · Sangue+Sombra = Maldição (ele te cura) · Raio+Sangue = Sobrecarga · Gelo+Vento = Nevasca (congela). Aço puro faz o elemento durar o dobro.";
                 case HintId.SpiritBlow:
-                    return gamepad
-                        ? "ANEL ROXO PONTILHADO = golpe espiritual: a lâmina atravessa e o aparar comum NÃO segura. Responda com a TROCA PERFEITA (Y no fechar do anel) ou esquive. Com um TALISMÃ equipado, o aparar volta a funcionar."
-                        : "ANEL ROXO PONTILHADO = golpe espiritual: a lâmina atravessa e o aparar comum NÃO segura. Responda com a TROCA PERFEITA (Q no fechar do anel) ou esquive. Com um TALISMÃ equipado, o aparar volta a funcionar.";
+                    return string.Format("ROXO = golpe espiritual: a lâmina atravessa e aparar NÃO segura. Responda com a TROCA PERFEITA ({0} na hora certa). Esquivar só evita — sem ganho nenhum.", gamepad ? "Y" : "Q");
                 case HintId.Kalpa:
                     return "KALPA: a cada 25 salas, um ciclo novo com uma regra permanente. Os números sobem menos — as regras é que apertam.";
                 case HintId.EliteAffixes:

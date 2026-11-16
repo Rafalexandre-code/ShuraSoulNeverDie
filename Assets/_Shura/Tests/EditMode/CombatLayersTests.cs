@@ -114,6 +114,9 @@ namespace Shura.Tests
         {
             DefenderState d = Facing(Vector2.right, Vector2.right);
             d.dodgeIFrames = true;
+            // WP-04: no roxo a esquiva só evita, sem ganho; o antigo volta com LegacySpiritAnswers.
+            Assert.AreEqual(HitOutcome.Evaded, HitResolver.Resolve(Spirit(), d));
+            d.spiritDodgeCounts = true;
             Assert.AreEqual(HitOutcome.PerfectDodge, HitResolver.Resolve(Spirit(), d));
             Assert.AreEqual(HitOutcome.PerfectDodge, HitResolver.Resolve(Group(), d));
         }

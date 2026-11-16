@@ -114,15 +114,6 @@ namespace Shura
 
         static bool ShowsBeat(AttackDef a) => a != null && (a.ShowsTimingRing || a.feint);
 
-        static RingKind KindOf(AttackDef a, bool adapted)
-        {
-            if (a.feint) return RingKind.Feint;
-            if (a.groupStrike) return RingKind.Group;
-            if (a.kind == AttackKind.Spirit) return RingKind.Spirit;
-            if (a.IsDangerous) return RingKind.Danger;
-            if (a.cursed) return RingKind.Cursed;
-            if (adapted) return RingKind.Double;
-            return RingKind.Parry;
-        }
+        static RingKind KindOf(AttackDef a, bool adapted) => Rings.Of(a, adapted);
     }
 }

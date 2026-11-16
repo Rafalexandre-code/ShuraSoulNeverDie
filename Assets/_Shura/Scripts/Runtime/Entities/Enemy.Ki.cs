@@ -92,21 +92,8 @@ namespace Shura
         SpriteRenderer[] sealViews;
         static Sprite sealSprite;
 
-        public RingKind CurrentRingKind
-        {
-            get
-            {
-                AttackDef a = CurrentAttack;
-                if (a == null) return RingKind.Parry;
-                if (a.feint) return RingKind.Feint;
-                if (a.groupStrike) return RingKind.Group;
-                if (a.kind == AttackKind.Spirit) return RingKind.Spirit;
-                if (a.IsDangerous) return RingKind.Danger;
-                if (a.cursed) return RingKind.Cursed;
-                if (stepAdapted) return RingKind.Double;
-                return RingKind.Parry;
-            }
-        }
+        /// <summary>O anel do golpe em curso (Rings: a linguagem de ameaça do WP-04).</summary>
+        public RingKind CurrentRingKind => Rings.Of(CurrentAttack, stepAdapted);
 
         /// <summary>It struck a duelist this life (the scroll's "win without its damage").</summary>
         public bool DamagedPlayer { get; set; }

@@ -72,7 +72,7 @@ namespace Shura
         static readonly string[] TourTitles =
         {
             "Bem-vindo ao dojo", "Você e a sua guarda", "As quatro guardas", "Vida", "Postura", "Fôlego", "Shura", "Esquivas",
-            "Ferimentos", "Linha de estado", "Fluxo", "Ecos", "Suas duas armas", "Cabaça", "Bandagem", "Ferramenta e papéis",
+            "Ferimentos", "Linha de estado", "Fluxo", "Ecos", "Suas duas armas", "Cabaça", "Bandagem", "A Arte",
             "Mon", "Registro", "Agora, à prática",
         };
 
@@ -93,7 +93,7 @@ namespace Shura
             "A arma acesa está na mão; a outra espera. Trocar no instante em que o anel fecha é a TROCA PERFEITA, o golpe mais forte do jogo. A tecla de trocar aparece no canto.",
             "Cada cabaça cheia é um gole de cura. Beber deixa você parado por um instante — escolha a hora. Elas se enchem a cada sala.",
             "Trata os ferimentos e devolve um pouco de vida. No controle, segure o botão da cabaça.",
-            "A ferramenta em mãos (shuriken, bomba, sino de bronze...) e os papéis espirituais que ela gasta. Uma tecla lança, a outra troca de ferramenta.",
+            "A sua ARTE (Kiai, Shuriken, Fumaça, Sino, Corrente…) e as duas cargas dela. Uma tecla só; cada finalização devolve uma carga.",
             "O dinheiro da jornada: compra itens com mercadores, serviços do ferreiro e favores pelo caminho. Ganho a cada inimigo e a cada sala.",
             "Tudo o que aconteceu — itens, técnicas, avisos — fica escrito aqui. Clique ou aperte C (no controle, segure View) para abrir.",
             "Agora, ao dojo. Cada lição só termina quando você faz o que ela pede, e o mestre só ataca quando a lição manda. Esc duas vezes pula o tutorial a qualquer momento.",
@@ -150,7 +150,7 @@ namespace Shura
                 case Tutorial.Step.SwapParry: return "A Troca Perfeita";
                 case Tutorial.Step.Stances: return "As quatro guardas";
                 case Tutorial.Step.Gourd: return "A cabaça";
-                case Tutorial.Step.Tool: return "Ferramentas";
+                case Tutorial.Step.Tool: return Feature.LegacyToolsAndKeys ? "Ferramentas" : "A Arte";
                 case Tutorial.Step.Seals: return "Selos";
                 case Tutorial.Step.Kiai: return "Kiai";
                 case Tutorial.Step.Duel: return "A prova";
@@ -201,6 +201,8 @@ namespace Shura
                     return "A guarda muda como você luta e como a lâmina se move. Experimente as quatro (cada uma tem a sua pose e os seus cortes).";
                 case Tutorial.Step.Gourd:
                     return "Você está ferido. Beba da cabaça para se curar — mas beber deixa você parado por um momento. Ela se reenche a cada sala.";
+                case Tutorial.Step.Tool when !Feature.LegacyToolsAndKeys:
+                    return "A sua ARTE é uma habilidade só, numa tecla só, com duas cargas — e cada finalização devolve uma. Aqui ela é a Shuriken: lance o leque de estrelas no mestre.";
                 case Tutorial.Step.Tool:
                     return pad ? "Ferramentas gastam papéis espirituais. RT lança a ferramenta em mãos; LT troca de ferramenta. Lance uma no mestre."
                                : "Ferramentas gastam papéis espirituais. R lança a ferramenta em mãos; T troca de ferramenta. Lance uma no mestre.";
@@ -208,7 +210,9 @@ namespace Shura
                     return sealReady ? "Há um SELO vermelho sobre o mestre. Detone agora: cada selo explode com dano e postura."
                                      : "Cada parry perfeito marca um SELO no inimigo. Apare perfeitamente o próximo golpe do mestre.";
                 case Tutorial.Step.Kiai:
-                    return "O KIAI é um grito de guerra: gasta um nível de Fluxo e interrompe golpes vermelhos de perto. Grite!";
+                    return Feature.LegacyToolsAndKeys
+                        ? "O KIAI é um grito de guerra: gasta um nível de Fluxo e interrompe golpes vermelhos de perto. Grite!"
+                        : "Outra Arte: o KIAI. O grito interrompe o golpe VERMELHO em preparo — o parry do imparável. Grite quando o mestre preparar o golpe vermelho!";
                 case Tutorial.Step.Duel:
                     return "Tudo junto agora. Um ronin de verdade entrou no dojo: apare, quebre a postura e finalize. Aqui ninguém morre — lute sem medo.";
                 default:
@@ -244,11 +248,12 @@ namespace Shura
                 case Tutorial.Step.Stances:
                     return new[] { K(ControlAction.Kamae1), K(ControlAction.Kamae2), K(ControlAction.Kamae3), K(ControlAction.Kamae4) };
                 case Tutorial.Step.Gourd: return new[] { K(ControlAction.Gourd) };
-                case Tutorial.Step.Tool: return new[] { K(ControlAction.Tool), K(ControlAction.ToolCycle) };
+                case Tutorial.Step.Tool: return Feature.LegacyToolsAndKeys ? new[] { K(ControlAction.Tool), K(ControlAction.ToolCycle) } : new[] { K(ControlAction.Tool) };
                 case Tutorial.Step.Seals:
                     if (!sealReady) return new[] { K(ControlAction.Parry) };
                     return pad ? new[] { K(ControlAction.Attack) + " + " + K(ControlAction.Parry) } : new[] { K(ControlAction.Detonate) };
                 case Tutorial.Step.Kiai:
+                    if (!Feature.LegacyToolsAndKeys) return new[] { K(ControlAction.Tool) };
                     return pad ? new[] { K(ControlAction.Parry) + " + " + K(ControlAction.Dodge) } : new[] { K(ControlAction.Kiai) };
                 default: return new string[0];
             }

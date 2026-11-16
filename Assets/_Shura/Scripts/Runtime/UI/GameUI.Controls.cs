@@ -20,7 +20,9 @@ namespace Shura
         string controlsStatus;
         float controlsStatusTime;
 
-        static readonly ControlAction[] ControlRows = (ControlAction[])Enum.GetValues(typeof(ControlAction));
+        static readonly ControlAction[] AllControlRows = (ControlAction[])Enum.GetValues(typeof(ControlAction));
+        /// <summary>WP-05: a tela mostra só as ações que existem (o esquema de 7 teclas + mira).</summary>
+        static ControlAction[] ControlRows => Feature.LegacyToolsAndKeys ? AllControlRows : InputService.NewScheme;
 
         int ControlsFooterRow => ControlRows.Length;
         bool PadTab => controlsTab == 1;

@@ -1451,6 +1451,26 @@ namespace Shura
         static int ArsenalStartIndex => ArsenalCount;
         static int ArsenalBackIndex => ArsenalCount + 1;
         static int ArsenalForgeIndex => ArsenalCount + 2;
+        /// <summary>WP-05: o seletor da Arte (à direita do Começar).</summary>
+        static int ArsenalArtIndex => ArsenalCount + 3;
+
+        /// <summary>A Arte escolhida, ou o Kiai se ela ainda não está aberta.</summary>
+        ArtId ArsenalArt
+        {
+            get
+            {
+                ArtId a = Arts.Parse(game.Settings.art);
+                return Arts.FromCardOnly(a) || !Arts.Unlocked(a, game.Meta) ? ArtId.Kiai : a;
+            }
+        }
+
+        void CycleArsenalArt(int step)
+        {
+            List<ArtId> open = Arts.Choosable(game.Meta);
+            int i = Mathf.Max(0, open.IndexOf(ArsenalArt));
+            game.Settings.art = Arts.Id(open[(i + step + open.Count) % open.Count]);
+            game.Audio.Play(Sfx.Unsheathe, 0.45f, 1.4f, 0f);
+        }
 
         /// <summary>How many blades this arsenal takes: 1 (oath of one blade), 2, or 3 (Segunda Troca).</summary>
         int ArsenalMaxPicks
@@ -1486,9 +1506,14 @@ namespace Shura
                     int col = (arsenalIndex % ArsenalCols + input.NavX + ArsenalCols) % ArsenalCols;
                     arsenalIndex = Mathf.Min(n - 1, row * ArsenalCols + col);
                 }
-                else if (arsenalIndex == ArsenalStartIndex || arsenalIndex == ArsenalForgeIndex)
+                else if (arsenalIndex == ArsenalStartIndex || arsenalIndex == ArsenalForgeIndex || arsenalIndex == ArsenalArtIndex)
                 {
-                    arsenalIndex = arsenalIndex == ArsenalStartIndex ? ArsenalForgeIndex : ArsenalStartIndex;
+                    // Forja ‹ Começar › Arte (a Arte só no design novo).
+                    int[] row = Feature.LegacyToolsAndKeys
+                        ? new[] { ArsenalForgeIndex, ArsenalStartIndex }
+                        : new[] { ArsenalForgeIndex, ArsenalStartIndex, ArsenalArtIndex };
+                    int at = System.Array.IndexOf(row, arsenalIndex);
+                    arsenalIndex = row[Mathf.Clamp(at + input.NavX, 0, row.Length - 1)];
                 }
                 game.Audio.Play(Sfx.UiMove, 0.5f, 1f, 0f);
             }
@@ -1497,7 +1522,7 @@ namespace Shura
                 if (input.NavY < 0)
                 {
                     if (arsenalIndex < n) arsenalIndex = arsenalIndex + ArsenalCols < n ? arsenalIndex + ArsenalCols : ArsenalStartIndex;
-                    else if (arsenalIndex == ArsenalStartIndex || arsenalIndex == ArsenalForgeIndex) arsenalIndex = ArsenalBackIndex;
+                    else if (arsenalIndex == ArsenalStartIndex || arsenalIndex == ArsenalForgeIndex || arsenalIndex == ArsenalArtIndex) arsenalIndex = ArsenalBackIndex;
                 }
                 else
                 {
@@ -1516,6 +1541,11 @@ namespace Shura
             if (index == ArsenalBackIndex)
             {
                 game.CancelArsenal();
+                return;
+            }
+            if (index == ArsenalArtIndex)
+            {
+                CycleArsenalArt(1);
                 return;
             }
             if (index == ArsenalForgeIndex)
@@ -1619,8 +1649,19 @@ namespace Shura
             var start = new Rect((VW - 520f) * 0.5f, 872f, 520f, 80f);
             var forge = new Rect(start.x - 400f, 876f, 330f, 72f);
             var back = new Rect((VW - 400f) * 0.5f, 966f, 400f, 66f);
+            var artRect = new Rect(start.xMax + 70f, 876f, 330f, 72f);
             if (ArsenalMouse(start, ArsenalStartIndex, e, mouseMoved) || ArsenalMouse(back, ArsenalBackIndex, e, mouseMoved)
-                || ArsenalMouse(forge, ArsenalForgeIndex, e, mouseMoved)) return;
+                || ArsenalMouse(forge, ArsenalForgeIndex, e, mouseMoved)
+                || (!Feature.LegacyToolsAndKeys && ArsenalMouse(artRect, ArsenalArtIndex, e, mouseMoved))) return;
+            if (!Feature.LegacyToolsAndKeys)
+            {
+                // A Arte: um encaixe, escolhido aqui; as abertas pelo Templo entram na roda.
+                ArtId art = ArsenalArt;
+                bool onArt = arsenalIndex == ArsenalArtIndex;
+                kit.Stroke(new Rect(artRect.x - 24f, artRect.y - 6f, artRect.width + 48f, artRect.height + 12f), (onArt ? UiKit.Shu : UiKit.Ink).WithAlpha(0.9f));
+                FitLabel(artRect, string.Format(Strings.ArsenalArt, Arts.Name(art)), itemStyle, UiKit.PaperText);
+                if (onArt) FitLabel(new Rect(120f, 840f, VW - 240f, 30f), string.Format(Strings.ArsenalArtHint, Arts.Rule(art), Arts.Origin(art)), smallStyleCenter, UiKit.PaperText);
+            }
             bool ready = ArsenalReady;
             int maxPicks = ArsenalMaxPicks;
             if (maxPicks == 3) Label(new Rect(0, 146f, VW, 26f), Strings.ArsenalThird, capsCenterStyle, Pal.gold);

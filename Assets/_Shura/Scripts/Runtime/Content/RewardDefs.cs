@@ -84,6 +84,7 @@ namespace Shura
     {
         public static RewardDef Create(string id)
         {
+            if (id != null && id.StartsWith(ArtCard.Prefix)) return ArtCard.FromId(id);
             switch (id)
             {
                 case RewardIds.PatientBlade: return new PatientBladeTechnique();

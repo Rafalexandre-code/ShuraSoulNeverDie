@@ -41,7 +41,8 @@ namespace Shura
             {
                 if (Run.Elapsed - k.Value <= 1f) together++;
             }
-            if (together < 3) return;
+            // Kiai em grupo: 2 duelistas no novo design (eram 3).
+            if (together < (Feature.LegacyToolsAndKeys ? 3 : 2)) return;
             kiaiTimes.Clear();
             foreach (Enemy e in Enemies)
             {

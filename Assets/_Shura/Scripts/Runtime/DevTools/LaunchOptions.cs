@@ -46,6 +46,8 @@ namespace Shura
         public int TutorialStep = -1;
         /// <summary>"-shuraRings": liga os anéis antigos sobre os inimigos (capturas do WP-04), sem salvar a opção.</summary>
         public bool Rings;
+        /// <summary>"-shuraArt id": a Arte das runs automáticas (kiai, shuriken, fumaca, sino, corrente).</summary>
+        public string Art;
 
         /// <summary>"-shuraHost N": open the online room and start once N browser players joined (or after 40 s).</summary>
         public bool Host;
@@ -105,6 +107,9 @@ namespace Shura
                             options.TutorialStep = lesson;
                             i++;
                         }
+                        break;
+                    case "-shuraArt":
+                        if (i + 1 < args.Length) options.Art = args[++i];
                         break;
                     case "-shuraRings":
                         options.Rings = true;

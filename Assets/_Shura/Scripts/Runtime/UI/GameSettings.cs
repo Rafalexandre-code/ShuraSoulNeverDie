@@ -53,6 +53,8 @@ namespace Shura
         public string weaponB = "montante";
         /// <summary>Altar "Segunda Troca": the third blade, sheathed ("" = none).</summary>
         public string weaponC = "";
+        /// <summary>WP-05: a Arte escolhida no Arsenal (id de Arts).</summary>
+        public string art = "kiai";
         /// <summary>Every layer of the game open from the start (§7.7), for experienced players.</summary>
         public bool unlockAll;
         /// <summary>"O Shura Lembra" (§5.6): each run starts with what the last five runs taught the enemies.</summary>

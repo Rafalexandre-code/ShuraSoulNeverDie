@@ -262,6 +262,9 @@ namespace Shura
             public int flow;
             public int sips, maxSips, bandages, papers, mon;
             public ToolKind tool;
+            /// <summary>WP-05: a Arte no encaixe e as cargas dela.</summary>
+            public ArtId artSlot;
+            public int artCharges;
             public bool hasBuild = true;
 
             public bool HasWound(WoundRegion r) => (woundMask & (1 << (int)r)) != 0;
@@ -310,6 +313,8 @@ namespace Shura
                 papers = b.SpiritPapers;
                 mon = b.Mon;
                 tool = b.Tool;
+                artSlot = b.Art;
+                artCharges = b.ArtCharges;
             }
 
             /// <summary>A row of the host's snapshot ("P"), as NetSession writes it.</summary>
@@ -333,6 +338,9 @@ namespace Shura
                 maxSips = MiniJson.I(r, 40);
                 tool = (ToolKind)Mathf.Clamp(MiniJson.I(r, 41), 0, PlayerController.ToolNames.Length - 1);
                 papers = MiniJson.I(r, 42);
+                // No design novo as colunas 41/42 levam a Arte e as cargas (NetSession).
+                artSlot = (ArtId)Mathf.Clamp(MiniJson.I(r, 41), 0, Arts.All.Length - 1);
+                artCharges = MiniJson.I(r, 42);
                 woundMask = MiniJson.I(r, 43);
                 mushin = MiniJson.B(r, 44);
                 asura = MiniJson.B(r, 45);
@@ -675,6 +683,12 @@ namespace Shura
                 x = band.xMax + 12f;
             }
 
+            if (!Feature.LegacyToolsAndKeys)
+            {
+                x = DrawArtSlot(x, y, p);
+            }
+            else
+            {
             // The tool and its spirit papers.
             var tool = new Rect(x, y, 196f, 106f);
             hudMarks[HudPart.Tool] = new Rect(tool.x - 6f, tool.y - 12f, tool.width + 12f, tool.height + 18f);
@@ -687,12 +701,56 @@ namespace Shura
             Key(new Rect(tool.xMax - 30f, tool.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Tool));
             LayerLock(tool, Unlockable.Tools);
             x = tool.xMax + 18f;
+            }
 
             // The purse.
             hudMarks[HudPart.Mon] = new Rect(x - 28f, y - 10f, 96f, 116f);
             DrawSpriteTinted(new Rect(x, y + 20f, 40f, 40f), HudArt.Coin(), Color.white);
             Label(new Rect(x - 20f, y + 64f, 80f, 30f), p.mon.ToString(), cardKindStyleSmall, Pal.gold);
             Label(new Rect(x - 20f, y - 6f, 80f, 24f), "MON", capsCenterStyle, UiKit.PaperDim);
+        }
+
+        /// <summary>O ícone de uma Arte: o desenho da ferramenta quando há um, senão o kanji.</summary>
+        static Sprite ArtIcon(ArtId a)
+        {
+            switch (a)
+            {
+                case ArtId.Shuriken: return HudArt.Tool(ToolKind.Shuriken);
+                case ArtId.Smoke: return HudArt.Tool(ToolKind.Smoke);
+                case ArtId.Bell: return HudArt.Tool(ToolKind.Bell);
+                case ArtId.Chain: return HudArt.Tool(ToolKind.Hook);
+                default: return null;
+            }
+        }
+
+        /// <summary>WP-05: o encaixe da Arte — ícone, nome, a tecla e as duas cargas (selos dourados).</summary>
+        float DrawArtSlot(float x, float y, HudData p)
+        {
+            var slot = new Rect(x, y, 176f, 106f);
+            hudMarks[HudPart.Tool] = new Rect(slot.x - 6f, slot.y - 12f, slot.width + 12f, slot.height + 18f);
+            Slot(slot, Pal.gold.WithAlpha(0.35f), false);
+            bool ready = p.artCharges > 0;
+            Color tint = ready ? Color.white : new Color(1f, 1f, 1f, 0.4f);
+            Sprite icon = ArtIcon(p.artSlot);
+            var iconRect = new Rect(slot.x + 14f, slot.y + 12f, 56f, 56f);
+            if (icon != null) DrawSpriteTinted(iconRect, icon, tint);
+            else Label(iconRect, Arts.KanjiOf(p.artSlot), cardKindStyle, ready ? Pal.gold : UiKit.PaperDim);
+            FitLabel(new Rect(slot.x + 4f, slot.y + 72f, 92f, 26f), Arts.Name(p.artSlot), smallStyleCenter, UiKit.PaperText);
+            // As cargas: dois selos que acendem.
+            for (int i = 0; i < Arts.MaxCharges; i++)
+            {
+                var pip = new Rect(slot.x + 104f + i * 32f, slot.y + 30f, 24f, 24f);
+                bool full = i < p.artCharges;
+                if (full)
+                {
+                    DrawSpriteTinted(new Rect(pip.x - 6f, pip.y - 6f, pip.width + 12f, pip.height + 12f), ShapeLibrary.Get(Shape.SoftCircle), Pal.gold.WithAlpha(0.45f));
+                    DrawSpriteTinted(pip, ShapeLibrary.Get(Shape.Circle), Pal.gold);
+                }
+                DrawSpriteTinted(pip, ShapeLibrary.Get(Shape.Ring), full ? new Color(1f, 0.95f, 0.75f) : UiKit.PaperDim.WithAlpha(0.7f));
+            }
+            Label(new Rect(slot.x + 96f, slot.y + 66f, 80f, 30f), p.artCharges + "/" + Arts.MaxCharges, cardKindStyleSmall, ready ? UiKit.PaperText : Pal.danger);
+            Key(new Rect(slot.xMax - 30f, slot.y - 8f, 34f, 26f), game.Controls.Glyph(ControlAction.Tool));
+            return slot.xMax + 18f;
         }
 
         /// <summary>A part of the belt that has not opened yet (§7.7): veiled, with the run it opens on.</summary>

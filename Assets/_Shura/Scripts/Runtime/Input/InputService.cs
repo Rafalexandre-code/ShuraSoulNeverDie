@@ -171,8 +171,10 @@ namespace Shura
             Add(ControlAction.Soul, "Alma", "<Keyboard>/b", null, "<Gamepad>/leftStickPress");
             Add(ControlAction.Tool, "Ferramenta", "<Keyboard>/r", null, "<Gamepad>/rightTrigger");
             Add(ControlAction.ToolCycle, "Trocar ferramenta", "<Keyboard>/t", null, "<Gamepad>/leftTrigger");
-            Add(ControlAction.Gourd, "Cabaça", "<Keyboard>/f", null, "<Gamepad>/buttonEast", "tap(duration=0.3)");
-            Add(ControlAction.Bandage, "Bandagem", "<Keyboard>/h", null, "<Gamepad>/buttonEast", "hold(duration=0.45)");
+            // WP-05: sem a bandagem, B no controle é só a cabaça (sem esperar o "toque").
+            bool legacy = Feature.LegacyToolsAndKeys;
+            Add(ControlAction.Gourd, "Cabaça", "<Keyboard>/f", null, "<Gamepad>/buttonEast", legacy ? "tap(duration=0.3)" : null);
+            Add(ControlAction.Bandage, "Bandagem", "<Keyboard>/h", null, legacy ? "<Gamepad>/buttonEast" : null, legacy ? "hold(duration=0.45)" : null);
             Add(ControlAction.Kamae1, "Guarda Jōdan", "<Keyboard>/1", null, "<Gamepad>/dpad/up");
             Add(ControlAction.Kamae2, "Guarda Chūdan", "<Keyboard>/2", null, "<Gamepad>/dpad/right");
             Add(ControlAction.Kamae3, "Guarda Gedan", "<Keyboard>/3", null, "<Gamepad>/dpad/down");
@@ -271,16 +273,20 @@ namespace Shura
             Press(ControlAction.Dodge, BufferedAction.Dodge, tuning.actionBufferFrames);
             Press(ControlAction.Parry, BufferedAction.Parry, tuning.parryBufferFrames);
             Press(ControlAction.Swap, BufferedAction.Swap, tuning.parryBufferFrames);
-            Press(ControlAction.Detonate, BufferedAction.Detonate, tuning.actionBufferFrames);
-            Press(ControlAction.Kiai, BufferedAction.Kiai, tuning.actionBufferFrames);
             Press(ControlAction.Tool, BufferedAction.Tool, tuning.actionBufferFrames);
-            Press(ControlAction.ToolCycle, BufferedAction.ToolCycle, tuning.actionBufferFrames);
             Press(ControlAction.Gourd, BufferedAction.Gourd, tuning.actionBufferFrames);
-            Press(ControlAction.Bandage, BufferedAction.Bandage, tuning.actionBufferFrames);
-            Press(ControlAction.Soul, BufferedAction.Soul, tuning.actionBufferFrames);
-            for (int k = 0; k < 4; k++)
+            // WP-05: G, V, B, H, T e 1–4 só existem no jogo antigo (LegacyToolsAndKeys).
+            if (Feature.LegacyToolsAndKeys)
             {
-                if (A(ControlAction.Kamae1 + k).WasPerformedThisFrame()) pendingKamae = k;
+                Press(ControlAction.Detonate, BufferedAction.Detonate, tuning.actionBufferFrames);
+                Press(ControlAction.Kiai, BufferedAction.Kiai, tuning.actionBufferFrames);
+                Press(ControlAction.ToolCycle, BufferedAction.ToolCycle, tuning.actionBufferFrames);
+                Press(ControlAction.Bandage, BufferedAction.Bandage, tuning.actionBufferFrames);
+                Press(ControlAction.Soul, BufferedAction.Soul, tuning.actionBufferFrames);
+                for (int k = 0; k < 4; k++)
+                {
+                    if (A(ControlAction.Kamae1 + k).WasPerformedThisFrame()) pendingKamae = k;
+                }
             }
             if (A(ControlAction.LockOn).WasPerformedThisFrame()) LockToggles++;
             if (A(ControlAction.LockNext).WasPerformedThisFrame()) LockCycleNext++;
@@ -493,7 +499,14 @@ namespace Shura
             return PathName(path, slot == 2 ? PadStyle : GlyphStyle.Keyboard);
         }
 
-        public string ActionLabel(ControlAction c) => A(c).name;
+        public string ActionLabel(ControlAction c) => c == ControlAction.Tool && !Feature.LegacyToolsAndKeys ? "Arte" : A(c).name;
+
+        /// <summary>As ações do esquema novo (WP-05, E.17.3), na ordem da tela de controles.</summary>
+        public static readonly ControlAction[] NewScheme =
+        {
+            ControlAction.Attack, ControlAction.Parry, ControlAction.Dodge, ControlAction.Swap, ControlAction.Gourd,
+            ControlAction.Tool, ControlAction.Interact, ControlAction.LockOn, ControlAction.LockNext, ControlAction.LockPrev,
+        };
 
         public static string PathName(string path, GlyphStyle style)
         {

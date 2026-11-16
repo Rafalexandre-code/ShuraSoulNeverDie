@@ -170,7 +170,8 @@ namespace Shura
                 if (d <= 0) continue;
                 if (!first) sb.Append(',');
                 first = false;
-                sb.Str(((BufferedAction)i).ToString()).Append(':').Int(d);
+                string action = (BufferedAction)i == BufferedAction.Tool && !Feature.LegacyToolsAndKeys ? "Art" : ((BufferedAction)i).ToString();
+                sb.Str(action).Append(':').Int(d);
             }
             sb.Append('}');
             Write();

@@ -219,8 +219,9 @@ namespace Shura
             {
                 if (!p.IsAlive || p.Input == null || !p.Input.InteractHeld || p.Build == null) continue;
                 PlayerController down = FallenNear(p);
-                if (down == null || !p.Input.Buffer.Peek(BufferedAction.Soul)) continue;
-                p.Input.Buffer.Consume(BufferedAction.Soul);
+                BufferedAction offer = Feature.LegacyToolsAndKeys ? BufferedAction.Soul : BufferedAction.Tool;
+                if (down == null || !p.Input.Buffer.Peek(offer)) continue;
+                p.Input.Buffer.Consume(offer);
                 TechniqueDef offered = WeakestTechnique(p.Build);
                 if (offered == null)
                 {
@@ -285,7 +286,7 @@ namespace Shura
         /// <summary>The fallen duelist is a spirit: once every ten seconds, a war cry that still staggers.</summary>
         void TickSpirit(PlayerController p)
         {
-            if (p.Input == null || !p.Input.Buffer.Consume(BufferedAction.Kiai)) return;
+            if (p.Input == null || !p.Input.Buffer.Consume(Feature.LegacyToolsAndKeys ? BufferedAction.Kiai : BufferedAction.Tool)) return;
             if (spiritKiai.TryGetValue(p, out int k) && k > 0) return;
             spiritKiai[p] = SpiritKiaiCooldown;
             Color pale = new Color(0.75f, 0.85f, 1f, 0.9f);

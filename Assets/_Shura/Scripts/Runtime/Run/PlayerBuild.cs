@@ -57,6 +57,13 @@ namespace Shura
         /// <summary>Spirit papers pay for tools.</summary>
         public int SpiritPapers = 6;
         public ToolKind Tool = ToolKind.Shuriken;
+        /// <summary>WP-05: a Arte no encaixe (escolhida no Arsenal; trocada por carta).</summary>
+        public ArtId Art = ArtId.Kiai;
+        public int ArtCharges = Arts.MaxCharges;
+        /// <summary>Para a Arte Alma: o inimigo cuja alma ela guarda.</summary>
+        public string SoulArtEnemy;
+        /// <summary>Cartas de Arte esperando a próxima tela de recompensa (Ruptura, Alma).</summary>
+        public readonly List<ArtCard> PendingArtCards = new List<ArtCard>();
         public int Bandages = 1;
         public int FinishersForPaper;
         /// <summary>Aço Celeste: the smith's currency, from broken items.</summary>
@@ -225,6 +232,15 @@ namespace Shura
 
         public void Acquire(RewardDef reward)
         {
+            if (reward is ArtCard art)
+            {
+                // A carta troca o encaixe e enche as cargas; não vira recompensa guardada.
+                Art = art.Art;
+                SoulArtEnemy = art.SoulEnemy;
+                ArtCharges = Arts.MaxCharges;
+                PendingArtCards.RemoveAll(c => c.Id == art.Id);
+                return;
+            }
             if (reward is TechniqueLevelUp up)
             {
                 TechniqueDef t = OwnedTechnique(up.Target.Id);
@@ -233,6 +249,16 @@ namespace Shura
                 t.Branch = up.ChosenBranch;
                 PendingTechniques.Remove(t.Id);
                 RecomputeModifiers();
+                // Nível III: a carta seguinte oferece tornar a alma deste inimigo a sua Arte.
+                if (!Feature.LegacyToolsAndKeys && t.Level >= TechniqueDef.MaxLevel)
+                {
+                    foreach (EnemyDef d in EnemyDefs.All)
+                    {
+                        if (d.Teaches != t.Id) continue;
+                        PendingArtCards.Add(new ArtCard(ArtId.Soul, d.id));
+                        break;
+                    }
+                }
                 return;
             }
             if (reward == null || (!reward.Stackable && Owns(reward.Id))) return;
@@ -248,6 +274,39 @@ namespace Shura
             PendingTechniques.Remove(reward.Id);
             RecomputeModifiers();
             reward.OnAcquired(this);
+            // O Selo Interno traz a Arte Ruptura (detonar quando quiser) numa carta.
+            if (!Feature.LegacyToolsAndKeys && reward.Id == RewardIds.InnerSeal && Art != ArtId.Rupture)
+                PendingArtCards.Add(new ArtCard(ArtId.Rupture));
+        }
+
+        /// <summary>
+        /// Uma carta de Arte entra na tela de recompensa: a que está esperando (Ruptura, Alma) ou,
+        /// às vezes, outra Arte achada no caminho. Toma o lugar de uma carta que não é técnica.
+        /// </summary>
+        void OfferArtCard(List<RewardDef> choices)
+        {
+            if (Feature.LegacyToolsAndKeys || choices.Count == 0) return;
+            ArtCard card = null;
+            if (PendingArtCards.Count > 0)
+            {
+                card = PendingArtCards[0];
+                PendingArtCards.RemoveAt(0);
+            }
+            else if (Rng.NextFloat() < 0.08f)
+            {
+                List<ArtId> open = Arts.Choosable(run?.Meta);
+                open.Remove(Art);
+                if (open.Count > 0) card = new ArtCard(open[Rng.Range(0, open.Count)]);
+            }
+            if (card == null) return;
+            // Toma o lugar de uma relíquia (a Bênção garantida e as técnicas ficam).
+            for (int i = choices.Count - 1; i >= 0; i--)
+            {
+                if (choices[i].Kind != RewardKind.Relic || choices[i] is ArtCard) continue;
+                choices[i] = card;
+                return;
+            }
+            choices.Add(card);
         }
 
         /// <summary>
@@ -418,6 +477,7 @@ namespace Shura
                     else choices.Add(f);
                 }
             }
+            OfferArtCard(choices);
             return choices;
         }
     }

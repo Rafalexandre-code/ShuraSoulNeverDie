@@ -344,11 +344,20 @@ namespace Shura
                     {
                         b.SpiritPapers = Mathf.Max(b.SpiritPapers, 4);
                         papersBase = b.SpiritPapers;
+                        // WP-05: a lição da Arte, com a Shuriken e as duas cargas cheias.
+                        b.Art = ArtId.Shuriken;
+                        b.ArtCharges = Arts.MaxCharges;
+                        papersBase = Feature.LegacyToolsAndKeys ? b.SpiritPapers : b.ArtCharges;
                     }
                     break;
                 case Step.Kiai:
                     // The cry spends a level of Flow: the dojo lends one.
                     for (int i = 0; b != null && i < 40 && b.Flow.Level < 1; i++) b.Flow.Add(4f);
+                    if (b != null)
+                    {
+                        b.Art = ArtId.Kiai;
+                        b.ArtCharges = Arts.MaxCharges;
+                    }
                     break;
                 case Step.Duel:
                     if (partner != null && !partner.IsGone) partner.Dispel();
@@ -499,7 +508,7 @@ namespace Shura
                     if (p.Build != null && p.Build.Bandages < bandagesBase) Complete();
                     break;
                 case Step.Tool:
-                    if (p.Build != null && p.Build.SpiritPapers < papersBase) Complete();
+                    if (p.Build != null && (Feature.LegacyToolsAndKeys ? p.Build.SpiritPapers : p.Build.ArtCharges) < papersBase) Complete();
                     break;
                 case Step.Duel:
                     if (partner == null || partner.IsGone) Complete();

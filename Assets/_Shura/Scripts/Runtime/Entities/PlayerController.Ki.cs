@@ -356,6 +356,13 @@ namespace Shura
         /// <summary>Seals, cry, gourd, bandage and tools. True when one of them took over.</summary>
         bool TryKiActions()
         {
+            if (!Feature.LegacyToolsAndKeys)
+            {
+                // WP-05: sete teclas de combate — a Arte (R / RT) e a cabaça; o resto saiu.
+                if (input.Buffer.Consume(BufferedAction.Tool)) UseArt();
+                if (input.Buffer.Consume(BufferedAction.Gourd) && world.Has(Unlockable.Gourd) && StartDrink(false)) return true;
+                return false;
+            }
             if (input.Buffer.Consume(BufferedAction.Detonate) && Feature.KiSealsBase)
             {
                 input.Buffer.Drop(BufferedAction.Attack);
@@ -665,7 +672,8 @@ namespace Shura
                 finishersForSip = 0;
                 if (Sips < 3) Sips++;
             }
-            if (Build != null && Build.FinishersForPaper++ % 2 == 1 && Build.SpiritPapers < 12) Build.SpiritPapers++;
+            if (!Feature.LegacyToolsAndKeys) RechargeArt();
+            else if (Build != null && Build.FinishersForPaper++ % 2 == 1 && Build.SpiritPapers < 12) Build.SpiritPapers++;
             OnFinisherMastery();
         }
 

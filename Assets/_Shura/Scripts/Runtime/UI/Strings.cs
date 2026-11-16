@@ -170,7 +170,7 @@ namespace Shura
         public const string HudWave = "Onda {0}/{1}";
         public const string HudOwned = "TÉCNICAS E RELÍQUIAS";
         public const string HudPending = "Técnica a escolher: {0}";
-        public const string TechniqueTag = "[T] ";
+        public const string TechniqueTag = "[técnica] ";
         public const string RelicTag = "[R] ";
 
         public const string PopupPerfect = "PERFEITO";
@@ -188,7 +188,7 @@ namespace Shura
         public const string PopupLionRoar = "RUGIDO DO LEÃO";
         public const string PopupNoTarget = "nenhum alvo";
         public const string PopupSoul = "ALMA · {0}";
-        public const string HudSoulReady = "Alma: {0} [B]";
+        public const string HudSoulReady = "Alma: {0}";
         public const string HudSoulActive = "Alma de {0}: {1} s";
         public const string PopupSoulEnds = "a alma se vai";
         public const string PopupNoSoul = "nenhuma alma (técnica no nível III)";
@@ -214,6 +214,13 @@ namespace Shura
         public const string PopupDetonate = "SELOS!";
         public const string PopupKiaiNoFlow = "sem Fluxo para o kiai";
         public const string PopupKiai = "KIAI!";
+        // ── A Arte (WP-05) ──
+        public const string PopupArtEmpty = "Arte sem carga — finalize um inimigo";
+        public const string PopupArtCharge = "+1 carga · {0}";
+        public const string PopupKiaiNothing = "nenhum golpe vermelho para interromper";
+        public const string PopupNoSeals = "nenhum selo por perto";
+        public const string ArsenalArt = "Arte: {0}";
+        public const string ArsenalArtHint = "{0} — {1}  (confirme para trocar de Arte)";
         public const string PopupNoBandage = "sem bandagens";
         public const string PopupNoWound = "nenhum ferimento";
         public const string PopupGourdEmpty = "cabaça vazia";
@@ -454,8 +461,8 @@ namespace Shura
         public const string NetLeft = "{0} saiu";
         public const string NetPortError = "Não deu para abrir a porta {0}: {1}";
         public const string OnlineBadge = "ONLINE  ·  {0} duelistas";
-        public const string ReviveHold = "Segure E para reviver {0}  ·  E + B: oferecer uma técnica (na hora)";
-        public const string ReviveHoldPad = "Segure X para reviver {0}  ·  X + L3: oferecer uma técnica (na hora)";
+        public const string ReviveHold = "Segure E para reviver {0}  ·  E + R: oferecer uma técnica (na hora)";
+        public const string ReviveHoldPad = "Segure X para reviver {0}  ·  X + RT: oferecer uma técnica (na hora)";
         public const string YouFell = "Você caiu. Um aliado pode te reviver ficando sobre você e segurando E.";
         public const string PopupGuardBroken = "GUARDA QUEBRADA";
 
@@ -572,24 +579,34 @@ namespace Shura
                     return "O LODO SE DIVIDIU! Uma FINALIZAÇÃO impede a divisão.";
                 case HintId.Mushin:
                     return "MUSHIN: a mente vazia. A interface some, o som abafa e cada perfeito vale o dobro. Um golpe sofrido te tira do estado.";
+                case HintId.Kamae when !Feature.KamaeSwitch:
+                    return "KAMAE: cada arma tem a sua guarda fixa — a pose e os cortes vêm da lâmina que está na mão. Trocar de arma é trocar de guarda.";
                 case HintId.Kamae:
                     return gamepad
                         ? "KAMAE: o direcional troca a guarda. Cima Jōdan (dano, menos defesa) · Direita Chūdan (equilíbrio) · Baixo Gedan (aparar fácil) · Esquerda Waki (esquiva longa)."
                         : "KAMAE: 1–4 trocam a guarda. 1 Jōdan (dano, menos defesa) · 2 Chūdan (equilíbrio) · 3 Gedan (aparar fácil) · 4 Waki (esquiva longa).";
                 case HintId.Stamina:
                     return "FÔLEGO: atacar e esquivar gastam fôlego. Zerado, você fica exausto: aparar fica mais difícil e os inimigos percebem. O brilho após o último golpe do combo é um RESPIRO: esquive nele para recuperar.";
+                case HintId.Seals when !Feature.KiSealsBase:
+                    return "SELOS: cada aparar perfeito marca um selo no inimigo; no 5º eles explodem sozinhos (Selo Interno). Com a Arte Ruptura, você detona quando quiser.";
                 case HintId.Seals:
                     return gamepad
                         ? "SELOS: cada aparar perfeito marca um selo no inimigo. ATACAR + APARAR juntos detonam todos: dano e postura por selo."
                         : "SELOS: cada aparar perfeito marca um selo no inimigo. G (ou ataque + aparar juntos) detona todos: dano e postura por selo.";
+                case HintId.Kiai when !Feature.LegacyToolsAndKeys:
+                    return "KIAI: o grito interrompe o golpe vermelho em preparo do inimigo mais perto — o parry do imparável. Gasta uma carga da Arte (só se interromper). Dois duelistas juntos quebram todas as posturas.";
                 case HintId.Kiai:
                     return gamepad
                         ? "KIAI: APARAR + ESQUIVAR juntos gastam um nível de Fluxo e interrompem golpes vermelhos de perto. Três duelistas juntos quebram todas as posturas."
                         : "KIAI: V (ou aparar + esquiva juntos) gasta um nível de Fluxo e interrompe golpes vermelhos de perto. Três duelistas juntos quebram todas as posturas.";
+                case HintId.Gourd when !Feature.LegacyToolsAndKeys:
+                    return string.Format("CABAÇA: {0} bebe (cura, mas te deixa parado por um momento). Ela se reenche a cada sala.", gamepad ? "B" : "F");
                 case HintId.Gourd:
                     return gamepad
                         ? "CABAÇA: B bebe (cura, mas te deixa parado). L3 enfaixa um ferimento. Ela se reenche a cada sala."
                         : "CABAÇA: F bebe (cura, mas te deixa parado). H enfaixa um ferimento. Ela se reenche a cada sala.";
+                case HintId.Tools when !Feature.LegacyToolsAndKeys:
+                    return string.Format("ARTE: {0} usa a sua Arte (Kiai, Shuriken, Fumaça, Sino, Corrente…). Duas cargas; cada FINALIZAÇÃO devolve uma. Escolha a Arte no Arsenal; cartas no caminho podem trocá-la.", gamepad ? "RT" : "R");
                 case HintId.Tools:
                     return gamepad
                         ? "FERRAMENTAS: RT usa, LT troca. Shuriken, fumaça, sino, bombinha, óleo e corrente. Gastam papéis espirituais (finalizações devolvem)."
@@ -641,7 +658,9 @@ namespace Shura
                 case HintId.Ally:
                     return "O RONIN luta ao seu lado por algumas salas. Seus golpes não o ferem.";
                 case HintId.Soul:
-                    return "ALMA: uma técnica no nível III guardou a alma do inimigo. Aperte ALMA (B no teclado, L3 no controle) para virar esse inimigo por 8 s, uma vez por sala: mais força e o jeito dele de lutar.";
+                    return Feature.LegacyToolsAndKeys
+                        ? "ALMA: uma técnica no nível III guardou a alma do inimigo. Aperte ALMA (B no teclado, L3 no controle) para virar esse inimigo por 8 s, uma vez por sala: mais força e o jeito dele de lutar."
+                        : string.Format("ALMA: a sua Arte agora é a alma do inimigo. {0} vira esse inimigo por 8 s (gasta uma carga): mais força e o jeito dele de lutar.", gamepad ? "RT" : "R");
                 case HintId.Reactions:
                     return "REAÇÃO ELEMENTAL: um inimigo marcado por um elemento e atingido por outro reage. Fogo+Gelo = Vapor (cega) · Gelo+Raio = Estilhaço (postura) · Fogo+Vento = Tornado Ígneo · Sangue+Sombra = Maldição (ele te cura) · Raio+Sangue = Sobrecarga · Gelo+Vento = Nevasca (congela). Aço puro faz o elemento durar o dobro.";
                 case HintId.SpiritBlow:

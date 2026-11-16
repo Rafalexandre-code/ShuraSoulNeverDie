@@ -25,6 +25,9 @@ namespace Shura
             get
             {
                 if (Build == null || Build.HonorBound) return null;
+                // WP-05: a alma é uma Arte, escolhida numa carta (a do inimigo daquela técnica).
+                if (!Feature.LegacyToolsAndKeys)
+                    return Build.Art == ArtId.Soul && Build.SoulArtEnemy != null && EnemyDefs.TryGet(Build.SoulArtEnemy, out EnemyDef chosen) ? chosen : null;
                 for (int i = Build.Owned.Count - 1; i >= 0; i--)
                 {
                     if (!(Build.Owned[i] is TechniqueDef t) || t.Level < TechniqueDef.MaxLevel) continue;
@@ -37,7 +40,9 @@ namespace Shura
             }
         }
 
-        public bool SoulReady => !soulUsedThisRoom && !InSoul && SoulAvailable != null;
+        public bool SoulReady => Feature.LegacyToolsAndKeys
+            ? !soulUsedThisRoom && !InSoul && SoulAvailable != null
+            : !InSoul && SoulAvailable != null && ArtCharges > 0;
 
         /// <summary>The art the others see: the yokai while transformed.</summary>
         public string NetArt => InSoul ? SoulForm.art : PartyArt[ArtIndex];
@@ -58,6 +63,13 @@ namespace Shura
                 return;
             }
             soulUsedThisRoom = true;
+            BecomeSoul(soul);
+        }
+
+        /// <summary>Vira o inimigo por 8 s (a Arte Alma, ou a tecla antiga).</summary>
+        bool BecomeSoul(EnemyDef soul)
+        {
+            if (soul == null || InSoul) return false;
             SoulForm = soul;
             SoulFramesLeft = SoulFrames;
             SetCharacterArt(PixelArt.Character(soul.art));
@@ -65,6 +77,7 @@ namespace Shura
             world.Fx.Emit(FxType.Burst, Position, Vector2.up, 2.4f, soul.color);
             world.Fx.Popup(string.Format(Strings.PopupSoul, soul.displayName.ToUpperInvariant()), Position + Vector2.up * 1.5f, soul.color);
             world.RequestSlowMo(0.25f);
+            return true;
         }
 
         void TickSoul()

@@ -23,7 +23,7 @@ namespace Shura
         public const string CourtAtToriiGuest = "E: pronto para partir";
         public const string CourtDuelBegins = "Duelo no círculo: {0} contra {1}!";
         public const string CourtSeason = "Temporada de {0}  ·  {1} ({2})  ·  {3}V {4}D";
-        public const string CourtHint = "Andar: WASD / analógico   ·   {0}: golpe de treino   ·   {1}: aparar   ·   {2}: usar   ·   1–4: kamae do duelo   ·   Esc: menu da sala";
+        public const string CourtHint = "Andar: WASD / analógico   ·   {0}: golpe de treino   ·   {1}: aparar   ·   {2}: usar   ·   Esc: menu da sala";
 
         public static readonly string[] CourtTeaLines =
         {

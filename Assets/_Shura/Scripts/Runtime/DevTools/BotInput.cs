@@ -98,7 +98,13 @@ namespace Shura
             }
 
             // A kept soul is spent as soon as there is a fight close by.
-            if (p.SoulReady && threat != null) Buffer.Press(BufferedAction.Soul, 3);
+            if (Feature.LegacyToolsAndKeys && p.SoulReady && threat != null) Buffer.Press(BufferedAction.Soul, 3);
+            // WP-05: a Arte (R). O Kiai só serve contra o vermelho em preparo; as outras, com briga perto.
+            if (!Feature.LegacyToolsAndKeys && p.ArtCharges > 0 && toolCooldown == 0 && UseArtNow(world, p, threat, soonest))
+            {
+                Buffer.Press(BufferedAction.Tool, 3);
+                toolCooldown = p.Art == ArtId.Kiai ? 30 : 240;
+            }
             if (threat != null && AnswerThreat(p, threat, soonest)) return;
 
             // Drink when hurt and nothing is about to land.
@@ -108,7 +114,7 @@ namespace Shura
                 return;
             }
             // Detonate a stack of seals.
-            if (sealCooldown == 0)
+            if (sealCooldown == 0 && Feature.LegacyToolsAndKeys)
             {
                 foreach (Enemy e in world.Enemies)
                 {
@@ -121,7 +127,7 @@ namespace Shura
                 }
             }
             // Throw a shuriken now and then at range.
-            if (toolCooldown == 0 && p.Build.SpiritPapers > 2 && threat == null)
+            if (Feature.LegacyToolsAndKeys && toolCooldown == 0 && p.Build.SpiritPapers > 2 && threat == null)
             {
                 Buffer.Press(BufferedAction.Tool, 3);
                 toolCooldown = 300;
@@ -290,6 +296,26 @@ namespace Shura
             {
                 Buffer.Press(BufferedAction.Attack, 4);
                 attackCooldown = 12;
+            }
+        }
+        /// <summary>WP-05: quando o robô usa a Arte do encaixe.</summary>
+        bool UseArtNow(World world, PlayerController p, Enemy threat, int soonest)
+        {
+            switch (p.Art)
+            {
+                case ArtId.Kiai:
+                    return threat != null && threat.CurrentAttack != null && threat.CurrentAttack.IsDangerous &&
+                           soonest >= 2 && soonest <= 16 && Vector2.Distance(threat.Position, p.Position) < 3.6f;
+                case ArtId.Rupture:
+                    foreach (Enemy e in world.Enemies)
+                    {
+                        if (e.Seals >= 3 && Vector2.Distance(e.Position, p.Position) < 6f) return true;
+                    }
+                    return false;
+                case ArtId.Soul:
+                    return threat != null;
+                default:
+                    return threat == null && world.FindNearestEnemy(p.Position, null) is Enemy n && Vector2.Distance(n.Position, p.Position) < 6f;
             }
         }
     }

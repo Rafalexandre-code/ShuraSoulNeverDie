@@ -501,6 +501,10 @@ namespace Shura
             string weaponB = Launch.Automated && Launch.WeaponB != null ? Launch.WeaponB : Settings.Loadout(Settings.weaponB);
             Run.Weapons[0] = WeaponDefs.Get(weaponA);
             Run.Weapons[1] = WeaponDefs.Get(weaponB);
+            // WP-05: a Arte do Arsenal (uma que ainda não está aberta volta para o Kiai).
+            ArtId art = Arts.Parse(Launch.Automated && Launch.Art != null ? Launch.Art : Settings.art);
+            Run.Main.Art = Arts.FromCardOnly(art) || (!Launch.Automated && !Arts.Unlocked(art, Meta)) ? ArtId.Kiai : art;
+            Run.Main.ArtCharges = Arts.MaxCharges;
             PrepareJourney();
             if (Run.Modifiers.startFlowPoints > 0f) Run.Flow.Add(Run.Modifiers.startFlowPoints);
             roomClearTimer = -1;

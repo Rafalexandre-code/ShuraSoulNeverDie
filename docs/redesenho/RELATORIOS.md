@@ -404,3 +404,38 @@ PEDIDOS DO DIRETOR (no meio do WP-04) — mesma versão
   - Baú/mímico: o corpo era um círculo de 0,85 m que passava da base do desenho; virou uma caixa
     medida nos pixels — os pés param na base do baú.
 ```
+
+---
+
+```
+WP-05 — A Arte (技) e o esquema de 7 teclas — v0.16.10
+Feito (tudo atrás de LegacyToolsAndKeys=false; ligar a flag devolve R/T, papéis, V, B, G):
+  1. Arte (Run/Arts.cs, Entities/PlayerController.Art.cs): um encaixe, uma tecla (R / RT), 2
+     cargas; cada finalização devolve 1 (no lugar dos papéis espirituais e do custo em Fluxo).
+     Só gasta carga quando faz algo (o Kiai sem golpe vermelho por perto não gasta).
+  2. As 7 Artes da 1.0: Kiai (inicial: interrompe o golpe vermelho em preparo do inimigo mais
+     perto) · Shuriken (inicial: leque de 3) · Fumaça (Dojo: zera as leituras e te põe 3 m atrás)
+     · Sino (Biblioteca: etéreos sólidos) · Corrente (Dojo: puxa um inimigo) · Ruptura (carta que
+     vem com a técnica Selo Interno: detona os selos) · Alma (carta quando uma técnica chega ao
+     nível III: vira aquele inimigo por 8 s — a antiga Transformação, sem a tecla B).
+     Petardo e óleo ficam só no jogo antigo.
+  3. Escolha no Arsenal ("Arte: Kiai", ao lado de Começar; as abertas pelo Templo entram na
+     roda). No caminho, uma carta de Arte pode trocá-la (Ruptura/Alma garantidas quando o gatilho
+     acontece; às vezes outra Arte aberta). A carta toma o lugar de uma relíquia.
+  4. Teclas: Atacar, Aparar, Esquivar, Trocar (Q), Cabaça (F), Arte (R), Interagir (E) + trava
+     de mira. G, V, B, H, T e 1–4 não fazem mais nada; a tela de Controles só lista essas ações;
+     no controle, B virou só a cabaça (sem esperar o "toque"), sem bandagem e sem L3.
+     Reviver oferecendo técnica: E + R (X + RT). Espírito caído grita com a Arte.
+  5. Kiai em grupo: 2 duelistas em até 1 s (eram 3).
+  6. Dojo: a lição "Ferramentas" virou "A Arte" (Shuriken no mestre); a do Kiai ensina o Kiai
+     como Arte. Dicas, tour do HUD, reviver e o pátio de duelo não citam mais teclas removidas.
+HUD: o encaixe da Arte (ícone ou kanji, nome, tecla R e duas cargas douradas).
+  Amostras: docs/redesenho/amostras/wp05_hud_arte.png, wp05_arsenal.png, wp05_controles.png.
+Testes: 227/227 (novos: ArtTests — 7 Artes, desbloqueio, carta de Arte, Ruptura do Selo
+  Interno, 7 ações de combate, nenhum texto de teclado cita G/V/B/H/T/1–4).
+Bots: 3, 11, 29, 41 — prof. 20/20/16/18, 0 exceções. Telemetria input_use dos 4 bots: só
+  Attack, Parry, Dodge, Swap, Gourd e Art. Um bot curto com cada Arte (shuriken, fumaça, sino,
+  corrente): prof. 8, 0 exceções.
+Não feito: a opção "segurar ou alternar" para bloqueio e trava (E.17.3) — fica para o WP-17
+  (acessibilidade); os ícones Xbox/PlayStation já existiam e continuam.
+```
